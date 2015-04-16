@@ -2279,6 +2279,7 @@ VkResult VKAPI vkDestroyDevice(
     VkDevice                                    device);
 
 // Extension discovery functions
+
 VkResult VKAPI vkGetGlobalExtensionInfo(
     VkExtensionInfoType                         infoType,
     uint32_t                                    extensionIndex,
