@@ -99,6 +99,7 @@ private:
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkGetImageSubresourceInfo(struct_vkGetImageSubresourceInfo* pPacket);
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkUpdateDescriptors(struct_vkUpdateDescriptors* pPacket);
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkCreateDescriptorSetLayout(struct_vkCreateDescriptorSetLayout* pPacket);
+    glv_replay::GLV_REPLAY_RESULT manually_handle_vkCmdBindDescriptorSets(struct_vkCmdBindDescriptorSets* pPacket);
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkCreateGraphicsPipeline(struct_vkCreateGraphicsPipeline* pPacket);
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkCmdWaitEvents(struct_vkCmdWaitEvents* pPacket);
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkCmdPipelineBarrier(struct_vkCmdPipelineBarrier* pPacket);

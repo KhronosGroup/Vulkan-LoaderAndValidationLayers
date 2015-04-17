@@ -1587,6 +1587,11 @@ class Subcommand(object):
         cdsl_body.append('            returnValue = manually_handle_vkCreateDescriptorSetLayout(pPacket);')
         return "\n".join(cdsl_body)
 
+    def _gen_replay_bind_descriptor_sets(self):
+        cbds_body = []
+        cbds_body.append('            returnValue = manually_handle_vkCmdBindDescriptorSets(pPacket);')
+        return "\n".join(cbds_body)
+
     def _gen_replay_create_graphics_pipeline(self):
         cgp_body = []
         cgp_body.append('            returnValue = manually_handle_vkCreateGraphicsPipeline(pPacket);')
@@ -1738,6 +1743,7 @@ class Subcommand(object):
                             'CmdBindDynamicMemoryView': self._gen_replay_bind_dynamic_memory_view,
                             'UpdateDescriptors': self._gen_replay_update_descriptors,
                             'CreateDescriptorSetLayout': self._gen_replay_create_descriptor_set_layout,
+                            'CmdBindDescriptorSets': self._gen_replay_bind_descriptor_sets,
                             'CmdWaitEvents': self._gen_replay_cmd_wait_events,
                             'CmdPipelineBarrier': self._gen_replay_cmd_pipeline_barrier}
         # Despite returning a value, don't check these funcs b/c custom code includes check already

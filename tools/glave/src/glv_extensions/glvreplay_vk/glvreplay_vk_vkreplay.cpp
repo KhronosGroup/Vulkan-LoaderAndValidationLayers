@@ -740,6 +740,30 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCreateDescriptorSetLay
     return returnValue;
 }
 
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCmdBindDescriptorSets(struct_vkCmdBindDescriptorSets* pPacket)
+{
+    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+    VkDescriptorSet *pSaveSets = (VkDescriptorSet *) glv_malloc(sizeof(VkDescriptorSet) * pPacket->count);
+    if (pSaveSets == NULL)
+    {
+        glv_LogError("Replay of CmdBindDescriptorSets out of memory\n");
+    }
+    for (uint32_t idx = 0; idx < pPacket->count && pPacket->pDescriptorSets != NULL; idx++)
+    {
+        VkDescriptorSet *pSet = (VkDescriptorSet *) &(pPacket->pDescriptorSets[idx]);
+        pSaveSets[idx] = pPacket->pDescriptorSets[idx];
+        *pSet = m_objMapper.remap(pPacket->pDescriptorSets[idx]);
+    }
+    m_vkFuncs.real_vkCmdBindDescriptorSets(m_objMapper.remap(pPacket->cmdBuffer), pPacket->pipelineBindPoint, m_objMapper.remap(pPacket->layoutChain), pPacket->layoutChainSlot, pPacket->count, pPacket->pDescriptorSets, pPacket->pUserData);
+    for (uint32_t idx = 0; idx < pPacket->count && pPacket->pDescriptorSets != NULL; idx++)
+    {
+        VkDescriptorSet *pSet = (VkDescriptorSet *) &(pPacket->pDescriptorSets[idx]);
+        *pSet = pSaveSets[idx];
+    }
+    glv_free(pSaveSets);
+    return returnValue;
+}
+
 glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCreateGraphicsPipeline(struct_vkCreateGraphicsPipeline* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
