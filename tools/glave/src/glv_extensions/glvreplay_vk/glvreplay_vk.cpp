@@ -36,13 +36,13 @@ VK_DBG_MSG_CALLBACK_FUNCTION g_fpDbgMsgCallback;
 glv_replay::GLV_DBG_MSG_CALLBACK_FUNCTION g_fpGlvCallback = NULL;
 
 static void VKAPI vkErrorHandler(
-                                            VK_DBG_MSG_TYPE      msgType,
-                                            VkValidationLevel    validationLevel,
-                                            VkObject             srcObject,
-                                            size_t               location,
-                                            int32_t              msgCode,
-                                            const char*          pMsg,
-                                            void*                pUserData)
+                                VK_DBG_MSG_TYPE     msgType,
+                                VkValidationLevel   validationLevel,
+                                VkObject            srcObject,
+                                size_t              location,
+                                int32_t             msgCode,
+                                const char*         pMsg,
+                                void*               pUserData)
 {
     glv_enter_critical_section(&g_handlerLock);
     switch (msgType) {

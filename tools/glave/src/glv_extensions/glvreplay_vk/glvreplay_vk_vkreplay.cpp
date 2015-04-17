@@ -261,35 +261,36 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCreateDevice(struct_vk
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkEnumerateGpus(struct_vkEnumerateGpus* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkEnumeratePhysicalDevices(struct_vkEnumeratePhysicalDevices* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
     if (!m_display->m_initedVK)
     {
-        uint32_t gpuCount;
-        VkPhysicalGpu gpus[VK_MAX_PHYSICAL_GPUS];
-        uint32_t maxGpus = (pPacket->maxGpus < VK_MAX_PHYSICAL_GPUS) ? pPacket->maxGpus : VK_MAX_PHYSICAL_GPUS;
-        replayResult = m_vkFuncs.real_vkEnumerateGpus(m_objMapper.remap(pPacket->instance), maxGpus, &gpuCount, &gpus[0]);
-        CHECK_RETURN_VALUE(vkEnumerateGpus);
-        //TODO handle different number of gpus in trace versus replay
-        if (gpuCount != *(pPacket->pGpuCount))
+        uint32_t deviceCount = 0;
+        VkPhysicalDevice devices[VK_MAX_PHYSICAL_DEVICE_NAME];
+        replayResult = m_vkFuncs.real_vkEnumeratePhysicalDevices(m_objMapper.remap(pPacket->instance), &deviceCount, &devices[0]);
+        CHECK_RETURN_VALUE(vkEnumeratePhysicalDevices);
+        //TODO handle different number of physical devices in trace versus replay
+        if (deviceCount != *(pPacket->pPhysicalDeviceCount))
         {
-            glv_LogWarn("number of gpus mismatched in replay %u versus trace %u\n", gpuCount, *(pPacket->pGpuCount));
+            glv_LogWarn("Number of physical devices mismatched in replay %u versus trace %u\n", deviceCount, *(pPacket->pPhysicalDeviceCount));
         }
         else if (gpuCount == 0)
         {
-             glv_LogError("vkEnumerateGpus number of gpus is zero\n");
+             glv_LogError("vkEnumeratePhysicalDevices number of gpus is zero\n");
         }
         else
         {
-            glv_LogInfo("Enumerated %d GPUs in the system\n", gpuCount);
+            glv_LogInfo("Enumerated %d physical devices in the system\n", deviceCount);
         }
         // TODO handle enumeration results in a different order from trace to replay
-        for (uint32_t i = 0; i < gpuCount; i++)
+        for (uint32_t i = 0; i < deviceCount; i++)
         {
-            if (pPacket->pGpus)
-                m_objMapper.add_to_map(&(pPacket->pGpus[i]), &(gpus[i]));
+            if (pPacket->pPhysicalDevices != NULL)
+            {
+                m_objMapper.add_to_map(&(pPacket->pPhysicalDevices[i]), &(devices[i]));
+            }
         }
     }
     if (vkDbgRegisterMsgCallback(m_objMapper.remap(pPacket->instance), g_fpDbgMsgCallback, NULL) != VK_SUCCESS)
@@ -1026,16 +1027,16 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkStorePipeline(struct_v
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkGetMultiGpuCompatibility(struct_vkGetMultiGpuCompatibility* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkGetMultiDeviceCompatibility(struct_vkGetMultiDeviceCompatibility* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
-    VkGpuCompatibilityInfo cInfo;
-    VkPhysicalGpu handle0, handle1;
-    handle0 = m_objMapper.remap(pPacket->gpu0);
-    handle1 = m_objMapper.remap(pPacket->gpu1);
-    replayResult = m_vkFuncs.real_vkGetMultiGpuCompatibility(handle0, handle1, &cInfo);
-    CHECK_RETURN_VALUE(vkGetMultiGpuCompatibility);
+    VkPhysicalDeviceCompatibilityInfo compatInfo;
+    VkPhysicalDevice handle0, handle1;
+    handle0 = m_objMapper.remap(pPacket->physicalDevice0);
+    handle1 = m_objMapper.remap(pPacket->physicalDevice1);
+    replayResult = m_vkFuncs.real_vkGetMultiDeviceCompatibility(handle0, handle1, &compatInfo);
+    CHECK_RETURN_VALUE(vkGetMultiDeviceCompatibility);
     return returnValue;
 }
 

@@ -1447,8 +1447,8 @@ class Subcommand(object):
                 rc_body.append(self._rm_from_map_decl(obj_map_dict[var], var))
                 rc_body.append('    VkDeviceMemory remap(const VkDeviceMemory& value)')
                 rc_body.append('    {')
-                rc_body.append('        std::map<VkDeviceMemory, gpuMemObj>::const_iterator q = m_gpumemorys.find(value);')
-                rc_body.append('        return (q == m_gpumemorys.end()) ? VK_NULL_HANDLE : q->second.replayGpuMem;')
+                rc_body.append('        std::map<VkDeviceMemory, gpuMemObj>::const_iterator q = m_devicememorys.find(value);')
+                rc_body.append('        return (q == m_devicememorys.end()) ? VK_NULL_HANDLE : q->second.replayGpuMem;')
                 rc_body.append('    }\n')
             else:
                 rc_body.append(self._map_decl(obj_map_dict[var], obj_map_dict[var], var))
