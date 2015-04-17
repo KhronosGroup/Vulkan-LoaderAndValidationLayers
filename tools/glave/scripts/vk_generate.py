@@ -368,7 +368,11 @@ class Subcommand(object):
                                                                  'finalize_txt': 'glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pCreateInfo->pTypeCount));\n    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pCreateInfo))'},
                            'VkComputePipelineCreateInfo': {'add_txt': 'glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pCreateInfo), sizeof(VkComputePipelineCreateInfo), pCreateInfo);\n    add_pipeline_state_to_trace_packet(pHeader, (void**)&(pPacket->pCreateInfo->pNext), pCreateInfo->pNext);\n    add_pipeline_shader_to_trace_packet(pHeader, (VkPipelineShader*)&pPacket->pCreateInfo->cs, &pCreateInfo->cs)',
                                                                 'finalize_txt': 'finalize_pipeline_shader_address(pHeader, &pPacket->pCreateInfo->cs);\n    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pCreateInfo))'},
-                                                  }
+
+                           'VkDescriptorSetLayoutCreateInfo': {'add_txt': 'add_create_ds_layout_to_trace_packet(pHeader, &pPacket->pCreateInfo, pCreateInfo)',
+                                                          'finalize_txt': '// pCreateInfo finalized in add_create_ds_layout_to_trace_packet'},
+                          }
+
         for p in params:
             pp_dict = {}
             if '*' in p.ty and p.name not in ['pSysMem', 'pReserved']:
@@ -906,17 +910,21 @@ class Subcommand(object):
                                                                           '    void** ppLocalMemBarriers = (void**)&pBarrier->ppMemBarriers[i];\n',
                                                                           '    *ppLocalMemBarriers = (void*) glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pBarrier->ppMemBarriers[i]);\n',
                                                                           '}']},
-                             'CreateDescriptorSetLayout' : {'param': 'pSetLayoutInfoList', 'txt': ['if (pPacket->pSetLayoutInfoList->sType == VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO) {\n',
-                                                                                         '    // need to make a non-const pointer to the pointer so that we can properly change the original pointer to the interpretted one\n',
-                                                                                         '    void** ppNextVoidPtr = (void**)&(pPacket->pSetLayoutInfoList->pNext);\n',
-                                                                                         '    *ppNextVoidPtr = (void*)glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pPacket->pSetLayoutInfoList->pNext);\n',
-                                                                                         '    VkDescriptorSetLayoutCreateInfo* pNext = (VkDescriptorSetLayoutCreateInfo*)pPacket->pSetLayoutInfoList->pNext;\n',
-                                                                                         '    while (NULL != pNext)\n', '    {\n',
+                             'CreateDescriptorSetLayout' : {'param': 'pCreateInfo', 'txt': ['if (pPacket->pCreateInfo->sType == VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO) {\n',
+                                                                                         '    VkDescriptorSetLayoutCreateInfo* pNext = (VkDescriptorSetLayoutCreateInfo*)pPacket->pCreateInfo;\n',
+                                                                                         '    do\n','    {\n',
+                                                                                         '        // need to make a non-const pointer to the pointer so that we can properly change the original pointer to the interpretted one\n',
+                                                                                         '        void** ppNextVoidPtr = (void**)&(pNext->pNext);\n',
+                                                                                         '        *ppNextVoidPtr = (void*)glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pNext->pNext);\n',
                                                                                          '        switch(pNext->sType)\n', '        {\n',
                                                                                          '            case VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO:\n',
                                                                                          '            {\n' ,
-                                                                                         '                void** ppNextVoidPtr = (void**)&pNext->pNext;\n',
-                                                                                         '                *ppNextVoidPtr = (void*)glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pNext->pNext);\n',
+                                                                                         '                unsigned int i = 0;\n',
+                                                                                         '                pNext->pBinding = (VkDescriptorSetLayoutBinding*)glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pNext->pBinding);\n',
+                                                                                         '                for (i = 0; i < pNext->count; i++)\n','                {\n',
+                                                                                         '                    VkSampler** ppSamplers = (VkSampler**)&(pNext->pBinding[i].pImmutableSamplers);\n',
+                                                                                         '                    *ppSamplers = (VkSampler*)glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pNext->pBinding[i].pImmutableSamplers);\n',
+                                                                                         '                }\n',
                                                                                          '                break;\n',
                                                                                          '            }\n',
                                                                                          '            default:\n',
@@ -927,10 +935,10 @@ class Subcommand(object):
                                                                                          '            }\n',
                                                                                          '        }\n',
                                                                                          '        pNext = (VkDescriptorSetLayoutCreateInfo*)pNext->pNext;\n',
-                                                                                         '     }\n',
+                                                                                         '     }  while (NULL != pNext);\n',
                                                                                          '} else {\n',
                                                                                          '     // This is unexpected.\n',
-                                                                                         '     glv_LogError("CreateDescriptorSetLayout must have LayoutInfoList stype of VK_STRCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO\\n");\n',
+                                                                                         '     glv_LogError("CreateDescriptorSetLayout must have pCreateInfo->stype of VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO\\n");\n',
                                                                                          '     pPacket->header = NULL;\n',
                                                                                          '}']},
                              'BeginCommandBuffer' : {'param': 'pBeginInfo', 'txt': ['if (pPacket->pBeginInfo->sType == VK_STRUCTURE_TYPE_CMD_BUFFER_BEGIN_INFO) {\n',
@@ -1728,6 +1736,12 @@ class Subcommand(object):
                         rbody.append('            {')
                         rbody.append('                localDescSets[i] = m_objMapper.remap(pPacket->%s[i]);' % (proto.params[-3].name))
                         rbody.append('            }')
+                    elif proto.name == 'CreateDescriptorSetLayoutChain':
+                        rbody.append('            VkDescriptorSetLayout* local_pSetLayoutArray = GLV_NEW_ARRAY(VkDescriptorSetLayout, pPacket->setLayoutArrayCount);')
+                        rbody.append('            for (uint32_t i = 0; i < pPacket->setLayoutArrayCount; i++)')
+                        rbody.append('            {')
+                        rbody.append('                local_pSetLayoutArray[i] = m_objMapper.remap(pPacket->pSetLayoutArray[i]);')
+                        rbody.append('            }')
                 elif proto.name == 'ClearDescriptorSets':
                     rbody.append('            VkDescriptorSet localDescSets[100];')
                     rbody.append('            assert(pPacket->count <= 100);')
@@ -1784,6 +1798,8 @@ class Subcommand(object):
                     rr_string = rr_string.replace('pPacket->pOutLayers', 'ptrLayers')
                 elif proto.name == 'ClearDescriptorSets':
                     rr_string = rr_string.replace('pPacket->pDescriptorSets', 'localDescSets')
+                elif proto.name == 'CreateDescriptorSetLayoutChain':
+                    rr_string = rr_string.replace('pPacket->pSetLayoutArray', 'local_pSetLayoutArray')
                 elif proto.name == 'AllocDescriptorSets':
                     rr_string = rr_string.replace('pPacket->pSetLayouts', 'localDescSets')
                 elif proto.name == 'ResetFences':
@@ -1815,6 +1831,12 @@ class Subcommand(object):
                     rbody.append('                for (uint32_t i = 0; i < local_pCount; i++) {')
                     rbody.append('                    m_objMapper.add_to_map(&pPacket->%s[i], &local_%s[i]);' % (proto.params[-2].name, proto.params[-2].name))
                     rbody.append('                }')
+                    rbody.append('            }')
+                elif proto.name == 'CreateDescriptorSetLayoutChain':
+                    rbody.append('            GLV_DELETE(local_pSetLayoutArray);')
+                    rbody.append('            if (replayResult == VK_SUCCESS)')
+                    rbody.append('            {')
+                    rbody.append('                m_objMapper.add_to_map(pPacket->pLayoutChain, &local_pLayoutChain);')
                     rbody.append('            }')
                 elif proto.name == 'ResetFences':
                     rbody.append('            GLV_DELETE(fences);')

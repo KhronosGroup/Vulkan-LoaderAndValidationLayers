@@ -314,22 +314,14 @@ static void add_create_ds_layout_to_trace_packet(glv_trace_packet_header* pHeade
     while (pInNow != NULL)
     {
         VkDescriptorSetLayoutCreateInfo** ppOutNow = ppOutNext;
-        size_t i;
         ppOutNext = NULL;
         glv_add_buffer_to_trace_packet(pHeader, (void**)(ppOutNow), sizeof(VkDescriptorSetLayoutCreateInfo), pInNow);
         ppOutNext = (VkDescriptorSetLayoutCreateInfo**)&(*ppOutNow)->pNext;
-        glv_finalize_buffer_address(pHeader, (void**)(ppOutNow));
-        for (i = 0; i < pInNow->count; i++)
-        {
-            VkDescriptorSetLayoutBinding *pLayoutBinding =  (VkDescriptorSetLayoutBinding *) pInNow->pBinding + i;
-            VkDescriptorSetLayoutBinding *pOutLayoutBinding =  (VkDescriptorSetLayoutBinding *) (*ppOutNow)->pBinding + i;
-            glv_add_buffer_to_trace_packet(pHeader, (void**) &pOutLayoutBinding->pImmutableSamplers, sizeof(VkSampler) * pLayoutBinding->count, pLayoutBinding->pImmutableSamplers);
-            glv_finalize_buffer_address(pHeader, (void**) &pOutLayoutBinding->pImmutableSamplers);
-        }
         glv_add_buffer_to_trace_packet(pHeader, (void**)&((*ppOutNow)->pBinding), sizeof(VkDescriptorSetLayoutBinding) * pInNow->count, pInNow->pBinding);
         glv_finalize_buffer_address(pHeader, (void**)&((*ppOutNow)->pBinding));
         ppOutNext = (VkDescriptorSetLayoutCreateInfo**)&(*ppOutNow)->pNext;
         pInNow = (VkDescriptorSetLayoutCreateInfo*)pInNow->pNext;
+        glv_finalize_buffer_address(pHeader, (void**)(ppOutNow));
     }
     return;
 }

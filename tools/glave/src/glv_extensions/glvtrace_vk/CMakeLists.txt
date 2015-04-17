@@ -53,6 +53,7 @@ set(SRC_LIST
 set_source_files_properties( ${SRC_LIST} PROPERTIES LANGUAGE C)
 
 set (HDR_LIST
+    glvtrace_vk_helpers.h
     codegen/glv_vk_packet_id.h
     codegen/glvtrace_vk_vk.h
     codegen/glv_vk_vk_structs.h

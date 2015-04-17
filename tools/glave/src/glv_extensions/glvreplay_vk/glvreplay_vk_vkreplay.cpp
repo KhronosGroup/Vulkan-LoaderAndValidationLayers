@@ -699,28 +699,28 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCreateDescriptorSetLay
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
-    VkSampler *pSaveSampler;
-    VkDescriptorSetLayoutCreateInfo *pInfo = (VkDescriptorSetLayoutCreateInfo *) pPacket->pCreateInfo;
-    if (pInfo != NULL)
+    VkSampler *local_pImmutableSamplers;
+    // TODO: Need to make a whole new CreateInfo struct so that we can remap pImmutableSamplers without affecting the packet.
+    VkDescriptorSetLayoutCreateInfo *pInfo = (VkDescriptorSetLayoutCreateInfo*) pPacket->pCreateInfo;
+    while (pInfo != NULL)
     {
-        size_t bytesAlloc = 0;
-        for (unsigned int i = 0; i < pInfo->count; i++)
+        if (pInfo->pBinding != NULL)
         {
-            VkDescriptorSetLayoutBinding *pLayoutBind = (VkDescriptorSetLayoutBinding *) &pInfo->pBinding[i];
-            bytesAlloc += pLayoutBind->count * sizeof(VkSampler);
-        }
-        pSaveSampler = (VkSampler *) glv_malloc(bytesAlloc);
-        VkSampler *pArray = pSaveSampler;
-        for (unsigned int i = 0; i < pInfo->count; i++)
-        {
-            VkDescriptorSetLayoutBinding *pLayoutBind = (VkDescriptorSetLayoutBinding *) &pInfo->pBinding[i];
-            for (unsigned int j = 0; j < pLayoutBind->count; j++)
+            for (unsigned int i = 0; i < pInfo->count; i++)
             {
-                VkSampler *pOrigSampler = (VkSampler *) pLayoutBind->pImmutableSamplers + j;
-                *pArray++ = *((VkSampler *) pLayoutBind->pImmutableSamplers + j);
-                *pOrigSampler = m_objMapper.remap(*pOrigSampler);
+                VkDescriptorSetLayoutBinding *pBinding = (VkDescriptorSetLayoutBinding *) &pInfo->pBinding[i];
+                local_pImmutableSamplers = (VkSampler*)glv_malloc(sizeof(VkSampler) * pInfo->count);
+                if (pBinding->pImmutableSamplers != NULL)
+                {
+                    for (unsigned int j = 0; j < pBinding->count; j++)
+                    {
+                        VkSampler* pSampler = (VkSampler*)&pBinding->pImmutableSamplers[j];
+                        *pSampler = m_objMapper.remap(pBinding->pImmutableSamplers[j]);
+                    }
+                }
             }
         }
+        pInfo = (VkDescriptorSetLayoutCreateInfo*)pPacket->pCreateInfo->pNext;
     }
     VkDescriptorSetLayout setLayout;
     replayResult = m_vkFuncs.real_vkCreateDescriptorSetLayout(m_objMapper.remap(pPacket->device), pPacket->pCreateInfo, &setLayout);
@@ -728,20 +728,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCreateDescriptorSetLay
     {
         m_objMapper.add_to_map(pPacket->pSetLayout, &setLayout);
     }
-    if (pPacket->pCreateInfo != NULL)
-    {
-        VkSampler *pArray = pSaveSampler;
-        for (unsigned int i = 0; i < pInfo->count; i++)
-        {
-            VkDescriptorSetLayoutBinding *pLayoutBind = (VkDescriptorSetLayoutBinding *) &pInfo->pBinding[i];
-            for (unsigned int j = 0; j < pLayoutBind->count && pLayoutBind->pImmutableSamplers != NULL; j++)
-            {
-                VkSampler *pOrigSampler = (VkSampler *) pLayoutBind->pImmutableSamplers + j;
-                *pOrigSampler = *pArray++;
-            }
-        }
-        glv_free(pSaveSampler);
-    }
+    glv_free(local_pImmutableSamplers);
     CHECK_RETURN_VALUE(vkCreateDescriptorSetLayout);
     return returnValue;
 }
