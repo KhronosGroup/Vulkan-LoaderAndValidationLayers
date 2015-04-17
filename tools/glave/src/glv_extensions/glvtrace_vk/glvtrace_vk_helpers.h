@@ -351,7 +351,6 @@ static void add_update_descriptors_to_trace_packet(glv_trace_packet_header* pHea
             glv_add_buffer_to_trace_packet(pHeader, (void**)(ppOutNow), sizeof(VkUpdateSamplerTextures), pInNow);
             VkUpdateSamplerTextures* pPacket = (VkUpdateSamplerTextures*)*ppOutNow;
             glv_add_buffer_to_trace_packet(pHeader, (void **) &pPacket->pSamplerImageViews, ((VkUpdateSamplerTextures*)pInNow)->count * sizeof(VkSamplerImageViewInfo), ((VkUpdateSamplerTextures*)pInNow)->pSamplerImageViews);
-// TODO : is the below correct? is pImageView a pointer to a single struct or not?
             uint32_t j;
             for (j = 0; j < ((VkUpdateSamplerTextures*)pInNow)->count; j++) {
                 glv_add_buffer_to_trace_packet(pHeader, (void **) &pPacket->pSamplerImageViews[j].pImageView, sizeof(VkImageViewAttachInfo), ((VkUpdateSamplerTextures*)pInNow)->pSamplerImageViews[j].pImageView);

@@ -499,7 +499,7 @@ class Subcommand(object):
                 # functions that have non-standard sequence of  packet creation and calling real function
                 # NOTE: Anytime we call the function before CREATE_TRACE_PACKET, need to add custom code for correctly tracking API call time
                 if proto.name in ['CreateFramebuffer', 'CreateRenderPass', 'CreateDynamicViewportState',
-                                  'CreateDescriptorRegion']:
+                                  'CreateDescriptorPool', 'UpdateDescriptors']:
                     # these are regular case as far as sequence of tracing but have some custom size element
                     if 'CreateFramebuffer' == proto.name:
                         func_body.append('    int dsSize = (pCreateInfo != NULL && pCreateInfo->pDepthStencilAttachment != NULL) ? sizeof(VkDepthStencilBindInfo) : 0;')
@@ -511,9 +511,11 @@ class Subcommand(object):
                     elif 'CreateDynamicViewportState' == proto.name:
                         func_body.append('    uint32_t vpsCount = (pCreateInfo != NULL && pCreateInfo->pViewports != NULL) ? pCreateInfo->viewportAndScissorCount : 0;')
                         func_body.append('    CREATE_TRACE_PACKET(vkCreateDynamicViewportState,  get_struct_chain_size((void*)pCreateInfo) + sizeof(VkDynamicVpState));')
-                    elif 'CreateDescriptorRegion' == proto.name:
-                        func_body.append('    uint32_t rgCount = (pCreateInfo != NULL && pCreateInfo->pTypeCount != NULL) ? pCreateInfo->count : 0;')
-                        func_body.append('    CREATE_TRACE_PACKET(vkCreateDescriptorRegion,  get_struct_chain_size((void*)pCreateInfo) + sizeof(VkDescriptorRegion));')
+                    elif 'CreateDescriptorPool' == proto.name:
+                        func_body.append('    CREATE_TRACE_PACKET(vkCreateDescriptorPool,  get_struct_chain_size((void*)pCreateInfo) + sizeof(VkDescriptorPool));')
+                    elif 'UpdateDescriptors' == proto.name:
+                        func_body.append('    size_t arrayByteCount = get_struct_chain_size(*ppUpdateArray);')
+                        func_body.append('    CREATE_TRACE_PACKET(vkUpdateDescriptors, arrayByteCount + 5 * sizeof(void*));')
                     func_body.append('    %sreal_vk%s;' % (return_txt, proto.c_call()))
                 else:
                     if (0 == len(packet_size)):
@@ -525,18 +527,26 @@ class Subcommand(object):
                     func_body.append('    _dataSize = (pDataSize == NULL || pData == NULL) ? 0 : *pDataSize;')
                 func_body.append('    pPacket = interpret_body_as_vk%s(pHeader);' % proto.name)
                 func_body.append('\n'.join(raw_packet_update_list))
-                for pp_dict in ptr_packet_update_list: #buff_ptr_indices:
-                    func_body.append('    %s;' % (pp_dict['add_txt']))
-                if 'void' not in proto.ret or '*' in proto.ret:
-                    func_body.append('    pPacket->result = result;')
-                for pp_dict in ptr_packet_update_list:
-                    if ('DeviceCreateInfo' not in proto.params[pp_dict['index']].ty) and ('APPLICATION_INFO' not in proto.params[pp_dict['index']].ty):
-                        func_body.append('    %s;' % (pp_dict['finalize_txt']))
-                func_body.append('    FINISH_TRACE_PACKET();')
-                if 'AllocMemory' in proto.name:
-                    func_body.append('    add_new_handle_to_mem_info(*pMem, pAllocInfo->allocationSize, NULL);')
-                elif 'FreeMemory' in proto.name:
-                    func_body.append('    rm_handle_from_mem_info(mem);')
+                if 'UpdateDescriptors' == proto.name:
+                    func_body.append('    // add buffer which is an array of pointers')
+                    func_body.append('    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->ppUpdateArray), updateCount * sizeof(intptr_t), ppUpdateArray);')
+                    func_body.append('    // add all the sub buffers with descriptor updates')
+                    func_body.append('    add_update_descriptors_to_trace_packet(pHeader, updateCount, (void ***) &pPacket->ppUpdateArray, ppUpdateArray);')
+                    func_body.append('    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->ppUpdateArray));')
+                    func_body.append('    FINISH_TRACE_PACKET();')
+                else:
+                    for pp_dict in ptr_packet_update_list: #buff_ptr_indices:
+                        func_body.append('    %s;' % (pp_dict['add_txt']))
+                    if 'void' not in proto.ret or '*' in proto.ret:
+                        func_body.append('    pPacket->result = result;')
+                    for pp_dict in ptr_packet_update_list:
+                        if ('DeviceCreateInfo' not in proto.params[pp_dict['index']].ty) and ('APPLICATION_INFO' not in proto.params[pp_dict['index']].ty):
+                            func_body.append('    %s;' % (pp_dict['finalize_txt']))
+                    func_body.append('    FINISH_TRACE_PACKET();')
+                    if 'AllocMemory' in proto.name:
+                        func_body.append('    add_new_handle_to_mem_info(*pMem, pAllocInfo->allocationSize, NULL);')
+                    elif 'FreeMemory' in proto.name:
+                        func_body.append('    rm_handle_from_mem_info(mem);')
                 if 'void' not in proto.ret or '*' in proto.ret:
                     func_body.append('    return result;')
                 func_body.append('}\n')
@@ -988,7 +998,69 @@ class Subcommand(object):
                                                                                          '    glv_LogError("AllocMemory must have AllocInfo stype of VK_STRUCTURE_TYPE_MEMORY_ALLOC_INFO.\\n");\n',
                                                                                          '    pPacket->header = NULL;\n',
                                                                                          '}']},
-                             'CreateGraphicsPipeline' : {'param': 'pCreateInfo', 'txt': ['if (pPacket->pCreateInfo->sType == VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO) {\n',
+                             'UpdateDescriptors' : {'param': 'ppUpdateArray', 'txt': ['uint32_t i = 0;\n',
+                                                                                         'for (i = 0; i < pPacket->updateCount; i++)\n', '{\n',
+                                                                                         '     pPacket->ppUpdateArray[i] = glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pPacket->ppUpdateArray[i]);\n',
+                                                                                         '     VkUpdateSamplers* pNext = (VkUpdateSamplers*)pPacket->ppUpdateArray[i];\n',
+                                                                                         '     if ((NULL != pNext) && (VK_NULL_HANDLE != pNext))\n',
+                                                                                         '     {\n',
+                                                                                         '        switch(pNext->sType)\n',
+                                                                                         '        {\n',
+                                                                                         '        case VK_STRUCTURE_TYPE_UPDATE_AS_COPY:\n',
+                                                                                         '        {\n',
+                                                                                         '            void** ppNextVoidPtr = (void**)&pNext->pNext;\n',
+                                                                                         '            *ppNextVoidPtr = (void*)glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pNext->pNext);\n',
+                                                                                         '            break;\n',
+                                                                                         '        }\n',
+                                                                                         '        case VK_STRUCTURE_TYPE_UPDATE_SAMPLERS:\n',
+                                                                                         '        {\n',
+                                                                                         '            void** ppNextVoidPtr = (void**)&pNext->pNext;\n',
+                                                                                         '            VkUpdateSamplers* pUS = (VkUpdateSamplers*)pNext;\n',
+                                                                                         '            *ppNextVoidPtr = (void*)glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pNext->pNext);\n',
+                                                                                         '            pUS->pSamplers = (VkSampler*) glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pUS->pSamplers);\n',
+                                                                                         '            break;\n',
+                                                                                         '        }\n',
+                                                                                         '        case VK_STRUCTURE_TYPE_UPDATE_SAMPLER_TEXTURES:\n',
+                                                                                         '        {\n',
+                                                                                         '            void** ppNextVoidPtr = (void**)&pNext->pNext;\n',
+                                                                                         '            VkUpdateSamplerTextures* pUST = (VkUpdateSamplerTextures*)pNext;\n',
+                                                                                         '            *ppNextVoidPtr = (void*)glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pNext->pNext);\n',
+                                                                                         '            pUST->pSamplerImageViews = (VkSamplerImageViewInfo*) glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pUST->pSamplerImageViews);\n',
+                                                                                         '            uint32_t v;\n',
+                                                                                         '            for (v = 0; v < pUST->count; v++) {\n',
+                                                                                         '                VkImageViewAttachInfo** ppLocalImageView = (VkImageViewAttachInfo**)&pUST->pSamplerImageViews[v].pImageView;\n',
+                                                                                         '                *ppLocalImageView = (VkImageViewAttachInfo*) glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pUST->pSamplerImageViews[v].pImageView);\n',
+                                                                                         '            }\n',
+                                                                                         '            break;\n',
+                                                                                         '        }\n',
+                                                                                         '        case VK_STRUCTURE_TYPE_UPDATE_IMAGES:\n',
+                                                                                         '        {\n',
+                                                                                         '            void** ppNextVoidPtr = (void**)&pNext->pNext;\n',
+                                                                                         '            VkUpdateImages* pUI = (VkUpdateImages*)pNext;\n',
+                                                                                         '            *ppNextVoidPtr = (void*)glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pNext->pNext);\n',
+                                                                                         '            VkImageViewAttachInfo** ppLocalImageView = (VkImageViewAttachInfo**)&pUI->pImageViews;\n',
+                                                                                         '            *ppLocalImageView = (VkImageViewAttachInfo*) glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pUI->pImageViews);\n',
+                                                                                         '            break;\n',
+                                                                                         '        }\n',
+                                                                                         '        case VK_STRUCTURE_TYPE_UPDATE_BUFFERS:\n',
+                                                                                         '        {\n',
+                                                                                         '            void** ppNextVoidPtr = (void**)&pNext->pNext;\n',
+                                                                                         '            VkUpdateBuffers* pUB = (VkUpdateBuffers*)pNext;\n',
+                                                                                         '            *ppNextVoidPtr = (void*)glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pNext->pNext);\n',
+                                                                                         '            VkBufferViewAttachInfo** ppLocalBufferView = (VkBufferViewAttachInfo**)&pUB->pBufferViews;\n',
+                                                                                         '            *ppLocalBufferView = (VkBufferViewAttachInfo*) glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pUB->pBufferViews);\n',
+                                                                                         '            break;\n',
+                                                                                         '        }\n',
+                                                                                         '        default:\n',
+                                                                                         '        {\n',
+                                                                                         '           glv_LogError("Encountered an unexpected type in update descriptors ppUpdateArray.\\n");\n',
+                                                                                         '           pPacket->header = NULL;\n',
+                                                                                         '           pNext->pNext = NULL;\n',
+                                                                                         '        }\n',
+                                                                                         '        }\n',
+                                                                                         '    }\n',
+                                                                                         '}']},
+                                                    'CreateGraphicsPipeline' : {'param': 'pCreateInfo', 'txt': ['if (pPacket->pCreateInfo->sType == VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO) {\n',
                                                                                          '    // need to make a non-const pointer to the pointer so that we can properly change the original pointer to the interpretted one\n',
                                                                                          '    void** ppNextVoidPtr = (void**)&pPacket->pCreateInfo->pNext;\n',
                                                                                          '    *ppNextVoidPtr = (void*)glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pPacket->pCreateInfo->pNext);\n',

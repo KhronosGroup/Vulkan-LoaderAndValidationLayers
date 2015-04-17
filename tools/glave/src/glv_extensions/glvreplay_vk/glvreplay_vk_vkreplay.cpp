@@ -572,125 +572,132 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkUpdateDescriptors(stru
     std::queue<VkBufferView> saveBufferViews;
     std::queue<VkImageView> saveImageViews;
     std::queue<VkDescriptorSet> saveDescSets;
-    uint32_t j;
-    for (j = 0; j < pPacket->updateCount; j++)
+    uint32_t i = 0;
+    for (i = 0; i < pPacket->updateCount; i++)
     {
-        VkUpdateSamplers* pUpdateArray = (VkUpdateSamplers*)pPacket->ppUpdateArray[j];
-        switch(pUpdateArray->sType)
+        VkUpdateSamplers* pUpdateArray = (VkUpdateSamplers*)(pPacket->ppUpdateArray[i]);
+        if (pUpdateArray != NULL)
         {
-            case VK_STRUCTURE_TYPE_UPDATE_SAMPLERS:
+            switch(pUpdateArray->sType)
             {
-                for (uint32_t i = 0; i < ((VkUpdateSamplers*)pUpdateArray)->count; i++)
+                case VK_STRUCTURE_TYPE_UPDATE_SAMPLERS:
                 {
-                    VkSampler* pLocalSampler = (VkSampler*) &((VkUpdateSamplers*)pUpdateArray)->pSamplers[i];
-                    saveSamplers.push(*pLocalSampler);
-                    *pLocalSampler = m_objMapper.remap(((VkUpdateSamplers*)pUpdateArray)->pSamplers[i]);
+                    for (uint32_t i = 0; i < ((VkUpdateSamplers*)pUpdateArray)->count; i++)
+                    {
+                        VkSampler* pLocalSampler = (VkSampler*) &((VkUpdateSamplers*)pUpdateArray)->pSamplers[i];
+                        saveSamplers.push(*pLocalSampler);
+                        *pLocalSampler = m_objMapper.remap(((VkUpdateSamplers*)pUpdateArray)->pSamplers[i]);
+                    }
+                    break;
                 }
-                break;
-            }
-            case VK_STRUCTURE_TYPE_UPDATE_SAMPLER_TEXTURES:
-            {
-                VkUpdateSamplerTextures *pUST = (VkUpdateSamplerTextures *) pUpdateArray;
-                for (uint32_t i = 0; i < pUST->count; i++) {
-                    VkSampler *pLocalSampler = (VkSampler *) &pUST->pSamplerImageViews[i].sampler;
-                    saveSamplers.push(*pLocalSampler);
-                    *pLocalSampler = m_objMapper.remap(pUST->pSamplerImageViews[i].sampler);
-                    VkImageView *pLocalView = (VkImageView *) &pUST->pSamplerImageViews[i].pImageView->view;
-                    saveImageViews.push(*pLocalView);
-                    *pLocalView = m_objMapper.remap(pUST->pSamplerImageViews[i].pImageView->view);
+                case VK_STRUCTURE_TYPE_UPDATE_SAMPLER_TEXTURES:
+                {
+                    VkUpdateSamplerTextures *pUST = (VkUpdateSamplerTextures *) pUpdateArray;
+                    for (uint32_t i = 0; i < pUST->count; i++) {
+                        // remap SamplerImageViewInfo.Sampler
+                        VkSampler *pLocalSampler = (VkSampler *) &pUST->pSamplerImageViews[i].sampler;
+                        saveSamplers.push(*pLocalSampler);
+                        *pLocalSampler = m_objMapper.remap(pUST->pSamplerImageViews[i].sampler);
+
+                        // remap SamplerImageViewInfo.ImageViewAttachInfo.ImageView
+                        VkImageView *pLocalView = (VkImageView *) &pUST->pSamplerImageViews[i].pImageView->view;
+                        saveImageViews.push(*pLocalView);
+                        *pLocalView = m_objMapper.remap(pUST->pSamplerImageViews[i].pImageView->view);
+                    }
+                    break;
                 }
-                break;
-            }
-            case VK_STRUCTURE_TYPE_UPDATE_IMAGES:
-            {
-                VkUpdateImages *pUI = (VkUpdateImages*) pUpdateArray;
-                for (uint32_t i = 0; i < pUI->count; i++) {
-                    VkImageView* pLocalView = (VkImageView*) &pUI->pImageViews[i].view;
-                    saveImageViews.push(*pLocalView);
-                    *pLocalView = m_objMapper.remap(pUI->pImageViews[i].view);
+                case VK_STRUCTURE_TYPE_UPDATE_IMAGES:
+                {
+                    VkUpdateImages *pUI = (VkUpdateImages*) pUpdateArray;
+                    for (uint32_t i = 0; i < pUI->count; i++) {
+                        VkImageView* pLocalView = (VkImageView*) &pUI->pImageViews[i].view;
+                        saveImageViews.push(*pLocalView);
+                        *pLocalView = m_objMapper.remap(pUI->pImageViews[i].view);
+                    }
+                    break;
                 }
-                break;
-            }
-            case VK_STRUCTURE_TYPE_UPDATE_BUFFERS:
-            {
-                VkUpdateBuffers *pUB = (VkUpdateBuffers *) pUpdateArray;
-                for (uint32_t i = 0; i < pUB->count; i++) {
-                    VkBufferView* pLocalView = (VkBufferView*) &pUB->pBufferViews[i].view;
-                    saveBufferViews.push(*pLocalView);
-                    *pLocalView = m_objMapper.remap(pUB->pBufferViews[i].view);
+                case VK_STRUCTURE_TYPE_UPDATE_BUFFERS:
+                {
+                    VkUpdateBuffers *pUB = (VkUpdateBuffers *) pUpdateArray;
+                    for (uint32_t i = 0; i < pUB->count; i++) {
+                        VkBufferView* pLocalView = (VkBufferView*) &pUB->pBufferViews[i].view;
+                        saveBufferViews.push(*pLocalView);
+                        *pLocalView = m_objMapper.remap(pUB->pBufferViews[i].view);
+                    }
+                    break;
                 }
-                break;
-            }
-            case VK_STRUCTURE_TYPE_UPDATE_AS_COPY:
-            {
-                saveDescSets.push(((VkUpdateAsCopy*)pUpdateArray)->descriptorSet);
-                ((VkUpdateAsCopy*)pUpdateArray)->descriptorSet = m_objMapper.remap(((VkUpdateAsCopy*)pUpdateArray)->descriptorSet);
-                break;
-            }
-            default:
-            {
-                assert(0);
-                break;
+                case VK_STRUCTURE_TYPE_UPDATE_AS_COPY:
+                {
+                    saveDescSets.push(((VkUpdateAsCopy*)pUpdateArray)->descriptorSet);
+                    ((VkUpdateAsCopy*)pUpdateArray)->descriptorSet = m_objMapper.remap(((VkUpdateAsCopy*)pUpdateArray)->descriptorSet);
+                    break;
+                }
+                default:
+                {
+                    assert(0);
+                    break;
+                }
             }
         }
-        pUpdateArray = (VkUpdateSamplers*) pUpdateArray->pNext;
     }
     m_vkFuncs.real_vkUpdateDescriptors(m_objMapper.remap(pPacket->descriptorSet), pPacket->updateCount, pPacket->ppUpdateArray);
-    for (j = 0; j < pPacket->updateCount; j++)
+    for (i = 0; i < pPacket->updateCount; i++)
     {
-        VkUpdateSamplers* pUpdateArray = (VkUpdateSamplers*)pPacket->ppUpdateArray[j];
-        switch(pUpdateArray->sType)
+        VkUpdateSamplers* pUpdateArray = (VkUpdateSamplers*)(pPacket->ppUpdateArray[i]);
+        if (pUpdateArray != NULL)
         {
-            case VK_STRUCTURE_TYPE_UPDATE_SAMPLERS:
-                for (uint32_t i = 0; i < ((VkUpdateSamplers*)pUpdateArray)->count; i++) {
-                    VkSampler* pLocalSampler = (VkSampler*) &((VkUpdateSamplers*)pUpdateArray)->pSamplers[i];
-                    *pLocalSampler = saveSamplers.front();
-                    saveSamplers.pop();
-                }
-                break;
-            case VK_STRUCTURE_TYPE_UPDATE_SAMPLER_TEXTURES:
+            switch(pUpdateArray->sType)
             {
-                VkUpdateSamplerTextures *pUST = (VkUpdateSamplerTextures *) pUpdateArray;
-                for (uint32_t i = 0; i < pUST->count; i++) {
-                    VkSampler *plocalSampler = (VkSampler *) &pUST->pSamplerImageViews[i].sampler;
-                    *plocalSampler = saveSamplers.front();
-                    saveSamplers.pop();
-                    VkImageView *pLocalView = (VkImageView *) &pUST->pSamplerImageViews[i].pImageView->view;
-                    *pLocalView = saveImageViews.front();
-                    saveImageViews.pop();
+                case VK_STRUCTURE_TYPE_UPDATE_SAMPLERS:
+                    for (uint32_t i = 0; i < ((VkUpdateSamplers*)pUpdateArray)->count; i++) {
+                        VkSampler* pLocalSampler = (VkSampler*) &((VkUpdateSamplers*)pUpdateArray)->pSamplers[i];
+                        *pLocalSampler = saveSamplers.front();
+                        saveSamplers.pop();
+                    }
+                    break;
+                case VK_STRUCTURE_TYPE_UPDATE_SAMPLER_TEXTURES:
+                {
+                    VkUpdateSamplerTextures *pUST = (VkUpdateSamplerTextures *) pUpdateArray;
+                    for (uint32_t i = 0; i < pUST->count; i++) {
+                        VkSampler *plocalSampler = (VkSampler *) &pUST->pSamplerImageViews[i].sampler;
+                        *plocalSampler = saveSamplers.front();
+                        saveSamplers.pop();
+                        VkImageView *pLocalView = (VkImageView *) &pUST->pSamplerImageViews[i].pImageView->view;
+                        *pLocalView = saveImageViews.front();
+                        saveImageViews.pop();
+                    }
+                    break;
                 }
-                break;
-            }
-            case VK_STRUCTURE_TYPE_UPDATE_IMAGES:
-            {
-                VkUpdateImages *pUI = (VkUpdateImages*) pUpdateArray;
-                for (uint32_t i = 0; i < pUI->count; i++) {
-                    VkImageView* pLocalView = (VkImageView*) &pUI->pImageViews[i].view;
-                    *pLocalView = saveImageViews.front();
-                    saveImageViews.pop();
+                case VK_STRUCTURE_TYPE_UPDATE_IMAGES:
+                {
+                    VkUpdateImages *pUI = (VkUpdateImages*) pUpdateArray;
+                    for (uint32_t i = 0; i < pUI->count; i++) {
+                        VkImageView* pLocalView = (VkImageView*) &pUI->pImageViews[i].view;
+                        *pLocalView = saveImageViews.front();
+                        saveImageViews.pop();
+                    }
+                    break;
                 }
-                break;
-            }
-            case VK_STRUCTURE_TYPE_UPDATE_BUFFERS:
-            {
-                VkUpdateBuffers *pUB = (VkUpdateBuffers *) pUpdateArray;
-                for (uint32_t i = 0; i < pUB->count; i++) {
-                    VkBufferView* pLocalView = (VkBufferView*) &pUB->pBufferViews[i].view;
-                    *pLocalView = saveBufferViews.front();
-                    saveBufferViews.pop();
+                case VK_STRUCTURE_TYPE_UPDATE_BUFFERS:
+                {
+                    VkUpdateBuffers *pUB = (VkUpdateBuffers *) pUpdateArray;
+                    for (uint32_t i = 0; i < pUB->count; i++) {
+                        VkBufferView* pLocalView = (VkBufferView*) &pUB->pBufferViews[i].view;
+                        *pLocalView = saveBufferViews.front();
+                        saveBufferViews.pop();
+                    }
+                    break;
                 }
-                break;
+                case VK_STRUCTURE_TYPE_UPDATE_AS_COPY:
+                    ((VkUpdateAsCopy*)pUpdateArray)->descriptorSet = saveDescSets.front();
+                    saveDescSets.pop();
+                    //pLocalUpdateChain = (void*)((VK_UPDATE_SAMPLERS*)pLocalUpdateChain)->pNext;
+                    break;
+                default:
+                    assert(0);
+                    break;
             }
-            case VK_STRUCTURE_TYPE_UPDATE_AS_COPY:
-                ((VkUpdateAsCopy*)pUpdateArray)->descriptorSet = saveDescSets.front();
-                saveDescSets.pop();
-                //pLocalUpdateChain = (void*)((VK_UPDATE_SAMPLERS*)pLocalUpdateChain)->pNext;
-                break;
-            default:
-                assert(0);
-                break;
         }
-        pUpdateArray = (VkUpdateSamplers*) pUpdateArray->pNext;
     }
     return returnValue;
 }
@@ -738,11 +745,14 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCreateGraphicsPipeline
     VkResult replayResult = VK_ERROR_UNKNOWN;
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
     VkGraphicsPipelineCreateInfo createInfo;
+
+    // array to store the original trace-time shaders, so that we can remap them inside the packet and then
+    // restore them after replaying the API call.
     struct shaderPair saveShader[10];
     unsigned int idx = 0;
     memcpy(&createInfo, pPacket->pCreateInfo, sizeof(VkGraphicsPipelineCreateInfo));
     createInfo.pSetLayoutChain = m_objMapper.remap(createInfo.pSetLayoutChain);
-    // Cast to shader type, as those are of primariy interest and all structs in LL have same header w/ sType & pNext
+    // Cast to shader type, as those are of primary interest and all structs in LL have same header w/ sType & pNext
     VkPipelineShaderStageCreateInfo* pPacketNext = (VkPipelineShaderStageCreateInfo*)pPacket->pCreateInfo->pNext;
     VkPipelineShaderStageCreateInfo* pNext = (VkPipelineShaderStageCreateInfo*)createInfo.pNext;
     while (VK_NULL_HANDLE != pPacketNext)
@@ -753,17 +763,33 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCreateGraphicsPipeline
             saveShader[idx++].addr = &(pNext->shader.shader);
             pNext->shader.shader = m_objMapper.remap(pPacketNext->shader.shader);
         }
+        else
+        {
+            // others acceptable types are:
+            // VK_STRUCTURE_TYPE_PIPELINE_IA_STATE_CREATE_INFO;
+            // VK_STRUCTURE_TYPE_PIPELINE_RS_STATE_CREATE_INFO;
+            // VK_STRUCTURE_TYPE_PIPELINE_CB_STATE_CREATE_INFO;
+            // VK_STRUCTURE_TYPE_PIPELINE_MS_STATE_CREATE_INFO;
+            // VK_STRUCTURE_TYPE_PIPELINE_VP_STATE_CREATE_INFO;
+            // VK_STRUCTURE_TYPE_PIPELINE_DS_STATE_CREATE_INFO;
+            // however they do not currently contain any vulkan objects that need to be remapped.
+            // SO, there is nothing to do here!
+        }
         pPacketNext = (VkPipelineShaderStageCreateInfo*)pPacketNext->pNext;
         pNext = (VkPipelineShaderStageCreateInfo*)pNext->pNext;
     }
+
     VkPipeline pipeline;
     replayResult = m_vkFuncs.real_vkCreateGraphicsPipeline(m_objMapper.remap(pPacket->device), &createInfo, &pipeline);
     if (replayResult == VK_SUCCESS)
     {
         m_objMapper.add_to_map(pPacket->pPipeline, &pipeline);
     }
+
+    // restore packet to contain the original shaders before being remapped.
     for (unsigned int i = 0; i < idx; i++)
         *(saveShader[i].addr) = saveShader[i].val;
+
     CHECK_RETURN_VALUE(vkCreateGraphicsPipeline);
     return returnValue;
 }
