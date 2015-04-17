@@ -114,30 +114,32 @@ GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkEnumerateLayers(
 
 GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkEnumeratePhysicalDevices(
     VkInstance instance,
-    uint32_t* pGpuCount,
-    VkPhysicalDevice* pGpus)
+    uint32_t* pPhysicalDeviceCount,
+    VkPhysicalDevice* pPhysicalDevices)
 {
     glv_trace_packet_header* pHeader;
     VkResult result;
     struct_vkEnumeratePhysicalDevices* pPacket = NULL;
     uint64_t startTime;
+    //TODO make sure can handle being called twice with pPD == 0
     SEND_ENTRYPOINT_ID(vkEnumeratePhysicalDevices);
     startTime = glv_get_time();
-    result = real_vkEnumeratePhysicalDevices(instance, pGpuCount, pGpus);
-    CREATE_TRACE_PACKET(vkEnumeratePhysicalDevices, sizeof(uint32_t) + ((pGpus && pGpuCount) ? *pGpuCount * sizeof(VkPhysicalGpu) : 0));
+    result = real_vkEnumeratePhysicalDevices(instance, pPhysicalDeviceCount, pPhysicalDevices);
+    CREATE_TRACE_PACKET(vkEnumeratePhysicalDevices, sizeof(uint32_t) + ((pPhysicalDevices && pPhysicalDeviceCount) ? *pPhysicalDeviceCount * sizeof(VkPhysicalDevice) : 0));
     pHeader->entrypoint_begin_time = startTime;
-    pPacket = interpret_body_as_vkEnumerateDevices(pHeader);
+    pPacket = interpret_body_as_vkEnumeratePhysicalDevices(pHeader);
     pPacket->instance = instance;
-    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pGpuCount), sizeof(uint32_t), pGpuCount);
-    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pGpus), *pGpuCount*sizeof(VkPhysicalGpu), pGpus);
+    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pPhysicalDeviceCount), sizeof(uint32_t), pPhysicalDeviceCount);
+    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pPhysicalDevices), *pPhysicalDeviceCount*sizeof(VkPhysicalDevice), pPhysicalDevices);
     pPacket->result = result;
-    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pGpuCount));
-    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pGpus));
+    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pPhysicalDeviceCount));
+    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pPhysicalDevices));
     FINISH_TRACE_PACKET();
     return result;
 }
 
 GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkAllocDescriptorSets(
+    VkDevice device,
     VkDescriptorPool descriptorPool,
     VkDescriptorSetUsage setUsage,
     uint32_t count,
@@ -151,10 +153,11 @@ GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkAllocDescriptorSets(
     uint64_t startTime;
     SEND_ENTRYPOINT_ID(vkAllocDescriptorSets);
     startTime = glv_get_time();
-    result = real_vkAllocDescriptorSets(descriptorPool, setUsage, count, pSetLayouts, pDescriptorSets, pCount);
+    result = real_vkAllocDescriptorSets(device, descriptorPool, setUsage, count, pSetLayouts, pDescriptorSets, pCount);
     size_t customSize = (*pCount <= 0) ? (sizeof(VkDescriptorSet)) : (*pCount * sizeof(VkDescriptorSet));
     CREATE_TRACE_PACKET(vkAllocDescriptorSets, sizeof(VkDescriptorSetLayout) + customSize + sizeof(uint32_t));
     pHeader->entrypoint_begin_time = startTime;
+    pPacket->device = device;
     pPacket = interpret_body_as_vkAllocDescriptorSets(pHeader);
     pPacket->descriptorPool = descriptorPool;
     pPacket->setUsage = setUsage;
@@ -171,7 +174,10 @@ GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkAllocDescriptorSets(
 }
 
 GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkMapMemory(
-    VkGpuMemory mem,
+    VkDevice device,
+    VkDeviceMemory mem,
+    VkDeviceSize offset,
+    VkDeviceSize size,
     VkFlags flags,
     void** ppData)
 {
@@ -179,8 +185,10 @@ GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkMapMemory(
     VkResult result;
     struct_vkMapMemory* pPacket = NULL;
     CREATE_TRACE_PACKET(vkMapMemory, sizeof(void*));
-    result = real_vkMapMemory(mem, flags, ppData);
+    result = real_vkMapMemory(device, mem, offset, size, flags, ppData);
     pPacket = interpret_body_as_vkMapMemory(pHeader);
+    //TODO handle offset and size in packet and add_data_to_mem_info
+    pPacket->device;
     pPacket->mem = mem;
     pPacket->flags = flags;
     if (ppData != NULL)
@@ -194,7 +202,9 @@ GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkMapMemory(
     return result;
 }
 
-GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkUnmapMemory(VkGpuMemory mem)
+GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkUnmapMemory(
+    VkDevice device,
+    VkDeviceMemory mem)
 {
     glv_trace_packet_header* pHeader;
     VkResult result;
@@ -219,7 +229,8 @@ GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkUnmapMemory(VkGpuMemory mem)
     }
     glv_leave_critical_section(&g_memInfoLock);
 //    glv_LogError("manual address of vkUnmapMemory: %p\n", real_vkUnmapMemory);
-    result = real_vkUnmapMemory(mem);
+    result = real_vkUnmapMemory(device, mem);
+    pPacket->device = device;
     pPacket->mem = mem;
     pPacket->result = result;
     FINISH_TRACE_PACKET();
@@ -228,8 +239,14 @@ GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkUnmapMemory(VkGpuMemory mem)
 
 GLVTRACER_EXPORT void VKAPI __HOOKED_vkCmdWaitEvents(
     VkCmdBuffer cmdBuffer,
-    const VkEventWaitInfo* pWaitInfo)
+    VkWaitEvent                                 waitEvent,
+    uint32_t                                    eventCount,
+    const VkEvent*                              pEvents,
+    uint32_t                                    memBarrierCount,
+    const void**                                ppMemBarriers)
+
 {
+#if 0 // TODO implement
     glv_trace_packet_header* pHeader;
     struct_vkCmdWaitEvents* pPacket = NULL;
     size_t customSize;
@@ -268,12 +285,18 @@ GLVTRACER_EXPORT void VKAPI __HOOKED_vkCmdWaitEvents(
     glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pWaitInfo->ppMemBarriers));
     glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pWaitInfo));
     FINISH_TRACE_PACKET();
+#endif
 }
 
 GLVTRACER_EXPORT void VKAPI __HOOKED_vkCmdPipelineBarrier(
-    VkCmdBuffer cmdBuffer,
-    const VkPipelineBarrier* pBarrier)
+    VkCmdBuffer                                 cmdBuffer,
+    VkWaitEvent                                 waitEvent,
+    uint32_t                                    pipeEventCount,
+    const VkPipeEvent*                          pPipeEvents,
+    uint32_t                                    memBarrierCount,
+    const void**                                ppMemBarriers)
 {
+#if 0 //TODO implement
     glv_trace_packet_header* pHeader;
     struct_vkCmdPipelineBarrier* pPacket = NULL;
     size_t customSize;
@@ -312,4 +335,5 @@ GLVTRACER_EXPORT void VKAPI __HOOKED_vkCmdPipelineBarrier(
     glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pBarrier->ppMemBarriers));
     glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pBarrier));
     FINISH_TRACE_PACKET();
+#endif
 }
