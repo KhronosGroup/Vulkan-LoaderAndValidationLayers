@@ -586,7 +586,7 @@ class StructWrapperGen:
             member_post = ' ? "TRUE" : "FALSE"'
         elif 'float' in struct_member['type']:
             print_type = "f"
-        elif 'uint64' in struct_member['type'] or 'gpusize' in struct_member['type'].lower():
+        elif 'uint64' in struct_member['type'] or 'devicesize' in struct_member['type'].lower():
             print_type = '" PRId64 "'
         elif 'uint8' in struct_member['type']:
             print_type = "hu"
@@ -1420,7 +1420,7 @@ class GraphVizGen:
             member_post = ' ? "TRUE" : "FALSE"'
         elif 'float' in struct_member['type']:
             print_type = "f"
-        elif 'uint64' in struct_member['type'] or 'gpusize' in struct_member['type'].lower():
+        elif 'uint64' in struct_member['type'] or 'devicesize' in struct_member['type'].lower():
             print_type = '" PRId64 "'
         elif 'uint8' in struct_member['type']:
             print_type = "hu"

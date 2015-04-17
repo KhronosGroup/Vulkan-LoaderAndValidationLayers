@@ -23,7 +23,7 @@
  */
 
 #include "vkLayer.h"
-
+#include "vulkan.h"
 // Glave Snapshot ERROR codes
 typedef enum _GLAVE_SNAPSHOT_ERROR
 {
@@ -60,64 +60,64 @@ typedef enum _OBJECT_STATUS
 static const char* string_VK_OBJECT_TYPE(VkObjectType type) {
     switch (type)
     {
-        case VK_OBJECT_TYPE_DEVICE:
-            return "DEVICE";
-        case VK_OBJECT_TYPE_PIPELINE:
-            return "PIPELINE";
-        case VK_OBJECT_TYPE_FENCE:
-            return "FENCE";
-        case VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT:
-            return "DESCRIPTOR_SET_LAYOUT";
-        case VK_OBJECT_TYPE_DEVICE_MEMORY:
-            return "DEVICE_MEMORY";
-        case VK_OBJECT_TYPE_QUEUE:
-            return "QUEUE";
-        case VK_OBJECT_TYPE_IMAGE:
-            return "IMAGE";
-        case VK_OBJECT_TYPE_COMMAND_BUFFER:
-            return "COMMAND_BUFFER";
-        case VK_OBJECT_TYPE_SEMAPHORE:
-            return "SEMAPHORE";
-        case VK_OBJECT_TYPE_FRAMEBUFFER:
-            return "FRAMEBUFFER";
-        case VK_OBJECT_TYPE_SAMPLER:
-            return "SAMPLER";
-        case VK_OBJECT_TYPE_COLOR_ATTACHMENT_VIEW:
-            return "COLOR_ATTACHMENT_VIEW";
-        case VK_OBJECT_TYPE_BUFFER_VIEW:
-            return "BUFFER_VIEW";
-        case VK_OBJECT_TYPE_DESCRIPTOR_SET:
-            return "DESCRIPTOR_SET";
+        case VK_OBJECT_TYPE_INSTANCE:
+            return "INSTANCE";
         case VK_OBJECT_TYPE_PHYSICAL_DEVICE:
             return "PHYSICAL_DEVICE";
-        case VK_OBJECT_TYPE_IMAGE_VIEW:
-            return "IMAGE_VIEW";
+        case VK_OBJECT_TYPE_DEVICE:
+            return "DEVICE";
+        case VK_OBJECT_TYPE_QUEUE:
+            return "QUEUE";
+        case VK_OBJECT_TYPE_COMMAND_BUFFER:
+            return "COMMAND_BUFFER";
+        case VK_OBJECT_TYPE_DEVICE_MEMORY:
+            return "DEVICE_MEMORY";
         case VK_OBJECT_TYPE_BUFFER:
             return "BUFFER";
-        case VK_OBJECT_TYPE_PIPELINE_LAYOUT:
-            return "PIPELINE_LAYOUT";
-        case VK_OBJECT_TYPE_DYNAMIC_RS_STATE:
-            return "DYNAMIC_RS_STATE";
-        case VK_OBJECT_TYPE_EVENT:
-            return "EVENT";
+        case VK_OBJECT_TYPE_BUFFER_VIEW:
+            return "BUFFER_VIEW";
+        case VK_OBJECT_TYPE_IMAGE:
+            return "IMAGE";
+        case VK_OBJECT_TYPE_IMAGE_VIEW:
+            return "IMAGE_VIEW";
+        case VK_OBJECT_TYPE_COLOR_ATTACHMENT_VIEW:
+            return "COLOR_ATTACHMENT_VIEW";
         case VK_OBJECT_TYPE_DEPTH_STENCIL_VIEW:
             return "DEPTH_STENCIL_VIEW";
         case VK_OBJECT_TYPE_SHADER:
             return "SHADER";
-        case VK_OBJECT_TYPE_DYNAMIC_DS_STATE:
-            return "DYNAMIC_DS_STATE";
-        case VK_OBJECT_TYPE_DYNAMIC_VP_STATE:
-            return "DYNAMIC_VP_STATE";
-        case VK_OBJECT_TYPE_DYNAMIC_CB_STATE:
-            return "DYNAMIC_CB_STATE";
-        case VK_OBJECT_TYPE_INSTANCE:
-            return "INSTANCE";
-        case VK_OBJECT_TYPE_RENDER_PASS:
-            return "RENDER_PASS";
-        case VK_OBJECT_TYPE_QUERY_POOL:
-            return "QUERY_POOL";
+        case VK_OBJECT_TYPE_PIPELINE:
+            return "PIPELINE";
+        case VK_OBJECT_TYPE_PIPELINE_LAYOUT:
+            return "PIPELINE_LAYOUT";
+        case VK_OBJECT_TYPE_SAMPLER:
+            return "SAMPLER";
+        case VK_OBJECT_TYPE_DESCRIPTOR_SET:
+            return "DESCRIPTOR_SET";
+        case VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT:
+            return "DESCRIPTOR_SET_LAYOUT";
         case VK_OBJECT_TYPE_DESCRIPTOR_POOL:
             return "DESCRIPTOR_POOL";
+        case VK_OBJECT_TYPE_DYNAMIC_VP_STATE:
+            return "DYNAMIC_VP_STATE";
+        case VK_OBJECT_TYPE_DYNAMIC_RS_STATE:
+            return "DYNAMIC_RS_STATE";
+        case VK_OBJECT_TYPE_DYNAMIC_CB_STATE:
+            return "DYNAMIC_CB_STATE";
+        case VK_OBJECT_TYPE_DYNAMIC_DS_STATE:
+            return "DYNAMIC_DS_STATE";
+        case VK_OBJECT_TYPE_FENCE:
+            return "FENCE";
+        case VK_OBJECT_TYPE_SEMAPHORE:
+            return "SEMAPHORE";
+        case VK_OBJECT_TYPE_EVENT:
+            return "EVENT";
+        case VK_OBJECT_TYPE_QUERY_POOL:
+            return "QUERY_POOL";
+        case VK_OBJECT_TYPE_FRAMEBUFFER:
+            return "FRAMEBUFFER";
+        case VK_OBJECT_TYPE_RENDER_PASS:
+            return "RENDER_PASS";
         case VK_OBJECT_TYPE_DISPLAY_WSI:
             return "DISPLAY_WSI";
         case VK_OBJECT_TYPE_SWAP_CHAIN_WSI:

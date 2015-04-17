@@ -76,7 +76,7 @@ GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkCreateInstance(
 }
 
 GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkEnumerateLayers(
-    VkPhysicalGpu gpu,
+    VkPhysicalDevice gpu,
     size_t maxLayerCount,
     size_t maxStringSize,
     size_t* pOutLayerCount,
@@ -98,8 +98,7 @@ GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkEnumerateLayers(
     CREATE_TRACE_PACKET(vkEnumerateLayers, totStringSize + sizeof(size_t));
     pHeader->entrypoint_begin_time = startTime;
     pPacket = interpret_body_as_vkEnumerateLayers(pHeader);
-    pPacket->gpu = gpu;
-    pPacket->maxLayerCount = maxLayerCount;
+    pPacket->physicalDevice = gpu;
     pPacket->maxStringSize = maxStringSize;
     pPacket->pReserved = pReserved;
     glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pOutLayerCount), sizeof(size_t), pOutLayerCount);
@@ -113,24 +112,22 @@ GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkEnumerateLayers(
     return result;
 }
 
-GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkEnumerateGpus(
+GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkEnumeratePhysicalDevices(
     VkInstance instance,
-    uint32_t maxGpus,
     uint32_t* pGpuCount,
-    VkPhysicalGpu* pGpus)
+    VkPhysicalDevice* pGpus)
 {
     glv_trace_packet_header* pHeader;
     VkResult result;
-    struct_vkEnumerateGpus* pPacket = NULL;
+    struct_vkEnumeratePhysicalDevices* pPacket = NULL;
     uint64_t startTime;
-    SEND_ENTRYPOINT_ID(vkEnumerateGpus);
+    SEND_ENTRYPOINT_ID(vkEnumeratePhysicalDevices);
     startTime = glv_get_time();
-    result = real_vkEnumerateGpus(instance, maxGpus, pGpuCount, pGpus);
-    CREATE_TRACE_PACKET(vkEnumerateGpus, sizeof(uint32_t) + ((pGpus && pGpuCount) ? *pGpuCount * sizeof(VkPhysicalGpu) : 0));
+    result = real_vkEnumeratePhysicalDevices(instance, pGpuCount, pGpus);
+    CREATE_TRACE_PACKET(vkEnumeratePhysicalDevices, sizeof(uint32_t) + ((pGpus && pGpuCount) ? *pGpuCount * sizeof(VkPhysicalGpu) : 0));
     pHeader->entrypoint_begin_time = startTime;
-    pPacket = interpret_body_as_vkEnumerateGpus(pHeader);
+    pPacket = interpret_body_as_vkEnumerateDevices(pHeader);
     pPacket->instance = instance;
-    pPacket->maxGpus = maxGpus;
     glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pGpuCount), sizeof(uint32_t), pGpuCount);
     glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pGpus), *pGpuCount*sizeof(VkPhysicalGpu), pGpus);
     pPacket->result = result;

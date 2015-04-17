@@ -33,8 +33,8 @@ extern BOOL isHooked;
 
 // Support for shadowing CPU mapped memory
 typedef struct _VKAllocInfo {
-    VkGpuSize   size;
-    VkGpuMemory handle;
+    VkDeviceSize   size;
+    VkDeviceMemory handle;
     void           *pData;
     BOOL           valid;
 } VKAllocInfo;
@@ -124,7 +124,7 @@ static VKAllocInfo * get_mem_info_entry()
 }
 
 // caller must hold the g_memInfoLock
-static VKAllocInfo * find_mem_info_entry(const VkGpuMemory handle)
+static VKAllocInfo * find_mem_info_entry(const VkDeviceMemory handle)
 {
     VKAllocInfo *entry;
     unsigned int i;
@@ -144,7 +144,7 @@ static VKAllocInfo * find_mem_info_entry(const VkGpuMemory handle)
     return NULL;
 }
 
-static VKAllocInfo * find_mem_info_entry_lock(const VkGpuMemory handle)
+static VKAllocInfo * find_mem_info_entry_lock(const VkDeviceMemory handle)
 {
     VKAllocInfo *res;
     glv_enter_critical_section(&g_memInfoLock);
@@ -153,7 +153,7 @@ static VKAllocInfo * find_mem_info_entry_lock(const VkGpuMemory handle)
     return res;
 }
 
-static void add_new_handle_to_mem_info(const VkGpuMemory handle, VkGpuSize size, void *pData)
+static void add_new_handle_to_mem_info(const VkDeviceMemory handle, VkDeviceSize size, void *pData)
 {
     VKAllocInfo *entry;
 
@@ -172,7 +172,7 @@ static void add_new_handle_to_mem_info(const VkGpuMemory handle, VkGpuSize size,
     glv_leave_critical_section(&g_memInfoLock);
 }
 
-static void add_data_to_mem_info(const VkGpuMemory handle, void *pData)
+static void add_data_to_mem_info(const VkDeviceMemory handle, void *pData)
 {
     VKAllocInfo *entry;
 
@@ -186,7 +186,7 @@ static void add_data_to_mem_info(const VkGpuMemory handle, void *pData)
     glv_leave_critical_section(&g_memInfoLock);
 }
 
-static void rm_handle_from_mem_info(const VkGpuMemory handle)
+static void rm_handle_from_mem_info(const VkDeviceMemory handle)
 {
     VKAllocInfo *entry;
 

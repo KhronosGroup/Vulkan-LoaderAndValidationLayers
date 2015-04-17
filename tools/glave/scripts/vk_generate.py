@@ -275,7 +275,7 @@ class Subcommand(object):
     def _generate_detach_hooks(self):
         hooks_txt = []
         hooks_txt.append('void DetachHooks()\n{\n#ifdef __linux__\n    return;\n#elif defined(WIN32)')
-        hooks_txt.append('    BOOL unhookSuccess = TRUE;\n    if (real_vkGetGpuInfo != NULL)\n    {')
+        hooks_txt.append('    BOOL unhookSuccess = TRUE;\n    if (real_vkGetPhysicalDeviceInfo != NULL)\n    {')
         hook_operator = '='
         for proto in self.protos:
             if 'Dbg' not in proto.name and 'WSI' not in proto.name:
@@ -453,7 +453,7 @@ class Subcommand(object):
     # return result?
     def _generate_trace_funcs(self):
         func_body = []
-        manually_written_hooked_funcs = ['CreateInstance', 'EnumerateLayers', 'EnumerateGpus',
+        manually_written_hooked_funcs = ['CreateInstance', 'EnumerateLayers', 'EnumeratePhysicalDevices',
                                          'AllocDescriptorSets', 'MapMemory', 'UnmapMemory',
                                          'CmdPipelineBarrier', 'CmdWaitEvents']
         for proto in self.protos:
@@ -1228,7 +1228,7 @@ class Subcommand(object):
             obj_map_dict[mem_var] = ty
         rc_body = []
         rc_body.append('typedef struct _VKAllocInfo {')
-        rc_body.append('    VkGpuSize size;')
+        rc_body.append('    VkDeviceSize size;')
         rc_body.append('    void *pData;')
         rc_body.append('} VKAllocInfo;')
         rc_body.append('')
@@ -1289,7 +1289,7 @@ class Subcommand(object):
         rc_body.append('')
         rc_body.append('typedef struct _gpuMemObj {')
         rc_body.append('     gpuMemory *pGpuMem;')
-        rc_body.append('     VkGpuMemory replayGpuMem;')
+        rc_body.append('     VkDeviceMemory replayGpuMem;')
         rc_body.append(' } gpuMemObj;')
         rc_body.append('')
         rc_body.append('class vkReplayObjMapper {')
@@ -1361,13 +1361,13 @@ class Subcommand(object):
                 rc_body.append('        std::map<VkBuffer, bufferObj>::const_iterator q = m_buffers.find(value);')
                 rc_body.append('        return (q == m_buffers.end()) ? VK_NULL_HANDLE : q->second.replayBuffer;')
                 rc_body.append('    }\n')
-            elif obj_map_dict[var] == 'VkGpuMemory':
+            elif obj_map_dict[var] == 'VkDeviceMemory':
                 rc_body.append(self._map_decl(obj_map_dict[var], 'gpuMemObj', var))
                 rc_body.append(self._add_to_map_decl(obj_map_dict[var], 'gpuMemObj', var))
                 rc_body.append(self._rm_from_map_decl(obj_map_dict[var], var))
-                rc_body.append('    VkGpuMemory remap(const VkGpuMemory& value)')
+                rc_body.append('    VkDeviceMemory remap(const VkDeviceMemory& value)')
                 rc_body.append('    {')
-                rc_body.append('        std::map<VkGpuMemory, gpuMemObj>::const_iterator q = m_gpumemorys.find(value);')
+                rc_body.append('        std::map<VkDeviceMemory, gpuMemObj>::const_iterator q = m_gpumemorys.find(value);')
                 rc_body.append('        return (q == m_gpumemorys.end()) ? VK_NULL_HANDLE : q->second.replayGpuMem;')
                 rc_body.append('    }\n')
             else:
@@ -1400,9 +1400,9 @@ class Subcommand(object):
         for var in obj_remap_types:
             rc_body.append('        rm_from_map(static_cast <%s> (objKey));' % (var))
         rc_body.append('    }')
-        rc_body.append('    VkObject remap(const VkObject& object)\n    {')
-        rc_body.append('        VkObject obj;')
-        base_obj_remap_types = ['VkDevice', 'VkQueue', 'VkGpuMemory', 'VkObject']
+        rc_body.append('    VkBaseObject remap(const VkBaseObject& object)\n    {')
+        rc_body.append('        VkBaseObject obj;')
+        base_obj_remap_types = ['VkDevice', 'VkQueue', 'VkDeviceMemory', 'VkObject']
         for t in base_obj_remap_types:
             rc_body.append('        if ((obj = remap(static_cast <%s> (object))) != VK_NULL_HANDLE)' % t)
             rc_body.append('            return obj;')
@@ -1439,12 +1439,12 @@ class Subcommand(object):
 
     def _gen_replay_enum_gpus(self):
         ieg_body = []
-        ieg_body.append('            returnValue = manually_handle_vkEnumerateGpus(pPacket);')
+        ieg_body.append('            returnValue = manually_handle_vkEnumeratePhysicalDevices(pPacket);')
         return "\n".join(ieg_body)
 
     def _gen_replay_get_gpu_info(self):
         ggi_body = []
-        ggi_body.append('            returnValue = manually_handle_vkGetGpuInfo(pPacket);')
+        ggi_body.append('            returnValue = manually_handle_vkGetPhysicalDeviceInfo(pPacket);')
         return "\n".join(ggi_body)
 
     def _gen_replay_create_device(self):
@@ -1544,7 +1544,7 @@ class Subcommand(object):
 
     def _gen_replay_get_multi_gpu_compatibility(self):
         gmgc_body = []
-        gmgc_body.append('            returnValue = manually_handle_vkGetMultiGpuCompatibility(pPacket);')
+        gmgc_body.append('            returnValue = manually_handle_vkGetMultiDeviceCompatibility(pPacket);')
         return "\n".join(gmgc_body)
 
     def _gen_replay_destroy_object(self):
@@ -1628,8 +1628,8 @@ class Subcommand(object):
     def _generate_replay(self):
         # map protos to custom functions if body is fully custom
         custom_body_dict = {'CreateInstance': self._gen_replay_create_instance,
-                            'EnumerateGpus': self._gen_replay_enum_gpus,
-                            'GetGpuInfo': self._gen_replay_get_gpu_info,
+                            'EnumeratePhysicalDevices': self._gen_replay_enum_gpus,
+                            'GetPhysicalDeviceInfo': self._gen_replay_get_gpu_info,
                             'CreateDevice': self._gen_replay_create_device,
                             'GetExtensionSupport': self._gen_replay_get_extension_support,
                             'QueueSubmit': self._gen_replay_queue_submit,
@@ -1643,7 +1643,7 @@ class Subcommand(object):
                             'CreateRenderPass': self._gen_replay_create_renderpass,
                             'BeginCommandBuffer': self._gen_replay_begin_command_buffer,
                             'StorePipeline': self._gen_replay_store_pipeline,
-                            'GetMultiGpuCompatibility': self._gen_replay_get_multi_gpu_compatibility,
+                            'GetMultiPhysicalDeviceCompatibility': self._gen_replay_get_multi_gpu_compatibility,
                             'DestroyObject': self._gen_replay_destroy_object,
                             'WaitForFences': self._gen_replay_wait_for_fences,
                             'WsiX11AssociateConnection': self._gen_replay_wsi_associate_connection,
@@ -1661,9 +1661,9 @@ class Subcommand(object):
                             'CmdWaitEvents': self._gen_replay_cmd_wait_events,
                             'CmdPipelineBarrier': self._gen_replay_cmd_pipeline_barrier}
         # Despite returning a value, don't check these funcs b/c custom code includes check already
-        custom_check_ret_val = ['CreateInstance', 'EnumerateGpus', 'GetGpuInfo', 'CreateDevice', 'GetExtensionSupport', 'QueueSubmit', 'GetObjectInfo',
+        custom_check_ret_val = ['CreateInstance', 'EnumeratePhysicalDevices', 'GetPhysicalDeviceInfo', 'CreateDevice', 'GetExtensionSupport', 'QueueSubmit', 'GetObjectInfo',
                                 'GetFormatInfo', 'GetImageSubresourceInfo', 'CreateDescriptorSetLayout', 'CreateGraphicsPipeline',
-                                'CreateFramebuffer', 'CreateRenderPass', 'BeginCommandBuffer', 'StorePipeline', 'GetMultiGpuCompatibility',
+                                'CreateFramebuffer', 'CreateRenderPass', 'BeginCommandBuffer', 'StorePipeline', 'GetMultiDeviceCompatibility',
                                 'DestroyObject', 'WaitForFences', 'FreeMemory', 'MapMemory', 'UnmapMemory',
                                 'WsiX11AssociateConnection', 'WsiX11GetMSC', 'WsiX11CreatePresentableImage', 'WsiX11QueuePresent']
         # multi-gpu Open funcs w/ list of local params to create
