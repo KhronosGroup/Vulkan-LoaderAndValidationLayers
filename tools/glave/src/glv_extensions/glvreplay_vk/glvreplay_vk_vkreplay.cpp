@@ -960,6 +960,16 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCreateRenderPass(struc
     return returnValue;
 }
 
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCmdBeginRenderPass(struct_vkCmdBeginRenderPass* pPacket)
+{
+    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+    VkRenderPassBegin local_renderPassBegin;
+    local_renderPassBegin.framebuffer = m_objMapper.remap(pPacket->pRenderPassBegin->framebuffer);
+    local_renderPassBegin.renderPass = m_objMapper.remap(pPacket->pRenderPassBegin->renderPass);
+    m_vkFuncs.real_vkCmdBeginRenderPass(m_objMapper.remap(pPacket->cmdBuffer), &local_renderPassBegin);
+    return returnValue;
+}
+
 glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkBeginCommandBuffer(struct_vkBeginCommandBuffer* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;

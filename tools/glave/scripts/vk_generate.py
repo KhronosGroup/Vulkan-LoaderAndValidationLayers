@@ -1617,6 +1617,11 @@ class Subcommand(object):
         cr_body.append('            returnValue = manually_handle_vkCreateRenderPass(pPacket);')
         return "\n".join(cr_body)
 
+    def _gen_replay_cmd_begin_renderpass(self):
+        cr_body = []
+        cr_body.append('            returnValue = manually_handle_vkCmdBeginRenderPass(pPacket);')
+        return "\n".join(cr_body)
+
     def _gen_replay_begin_command_buffer(self):
         bcb_body = []
         bcb_body.append('            returnValue = manually_handle_vkBeginCommandBuffer(pPacket);')
@@ -1726,6 +1731,7 @@ class Subcommand(object):
                             'CreateGraphicsPipeline': self._gen_replay_create_graphics_pipeline,
                             'CreateFramebuffer': self._gen_replay_create_framebuffer,
                             'CreateRenderPass': self._gen_replay_create_renderpass,
+                            'CmdBeginRenderPass': self._gen_replay_cmd_begin_renderpass,
                             'BeginCommandBuffer': self._gen_replay_begin_command_buffer,
                             'StorePipeline': self._gen_replay_store_pipeline,
                             'GetMultiPhysicalDeviceCompatibility': self._gen_replay_get_multi_gpu_compatibility,

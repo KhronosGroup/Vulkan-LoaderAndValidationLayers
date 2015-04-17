@@ -105,6 +105,7 @@ private:
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkCmdPipelineBarrier(struct_vkCmdPipelineBarrier* pPacket);
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkCreateFramebuffer(struct_vkCreateFramebuffer* pPacket);
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkCreateRenderPass(struct_vkCreateRenderPass* pPacket);
+    glv_replay::GLV_REPLAY_RESULT manually_handle_vkCmdBeginRenderPass(struct_vkCmdBeginRenderPass* pPacket);
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkBeginCommandBuffer(struct_vkBeginCommandBuffer* pPacket);
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkStorePipeline(struct_vkStorePipeline* pPacket);
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkGetMultiGpuCompatibility(struct_vkGetMultiGpuCompatibility* pPacket);
