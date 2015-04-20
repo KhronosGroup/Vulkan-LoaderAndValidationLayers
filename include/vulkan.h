@@ -2279,7 +2279,6 @@ VkResult VKAPI vkDestroyDevice(
     VkDevice                                    device);
 
 // Extension discovery functions
-
 VkResult VKAPI vkGetGlobalExtensionInfo(
     VkExtensionInfoType                         infoType,
     uint32_t                                    extensionIndex,
@@ -2300,7 +2299,7 @@ VkResult VKAPI vkEnumerateLayers(
     size_t                                      maxLayerCount,
     size_t                                      maxStringSize,
     size_t*                                     pLayerCount,
-    char* const*                                pOutLayers,
+    char* const*                                pLayers,
     void*                                       pReserved);
 
 // Queue functions

@@ -238,7 +238,7 @@ class DispatchTableOpsSubcommand(Subcommand):
         stmts = []
         for proto in self.protos:
             if self.is_dispatchable_object_first_param(proto) or proto.name == "CreateInstance":
-                stmts.append("table->%s = (PFN_vk%s) gpa(physicalDevice, \"vk%s\");" %
+                stmts.append("table->%s = (PFN_vk%s) gpa(gpu, \"vk%s\");" %
                         (proto.name, proto.name, proto.name))
             else:
                 stmts.append("table->%s = vk%s; /* non-dispatchable */" %
@@ -249,7 +249,7 @@ class DispatchTableOpsSubcommand(Subcommand):
                 % self.prefix)
         func.append("%s                                              PFN_vkGetProcAddr gpa,"
                 % (" " * len(self.prefix)))
-        func.append("%s                                              VkPhysicalDevice physicalDevice)"
+        func.append("%s                                              VkPhysicalDevice gpu)"
                 % (" " * len(self.prefix)))
         func.append("{")
         func.append("    %s" % "\n    ".join(stmts))

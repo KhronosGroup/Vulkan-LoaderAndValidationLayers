@@ -1265,7 +1265,7 @@ class ObjectTrackerSubcommand(Subcommand):
             funcs.append('%s%s\n'
                      '{\n'
                      '%s'
-                     '    pCurObj = (VkBaseLayerObject *) physicalDevice;\n'
+                     '    pCurObj = (VkBaseLayerObject *) gpu;\n'
                      '    loader_platform_thread_once(&tabOnce, init%s);\n'
                      '    %snextTable.%s;\n'
                      '%s%s'

@@ -188,7 +188,6 @@ core = Extension(
         "VkPhysicalDevice",
         "VkDevice",
         "VkQueue",
-        "VkNonDispatchable",
         "VkDeviceMemory",
         "VkObject",
         "VkBuffer",
@@ -231,17 +230,17 @@ core = Extension(
              Param("VkPhysicalDevice*", "pPhysicalDevices")]),
 
         Proto("VkResult", "GetPhysicalDeviceInfo",
-            [Param("VkPhysicalDevice", "physicalDevice"),
+            [Param("VkPhysicalDevice", "gpu"),
              Param("VkPhysicalDeviceInfoType", "infoType"),
              Param("size_t*", "pDataSize"),
              Param("void*", "pData")]),
 
         Proto("void*", "GetProcAddr",
-            [Param("VkPhysicalDevice", "physicalDevice"),
+            [Param("VkPhysicalDevice", "gpu"),
              Param("const char*", "pName")]),
 
         Proto("VkResult", "CreateDevice",
-            [Param("VkPhysicalDevice", "physicalDevice"),
+            [Param("VkPhysicalDevice", "gpu"),
              Param("const VkDeviceCreateInfo*", "pCreateInfo"),
              Param("VkDevice*", "pDevice")]),
 
@@ -255,7 +254,7 @@ core = Extension(
              Param("void*", "pData")]),
 
         Proto("VkResult", "GetPhysicalDeviceExtensionInfo",
-            [Param("VkPhysicalDevice", "physicalDevice"),
+            [Param("VkPhysicalDevice", "gpu"),
              Param("VkExtensionInfoType", "infoType"),
              Param("uint32_t", "extensionIndex"),
              Param("size_t*", "pDataSize"),
@@ -316,7 +315,7 @@ core = Extension(
              Param("VkDeviceMemory", "mem"),
              Param("VkDeviceSize", "offset"),
              Param("VkDeviceSize", "size"),
-             Param("VkMemoryMapFlags", "flags"),
+             Param("VkFlags", "flags"),
              Param("void**", "ppData")]),
 
         Proto("VkResult", "UnmapMemory",
@@ -336,8 +335,8 @@ core = Extension(
              Param("VkDeviceMemory*", "pMem")]),
 
         Proto("VkResult", "GetMultiDeviceCompatibility",
-            [Param("VkPhysicalDevice", "physicalDevice0"),
-             Param("VkPhysicalDevice", "physicalDevice1"),
+            [Param("VkPhysicalDevice", "gpu0"),
+             Param("VkPhysicalDevice", "gpu1"),
              Param("VkPhysicalDeviceCompatibilityInfo*", "pInfo")]),
 
         Proto("VkResult", "OpenSharedMemory",
@@ -376,7 +375,7 @@ core = Extension(
 
         Proto("VkResult", "QueueBindObjectMemory",
             [Param("VkQueue", "queue"),
-             Param("VkObjectType", "objType"),
+             Param("VkObjectType", "objType"), 
              Param("VkObject", "object"),
              Param("uint32_t", "allocationIdx"),
              Param("VkDeviceMemory", "mem"),
@@ -384,7 +383,7 @@ core = Extension(
 
         Proto("VkResult", "QueueBindObjectMemoryRange",
             [Param("VkQueue", "queue"),
-             Param("VkObjectType", "objType"),
+             Param("VkObjectType", "objType"), 
              Param("VkObject", "object"),
              Param("uint32_t", "allocationIdx"),
              Param("VkDeviceSize", "rangeOffset"),
@@ -665,6 +664,7 @@ core = Extension(
              Param("uint32_t", "bindingCount"),
              Param("const VkBuffer*", "pBuffers"),
              Param("const VkDeviceSize*", "pOffsets")]),
+
 
         Proto("void", "CmdBindIndexBuffer",
             [Param("VkCmdBuffer", "cmdBuffer"),
@@ -1028,7 +1028,7 @@ object_dynamic_state_list = [
 
 object_type_list = object_root_list + object_base_list + object_list + object_dynamic_state_list
 
-object_parent_list = ["VkNonDispatchable", "VkObject", "VkDynamicStateObject"]
+object_parent_list = ["VkObject", "VkDynamicStateObject"]
 
 headers = []
 objects = []
