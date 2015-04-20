@@ -230,17 +230,17 @@ core = Extension(
              Param("VkPhysicalDevice*", "pPhysicalDevices")]),
 
         Proto("VkResult", "GetPhysicalDeviceInfo",
-            [Param("VkPhysicalDevice", "gpu"),
+            [Param("VkPhysicalDevice", "physicalDevice"),
              Param("VkPhysicalDeviceInfoType", "infoType"),
              Param("size_t*", "pDataSize"),
              Param("void*", "pData")]),
 
         Proto("void*", "GetProcAddr",
-            [Param("VkPhysicalDevice", "gpu"),
+            [Param("VkPhysicalDevice", "physicalDevice"),
              Param("const char*", "pName")]),
 
         Proto("VkResult", "CreateDevice",
-            [Param("VkPhysicalDevice", "gpu"),
+            [Param("VkPhysicalDevice", "physicalDevice"),
              Param("const VkDeviceCreateInfo*", "pCreateInfo"),
              Param("VkDevice*", "pDevice")]),
 
@@ -254,7 +254,7 @@ core = Extension(
              Param("void*", "pData")]),
 
         Proto("VkResult", "GetPhysicalDeviceExtensionInfo",
-            [Param("VkPhysicalDevice", "gpu"),
+            [Param("VkPhysicalDevice", "physicalDevice"),
              Param("VkExtensionInfoType", "infoType"),
              Param("uint32_t", "extensionIndex"),
              Param("size_t*", "pDataSize"),
@@ -335,8 +335,8 @@ core = Extension(
              Param("VkDeviceMemory*", "pMem")]),
 
         Proto("VkResult", "GetMultiDeviceCompatibility",
-            [Param("VkPhysicalDevice", "gpu0"),
-             Param("VkPhysicalDevice", "gpu1"),
+            [Param("VkPhysicalDevice", "physicalDevice0"),
+             Param("VkPhysicalDevice", "physicalDevice1"),
              Param("VkPhysicalDeviceCompatibilityInfo*", "pInfo")]),
 
         Proto("VkResult", "OpenSharedMemory",
