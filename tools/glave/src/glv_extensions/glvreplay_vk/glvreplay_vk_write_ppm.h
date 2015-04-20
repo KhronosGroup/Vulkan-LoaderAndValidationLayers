@@ -3,11 +3,12 @@
 
 #endif // WRITEPPM_H
 
+#include "vulkan.h"
 #include <iostream>
 #include <fstream>
 #include <string>
 
-void glvWritePPM( const char *basename, uint32_t width, uint32_t height, VkImage img, VkGpuMemory mem, vkFuncs *pVkFuncs)
+void glvWritePPM( const char *basename, uint32_t width, uint32_t height, VkDevice device, VkImage img, VkDeviceMemory mem, vkFuncs *pVkFuncs)
 {
     std::string filename;
     VkResult err;
@@ -22,14 +23,14 @@ void glvWritePPM( const char *basename, uint32_t width, uint32_t height, VkImage
     VkSubresourceLayout sr_layout;
     size_t data_size = sizeof(sr_layout);
 
-    err =  pVkFuncs->real_vkGetImageSubresourceInfo( img, &sr,
-                                      VK_INFO_TYPE_SUBRESOURCE_LAYOUT,
+    err =  pVkFuncs->real_vkGetImageSubresourceInfo( device, img, &sr,
+                                      VK_SUBRESOURCE_INFO_TYPE_LAYOUT,
                                       &data_size, &sr_layout);
     assert(!err);
 
     const char *ptr;
 
-    err = pVkFuncs->real_vkMapMemory( mem, 0, (void **) &ptr );
+    err = pVkFuncs->real_vkMapMemory(device, mem, 0, (void **) &ptr );
     assert(!err);
 
     ptr += sr_layout.offset;
@@ -56,6 +57,6 @@ void glvWritePPM( const char *basename, uint32_t width, uint32_t height, VkImage
 
     file.close();
 
-    err = pVkFuncs->real_vkUnmapMemory( mem );
+    err = pVkFuncs->real_vkUnmapMemory(device, mem );
     assert(!err);
 }
