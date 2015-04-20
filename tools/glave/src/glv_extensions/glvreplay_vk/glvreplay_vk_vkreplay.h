@@ -88,7 +88,7 @@ private:
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkCreateDevice(struct_vkCreateDevice* pPacket);
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkEnumeratePhysicalDevices(struct_vkEnumeratePhysicalDevices* pPacket);
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkGetPhysicalDeviceInfo(struct_vkGetPhysicalDeviceInfo* pPacket);
-    glv_replay::GLV_REPLAY_RESULT manually_handle_vkGetExtensionSupport(struct_vkGetExtensionSupport* pPacket);
+    glv_replay::GLV_REPLAY_RESULT manually_handle_vkGetPhysicalDeviceExtensionInfo(struct_vkGetPhysicalDeviceExtensionInfo* pPacket);
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkQueueSubmit(struct_vkQueueSubmit* pPacket);
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkGetObjectInfo(struct_vkGetObjectInfo* pPacket);
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkGetFormatInfo(struct_vkGetFormatInfo* pPacket);

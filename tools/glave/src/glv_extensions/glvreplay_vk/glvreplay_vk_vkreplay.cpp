@@ -392,13 +392,13 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkGetGpuInfo(struct_vkGe
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkGetExtensionSupport(struct_vkGetExtensionSupport* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkGetPhysicalDeviceExtensionInfo(struct_vkGetPhysicalDeviceExtensionInfo* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
     if (!m_display->m_initedVK) {
-        replayResult = m_vkFuncs.real_vkGetExtensionSupport(m_objMapper.remap(pPacket->gpu), pPacket->pExtName);
-        CHECK_RETURN_VALUE(vkGetExtensionSupport);
+        replayResult = m_vkFuncs.real_vkGetPhysicalDeviceExtensionInfo(m_objMapper.remap(pPacket->physicalDevice), pPacket->pExtName);
+        CHECK_RETURN_VALUE(vkGetPhysicalDeviceExtensionInfo);
         if (replayResult == VK_SUCCESS) {
             for (unsigned int ext = 0; ext < sizeof(g_extensions) / sizeof(g_extensions[0]); ext++)
             {

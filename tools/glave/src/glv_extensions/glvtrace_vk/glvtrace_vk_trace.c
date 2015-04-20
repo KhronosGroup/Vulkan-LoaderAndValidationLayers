@@ -79,7 +79,7 @@ GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkEnumerateLayers(
     VkPhysicalDevice gpu,
     size_t maxLayerCount,
     size_t maxStringSize,
-    size_t* pOutLayerCount,
+    size_t* pLayerCount,
     char* const* pOutLayers,
     void* pReserved)
 {
@@ -89,10 +89,10 @@ GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkEnumerateLayers(
     uint64_t startTime;
     SEND_ENTRYPOINT_ID(vkEnumerateLayers);
     startTime = glv_get_time();
-    result = real_vkEnumerateLayers(gpu, maxLayerCount, maxStringSize, pOutLayerCount, pOutLayers, pReserved);
+    result = real_vkEnumerateLayers(gpu, maxLayerCount, maxStringSize, pLayerCount, pOutLayers, pReserved);
     size_t totStringSize = 0;
     uint32_t i = 0;
-    for (i = 0; i < *pOutLayerCount; i++) {
+    for (i = 0; i < *pLayerCount; i++) {
         totStringSize += (pOutLayers[i] != NULL) ? strlen(pOutLayers[i]) + 1: 0;
     }
     CREATE_TRACE_PACKET(vkEnumerateLayers, totStringSize + sizeof(size_t));
@@ -101,9 +101,9 @@ GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkEnumerateLayers(
     pPacket->physicalDevice = gpu;
     pPacket->maxStringSize = maxStringSize;
     pPacket->pReserved = pReserved;
-    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pOutLayerCount), sizeof(size_t), pOutLayerCount);
-    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pOutLayerCount));
-    for (i = 0; i < *pOutLayerCount; i++) {
+    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pLayerCount), sizeof(size_t), pLayerCount);
+    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pLayerCount));
+    for (i = 0; i < *pLayerCount; i++) {
         glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pOutLayers[i]), ((pOutLayers[i] != NULL) ? strlen(pOutLayers[i]) + 1 : 0), pOutLayers[i]);
         glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pOutLayers[i]));
     }
