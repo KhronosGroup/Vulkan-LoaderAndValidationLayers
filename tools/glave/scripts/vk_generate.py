@@ -137,7 +137,7 @@ class Subcommand(object):
         func_ptrs.append('#ifdef WIN32')
         func_ptrs.append('extern INIT_ONCE gInitOnce;')
         for proto in self.protos:
-            if True not in [skip_str in proto.name for skip_str in ['Dbg', 'WSI']]: #Dbg' not in proto.name and 'Wsi' not in proto.name:
+            if True not in [skip_str in proto.name for skip_str in ['Dbg', 'WSI']]: #Dbg' not in proto.name and 'WSI' not in proto.name:
                 func_ptrs.append('#define __HOOKED_vk%s hooked_vk%s' % (proto.name, proto.name))
 
         func_ptrs.append('\n#elif defined(PLATFORM_LINUX)')
@@ -246,8 +246,8 @@ class Subcommand(object):
         return "\n".join(hooks_txt)
 
     def _generate_attach_hooks_ext(self, func_class='WSI'):
-        func_ext_dict = {'WSI': '_vkwsilunarg', 'Dbg': '_vkdbg'}
-        first_proto_dict = {'WSI': 'WsiX11AssociateConnection', 'Dbg': 'DbgSetValidationLevel'}
+        func_ext_dict = {'WSI': '_vk_wsi_lunarg', 'Dbg': '_vkdbg'}
+        first_proto_dict = {'WSI': 'GetDisplayInfoWSI', 'Dbg': 'DbgSetValidationLevel'}
         hooks_txt = []
         hooks_txt.append('void AttachHooks%s()\n{\n    BOOL hookSuccess = TRUE;\n#if defined(WIN32)' % func_ext_dict[func_class])
         hooks_txt.append('    Mhook_BeginMultiOperation(FALSE);')
@@ -289,8 +289,8 @@ class Subcommand(object):
         return "\n".join(hooks_txt)
 
     def _generate_detach_hooks_ext(self, func_class='WSI'):
-        func_ext_dict = {'WSI': '_vkwsiluanrg', 'Dbg': '_vkdbg'}
-        first_proto_dict = {'WSI': 'WsiX11AssociateConnection', 'Dbg': 'DbgSetValidationLevel'}
+        func_ext_dict = {'WSI': '_vk_wsi_lunarg', 'Dbg': '_vkdbg'}
+        first_proto_dict = {'WSI': 'GetDisplayInfoWSI', 'Dbg': 'DbgSetValidationLevel'}
         hooks_txt = []
         hooks_txt.append('void DetachHooks%s()\n{\n#ifdef WIN32' % func_ext_dict[func_class])
         hooks_txt.append('    BOOL unhookSuccess = TRUE;\n    if (real_vk%s != NULL)\n    {' % first_proto_dict[func_class])
@@ -572,8 +572,6 @@ class Subcommand(object):
                         elif 'Size' not in packet_size:
                             packet_size += 'sizeof(%s) + ' % p.ty.strip('*').replace('const ', '')
                         buff_ptr_indices.append(proto.params.index(p))
-                        if 'pConnectionInfo' in p.name:
-                            packet_size += '((pConnectionInfo->pConnection != NULL) ? sizeof(void *) : 0)'
                     else:
                         packet_update_txt += '    pPacket->%s = %s;\n' % (p.name, p.name)
                 if '' == packet_size:
@@ -605,11 +603,6 @@ class Subcommand(object):
                         func_body.append('    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->%s), sizeof(%s), %s);' % (proto.params[idx].name, 'char', proto.params[idx].name))
                     else:
                         func_body.append('    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->%s), sizeof(%s), %s);' % (proto.params[idx].name, proto.params[idx].ty.strip('*').replace('const ', ''), proto.params[idx].name))
-                if 'WsiX11AssociateConnection' in proto.name:
-                    func_body.append('    if (pConnectionInfo->pConnection != NULL) {')
-                    func_body.append('        glv_add_buffer_to_trace_packet(pHeader, (void**) &(pPacket->pConnectionInfo->pConnection), sizeof(void *), pConnectionInfo->pConnection);')
-                    func_body.append('        glv_finalize_buffer_address(pHeader, (void**) &(pPacket->pConnectionInfo->pConnection));')
-                    func_body.append('    }')
                 if 'void' not in proto.ret or '*' in proto.ret:
                     func_body.append('    pPacket->result = result;')
                 for idx in buff_ptr_indices:
@@ -1372,6 +1365,7 @@ class Subcommand(object):
         rc_body.append('     VkDeviceMemory replayGpuMem;')
         rc_body.append(' } gpuMemObj;')
         rc_body.append('')
+        rc_body.append('')
         rc_body.append('class vkReplayObjMapper {')
         rc_body.append('public:')
         rc_body.append('    vkReplayObjMapper() {}')
@@ -1647,26 +1641,6 @@ class Subcommand(object):
         wf_body.append('            returnValue = manually_handle_vkWaitForFences(pPacket);')
         return "\n".join(wf_body)
 
-    def _gen_replay_wsi_associate_connection(self):
-        wac_body = []
-        wac_body.append('            returnValue = manually_handle_vkWsiX11AssociateConnection(pPacket);')
-        return "\n".join(wac_body)
-
-    def _gen_replay_wsi_get_msc(self):
-        wgm_body = []
-        wgm_body.append('            returnValue = manually_handle_vkWsiX11GetMSC(pPacket);')
-        return "\n".join(wgm_body)
-
-    def _gen_replay_wsi_create_presentable_image(self):
-        cpi_body = []
-        cpi_body.append('            returnValue = manually_handle_vkWsiX11CreatePresentableImage(pPacket);')
-        return "\n".join(cpi_body)
-
-    def _gen_replay_wsi_queue_present(self):
-        wqp_body = []
-        wqp_body.append('            returnValue = manually_handle_vkWsiX11QueuePresent(pPacket);')
-        return "\n".join(wqp_body)
-
     def _gen_replay_alloc_memory(self):
         am_body = []
         am_body.append('            gpuMemObj local_mem;')
@@ -1737,10 +1711,7 @@ class Subcommand(object):
                             'GetMultiPhysicalDeviceCompatibility': self._gen_replay_get_multi_gpu_compatibility,
                             'DestroyObject': self._gen_replay_destroy_object,
                             'WaitForFences': self._gen_replay_wait_for_fences,
-                            'WsiX11AssociateConnection': self._gen_replay_wsi_associate_connection,
-                            'WsiX11GetMSC': self._gen_replay_wsi_get_msc,
-                            'WsiX11CreatePresentableImage': self._gen_replay_wsi_create_presentable_image,
-                            'WsiX11QueuePresent': self._gen_replay_wsi_queue_present,
+# todo any custom code for WSI lunarg ext
                             'AllocMemory': self._gen_replay_alloc_memory,
                             'FreeMemory': self._gen_replay_free_memory,
                             'MapMemory': self._gen_replay_map_memory,
@@ -1756,8 +1727,7 @@ class Subcommand(object):
         custom_check_ret_val = ['CreateInstance', 'EnumeratePhysicalDevices', 'GetPhysicalDeviceInfo', 'CreateDevice', 'GetExtensionSupport', 'QueueSubmit', 'GetObjectInfo',
                                 'GetFormatInfo', 'GetImageSubresourceInfo', 'CreateDescriptorSetLayout', 'CreateGraphicsPipeline',
                                 'CreateFramebuffer', 'CreateRenderPass', 'BeginCommandBuffer', 'StorePipeline', 'GetMultiDeviceCompatibility',
-                                'DestroyObject', 'WaitForFences', 'FreeMemory', 'MapMemory', 'UnmapMemory',
-                                'WsiX11AssociateConnection', 'WsiX11GetMSC', 'WsiX11CreatePresentableImage', 'WsiX11QueuePresent']
+                                'DestroyObject', 'WaitForFences', 'FreeMemory', 'MapMemory', 'UnmapMemory']
         # multi-gpu Open funcs w/ list of local params to create
         custom_open_params = {'OpenSharedMemory': (-1,),
                               'OpenSharedSemaphore': (-1,),
@@ -1981,7 +1951,7 @@ class GlaveTraceC(Subcommand):
         header_txt.append('#include "glvtrace_vk_helpers.h"')
         header_txt.append('#include "glvtrace_vk_vk.h"')
         header_txt.append('#include "glvtrace_vk_vkdbg.h"')
-        header_txt.append('#include "glvtrace_vk_vkwsilunarg.h"')
+        header_txt.append('#include "glvtrace_vk_vk_wsi_lunarg.h"')
         header_txt.append('#include "glv_interconnect.h"')
         header_txt.append('#include "glv_filelike.h"')
         header_txt.append('#include "vk_struct_size_helper.h"')
@@ -1989,7 +1959,8 @@ class GlaveTraceC(Subcommand):
         header_txt.append('#include "mhook/mhook-lib/mhook.h"')
         header_txt.append('#endif')
         header_txt.append('#include "glv_trace_packet_utils.h"')
-        header_txt.append('#include <stdio.h>\n')
+        header_txt.append('#include <stdio.h>')
+        header_txt.append('#include <pthread.h>\n')
         return "\n".join(header_txt)
 
     def generate_body(self):
@@ -2010,8 +1981,9 @@ class GlavePacketID(Subcommand):
         header_txt.append('#include "glv_interconnect.h"')
         header_txt.append('#include "glv_vk_vk_structs.h"')
         header_txt.append('#include "glv_vk_vkdbg_structs.h"')
-        header_txt.append('#include "glv_vk_vkwsilunarg_structs.h"')
+        header_txt.append('#include "glv_vk_vk_wsi_lunarg_structs.h"')
         header_txt.append('#include "vk_enum_string_helper.h"')
+        header_txt.append('#include "vk_wsi_lunarg_enum_string_helper.h"')
         header_txt.append('#if defined(WIN32)')
         header_txt.append('#define snprintf _snprintf')
         header_txt.append('#endif')
@@ -2053,13 +2025,9 @@ class GlaveWsiHeader(Subcommand):
         header_txt = []
         header_txt.append('#pragma once\n')
         header_txt.append('#include "vulkan.h"')
-        header_txt.append('#if defined(PLATFORM_LINUX) || defined(XCB_NVIDIA)')
-        header_txt.append('#include "vk_wsi_lunarg.h"\n')
-        header_txt.append('#else')
-        header_txt.append('#include "vkWsiWinExt.h"')
-        header_txt.append('#endif')
-        header_txt.append('void AttachHooks_vkwsilunarg();')
-        header_txt.append('void DetachHooks_vkwsilunarg();')
+        header_txt.append('#include "vk_wsi_lunarg.h"')
+        header_txt.append('void AttachHooks_vk_wsi_lunarg();')
+        header_txt.append('void DetachHooks_vk_wsi_lunarg();')
         return "\n".join(header_txt)
 
     def generate_body(self):
@@ -2073,8 +2041,8 @@ class GlaveWsiC(Subcommand):
         header_txt = []
         header_txt.append('#include "glv_platform.h"')
         header_txt.append('#include "glv_common.h"')
-        header_txt.append('#include "glvtrace_vk_vkwsilunarg.h"')
-        header_txt.append('#include "glv_vk_vkwsilunarg_structs.h"')
+        header_txt.append('#include "glvtrace_vk_vk_wsi_lunarg.h"')
+        header_txt.append('#include "glv_vk_vk_wsi_lunarg_structs.h"')
         header_txt.append('#include "glv_vk_packet_id.h"')
         header_txt.append('#ifdef WIN32')
         header_txt.append('#include "mhook/mhook-lib/mhook.h"')
@@ -2093,11 +2061,7 @@ class GlaveWsiStructs(Subcommand):
     def generate_header(self):
         header_txt = []
         header_txt.append('#pragma once\n')
-        header_txt.append('#if defined(PLATFORM_LINUX) || defined(XCB_NVIDIA)')
         header_txt.append('#include "vk_wsi_lunarg.h"')
-        header_txt.append('#else')
-        header_txt.append('#include "vkWsiWinExt.h"')
-        header_txt.append('#endif')
         header_txt.append('#include "glv_trace_packet_utils.h"\n')
         return "\n".join(header_txt)
 
@@ -2166,11 +2130,7 @@ class GlaveReplayVkFuncPtrs(Subcommand):
         header_txt.append('#endif')
         header_txt.append('#include "vulkan.h"')
         header_txt.append('#include "vkDbg.h"')
-        header_txt.append('#if defined(PLATFORM_LINUX) || defined(XCB_NVIDIA)')
         header_txt.append('#include "vk_wsi_lunarg.h"')
-        header_txt.append('#else')
-        header_txt.append('#include "vkWsiWinExt.h"')
-        header_txt.append('#endif')
 
     def generate_body(self):
         body = [self._generate_replay_func_ptrs()]
@@ -2186,11 +2146,7 @@ class GlaveReplayObjMapperHeader(Subcommand):
         header_txt.append('#include <string>')
         header_txt.append('#include "vulkan.h"')
         header_txt.append('#include "vkDbg.h"')
-        header_txt.append('#if defined(PLATFORM_LINUX) || defined(XCB_NVIDIA)')
         header_txt.append('#include "vk_wsi_lunarg.h"')
-        header_txt.append('#else')
-        header_txt.append('#include "vkWsiWinExt.h"')
-        header_txt.append('#endif')
         return "\n".join(header_txt)
 
     def generate_body(self):
@@ -2209,7 +2165,7 @@ class GlaveReplayC(Subcommand):
         header_txt.append('extern "C" {')
         header_txt.append('#include "glv_vk_vk_structs.h"')
         header_txt.append('#include "glv_vk_vkdbg_structs.h"')
-        header_txt.append('#include "glv_vk_vkwsilunarg_structs.h"')
+        header_txt.append('#include "glv_vk_vk_wsi_lunarg_structs.h"')
         header_txt.append('#include "glv_vk_packet_id.h"')
         header_txt.append('#include "vk_enum_string_helper.h"\n}\n')
         header_txt.append('#define APP_NAME "glvreplay_vk"')

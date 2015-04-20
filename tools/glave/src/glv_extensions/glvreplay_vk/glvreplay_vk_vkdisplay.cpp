@@ -31,9 +31,7 @@ vkDisplay::vkDisplay()
     m_windowHeight(0)
 {
 #if defined(PLATFORM_LINUX) || defined(XCB_NVIDIA)
-    m_WsiConnection.pConnection = NULL;
-    m_WsiConnection.root = 0;
-    m_WsiConnection.provider = 0;
+    m_pXcbConnection = NULL;
     m_pXcbScreen = NULL;
     m_XcbWindow = 0;
 #elif defined(WIN32)
@@ -46,11 +44,11 @@ vkDisplay::~vkDisplay()
 #if defined(PLATFORM_LINUX) || defined(XCB_NVIDIA)
     if (m_XcbWindow != 0)
     {
-        xcb_destroy_window(m_WsiConnection.pConnection, m_XcbWindow);
+        xcb_destroy_window(m_pXcbConnection, m_XcbWindow);
     }
-    if (m_WsiConnection.pConnection != NULL)
+    if (m_pXcbConnection != NULL)
     {
-        xcb_disconnect(m_WsiConnection.pConnection);
+        xcb_disconnect(m_pXcbConnection);
     }
 #endif
 }
@@ -139,15 +137,12 @@ int vkDisplay::init(const unsigned int gpu_idx)
     const xcb_setup_t *setup;
     xcb_screen_iterator_t iter;
     int scr;
-    xcb_connection_t *pConnection;
-    pConnection = xcb_connect(NULL, &scr);
-    setup = xcb_get_setup(pConnection);
+    m_pXcbConnection = xcb_connect(NULL, &scr);
+    setup = xcb_get_setup(m_pXcbConnection);
     iter = xcb_setup_roots_iterator(setup);
     while (scr-- > 0)
         xcb_screen_next(&iter);
     m_pXcbScreen = iter.data;
-    m_WsiConnection.pConnection = pConnection;
-    m_WsiConnection.root = m_pXcbScreen->root;
 #endif
     return 0;
 }
@@ -186,23 +181,23 @@ int vkDisplay::create_window(const unsigned int width, const unsigned int height
 #if defined(PLATFORM_LINUX) || defined(XCB_NVIDIA)
 
     uint32_t value_mask, value_list[32];
-    m_XcbWindow = xcb_generate_id(m_WsiConnection.pConnection);
+    m_XcbWindow = xcb_generate_id(m_pXcbConnection);
 
     value_mask = XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK;
     value_list[0] = m_pXcbScreen->black_pixel;
     value_list[1] = XCB_EVENT_MASK_KEY_RELEASE |
                     XCB_EVENT_MASK_EXPOSURE;
 
-    xcb_create_window(m_WsiConnection.pConnection,
+    xcb_create_window(m_pXcbConnection,
             XCB_COPY_FROM_PARENT,
-            m_XcbWindow, m_WsiConnection.root,
+            m_XcbWindow, m_pXcbScreen->root,
             0, 0, width, height, 0,
             XCB_WINDOW_CLASS_INPUT_OUTPUT,
             m_pXcbScreen->root_visual,
             value_mask, value_list);
 
-    xcb_map_window(m_WsiConnection.pConnection, m_XcbWindow);
-    xcb_flush(m_WsiConnection.pConnection);
+    xcb_map_window(m_pXcbConnection, m_XcbWindow);
+    xcb_flush(m_pXcbConnection);
     return 0;
 #elif defined(WIN32)
     // Register Window class
@@ -250,7 +245,7 @@ void vkDisplay::resize_window(const unsigned int width, const unsigned int heigh
         uint32_t values[2];
         values[0] = width;
         values[1] = height;
-        xcb_configure_window(m_WsiConnection.pConnection, m_XcbWindow, XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT, values);
+        xcb_configure_window(m_pXcbConnection, m_XcbWindow, XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT, values);
         m_windowWidth = width;
         m_windowHeight = height;
     }

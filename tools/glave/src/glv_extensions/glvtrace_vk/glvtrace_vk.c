@@ -31,7 +31,7 @@
 #include "glv_interconnect.h"
 #include "glvtrace_vk_vk.h"
 #include "glvtrace_vk_vkdbg.h"
-#include "glvtrace_vk_vkwsilunarg.h"
+#include "glvtrace_vk_vk_wsi_lunarg.h"
 
 // this is needed to be loaded by glvtrace
 GLVTRACER_EXPORT GLV_TRACER_ID GLVTRACER_CDECL GLV_GetTracerId(void)
@@ -74,7 +74,7 @@ GLVTRACER_ENTRY _Load(void)
 #ifndef PLATFORM_LINUX
         AttachHooks();
         AttachHooks_vkdbg();
-        AttachHooks_vkwsix11ext();
+        AttachHooks_vk_wsi_lunarg();
 #else
         struct sigaction act;
         memset(&act, 0 , sizeof(act));
@@ -95,7 +95,7 @@ GLVTRACER_LEAVE _Unload(void)
         glv_LogInfo("glvtrace_vk library unloaded from PID %d\n", glv_get_pid());
         DetachHooks();
         DetachHooks_vkdbg();
-        DetachHooks_vkwsix11ext();
+        DetachHooks_vk_wsi_lunarg();
         if (glv_trace_get_trace_file() != NULL) {
             glv_trace_packet_header* pHeader = glv_create_trace_packet(GLV_GetTracerId(), GLV_TPI_MARKER_TERMINATE_PROCESS, 0, 0);
             glv_finalize_trace_packet(pHeader);

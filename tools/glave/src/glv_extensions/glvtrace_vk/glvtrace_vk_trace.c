@@ -29,7 +29,7 @@
 #include "glvtrace_vk_helpers.h"
 #include "glvtrace_vk_vk.h"
 #include "glvtrace_vk_vkdbg.h"
-#include "glvtrace_vk_vkwsilunarg.h"
+#include "glvtrace_vk_vk_wsi_lunarg.h"
 #include "glv_interconnect.h"
 #include "glv_filelike.h"
 #ifdef WIN32
@@ -63,7 +63,7 @@ GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkCreateInstance(
     if (isHooked == FALSE) {
         AttachHooks();
         AttachHooks_vkdbg();
-        AttachHooks_vkwsix11ext();
+        AttachHooks_vk_wsi_lunarg();
     }
     pPacket = interpret_body_as_vkCreateInstance(pHeader);
 

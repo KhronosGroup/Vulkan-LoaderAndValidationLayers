@@ -47,7 +47,7 @@ private:
     VkResult init_vk(const unsigned int gpu_idx);
     bool m_initedVK;
 #if defined(PLATFORM_LINUX) || defined(XCB_NVIDIA)
-    VK_WSI_X11_CONNECTION_INFO m_WsiConnection;
+    xcb_connection_t *m_pXcbConnection;
     xcb_screen_t *m_pXcbScreen;
     xcb_window_t m_XcbWindow;
 #elif defined(WIN32)

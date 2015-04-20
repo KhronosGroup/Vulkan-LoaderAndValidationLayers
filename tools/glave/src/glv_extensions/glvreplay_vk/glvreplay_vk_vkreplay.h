@@ -38,16 +38,12 @@
 
 extern "C" {
 #include "glv_vk_vk_structs.h"
-#include "glv_vk_vkwsix11ext_structs.h"
+#include "glv_vk_vk_wsi_lunarg_structs.h"
 }
 
 #include "vulkan.h"
 #include "vkDbg.h"
-#if defined(PLATFORM_LINUX) || defined(XCB_NVIDIA)
-#include "vkWsiX11Ext.h"
-#else
-#include "vkWsiWinExt.h"
-#endif
+#include "vk_wsi_lunarg.h"
 #include "glave_snapshot.h"
 #include "glvreplay_vk_vkdisplay.h"
 #include "glvreplay_vk_func_ptrs.h"
@@ -114,10 +110,6 @@ private:
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkFreeMemory(struct_vkFreeMemory* pPacket);
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkMapMemory(struct_vkMapMemory* pPacket);
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkUnmapMemory(struct_vkUnmapMemory* pPacket);
-    glv_replay::GLV_REPLAY_RESULT manually_handle_vkWsiX11AssociateConnection(struct_vkWsiX11AssociateConnection* pPacket);
-    glv_replay::GLV_REPLAY_RESULT manually_handle_vkWsiX11GetMSC(struct_vkWsiX11GetMSC* pPacket);
-    glv_replay::GLV_REPLAY_RESULT manually_handle_vkWsiX11CreatePresentableImage(struct_vkWsiX11CreatePresentableImage* pPacket);
-    glv_replay::GLV_REPLAY_RESULT manually_handle_vkWsiX11QueuePresent(struct_vkWsiX11QueuePresent* pPacket);
 
     void process_screenshot_list(const char *list)
     {

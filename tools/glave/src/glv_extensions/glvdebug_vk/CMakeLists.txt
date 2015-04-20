@@ -22,14 +22,16 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/codegen)
 
 add_custom_command(OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/codegen/glv_vk_packet_id.h
                           ${CMAKE_CURRENT_SOURCE_DIR}/codegen/glv_vk_vk_structs.h
-                          ${CMAKE_CURRENT_SOURCE_DIR}/codegen/glv_vk_vkwsilunarg_structs.h
+                          ${CMAKE_CURRENT_SOURCE_DIR}/codegen/glv_vk_vk_wsi_lunarg_structs.h
                           ${CMAKE_CURRENT_SOURCE_DIR}/codegen/glv_vk_vkdbg_structs.h
                           ${CMAKE_CURRENT_SOURCE_DIR}/codegen/vk_enum_string_helper.h
+                          ${CMAKE_CURRENT_SOURCE_DIR}/codegen/vk_wsi_lunarg_enum_string_helper.h
         COMMAND ${PYTHON_CMD} ${SRC_DIR}/../scripts/vk_generate.py glave-packet-id > glv_vk_packet_id.h
         COMMAND ${PYTHON_CMD} ${SRC_DIR}/../scripts/vk_generate.py glave-core-structs > glv_vk_vk_structs.h
-        COMMAND ${PYTHON_CMD} ${SRC_DIR}/../scripts/vk_generate.py glave-wsi-trace-structs > glv_vk_vkwsilunarg_structs.h
+        COMMAND ${PYTHON_CMD} ${SRC_DIR}/../scripts/vk_generate.py glave-wsi-trace-structs > glv_vk_vk_wsi_lunarg_structs.h
         COMMAND ${PYTHON_CMD} ${SRC_DIR}/../scripts/vk_generate.py glave-dbg-trace-structs > glv_vk_vkdbg_structs.h
         COMMAND ${PYTHON_CMD} ${SRC_DIR}/../../../vk_helper.py --gen_enum_string_helper ${SRC_DIR}/../../../include/vulkan.h --abs_out_dir ${CMAKE_CURRENT_SOURCE_DIR}/codegen
+        COMMAND ${PYTHON_CMD} ${SRC_DIR}/../../../vk_helper.py --gen_enum_string_helper ${SRC_DIR}/../../../include/vk_wsi_lunarg.h --abs_out_dir ${CMAKE_CURRENT_SOURCE_DIR}/codegen
                    DEPENDS ${SRC_DIR}/../scripts/vk_generate.py
                            ${SRC_DIR}/../../../vk_helper.py
                    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/codegen)
@@ -77,7 +79,7 @@ set(HDR_LIST
     glvdebug_vk_qgroupframesproxymodel.h
     codegen/glv_vk_packet_id.h
     codegen/glv_vk_vk_structs.h
-    codegen/glv_vk_vkwsilunarg_structs.h
+    codegen/glv_vk_vk_wsi_lunarg_structs.h
     codegen/glv_vk_vkdbg_structs.h
     ${SRC_DIR}/glvdebug/glvdebug_qgroupthreadsproxymodel.h
     ${SRC_DIR}/glvdebug/glvdebug_controller.h
