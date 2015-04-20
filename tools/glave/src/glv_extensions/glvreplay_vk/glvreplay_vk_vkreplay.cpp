@@ -853,6 +853,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCmdWaitEvents(struct_v
             pNextBuf->buffer = m_objMapper.remap(pNextBuf->buffer);
         } else if (pNext->sType == VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER) {
             VkImageMemoryBarrier *pNextImg = (VkImageMemoryBarrier *) pPacket->ppMemBarriers[idx];
+            assert(numRemapImg < 100);
             saveImg[numRemapImg++] = pNextImg->image;
             pNextImg->image = m_objMapper.remap(pNextImg->image);
         }
@@ -881,36 +882,38 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCmdWaitEvents(struct_v
 glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCmdPipelineBarrier(struct_vkCmdPipelineBarrier* pPacket)
 {
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
-    uint32_t idx, numRemapBuf=0, numRemapImg=0;
-    VkBuffer saveBuf[100];
-    VkImage saveImg[100];
-    for (idx = 0; idx < pPacket->pBarrier->memBarrierCount; idx++)
+    uint32_t idx = 0;
+    uint32_t numRemapBuf = 0;
+    uint32_t numRemapImg = 0;
+    VkBuffer* saveBuf = GLV_NEW_ARRAY(VkBuffer, pPacket->memBarrierCount);
+    VkImage* saveImg = GLV_NEW_ARRAY(VkImage, pPacket->memBarrierCount);
+    for (idx = 0; idx < pPacket->memBarrierCount; idx++)
     {
-        VkMemoryBarrier *pNext = (VkMemoryBarrier *) pPacket->pBarrier->ppMemBarriers[idx];
+        VkMemoryBarrier *pNext = (VkMemoryBarrier *) pPacket->ppMemBarriers[idx];
         assert(pNext);
         if (pNext->sType == VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER) {
-            VkBufferMemoryBarrier *pNextBuf = (VkBufferMemoryBarrier *) pPacket->pBarrier->ppMemBarriers[idx];
-            assert(numRemapBuf < 100);
+            VkBufferMemoryBarrier *pNextBuf = (VkBufferMemoryBarrier *) pPacket->ppMemBarriers[idx];
             saveBuf[numRemapBuf++] = pNextBuf->buffer;
             pNextBuf->buffer = m_objMapper.remap(pNextBuf->buffer);
         } else if (pNext->sType == VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER) {
-            VkImageMemoryBarrier *pNextImg = (VkImageMemoryBarrier *) pPacket->pBarrier->ppMemBarriers[idx];
-            assert(numRemapImg < 100);
+            VkImageMemoryBarrier *pNextImg = (VkImageMemoryBarrier *) pPacket->ppMemBarriers[idx];
             saveImg[numRemapImg++] = pNextImg->image;
             pNextImg->image = m_objMapper.remap(pNextImg->image);
         }
     }
-    m_vkFuncs.real_vkCmdPipelineBarrier(m_objMapper.remap(pPacket->cmdBuffer), pPacket->pBarrier);
-    for (idx = 0; idx < pPacket->pBarrier->memBarrierCount; idx++) {
-        VkMemoryBarrier *pNext = (VkMemoryBarrier *) pPacket->pBarrier->ppMemBarriers[idx];
+    m_vkFuncs.real_vkCmdPipelineBarrier(m_objMapper.remap(pPacket->cmdBuffer), pPacket->waitEvent, pPacket->pipeEventCount, pPacket->pPipeEvents, pPacket->memBarrierCount, pPacket->ppMemBarriers);
+    for (idx = 0; idx < pPacket->memBarrierCount; idx++) {
+        VkMemoryBarrier *pNext = (VkMemoryBarrier *) pPacket->ppMemBarriers[idx];
         if (pNext->sType == VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER) {
-            VkBufferMemoryBarrier *pNextBuf = (VkBufferMemoryBarrier *) pPacket->pBarrier->ppMemBarriers[idx];
+            VkBufferMemoryBarrier *pNextBuf = (VkBufferMemoryBarrier *) pPacket->ppMemBarriers[idx];
             pNextBuf->buffer = saveBuf[idx];
         } else if (pNext->sType == VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER) {
-            VkImageMemoryBarrier *pNextImg = (VkImageMemoryBarrier *) pPacket->pBarrier->ppMemBarriers[idx];
+            VkImageMemoryBarrier *pNextImg = (VkImageMemoryBarrier *) pPacket->ppMemBarriers[idx];
             pNextImg->image = saveImg[idx];
         }
     }
+    GLV_DELETE(saveBuf);
+    GLV_DELETE(saveImg);
     return returnValue;
 }
 

@@ -1820,10 +1820,9 @@ class Subcommand(object):
                 elif proto.name in do_while_dict:
                     rbody.append('            do {')
                 elif proto.name == 'EnumerateLayers':
-                    rbody.append('            char **bufptr = GLV_NEW_ARRAY(char *, pPacket->maxLayerCount);')
+                    rbody.append('            size_t local_layerCount = *pPacket->pOutLayerCount;')
+                    rbody.append('            char** bufptr = GLV_NEW_ARRAY(char *, local_layerCount);')
                     rbody.append('            char **ptrLayers = (pPacket->pOutLayers == NULL) ? bufptr : (char **) pPacket->pOutLayers;')
-                    rbody.append('            for (unsigned int i = 0; i < pPacket->maxLayerCount; i++)')
-                    rbody.append('                bufptr[i] = GLV_NEW_ARRAY(char, pPacket->maxStringSize);')
                 elif proto.name == 'DestroyInstance':
                     rbody.append('            vkDbgUnregisterMsgCallback(m_objMapper.remap(pPacket->instance), g_fpDbgMsgCallback);')
                 rr_string = '            '
@@ -1858,6 +1857,7 @@ class Subcommand(object):
                     create_func = True
                 elif proto.name == 'EnumerateLayers':
                     rr_string = rr_string.replace('pPacket->pOutLayers', 'ptrLayers')
+                    rr_string = rr_string.replace('pPacket->pOutLayerCount', '&local_layerCount')
                 elif proto.name == 'ClearDescriptorSets':
                     rr_string = rr_string.replace('pPacket->pDescriptorSets', 'localDescSets')
                 elif proto.name == 'CreateDescriptorSetLayoutChain':
@@ -1902,6 +1902,8 @@ class Subcommand(object):
                     rbody.append('            }')
                 elif proto.name == 'ResetFences':
                     rbody.append('            GLV_DELETE(fences);')
+                elif proto.name == 'EnumerateLayers':
+                    rbody.append('            GLV_DELETE(bufptr);')
                 elif create_func: # save handle mapping if create successful
                     rbody.append('            if (replayResult == VK_SUCCESS)')
                     rbody.append('            {')
