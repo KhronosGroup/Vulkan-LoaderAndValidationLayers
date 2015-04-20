@@ -1465,6 +1465,12 @@ class Subcommand(object):
         # OBJECT code
         rc_body.append('    VkObject remap(const VkObject& object)\n    {')
         rc_body.append('        VkObject obj;')
+        # remaps objects that previously inherited from VkBaseObject
+        base_obj_remap_types = ['VkDevice', 'VkQueue', 'VkDeviceMemory']
+        for t in base_obj_remap_types:
+            rc_body.append('        if ((obj = remap(static_cast <%s> (object))) != VK_NULL_HANDLE)' % t)
+            rc_body.append('            return obj;')
+        # remaps objects that inherited from VkObject
         obj_remap_types = vulkan.object_list
         for var in obj_remap_types:
             rc_body.append('        if ((obj = remap(static_cast <%s> (object))) != VK_NULL_HANDLE)' % (var))
@@ -1473,15 +1479,17 @@ class Subcommand(object):
         rc_body.append('    void rm_from_map(const VkObject & objKey)\n    {')
         for var in obj_remap_types:
             rc_body.append('        rm_from_map(static_cast <%s> (objKey));' % (var))
-        rc_body.append('    }')
-        rc_body.append('    VkBaseObject remap(const VkBaseObject& object)\n    {')
-        rc_body.append('        VkBaseObject obj;')
+        rc_body.append('    }\n')
+        rc_body.append('// This is likely to come back in the future, so just commenting out for now.')
+        rc_body.append('//    VkObject remap(const VkObject& object)')
+        rc_body.append('//    {')
+        rc_body.append('//        VkObject obj;')
         base_obj_remap_types = ['VkDevice', 'VkQueue', 'VkDeviceMemory', 'VkObject']
         for t in base_obj_remap_types:
-            rc_body.append('        if ((obj = remap(static_cast <%s> (object))) != VK_NULL_HANDLE)' % t)
-            rc_body.append('            return obj;')
-        rc_body.append('        return VK_NULL_HANDLE;')
-        rc_body.append('    }')
+            rc_body.append('//        if ((obj = remap(static_cast <%s> (object))) != VK_NULL_HANDLE)' % t)
+            rc_body.append('//            return obj;')
+        rc_body.append('//        return VK_NULL_HANDLE;')
+        rc_body.append('//    }')
         rc_body.append('};')
         return "\n".join(rc_body)
 
