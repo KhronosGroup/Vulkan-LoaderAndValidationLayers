@@ -58,7 +58,7 @@ static void init_mem_info_entrys(VKAllocInfo *ptr, const unsigned int num)
         VKAllocInfo *entry = ptr + i;
         entry->pData = NULL;
         entry->size  = 0;
-        entry->handle = NULL;
+        memset(&entry->handle, 0, sizeof(VkDeviceMemory));
         entry->valid = FALSE;
     }
 }
@@ -197,7 +197,7 @@ static void rm_handle_from_mem_info(const VkDeviceMemory handle)
         entry->valid = FALSE;
         entry->pData = NULL;
         entry->size = 0;
-        entry->handle = NULL;
+        memset(&entry->handle, 0, sizeof(VkDeviceMemory));
 
         if (entry == g_memInfo.pLastMapped)
             g_memInfo.pLastMapped = NULL;

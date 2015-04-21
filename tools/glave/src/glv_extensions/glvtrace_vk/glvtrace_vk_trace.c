@@ -188,8 +188,10 @@ GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkMapMemory(
     result = real_vkMapMemory(device, mem, offset, size, flags, ppData);
     pPacket = interpret_body_as_vkMapMemory(pHeader);
     //TODO handle offset and size in packet and add_data_to_mem_info
-    pPacket->device;
+    pPacket->device = device;
     pPacket->mem = mem;
+    pPacket->offset = offset;
+    pPacket->size = size;
     pPacket->flags = flags;
     if (ppData != NULL)
     {
