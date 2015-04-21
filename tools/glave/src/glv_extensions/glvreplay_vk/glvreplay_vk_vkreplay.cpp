@@ -855,6 +855,38 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCreateGraphicsPipeline
     return returnValue;
 }
 
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCreatePipelineLayout(struct_vkCreatePipelineLayout* pPacket)
+{
+    VkResult replayResult = VK_ERROR_UNKNOWN;
+    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+    // array to store the original trace-time layouts, so that we can remap them inside the packet and then
+    // restore them after replaying the API call.
+    VkDescriptorSetLayout* pSaveLayouts = (VkDescriptorSetLayout*) glv_malloc(sizeof(VkDescriptorSetLayout) * pPacket->pCreateInfo->descriptorSetCount);
+    if (!pSaveLayouts) {
+        glv_LogError("Replay of CreatePipelineLayout out of memory\n");
+    }
+    uint32_t i = 0;
+    for (i = 0; (i < pPacket->pCreateInfo->descriptorSetCount) && (pPacket->pCreateInfo->pSetLayouts != NULL); i++) {
+        VkDescriptorSetLayout* pSL = (VkDescriptorSetLayout*) &(pPacket->pCreateInfo->pSetLayouts[i]);
+        pSaveLayouts[i] = pPacket->pCreateInfo->pSetLayouts[i];
+        *pSL = m_objMapper.remap(pPacket->pCreateInfo->pSetLayouts[i]);
+    }
+    VkPipelineLayout localPipelineLayout;
+    replayResult = m_vkFuncs.real_vkCreatePipelineLayout(m_objMapper.remap(pPacket->device), pPacket->pCreateInfo, &localPipelineLayout);
+    if (replayResult == VK_SUCCESS)
+    {
+        m_objMapper.add_to_map(pPacket->pPipelineLayout, &localPipelineLayout);
+    }
+    // restore packet to contain the original Set Layouts before being remapped.
+    for (uint32_t k = 0; k < i; k++) {
+        VkDescriptorSetLayout* pSL = (VkDescriptorSetLayout*) &(pPacket->pCreateInfo->pSetLayouts[k]);
+        *pSL = pSaveLayouts[k];
+    }
+    glv_free(pSaveLayouts);
+    CHECK_RETURN_VALUE(vkCreatePipelineLayout);
+    return returnValue;
+}
+
 glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCmdWaitEvents(struct_vkCmdWaitEvents* pPacket)
 {
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;

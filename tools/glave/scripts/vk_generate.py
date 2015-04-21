@@ -356,6 +356,8 @@ class Subcommand(object):
                                                            'finalize_txt': 'glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pCreateInfo->pColorAttachments));\n    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pCreateInfo->pDepthStencilAttachment));\n    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pCreateInfo))'},
                            'VkRenderPassCreateInfo': {'add_txt': 'glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pCreateInfo), sizeof(VkRenderPassCreateInfo), pCreateInfo);\n    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pCreateInfo->pColorFormats), colorCount * sizeof(VkFormat), pCreateInfo->pColorFormats);\n    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pCreateInfo->pColorLayouts), colorCount * sizeof(VkImageLayout), pCreateInfo->pColorLayouts);\n    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pCreateInfo->pColorLoadOps), colorCount * sizeof(VkAttachmentLoadOp), pCreateInfo->pColorLoadOps);\n    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pCreateInfo->pColorStoreOps), colorCount * sizeof(VkAttachmentStoreOp), pCreateInfo->pColorStoreOps);\n    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pCreateInfo->pColorLoadClearValues), colorCount * sizeof(VkClearColor), pCreateInfo->pColorLoadClearValues)',
                                                           'finalize_txt': 'glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pCreateInfo->pColorFormats));\n    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pCreateInfo->pColorLayouts));\n    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pCreateInfo->pColorLoadOps));\n    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pCreateInfo->pColorStoreOps));\n    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pCreateInfo->pColorLoadClearValues));\n    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pCreateInfo))'},
+                           'VkPipelineLayoutCreateInfo': {'add_txt': 'glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pCreateInfo), sizeof(VkPipelineLayoutCreateInfo), pCreateInfo);\n    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pCreateInfo->pSetLayouts), pCreateInfo->descriptorSetCount * sizeof(VkDescriptorSetLayout), pCreateInfo->pSetLayouts);',
+                                                          'finalize_txt': 'glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pCreateInfo->pSetLayouts));'},
                            'VkCmdBufferBeginInfo': {'add_txt': 'glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pBeginInfo), sizeof(VkCmdBufferBeginInfo), pBeginInfo);\n    add_begin_cmdbuf_to_trace_packet(pHeader, (void**)&(pPacket->pBeginInfo->pNext), pBeginInfo->pNext)',
                                                          'finalize_txt': 'glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pBeginInfo))'},
                            'VkDynamicVpStateCreateInfo': {'add_txt': 'glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pCreateInfo), sizeof(VkDynamicVpStateCreateInfo), pCreateInfo);\n    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pCreateInfo->pViewports), vpsCount * sizeof(VkViewport), pCreateInfo->pViewports);\n    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pCreateInfo->pScissors), vpsCount * sizeof(VkRect), pCreateInfo->pScissors)',
@@ -513,7 +515,7 @@ class Subcommand(object):
                     func_body.append('        AttachHooks_vk_wsi_lunarg();')
                     func_body.append('    }')
 
-                # functions that have non-standard sequence of  packet creation and calling real function
+                # functions that have non-standard sequence of packet creation and calling real function
                 # NOTE: Anytime we call the function before CREATE_TRACE_PACKET, need to add custom code for correctly tracking API call time
                 if proto.name in ['CreateFramebuffer', 'CreateRenderPass', 'CreateDynamicViewportState',
                                   'CreateDescriptorPool', 'UpdateDescriptors']:
@@ -851,8 +853,10 @@ class Subcommand(object):
                                                    'pInfo->pColorLoadOps = (VkAttachmentLoadOp*) glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pPacket->pCreateInfo->pColorLoadOps);\n',
                                                    'pInfo->pColorStoreOps = (VkAttachmentStoreOp*) glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pPacket->pCreateInfo->pColorStoreOps);\n',
                                                    'pInfo->pColorLoadClearValues = (VkClearColor*) glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pPacket->pCreateInfo->pColorLoadClearValues);\n']},
+                             'CreatePipelineLayout' : {'param': 'pCreateInfo', 'txt': ['VkPipelineLayoutCreateInfo* pInfo = (VkPipelineLayoutCreateInfo*)pPacket->pCreateInfo;\n',
+                                                       'pInfo->pSetLayouts = (VkDescriptorSetLayout*) glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pPacket->pCreateInfo->pSetLayouts);\n']},
                              'CreateDescriptorPool' : {'param': 'pCreateInfo', 'txt': ['VkDescriptorPoolCreateInfo* pInfo = (VkDescriptorPoolCreateInfo*)pPacket->pCreateInfo;\n',
-                                                                                             'pInfo->pTypeCount = (VkDescriptorTypeCount*) glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pPacket->pCreateInfo->pTypeCount);\n']},
+                                                       'pInfo->pTypeCount = (VkDescriptorTypeCount*) glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pPacket->pCreateInfo->pTypeCount);\n']},
                              'CmdWaitEvents' : {'param': 'pWaitInfo', 'txt': ['VkEventWaitInfo* pInfo = (VkEventWaitInfo*)pPacket->pWaitInfo;\n',
                                                                           'pInfo->pEvents = (VkEvent*) glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pPacket->pWaitInfo->pEvents);\n',
                                                                           'pInfo->ppMemBarriers = (const void**) glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pPacket->pWaitInfo->ppMemBarriers);\n',
@@ -1009,62 +1013,62 @@ class Subcommand(object):
                                                                                          '        }\n',
                                                                                          '    }\n',
                                                                                          '}']},
-                                                    'CreateGraphicsPipeline' : {'param': 'pCreateInfo', 'txt': ['if (pPacket->pCreateInfo->sType == VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO) {\n',
-                                                                                         '    // need to make a non-const pointer to the pointer so that we can properly change the original pointer to the interpretted one\n',
-                                                                                         '    void** ppNextVoidPtr = (void**)&pPacket->pCreateInfo->pNext;\n',
-                                                                                         '    *ppNextVoidPtr = (void*)glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pPacket->pCreateInfo->pNext);\n',
-                                                                                         '    VkPipelineShaderStageCreateInfo* pNext = (VkPipelineShaderStageCreateInfo*)pPacket->pCreateInfo->pNext;\n',
-                                                                                         '    while ((NULL != pNext) && (VK_NULL_HANDLE != pNext))\n', '{\n',
-                                                                                         '        switch(pNext->sType)\n', '    {\n',
-                                                                                         '            case VK_STRUCTURE_TYPE_PIPELINE_IA_STATE_CREATE_INFO:\n',
-                                                                                         '            case VK_STRUCTURE_TYPE_PIPELINE_TESS_STATE_CREATE_INFO:\n',
-                                                                                         '            case VK_STRUCTURE_TYPE_PIPELINE_RS_STATE_CREATE_INFO:\n',
-                                                                                         '            case VK_STRUCTURE_TYPE_PIPELINE_VP_STATE_CREATE_INFO:\n',
-                                                                                         '            case VK_STRUCTURE_TYPE_PIPELINE_MS_STATE_CREATE_INFO:\n',
-                                                                                         '            case VK_STRUCTURE_TYPE_PIPELINE_DS_STATE_CREATE_INFO:\n',
-                                                                                         '            {\n',
-                                                                                         '                void** ppNextVoidPtr = (void**)&pNext->pNext;\n',
-                                                                                         '                *ppNextVoidPtr = (void*)glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pNext->pNext);\n',
-                                                                                         '                break;\n',
-                                                                                         '            }\n',
-                                                                                         '            case VK_STRUCTURE_TYPE_PIPELINE_CB_STATE_CREATE_INFO:\n',
-                                                                                         '            {\n',
-                                                                                         '                void** ppNextVoidPtr = (void**)&pNext->pNext;\n',
-                                                                                         '                VkPipelineCbStateCreateInfo *pCb = (VkPipelineCbStateCreateInfo *) pNext;\n',
-                                                                                         '                *ppNextVoidPtr = (void*)glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pNext->pNext);\n',
-                                                                                         '                pCb->pAttachments = (VkPipelineCbAttachmentState*) glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pCb->pAttachments);\n',
-                                                                                         '                break;\n',
-                                                                                         '            }\n',
-                                                                                         '            case VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO:\n',
-                                                                                         '            {\n',
-                                                                                         '                void** ppNextVoidPtr = (void**)&pNext->pNext;\n',
-                                                                                         '                *ppNextVoidPtr = (void*)glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pNext->pNext);\n',
-                                                                                         '                interpret_pipeline_shader(pHeader, &pNext->shader);\n',
-                                                                                         '                break;\n',
-                                                                                         '            }\n',
-                                                                                         '            case VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_CREATE_INFO:\n',
-                                                                                         '            {\n',
-                                                                                         '                void** ppNextVoidPtr = (void**)&pNext->pNext;\n',
-                                                                                         '                VkPipelineVertexInputCreateInfo *pVi = (VkPipelineVertexInputCreateInfo *) pNext;\n',
-                                                                                         '                *ppNextVoidPtr = (void*)glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pNext->pNext);\n',
-                                                                                         '                pVi->pVertexBindingDescriptions = (VkVertexInputBindingDescription*) glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pVi->pVertexBindingDescriptions);\n',
-                                                                                         '                pVi->pVertexAttributeDescriptions = (VkVertexInputAttributeDescription*) glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pVi->pVertexAttributeDescriptions);\n',
-                                                                                         '                break;\n',
-                                                                                         '            }\n',
-                                                                                         '            default:\n',
-                                                                                         '            {\n',
-                                                                                         '               glv_LogError("Encountered an unexpected type in pipeline state list.\\n");\n',
-                                                                                         '               pPacket->header = NULL;\n',
-                                                                                         '               pNext->pNext = NULL;\n',
-                                                                                         '            }\n',
-                                                                                         '        }\n',
-                                                                                         '        pNext = (VkPipelineShaderStageCreateInfo*)pNext->pNext;\n',
-                                                                                         '    }\n',
-                                                                                         '} else {\n',
-                                                                                         '    // This is unexpected.\n',
-                                                                                         '    glv_LogError("CreateGraphicsPipeline must have CreateInfo stype of VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO.\\n");\n',
-                                                                                         '    pPacket->header = NULL;\n',
-                                                                                         '}']},
+                             'CreateGraphicsPipeline' : {'param': 'pCreateInfo', 'txt': ['if (pPacket->pCreateInfo->sType == VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO) {\n',
+                                                                  '    // need to make a non-const pointer to the pointer so that we can properly change the original pointer to the interpretted one\n',
+                                                                  '    void** ppNextVoidPtr = (void**)&pPacket->pCreateInfo->pNext;\n',
+                                                                  '    *ppNextVoidPtr = (void*)glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pPacket->pCreateInfo->pNext);\n',
+                                                                  '    VkPipelineShaderStageCreateInfo* pNext = (VkPipelineShaderStageCreateInfo*)pPacket->pCreateInfo->pNext;\n',
+                                                                  '    while ((NULL != pNext) && (VK_NULL_HANDLE != pNext))\n', '{\n',
+                                                                  '        switch(pNext->sType)\n', '    {\n',
+                                                                  '            case VK_STRUCTURE_TYPE_PIPELINE_IA_STATE_CREATE_INFO:\n',
+                                                                  '            case VK_STRUCTURE_TYPE_PIPELINE_TESS_STATE_CREATE_INFO:\n',
+                                                                  '            case VK_STRUCTURE_TYPE_PIPELINE_RS_STATE_CREATE_INFO:\n',
+                                                                  '            case VK_STRUCTURE_TYPE_PIPELINE_VP_STATE_CREATE_INFO:\n',
+                                                                  '            case VK_STRUCTURE_TYPE_PIPELINE_MS_STATE_CREATE_INFO:\n',
+                                                                  '            case VK_STRUCTURE_TYPE_PIPELINE_DS_STATE_CREATE_INFO:\n',
+                                                                  '            {\n',
+                                                                  '                void** ppNextVoidPtr = (void**)&pNext->pNext;\n',
+                                                                  '                *ppNextVoidPtr = (void*)glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pNext->pNext);\n',
+                                                                  '                break;\n',
+                                                                  '            }\n',
+                                                                  '            case VK_STRUCTURE_TYPE_PIPELINE_CB_STATE_CREATE_INFO:\n',
+                                                                  '            {\n',
+                                                                  '                void** ppNextVoidPtr = (void**)&pNext->pNext;\n',
+                                                                  '                VkPipelineCbStateCreateInfo *pCb = (VkPipelineCbStateCreateInfo *) pNext;\n',
+                                                                  '                *ppNextVoidPtr = (void*)glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pNext->pNext);\n',
+                                                                  '                pCb->pAttachments = (VkPipelineCbAttachmentState*) glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pCb->pAttachments);\n',
+                                                                  '                break;\n',
+                                                                  '            }\n',
+                                                                  '            case VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO:\n',
+                                                                  '            {\n',
+                                                                  '                void** ppNextVoidPtr = (void**)&pNext->pNext;\n',
+                                                                  '                *ppNextVoidPtr = (void*)glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pNext->pNext);\n',
+                                                                  '                interpret_pipeline_shader(pHeader, &pNext->shader);\n',
+                                                                  '                break;\n',
+                                                                  '            }\n',
+                                                                  '            case VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_CREATE_INFO:\n',
+                                                                  '            {\n',
+                                                                  '                void** ppNextVoidPtr = (void**)&pNext->pNext;\n',
+                                                                  '                VkPipelineVertexInputCreateInfo *pVi = (VkPipelineVertexInputCreateInfo *) pNext;\n',
+                                                                  '                *ppNextVoidPtr = (void*)glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pNext->pNext);\n',
+                                                                  '                pVi->pVertexBindingDescriptions = (VkVertexInputBindingDescription*) glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pVi->pVertexBindingDescriptions);\n',
+                                                                  '                pVi->pVertexAttributeDescriptions = (VkVertexInputAttributeDescription*) glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pVi->pVertexAttributeDescriptions);\n',
+                                                                  '                break;\n',
+                                                                  '            }\n',
+                                                                  '            default:\n',
+                                                                  '            {\n',
+                                                                  '               glv_LogError("Encountered an unexpected type in pipeline state list.\\n");\n',
+                                                                  '               pPacket->header = NULL;\n',
+                                                                  '               pNext->pNext = NULL;\n',
+                                                                  '            }\n',
+                                                                  '        }\n',
+                                                                  '        pNext = (VkPipelineShaderStageCreateInfo*)pNext->pNext;\n',
+                                                                  '    }\n',
+                                                                  '} else {\n',
+                                                                  '    // This is unexpected.\n',
+                                                                  '    glv_LogError("CreateGraphicsPipeline must have CreateInfo stype of VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO.\\n");\n',
+                                                                  '    pPacket->header = NULL;\n',
+                                                                  '}']},
                              'CreateComputePipeline' : {'param': 'pCreateInfo', 'txt': ['interpret_pipeline_shader(pHeader, (VkPipelineShader*)(&pPacket->pCreateInfo->cs));']}}
         if_body = []
         if_body.append('typedef struct struct_vkApiVersion {')
@@ -1580,6 +1584,11 @@ class Subcommand(object):
         cr_body.append('            returnValue = manually_handle_vkCreateRenderPass(pPacket);')
         return "\n".join(cr_body)
 
+    def _gen_replay_create_pipeline_layout(self):
+        cpl_body = []
+        cpl_body.append('            returnValue = manually_handle_vkCreatePipelineLayout(pPacket);')
+        return "\n".join(cpl_body)
+
     def _gen_replay_cmd_begin_renderpass(self):
         cr_body = []
         cr_body.append('            returnValue = manually_handle_vkCmdBeginRenderPass(pPacket);')
@@ -1675,6 +1684,7 @@ class Subcommand(object):
                             'CreateGraphicsPipeline': self._gen_replay_create_graphics_pipeline,
                             'CreateFramebuffer': self._gen_replay_create_framebuffer,
                             'CreateRenderPass': self._gen_replay_create_renderpass,
+                            'CreatePipelineLayout': self._gen_replay_create_pipeline_layout,
                             'CmdBeginRenderPass': self._gen_replay_cmd_begin_renderpass,
                             'BeginCommandBuffer': self._gen_replay_begin_command_buffer,
                             'StorePipeline': self._gen_replay_store_pipeline,
@@ -1755,12 +1765,6 @@ class Subcommand(object):
                         rbody.append('            {')
                         rbody.append('                localDescSets[i] = m_objMapper.remap(pPacket->%s[i]);' % (proto.params[-3].name))
                         rbody.append('            }')
-                    elif proto.name == 'CreateDescriptorSetLayoutChain':
-                        rbody.append('            VkDescriptorSetLayout* local_pSetLayoutArray = GLV_NEW_ARRAY(VkDescriptorSetLayout, pPacket->setLayoutArrayCount);')
-                        rbody.append('            for (uint32_t i = 0; i < pPacket->setLayoutArrayCount; i++)')
-                        rbody.append('            {')
-                        rbody.append('                local_pSetLayoutArray[i] = m_objMapper.remap(pPacket->pSetLayoutArray[i]);')
-                        rbody.append('            }')
                 elif proto.name == 'ClearDescriptorSets':
                     rbody.append('            VkDescriptorSet localDescSets[100];')
                     rbody.append('            assert(pPacket->count <= 100);')
@@ -1817,8 +1821,6 @@ class Subcommand(object):
                     rr_string = rr_string.replace('pPacket->pOutLayerCount', '&local_layerCount')
                 elif proto.name == 'ClearDescriptorSets':
                     rr_string = rr_string.replace('pPacket->pDescriptorSets', 'localDescSets')
-                elif proto.name == 'CreateDescriptorSetLayoutChain':
-                    rr_string = rr_string.replace('pPacket->pSetLayoutArray', 'local_pSetLayoutArray')
                 elif proto.name == 'AllocDescriptorSets':
                     rr_string = rr_string.replace('pPacket->pSetLayouts', 'localDescSets')
                 elif proto.name == 'ResetFences':
@@ -1850,12 +1852,6 @@ class Subcommand(object):
                     rbody.append('                for (uint32_t i = 0; i < local_pCount; i++) {')
                     rbody.append('                    m_objMapper.add_to_map(&pPacket->%s[i], &local_%s[i]);' % (proto.params[-2].name, proto.params[-2].name))
                     rbody.append('                }')
-                    rbody.append('            }')
-                elif proto.name == 'CreateDescriptorSetLayoutChain':
-                    rbody.append('            GLV_DELETE(local_pSetLayoutArray);')
-                    rbody.append('            if (replayResult == VK_SUCCESS)')
-                    rbody.append('            {')
-                    rbody.append('                m_objMapper.add_to_map(pPacket->pLayoutChain, &local_pLayoutChain);')
                     rbody.append('            }')
                 elif proto.name == 'ResetFences':
                     rbody.append('            GLV_DELETE(fences);')
