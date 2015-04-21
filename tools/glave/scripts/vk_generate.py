@@ -1509,6 +1509,16 @@ class Subcommand(object):
         qs_body.append('            returnValue = manually_handle_vkQueueSubmit(pPacket);')
         return "\n".join(qs_body)
 
+    def _gen_replay_queue_add_mem_references(self):
+        qamr_body = []
+        qamr_body.append('            returnValue = manually_handle_vkQueueAddMemReferences(pPacket);')
+        return "\n".join(qamr_body)
+
+    def _gen_replay_queue_remove_mem_references(self):
+        qrmr_body = []
+        qrmr_body.append('            returnValue = manually_handle_vkQueueRemoveMemReferences(pPacket);')
+        return "\n".join(qrmr_body)
+
     def _gen_replay_get_object_info(self):
         goi_body = []
         goi_body.append('            returnValue = manually_handle_vkGetObjectInfo(pPacket);')
@@ -1676,6 +1686,8 @@ class Subcommand(object):
                             'GetGlobalExtensionInfo': self._gen_replay_get_global_extension_info,
                             'GetPhysicalDeviceExtensionInfo': self._gen_replay_get_physical_device_extension_info,
                             'QueueSubmit': self._gen_replay_queue_submit,
+                            'QueueAddMemReferences': self._gen_replay_queue_add_mem_references,
+                            'QueueRemoveMemReferences': self._gen_replay_queue_remove_mem_references,
                             'GetObjectInfo': self._gen_replay_get_object_info,
                             'GetFormatInfo': self._gen_replay_get_format_info,
                             'CreateImage': self._gen_replay_create_image,

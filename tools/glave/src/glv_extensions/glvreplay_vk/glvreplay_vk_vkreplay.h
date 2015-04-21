@@ -91,6 +91,8 @@ private:
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkGetGlobalExtensionInfo(struct_vkGetGlobalExtensionInfo* pPacket);
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkGetPhysicalDeviceExtensionInfo(struct_vkGetPhysicalDeviceExtensionInfo* pPacket);
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkQueueSubmit(struct_vkQueueSubmit* pPacket);
+    glv_replay::GLV_REPLAY_RESULT manually_handle_vkQueueAddMemReferences(struct_vkQueueAddMemReferences* pPacket);
+    glv_replay::GLV_REPLAY_RESULT manually_handle_vkQueueRemoveMemReferences(struct_vkQueueRemoveMemReferences* pPacket);
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkGetObjectInfo(struct_vkGetObjectInfo* pPacket);
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkGetFormatInfo(struct_vkGetFormatInfo* pPacket);
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkGetImageSubresourceInfo(struct_vkGetImageSubresourceInfo* pPacket);

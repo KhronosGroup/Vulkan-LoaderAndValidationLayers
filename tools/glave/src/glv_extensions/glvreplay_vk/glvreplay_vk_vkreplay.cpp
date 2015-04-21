@@ -475,6 +475,48 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkQueueSubmit(struct_vkQ
     return returnValue;
 }
 
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkQueueAddMemReferences(struct_vkQueueAddMemReferences* pPacket)
+{
+    VkResult replayResult = VK_ERROR_UNKNOWN;
+    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+    VkDeviceMemory *remappedMem = NULL;
+    if (pPacket->pMems != NULL)
+    {
+        remappedMem = GLV_NEW_ARRAY( VkDeviceMemory, pPacket->count);
+        for (uint32_t i = 0; i < pPacket->count; i++)
+        {
+            *(remappedMem + i) = m_objMapper.remap(*(pPacket->pMems + i));
+        }
+    }
+    replayResult = m_vkFuncs.real_vkQueueAddMemReferences(m_objMapper.remap(pPacket->queue),
+                                                          pPacket->count,
+                                                          remappedMem);
+    GLV_DELETE(remappedMem);
+    CHECK_RETURN_VALUE(vkQueueAddMemReferences);
+    return returnValue;
+}
+
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkQueueRemoveMemReferences(struct_vkQueueRemoveMemReferences* pPacket)
+{
+    VkResult replayResult = VK_ERROR_UNKNOWN;
+    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+    VkDeviceMemory *remappedMem = NULL;
+    if (pPacket->pMems != NULL)
+    {
+        remappedMem = GLV_NEW_ARRAY( VkDeviceMemory, pPacket->count);
+        for (uint32_t i = 0; i < pPacket->count; i++)
+        {
+            *(remappedMem + i) = m_objMapper.remap(*(pPacket->pMems + i));
+        }
+    }
+    replayResult = m_vkFuncs.real_vkQueueRemoveMemReferences(m_objMapper.remap(pPacket->queue),
+                                                             pPacket->count,
+                                                             remappedMem);
+    GLV_DELETE(remappedMem);
+    CHECK_RETURN_VALUE(vkQueueRemoveMemReferences);
+    return returnValue;
+}
+
 glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkGetObjectInfo(struct_vkGetObjectInfo* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
