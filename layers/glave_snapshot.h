@@ -57,50 +57,7 @@ typedef enum _OBJECT_STATUS
     OBJSTATUS_GPU_MEM_MAPPED                    = 0x00000020, // Memory object is currently mapped
 } OBJECT_STATUS;
 
-// Object type enum
-typedef enum _VK_OBJECT_TYPE
-{
-    VK_OBJECT_TYPE_UNKNOWN,
-    VK_OBJECT_TYPE_SAMPLER,
-    VK_OBJECT_TYPE_DYNAMIC_DS_STATE_OBJECT,
-    VK_OBJECT_TYPE_DESCRIPTOR_SET,
-    VK_OBJECT_TYPE_DESCRIPTOR_POOL,
-    VK_OBJECT_TYPE_DYNAMIC_CB_STATE_OBJECT,
-    VK_OBJECT_TYPE_IMAGE_VIEW,
-    VK_OBJECT_TYPE_QUEUE_SEMAPHORE,
-    VK_OBJECT_TYPE_SHADER,
-    VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT,
-    VK_OBJECT_TYPE_BUFFER,
-    VK_OBJECT_TYPE_PIPELINE,
-    VK_OBJECT_TYPE_DEVICE,
-    VK_OBJECT_TYPE_QUERY_POOL,
-    VK_OBJECT_TYPE_EVENT,
-    VK_OBJECT_TYPE_QUEUE,
-    VK_OBJECT_TYPE_PHYSICAL_GPU,
-    VK_OBJECT_TYPE_RENDER_PASS,
-    VK_OBJECT_TYPE_FRAMEBUFFER,
-    VK_OBJECT_TYPE_IMAGE,
-    VK_OBJECT_TYPE_BUFFER_VIEW,
-    VK_OBJECT_TYPE_DEPTH_STENCIL_VIEW,
-    VK_OBJECT_TYPE_INSTANCE,
-    VK_OBJECT_TYPE_PIPELINE_DELTA,
-    VK_OBJECT_TYPE_DYNAMIC_VP_STATE_OBJECT,
-    VK_OBJECT_TYPE_COLOR_ATTACHMENT_VIEW,
-    VK_OBJECT_TYPE_GPU_MEMORY,
-    VK_OBJECT_TYPE_DYNAMIC_RS_STATE_OBJECT,
-    VK_OBJECT_TYPE_FENCE,
-    VK_OBJECT_TYPE_CMD_BUFFER,
-
-    VK_OBJECT_TYPE_DISPLAY_WSI,
-    VK_OBJECT_TYPE_SWAP_CHAIN_WSI,
-    VK_OBJECT_TYPE_SWAP_CHAIN_IMAGE_WSI,
-    VK_OBJECT_TYPE_SWAP_CHAIN_MEMORY_WSI,
-
-    VK_NUM_OBJECT_TYPE,
-    VK_OBJECT_TYPE_ANY, // Allow global object list to be queried/retrieved
-} VK_OBJECT_TYPE;
-
-static const char* string_VK_OBJECT_TYPE(VK_OBJECT_TYPE type) {
+static const char* string_VK_OBJECT_TYPE(VkObjectType type) {
     switch (type)
     {
         case VK_OBJECT_TYPE_DEVICE:
@@ -111,16 +68,16 @@ static const char* string_VK_OBJECT_TYPE(VK_OBJECT_TYPE type) {
             return "FENCE";
         case VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT:
             return "DESCRIPTOR_SET_LAYOUT";
-        case VK_OBJECT_TYPE_GPU_MEMORY:
-            return "GPU_MEMORY";
+        case VK_OBJECT_TYPE_DEVICE_MEMORY:
+            return "DEVICE_MEMORY";
         case VK_OBJECT_TYPE_QUEUE:
             return "QUEUE";
         case VK_OBJECT_TYPE_IMAGE:
             return "IMAGE";
-        case VK_OBJECT_TYPE_CMD_BUFFER:
-            return "CMD_BUFFER";
-        case VK_OBJECT_TYPE_QUEUE_SEMAPHORE:
-            return "QUEUE_SEMAPHORE";
+        case VK_OBJECT_TYPE_COMMAND_BUFFER:
+            return "COMMAND_BUFFER";
+        case VK_OBJECT_TYPE_SEMAPHORE:
+            return "SEMAPHORE";
         case VK_OBJECT_TYPE_FRAMEBUFFER:
             return "FRAMEBUFFER";
         case VK_OBJECT_TYPE_SAMPLER:
@@ -131,28 +88,28 @@ static const char* string_VK_OBJECT_TYPE(VK_OBJECT_TYPE type) {
             return "BUFFER_VIEW";
         case VK_OBJECT_TYPE_DESCRIPTOR_SET:
             return "DESCRIPTOR_SET";
-        case VK_OBJECT_TYPE_PHYSICAL_GPU:
-            return "PHYSICAL_GPU";
+        case VK_OBJECT_TYPE_PHYSICAL_DEVICE:
+            return "PHYSICAL_DEVICE";
         case VK_OBJECT_TYPE_IMAGE_VIEW:
             return "IMAGE_VIEW";
         case VK_OBJECT_TYPE_BUFFER:
             return "BUFFER";
-        case VK_OBJECT_TYPE_PIPELINE_DELTA:
-            return "PIPELINE_DELTA";
-        case VK_OBJECT_TYPE_DYNAMIC_RS_STATE_OBJECT:
-            return "DYNAMIC_RS_STATE_OBJECT";
+        case VK_OBJECT_TYPE_PIPELINE_LAYOUT:
+            return "PIPELINE_LAYOUT";
+        case VK_OBJECT_TYPE_DYNAMIC_RS_STATE:
+            return "DYNAMIC_RS_STATE";
         case VK_OBJECT_TYPE_EVENT:
             return "EVENT";
         case VK_OBJECT_TYPE_DEPTH_STENCIL_VIEW:
             return "DEPTH_STENCIL_VIEW";
         case VK_OBJECT_TYPE_SHADER:
             return "SHADER";
-        case VK_OBJECT_TYPE_DYNAMIC_DS_STATE_OBJECT:
-            return "DYNAMIC_DS_STATE_OBJECT";
-        case VK_OBJECT_TYPE_DYNAMIC_VP_STATE_OBJECT:
-            return "DYNAMIC_VP_STATE_OBJECT";
-        case VK_OBJECT_TYPE_DYNAMIC_CB_STATE_OBJECT:
-            return "DYNAMIC_CB_STATE_OBJECT";
+        case VK_OBJECT_TYPE_DYNAMIC_DS_STATE:
+            return "DYNAMIC_DS_STATE";
+        case VK_OBJECT_TYPE_DYNAMIC_VP_STATE:
+            return "DYNAMIC_VP_STATE";
+        case VK_OBJECT_TYPE_DYNAMIC_CB_STATE:
+            return "DYNAMIC_CB_STATE";
         case VK_OBJECT_TYPE_INSTANCE:
             return "INSTANCE";
         case VK_OBJECT_TYPE_RENDER_PASS:
@@ -165,10 +122,6 @@ static const char* string_VK_OBJECT_TYPE(VK_OBJECT_TYPE type) {
             return "DISPLAY_WSI";
         case VK_OBJECT_TYPE_SWAP_CHAIN_WSI:
             return "SWAP_CHAIN_WSI";
-        case VK_OBJECT_TYPE_SWAP_CHAIN_IMAGE_WSI:
-            return "SWAP_CHAIN_IMAGE_WSI";
-        case VK_OBJECT_TYPE_SWAP_CHAIN_MEMORY_WSI:
-            return "SWAP_CHAIN_MEMORY_WSI";
         default:
             return "UNKNOWN";
     }
@@ -183,13 +136,13 @@ void glv_vk_malloc_and_copy(void** ppDest, size_t size, const void* pSrc);
 
 typedef struct _GLV_VK_SNAPSHOT_CREATEDEVICE_PARAMS
 {
-    VkPhysicalGpu gpu;
+    VkPhysicalDevice physicalDevice;
     VkDeviceCreateInfo* pCreateInfo;
     VkDevice* pDevice;
 } GLV_VK_SNAPSHOT_CREATEDEVICE_PARAMS;
 
 VkDeviceCreateInfo* glv_deepcopy_xgl_device_create_info(const VkDeviceCreateInfo* pSrcCreateInfo);void glv_deepfree_xgl_device_create_info(VkDeviceCreateInfo* pCreateInfo);
-void glv_vk_snapshot_copy_createdevice_params(GLV_VK_SNAPSHOT_CREATEDEVICE_PARAMS* pDest, VkPhysicalGpu gpu, const VkDeviceCreateInfo* pCreateInfo, VkDevice* pDevice);
+void glv_vk_snapshot_copy_createdevice_params(GLV_VK_SNAPSHOT_CREATEDEVICE_PARAMS* pDest, VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo* pCreateInfo, VkDevice* pDevice);
 void glv_vk_snapshot_destroy_createdevice_params(GLV_VK_SNAPSHOT_CREATEDEVICE_PARAMS* pSrc);
 
 //=============================================================================
@@ -199,7 +152,7 @@ void glv_vk_snapshot_destroy_createdevice_params(GLV_VK_SNAPSHOT_CREATEDEVICE_PA
 // Node that stores information about an object
 typedef struct _GLV_VK_SNAPSHOT_OBJECT_NODE {
     void*           pVkObject;
-    VK_OBJECT_TYPE objType;
+    VkObjectType    objType;
     uint64_t        numUses;
     OBJECT_STATUS   status;
     void*           pStruct;    //< optionally points to a device-specific struct (ie, GLV_VK_SNAPSHOT_DEVICE_NODE)
@@ -232,7 +185,7 @@ typedef struct _GLV_VK_SNAPSHOT_LL_NODE {
 typedef struct _GLV_VK_SNAPSHOT_DELETED_OBJ_NODE {
     struct _GLV_VK_SNAPSHOT_DELETED_OBJ_NODE* pNextObj;
     void* pVkObject;
-    VK_OBJECT_TYPE objType;
+    VkObjectType objType;
 } GLV_VK_SNAPSHOT_DELETED_OBJ_NODE;
 
 //=============================================================================
@@ -300,13 +253,13 @@ void glvSnapshotClear(void);
 // merge a delta into a snapshot and return the updated snapshot
 GLV_VK_SNAPSHOT glvSnapshotMerge(const GLV_VK_SNAPSHOT * const pDelta, const GLV_VK_SNAPSHOT * const pSnapshot);
 
-uint64_t glvSnapshotGetObjectCount(VK_OBJECT_TYPE type);
-VkResult glvSnapshotGetObjects(VK_OBJECT_TYPE type, uint64_t objCount, GLV_VK_SNAPSHOT_OBJECT_NODE* pObjNodeArray);
+uint64_t glvSnapshotGetObjectCount(VkObjectType type);
+VkResult glvSnapshotGetObjects(VkObjectType type, uint64_t objCount, GLV_VK_SNAPSHOT_OBJECT_NODE* pObjNodeArray);
 void glvSnapshotPrintObjects(void);
 
 // Func ptr typedefs
-typedef uint64_t (*GLVSNAPSHOT_GET_OBJECT_COUNT)(VK_OBJECT_TYPE);
-typedef VkResult (*GLVSNAPSHOT_GET_OBJECTS)(VK_OBJECT_TYPE, uint64_t, GLV_VK_SNAPSHOT_OBJECT_NODE*);
+typedef uint64_t (*GLVSNAPSHOT_GET_OBJECT_COUNT)(VkObjectType);
+typedef VkResult (*GLVSNAPSHOT_GET_OBJECTS)(VkObjectType, uint64_t, GLV_VK_SNAPSHOT_OBJECT_NODE*);
 typedef void (*GLVSNAPSHOT_PRINT_OBJECTS)(void);
 typedef void (*GLVSNAPSHOT_START_TRACKING)(void);
 typedef GLV_VK_SNAPSHOT (*GLVSNAPSHOT_GET_DELTA)(void);

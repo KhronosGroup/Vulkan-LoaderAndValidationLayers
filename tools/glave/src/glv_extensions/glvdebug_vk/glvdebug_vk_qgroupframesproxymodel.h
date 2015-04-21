@@ -350,7 +350,7 @@ private:
                 QModelIndex tmpIndex = sourceModel()->index(srcRow, 0);
                 assert(tmpIndex.isValid());
                 glv_trace_packet_header* pHeader = (glv_trace_packet_header*)tmpIndex.internalPointer();
-                if (pHeader != NULL && pHeader->tracer_id == GLV_TID_VULKAN && pHeader->packet_id == GLV_TPI_VK_vkWsiX11QueuePresent)
+                if (pHeader != NULL && pHeader->tracer_id == GLV_TID_VULKAN && pHeader->packet_id == GLV_TPI_VK_vkQueuePresentWSI)
                 {
                     pCurFrame = addNewFrame();
                 }

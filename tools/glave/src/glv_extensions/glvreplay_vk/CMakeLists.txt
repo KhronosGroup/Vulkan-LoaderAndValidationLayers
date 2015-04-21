@@ -12,14 +12,14 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/codegen)
 add_custom_command(OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/codegen/glv_vk_packet_id.h
                           ${CMAKE_CURRENT_SOURCE_DIR}/codegen/vk_enum_string_helper.h
                           ${CMAKE_CURRENT_SOURCE_DIR}/codegen/glv_vk_vk_structs.h
-                          ${CMAKE_CURRENT_SOURCE_DIR}/codegen/glv_vk_vkwsix11ext_structs.h
+                          ${CMAKE_CURRENT_SOURCE_DIR}/codegen/glv_vk_vkwsilunarg_structs.h
                           ${CMAKE_CURRENT_SOURCE_DIR}/codegen/glv_vk_vkdbg_structs.h
                           ${CMAKE_CURRENT_SOURCE_DIR}/codegen/glvreplay_vk_func_ptrs.h
                           ${CMAKE_CURRENT_SOURCE_DIR}/codegen/glvreplay_vk_replay_gen.cpp
                           ${CMAKE_CURRENT_SOURCE_DIR}/codegen/glvreplay_vk_objmapper.h
         COMMAND ${PYTHON_CMD} ${SRC_DIR}/../scripts/vk_generate.py glave-packet-id > glv_vk_packet_id.h
         COMMAND ${PYTHON_CMD} ${SRC_DIR}/../scripts/vk_generate.py glave-core-structs > glv_vk_vk_structs.h
-        COMMAND ${PYTHON_CMD} ${SRC_DIR}/../scripts/vk_generate.py glave-wsi-trace-structs > glv_vk_vkwsix11ext_structs.h
+        COMMAND ${PYTHON_CMD} ${SRC_DIR}/../scripts/vk_generate.py glave-wsi-trace-structs > glv_vk_vkwsilunarg_structs.h
         COMMAND ${PYTHON_CMD} ${SRC_DIR}/../scripts/vk_generate.py glave-dbg-trace-structs > glv_vk_vkdbg_structs.h
         COMMAND ${PYTHON_CMD} ${SRC_DIR}/../scripts/vk_generate.py glave-replay-vk-funcs > glvreplay_vk_func_ptrs.h
         COMMAND ${PYTHON_CMD} ${SRC_DIR}/../scripts/vk_generate.py glave-replay-c > glvreplay_vk_replay_gen.cpp
@@ -60,7 +60,7 @@ set(SRC_LIST
 set (HDR_LIST
     codegen/glv_vk_packet_id.h
     codegen/glv_vk_vk_structs.h
-    codegen/glv_vk_vkwsix11ext_structs.h
+    codegen/glv_vk_vkwsilunarg_structs.h
     codegen/glv_vk_vkdbg_structs.h
     codegen/vk_enum_string_helper.h
     glvreplay_vk.h

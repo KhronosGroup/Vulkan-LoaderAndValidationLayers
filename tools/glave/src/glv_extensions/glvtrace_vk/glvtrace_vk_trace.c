@@ -29,7 +29,7 @@
 #include "glvtrace_vk_helpers.h"
 #include "glvtrace_vk_vk.h"
 #include "glvtrace_vk_vkdbg.h"
-#include "glvtrace_vk_vkwsix11ext.h"
+#include "glvtrace_vk_vkwsilunarg.h"
 #include "glv_interconnect.h"
 #include "glv_filelike.h"
 #ifdef WIN32

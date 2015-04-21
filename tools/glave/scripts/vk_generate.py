@@ -137,19 +137,19 @@ class Subcommand(object):
         func_ptrs.append('#ifdef WIN32')
         func_ptrs.append('extern INIT_ONCE gInitOnce;')
         for proto in self.protos:
-            if True not in [skip_str in proto.name for skip_str in ['Dbg', 'Wsi']]: #Dbg' not in proto.name and 'Wsi' not in proto.name:
+            if True not in [skip_str in proto.name for skip_str in ['Dbg', 'WSI']]: #Dbg' not in proto.name and 'Wsi' not in proto.name:
                 func_ptrs.append('#define __HOOKED_vk%s hooked_vk%s' % (proto.name, proto.name))
 
         func_ptrs.append('\n#elif defined(PLATFORM_LINUX)')
         func_ptrs.append('extern pthread_once_t gInitOnce;')
         for proto in self.protos:
-            if True not in [skip_str in proto.name for skip_str in ['Dbg', 'Wsi']]:
+            if True not in [skip_str in proto.name for skip_str in ['Dbg', 'WSI']]:
                 func_ptrs.append('#define __HOOKED_vk%s vk%s' % (proto.name, proto.name))
 
         func_ptrs.append('#endif\n')
         return "\n".join(func_ptrs)
 
-    def _generate_trace_func_ptrs_ext(self, func_class='Wsi'):
+    def _generate_trace_func_ptrs_ext(self, func_class='WSI'):
         func_ptrs = []
         func_ptrs.append('#ifdef WIN32')
         for proto in self.protos:
@@ -168,12 +168,12 @@ class Subcommand(object):
         func_protos = []
         func_protos.append('// Hooked function prototypes\n')
         for proto in self.protos:
-            if 'Dbg' not in proto.name and 'Wsi' not in proto.name:
+            if 'Dbg' not in proto.name and 'WSI' not in proto.name:
                 func_protos.append('GLVTRACER_EXPORT %s;' % proto.c_func(prefix="__HOOKED_vk", attr="VKAPI"))
 
         return "\n".join(func_protos)
 
-    def _generate_trace_func_protos_ext(self, func_class='Wsi'):
+    def _generate_trace_func_protos_ext(self, func_class='WSI'):
         func_protos = []
         func_protos.append('// Hooked function prototypes\n')
         for proto in self.protos:
@@ -187,7 +187,7 @@ class Subcommand(object):
         func_ptr_assign = []
         func_ptr_assign.append('')
         for proto in self.protos:
-            if 'Dbg' not in proto.name and 'Wsi' not in proto.name:
+            if 'Dbg' not in proto.name and 'WSI' not in proto.name:
                 func_ptr_assign.append('extern %s( VKAPI * real_vk%s)(' % (proto.ret, proto.name))
                 for p in proto.params:
                     func_ptr_assign.append('    %s %s,' % (p.ty, p.name))
@@ -197,7 +197,7 @@ class Subcommand(object):
     def _generate_func_ptr_assignments(self):
         func_ptr_assign = []
         for proto in self.protos:
-            if 'Dbg' not in proto.name and 'Wsi' not in proto.name:
+            if 'Dbg' not in proto.name and 'WSI' not in proto.name:
                 func_ptr_assign.append('%s( VKAPI * real_vk%s)(' % (proto.ret, proto.name))
                 for p in proto.params:
                     func_ptr_assign.append('    %s %s,' % (p.ty, p.name))
@@ -205,7 +205,7 @@ class Subcommand(object):
         return "\n".join(func_ptr_assign)
 
 
-    def _generate_func_ptr_assignments_ext(self, func_class='Wsi'):
+    def _generate_func_ptr_assignments_ext(self, func_class='WSI'):
         func_ptr_assign = []
         for proto in self.protos:
             if func_class in proto.name:
@@ -226,7 +226,7 @@ class Subcommand(object):
         hooks_txt.append('    {\n        isHooked = TRUE;')
         hook_operator = '='
         for proto in self.protos:
-            if 'Dbg' not in proto.name and 'Wsi' not in proto.name:
+            if 'Dbg' not in proto.name and 'WSI' not in proto.name:
                 hooks_txt.append('        hookSuccess %s Mhook_SetHook((PVOID*)&real_vk%s, hooked_vk%s);' % (hook_operator, proto.name, proto.name))
                 hook_operator = '&='
         hooks_txt.append('    }\n')
@@ -238,16 +238,16 @@ class Subcommand(object):
         hooks_txt.append('        hookSuccess = glv_platform_get_next_lib_sym((PVOID*)&real_vkCreateInstance,"vkCreateInstance");')
         hooks_txt.append('    isHooked = TRUE;')
         for proto in self.protos:
-            if 'Dbg' not in proto.name and 'Wsi' not in proto.name and 'CreateInstance' not in proto.name:
+            if 'Dbg' not in proto.name and 'WSI' not in proto.name and 'CreateInstance' not in proto.name:
                 hooks_txt.append('    hookSuccess %s glv_platform_get_next_lib_sym((PVOID*)&real_vk%s, "vk%s");' % (hook_operator, proto.name, proto.name))
         hooks_txt.append('    if (!hookSuccess)\n    {')
         hooks_txt.append('        glv_LogError("Failed to hook Vulkan.");\n    }\n')
         hooks_txt.append('#endif\n}\n')
         return "\n".join(hooks_txt)
 
-    def _generate_attach_hooks_ext(self, func_class='Wsi'):
-        func_ext_dict = {'Wsi': '_vkwsix11ext', 'Dbg': '_vkdbg'}
-        first_proto_dict = {'Wsi': 'WsiX11AssociateConnection', 'Dbg': 'DbgSetValidationLevel'}
+    def _generate_attach_hooks_ext(self, func_class='WSI'):
+        func_ext_dict = {'WSI': '_vkwsilunarg', 'Dbg': '_vkdbg'}
+        first_proto_dict = {'WSI': 'WsiX11AssociateConnection', 'Dbg': 'DbgSetValidationLevel'}
         hooks_txt = []
         hooks_txt.append('void AttachHooks%s()\n{\n    BOOL hookSuccess = TRUE;\n#if defined(WIN32)' % func_ext_dict[func_class])
         hooks_txt.append('    Mhook_BeginMultiOperation(FALSE);')
@@ -278,7 +278,7 @@ class Subcommand(object):
         hooks_txt.append('    BOOL unhookSuccess = TRUE;\n    if (real_vkGetGpuInfo != NULL)\n    {')
         hook_operator = '='
         for proto in self.protos:
-            if 'Dbg' not in proto.name and 'Wsi' not in proto.name:
+            if 'Dbg' not in proto.name and 'WSI' not in proto.name:
                 hooks_txt.append('        unhookSuccess %s Mhook_Unhook((PVOID*)&real_vk%s);' % (hook_operator, proto.name))
                 hook_operator = '&='
         hooks_txt.append('    }\n    isHooked = FALSE;')
@@ -288,9 +288,9 @@ class Subcommand(object):
         hooks_txt.append('#ifdef WIN32\nINIT_ONCE gInitOnce = INIT_ONCE_STATIC_INIT;\n#elif defined(PLATFORM_LINUX)\npthread_once_t gInitOnce = PTHREAD_ONCE_INIT;\n#endif\n')
         return "\n".join(hooks_txt)
 
-    def _generate_detach_hooks_ext(self, func_class='Wsi'):
-        func_ext_dict = {'Wsi': '_vkwsix11ext', 'Dbg': '_vkdbg'}
-        first_proto_dict = {'Wsi': 'WsiX11AssociateConnection', 'Dbg': 'DbgSetValidationLevel'}
+    def _generate_detach_hooks_ext(self, func_class='WSI'):
+        func_ext_dict = {'WSI': '_vkwsiluanrg', 'Dbg': '_vkdbg'}
+        first_proto_dict = {'WSI': 'WsiX11AssociateConnection', 'Dbg': 'DbgSetValidationLevel'}
         hooks_txt = []
         hooks_txt.append('void DetachHooks%s()\n{\n#ifdef WIN32' % func_ext_dict[func_class])
         hooks_txt.append('    BOOL unhookSuccess = TRUE;\n    if (real_vk%s != NULL)\n    {' % first_proto_dict[func_class])
@@ -459,7 +459,7 @@ class Subcommand(object):
         for proto in self.protos:
             if proto.name in manually_written_hooked_funcs:
                 func_body.append( '// __HOOKED_vk%s is manually written. Look in glvtrace_vk_trace.c\n' % proto.name)
-            elif 'Dbg' not in proto.name and 'Wsi' not in proto.name:
+            elif 'Dbg' not in proto.name and 'WSI' not in proto.name:
                 raw_packet_update_list = [] # non-ptr elements placed directly into packet
                 ptr_packet_update_list = [] # ptr elements to be updated into packet
                 return_txt = ''
@@ -538,7 +538,7 @@ class Subcommand(object):
                 func_body.append('}\n')
         return "\n".join(func_body)
 
-    def _generate_trace_funcs_ext(self, func_class='Wsi'):
+    def _generate_trace_funcs_ext(self, func_class='WSI'):
         thread_once_funcs = ['DbgRegisterMsgCallback', 'DbgUnregisterMsgCallback', 'DbgSetGlobalOption']
         func_body = []
         for proto in self.protos:
@@ -680,7 +680,7 @@ class Subcommand(object):
         for proto in self.protos:
             interp_func_body.append('        case GLV_TPI_VK_vk%s:\n        {' % proto.name)
             header_prefix = 'h'
-            if 'Wsi' in proto.name or 'Dbg' in proto.name:
+            if 'WSI' in proto.name or 'Dbg' in proto.name:
                 header_prefix = 'pH'
             interp_func_body.append('            return interpret_body_as_vk%s(pHeader)->%seader;\n        }' % (proto.name, header_prefix))
         interp_func_body.append('        default:')
@@ -1051,7 +1051,7 @@ class Subcommand(object):
         if_body.append('    return pPacket;')
         if_body.append('}\n')
         for proto in self.protos:
-            if 'Wsi' not in proto.name and 'Dbg' not in proto.name:
+            if 'WSI' not in proto.name and 'Dbg' not in proto.name:
                 if 'UnmapMemory' == proto.name:
                     proto.params.append(vulkan.Param("void*", "pData"))
                 if_body.append('typedef struct struct_vk%s {' % proto.name)
@@ -1087,7 +1087,7 @@ class Subcommand(object):
                 if_body.append('}\n')
         return "\n".join(if_body)
 
-    def _generate_interp_funcs_ext(self, func_class='Wsi'):
+    def _generate_interp_funcs_ext(self, func_class='WSI'):
         if_body = []
         for proto in self.protos:
             if func_class in proto.name:
@@ -1875,7 +1875,7 @@ class GlaveTraceC(Subcommand):
         header_txt.append('#include "glvtrace_vk_helpers.h"')
         header_txt.append('#include "glvtrace_vk_vk.h"')
         header_txt.append('#include "glvtrace_vk_vkdbg.h"')
-        header_txt.append('#include "glvtrace_vk_vkwsix11ext.h"')
+        header_txt.append('#include "glvtrace_vk_vkwsilunarg.h"')
         header_txt.append('#include "glv_interconnect.h"')
         header_txt.append('#include "glv_filelike.h"')
         header_txt.append('#include "vk_struct_size_helper.h"')
@@ -1904,7 +1904,7 @@ class GlavePacketID(Subcommand):
         header_txt.append('#include "glv_interconnect.h"')
         header_txt.append('#include "glv_vk_vk_structs.h"')
         header_txt.append('#include "glv_vk_vkdbg_structs.h"')
-        header_txt.append('#include "glv_vk_vkwsix11ext_structs.h"')
+        header_txt.append('#include "glv_vk_vkwsilunarg_structs.h"')
         header_txt.append('#include "vk_enum_string_helper.h"')
         header_txt.append('#if defined(WIN32)')
         header_txt.append('#define snprintf _snprintf')
@@ -1948,12 +1948,12 @@ class GlaveWsiHeader(Subcommand):
         header_txt.append('#pragma once\n')
         header_txt.append('#include "vulkan.h"')
         header_txt.append('#if defined(PLATFORM_LINUX) || defined(XCB_NVIDIA)')
-        header_txt.append('#include "vkWsiX11Ext.h"\n')
+        header_txt.append('#include "vk_wsi_lunarg.h"\n')
         header_txt.append('#else')
         header_txt.append('#include "vkWsiWinExt.h"')
         header_txt.append('#endif')
-        header_txt.append('void AttachHooks_vkwsix11ext();')
-        header_txt.append('void DetachHooks_vkwsix11ext();')
+        header_txt.append('void AttachHooks_vkwsilunarg();')
+        header_txt.append('void DetachHooks_vkwsilunarg();')
         return "\n".join(header_txt)
 
     def generate_body(self):
@@ -1967,8 +1967,8 @@ class GlaveWsiC(Subcommand):
         header_txt = []
         header_txt.append('#include "glv_platform.h"')
         header_txt.append('#include "glv_common.h"')
-        header_txt.append('#include "glvtrace_vk_vkwsix11ext.h"')
-        header_txt.append('#include "glv_vk_vkwsix11ext_structs.h"')
+        header_txt.append('#include "glvtrace_vk_vkwsilunarg.h"')
+        header_txt.append('#include "glv_vk_vkwsilunarg_structs.h"')
         header_txt.append('#include "glv_vk_packet_id.h"')
         header_txt.append('#ifdef WIN32')
         header_txt.append('#include "mhook/mhook-lib/mhook.h"')
@@ -1988,7 +1988,7 @@ class GlaveWsiStructs(Subcommand):
         header_txt = []
         header_txt.append('#pragma once\n')
         header_txt.append('#if defined(PLATFORM_LINUX) || defined(XCB_NVIDIA)')
-        header_txt.append('#include "vkWsiX11Ext.h"')
+        header_txt.append('#include "vk_wsi_lunarg.h"')
         header_txt.append('#else')
         header_txt.append('#include "vkWsiWinExt.h"')
         header_txt.append('#endif')
@@ -2061,7 +2061,7 @@ class GlaveReplayVkFuncPtrs(Subcommand):
         header_txt.append('#include "vulkan.h"')
         header_txt.append('#include "vkDbg.h"')
         header_txt.append('#if defined(PLATFORM_LINUX) || defined(XCB_NVIDIA)')
-        header_txt.append('#include "vkWsiX11Ext.h"')
+        header_txt.append('#include "vk_wsi_lunarg.h"')
         header_txt.append('#else')
         header_txt.append('#include "vkWsiWinExt.h"')
         header_txt.append('#endif')
@@ -2081,7 +2081,7 @@ class GlaveReplayObjMapperHeader(Subcommand):
         header_txt.append('#include "vulkan.h"')
         header_txt.append('#include "vkDbg.h"')
         header_txt.append('#if defined(PLATFORM_LINUX) || defined(XCB_NVIDIA)')
-        header_txt.append('#include "vkWsiX11Ext.h"')
+        header_txt.append('#include "vk_wsi_lunarg.h"')
         header_txt.append('#else')
         header_txt.append('#include "vkWsiWinExt.h"')
         header_txt.append('#endif')
@@ -2103,7 +2103,7 @@ class GlaveReplayC(Subcommand):
         header_txt.append('extern "C" {')
         header_txt.append('#include "glv_vk_vk_structs.h"')
         header_txt.append('#include "glv_vk_vkdbg_structs.h"')
-        header_txt.append('#include "glv_vk_vkwsix11ext_structs.h"')
+        header_txt.append('#include "glv_vk_vkwsilunarg_structs.h"')
         header_txt.append('#include "glv_vk_packet_id.h"')
         header_txt.append('#include "vk_enum_string_helper.h"\n}\n')
         header_txt.append('#define APP_NAME "glvreplay_vk"')

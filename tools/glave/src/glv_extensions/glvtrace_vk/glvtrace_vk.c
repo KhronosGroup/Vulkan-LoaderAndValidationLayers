@@ -31,7 +31,7 @@
 #include "glv_interconnect.h"
 #include "glvtrace_vk_vk.h"
 #include "glvtrace_vk_vkdbg.h"
-#include "glvtrace_vk_vkwsix11ext.h"
+#include "glvtrace_vk_vkwsilunarg.h"
 
 // this is needed to be loaded by glvtrace
 GLVTRACER_EXPORT GLV_TRACER_ID GLVTRACER_CDECL GLV_GetTracerId(void)
