@@ -1490,10 +1490,15 @@ class Subcommand(object):
         cd_body.append('            returnValue = manually_handle_vkCreateDevice(pPacket);')
         return "\n".join(cd_body)
 
-    def _gen_replay_get_extension_support(self):
-        ges_body = []
-        ges_body.append('            returnValue = manually_handle_vkGetExtensionSupport(pPacket);')
-        return "\n".join(ges_body)
+    def _gen_replay_get_global_extension_info(self):
+        gei_body = []
+        gei_body.append('            returnValue = manually_handle_vkGetGlobalExtensionInfo(pPacket);')
+        return "\n".join(gei_body)
+
+    def _gen_replay_get_physical_device_extension_info(self):
+        gpdei_body = []
+        gpdei_body.append('            returnValue = manually_handle_vkGetPhysicalDeviceExtensionInfo(pPacket);')
+        return "\n".join(gpdei_body)
 
     def _gen_replay_queue_submit(self):
         qs_body = []
@@ -1659,7 +1664,8 @@ class Subcommand(object):
                             'EnumeratePhysicalDevices': self._gen_replay_enum_gpus,
                             'GetPhysicalDeviceInfo': self._gen_replay_get_gpu_info,
                             'CreateDevice': self._gen_replay_create_device,
-                            'GetExtensionSupport': self._gen_replay_get_extension_support,
+                            'GetGlobalExtensionInfo': self._gen_replay_get_global_extension_info,
+                            'GetPhysicalDeviceExtensionInfo': self._gen_replay_get_physical_device_extension_info,
                             'QueueSubmit': self._gen_replay_queue_submit,
                             'GetObjectInfo': self._gen_replay_get_object_info,
                             'GetFormatInfo': self._gen_replay_get_format_info,
@@ -1688,7 +1694,7 @@ class Subcommand(object):
                             'CmdWaitEvents': self._gen_replay_cmd_wait_events,
                             'CmdPipelineBarrier': self._gen_replay_cmd_pipeline_barrier}
         # Despite returning a value, don't check these funcs b/c custom code includes check already
-        custom_check_ret_val = ['CreateInstance', 'EnumeratePhysicalDevices', 'GetPhysicalDeviceInfo', 'CreateDevice', 'GetExtensionSupport', 'QueueSubmit', 'GetObjectInfo',
+        custom_check_ret_val = ['CreateInstance', 'EnumeratePhysicalDevices', 'GetPhysicalDeviceInfo', 'CreateDevice', 'QueueSubmit', 'GetObjectInfo',
                                 'GetFormatInfo', 'GetImageSubresourceInfo', 'CreateDescriptorSetLayout', 'CreateGraphicsPipeline',
                                 'CreateFramebuffer', 'CreateRenderPass', 'BeginCommandBuffer', 'StorePipeline', 'GetMultiDeviceCompatibility',
                                 'DestroyObject', 'WaitForFences', 'FreeMemory', 'MapMemory', 'UnmapMemory']

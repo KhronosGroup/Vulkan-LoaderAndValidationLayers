@@ -397,6 +397,34 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkGetPhysicalDeviceInfo(
     return returnValue;
 }
 
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkGetGlobalExtensionInfo(struct_vkGetGlobalExtensionInfo* pPacket)
+{
+    VkResult replayResult = VK_ERROR_UNKNOWN;
+    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+    if (!m_display->m_initedVK) {
+        replayResult = m_vkFuncs.real_vkGetGlobalExtensionInfo(pPacket->infoType, pPacket->extensionIndex, pPacket->pDataSize, pPacket->pData);
+        CHECK_RETURN_VALUE(vkGetGlobalExtensionInfo);
+// TODO: Confirm that replay'd properties match with traced properties to ensure compatibility.
+//        if (replayResult == VK_SUCCESS) {
+//            for (unsigned int ext = 0; ext < sizeof(g_extensions) / sizeof(g_extensions[0]); ext++)
+//            {
+//                if (!strncmp(g_extensions[ext], pPacket->pExtName, strlen(g_extensions[ext]))) {
+//                    bool extInList = false;
+//                    for (unsigned int j = 0; j < m_display->m_extensions.size(); ++j) {
+//                        if (!strncmp(m_display->m_extensions[j], g_extensions[ext], strlen(g_extensions[ext])))
+//                            extInList = true;
+//                        break;
+//                    }
+//                    if (!extInList)
+//                        m_display->m_extensions.push_back((char *) g_extensions[ext]);
+//                    break;
+//                }
+//            }
+//        }
+    }
+    return returnValue;
+}
+
 glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkGetPhysicalDeviceExtensionInfo(struct_vkGetPhysicalDeviceExtensionInfo* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
