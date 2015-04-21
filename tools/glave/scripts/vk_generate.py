@@ -504,6 +504,14 @@ class Subcommand(object):
                 func_body.append('    struct_vk%s* pPacket = NULL;' % proto.name)
                 if proto.name in thread_once_funcs:
                     func_body.append('    glv_platform_thread_once(&gInitOnce, InitTracer);')
+                if proto.name == 'GetGlobalExtensionInfo':
+                    func_body.append('    if (real_vkGetGlobalExtensionInfo == vkGetGlobalExtensionInfo)')
+                    func_body.append('        glv_platform_get_next_lib_sym((void **) &real_vkGetGlobalExtensionInfo,"vkGetGlobalExtensionInfo");')
+                    func_body.append('    if (isHooked == FALSE) {')
+                    func_body.append('        AttachHooks();')
+                    func_body.append('        AttachHooks_vkdbg();')
+                    func_body.append('        AttachHooks_vk_wsi_lunarg();')
+                    func_body.append('    }')
 
                 # functions that have non-standard sequence of  packet creation and calling real function
                 # NOTE: Anytime we call the function before CREATE_TRACE_PACKET, need to add custom code for correctly tracking API call time
