@@ -23,6 +23,7 @@ add_custom_command(OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/codegen/glvtrace_vk_vk.h
                           ${CMAKE_CURRENT_SOURCE_DIR}/codegen/vk_struct_size_helper.c
                           ${CMAKE_CURRENT_SOURCE_DIR}/codegen/vk_enum_string_helper.h
                           ${CMAKE_CURRENT_SOURCE_DIR}/codegen/vk_wsi_lunarg_enum_string_helper.h
+                          ${CMAKE_CURRENT_SOURCE_DIR}/codegen/vk_wsi_lunarg_struct_size_helper.h
         COMMAND ${PYTHON_CMD} ${SRC_DIR}/../scripts/vk_generate.py glave-trace-h > glvtrace_vk_vk.h
         COMMAND ${PYTHON_CMD} ${SRC_DIR}/../scripts/vk_generate.py glave-trace-c > glvtrace_vk_vk.c
         COMMAND ${PYTHON_CMD} ${SRC_DIR}/../scripts/vk_generate.py glave-packet-id > glv_vk_packet_id.h
@@ -34,6 +35,7 @@ add_custom_command(OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/codegen/glvtrace_vk_vk.h
         COMMAND ${PYTHON_CMD} ${SRC_DIR}/../scripts/vk_generate.py glave-dbg-trace-c > glvtrace_vk_vkdbg.c
         COMMAND ${PYTHON_CMD} ${SRC_DIR}/../scripts/vk_generate.py glave-dbg-trace-structs > glv_vk_vkdbg_structs.h
         COMMAND ${PYTHON_CMD} ${SRC_DIR}/../../../vk_helper.py --gen_struct_wrappers ${SRC_DIR}/../../../include/vulkan.h --abs_out_dir ${CMAKE_CURRENT_SOURCE_DIR}/codegen
+        COMMAND ${PYTHON_CMD} ${SRC_DIR}/../../../vk_helper.py --gen_struct_wrappers ${SRC_DIR}/../../../include/vk_wsi_lunarg.h --abs_out_dir ${CMAKE_CURRENT_SOURCE_DIR}/codegen
         COMMAND ${PYTHON_CMD} ${SRC_DIR}/../../../vk_helper.py --gen_enum_string_helper ${SRC_DIR}/../../../include/vulkan.h --abs_out_dir ${CMAKE_CURRENT_SOURCE_DIR}/codegen
         COMMAND ${PYTHON_CMD} ${SRC_DIR}/../../../vk_helper.py --gen_enum_string_helper ${SRC_DIR}/../../../include/vk_wsi_lunarg.h --abs_out_dir ${CMAKE_CURRENT_SOURCE_DIR}/codegen
                    DEPENDS ${SRC_DIR}/../../../vk_helper.py

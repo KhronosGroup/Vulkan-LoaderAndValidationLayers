@@ -2002,7 +2002,7 @@ class GlaveWsiC(Subcommand):
         header_txt.append('#include "glvtrace_vk_vk_wsi_lunarg.h"')
         header_txt.append('#include "glv_vk_vk_wsi_lunarg_structs.h"')
         header_txt.append('#include "glv_vk_packet_id.h"')
-        header_txt.append('#include "vk_struct_size_helper.h"')
+        header_txt.append('#include "vk_wsi_lunarg_struct_size_helper.h"')
         header_txt.append('#ifdef WIN32')
         header_txt.append('#include "mhook/mhook-lib/mhook.h"')
         header_txt.append('#endif')
