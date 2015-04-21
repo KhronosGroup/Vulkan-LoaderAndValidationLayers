@@ -455,15 +455,21 @@ class Subcommand(object):
     # Assign packet values
     # FINISH packet
     # return result?
-    def _generate_trace_funcs(self):
+    def _generate_trace_funcs(self, func_class=''):
         func_body = []
         manually_written_hooked_funcs = ['CreateInstance', 'EnumerateLayers', 'EnumeratePhysicalDevices',
                                          'AllocDescriptorSets', 'MapMemory', 'UnmapMemory',
                                          'CmdPipelineBarrier', 'CmdWaitEvents']
+        thread_once_funcs = ['CreateInstance', 'GetGlobalExtensionInfo']
         for proto in self.protos:
+            if func_class == '':
+                if 'WSI' in proto.name or 'Dbg' in proto.name:
+                    continue
+            elif not func_class in proto.name:
+                continue
             if proto.name in manually_written_hooked_funcs:
                 func_body.append( '// __HOOKED_vk%s is manually written. Look in glvtrace_vk_trace.c\n' % proto.name)
-            elif 'Dbg' not in proto.name and 'WSI' not in proto.name:
+            else:
                 raw_packet_update_list = [] # non-ptr elements placed directly into packet
                 ptr_packet_update_list = [] # ptr elements to be updated into packet
                 return_txt = ''
@@ -496,6 +502,9 @@ class Subcommand(object):
                 if in_data_size:
                     func_body.append('    size_t _dataSize;')
                 func_body.append('    struct_vk%s* pPacket = NULL;' % proto.name)
+                if proto.name in thread_once_funcs:
+                    func_body.append('    glv_platform_thread_once(&gInitOnce, InitTracer);')
+
                 # functions that have non-standard sequence of  packet creation and calling real function
                 # NOTE: Anytime we call the function before CREATE_TRACE_PACKET, need to add custom code for correctly tracking API call time
                 if proto.name in ['CreateFramebuffer', 'CreateRenderPass', 'CreateDynamicViewportState',
@@ -547,67 +556,6 @@ class Subcommand(object):
                         func_body.append('    add_new_handle_to_mem_info(*pMem, pAllocInfo->allocationSize, NULL);')
                     elif 'FreeMemory' in proto.name:
                         func_body.append('    rm_handle_from_mem_info(mem);')
-                if 'void' not in proto.ret or '*' in proto.ret:
-                    func_body.append('    return result;')
-                func_body.append('}\n')
-        return "\n".join(func_body)
-
-    def _generate_trace_funcs_ext(self, func_class='WSI'):
-        thread_once_funcs = ['DbgRegisterMsgCallback', 'DbgUnregisterMsgCallback', 'DbgSetGlobalOption']
-        func_body = []
-        for proto in self.protos:
-            if func_class in proto.name:
-                packet_update_txt = ''
-                return_txt = ''
-                packet_size = ''
-                buff_ptr_indices = []
-                func_body.append('GLVTRACER_EXPORT %s VKAPI __HOOKED_vk%s(' % (proto.ret, proto.name))
-                for p in proto.params: # TODO : For all of the ptr types, check them for NULL and return 0 is NULL
-                    func_body.append('    %s %s,' % (p.ty, p.name))
-                    if 'Size' in p.name:
-                        packet_size += p.name
-                    if '*' in p.ty and 'pSysMem' != p.name:
-                        if 'char' in p.ty:
-                            packet_size += '((%s != NULL) ? strlen(%s) + 1 : 0) + ' % (p.name, p.name)
-                        elif 'Size' not in packet_size:
-                            packet_size += 'sizeof(%s) + ' % p.ty.strip('*').replace('const ', '')
-                        buff_ptr_indices.append(proto.params.index(p))
-                    else:
-                        packet_update_txt += '    pPacket->%s = %s;\n' % (p.name, p.name)
-                if '' == packet_size:
-                    packet_size = '0'
-                else:
-                    packet_size = packet_size.strip(' + ')
-                func_body[-1] = func_body[-1].replace(',', ')')
-                func_body.append('{\n    glv_trace_packet_header* pHeader;')
-                if 'void' not in proto.ret or '*' in proto.ret:
-                    func_body.append('    %s result;' % proto.ret)
-                    return_txt = 'result = '
-                func_body.append('    struct_vk%s* pPacket = NULL;' % proto.name)
-                if proto.name in thread_once_funcs:
-                    func_body.append('    glv_platform_thread_once(&gInitOnce, InitTracer);')
-                func_body.append('    SEND_ENTRYPOINT_ID(vk%s);' % proto.name)
-                if 'DbgRegisterMsgCallback' in proto.name:
-                    func_body.append('    CREATE_TRACE_PACKET(vk%s, sizeof(char));' % proto.name)
-                else:
-                    func_body.append('    CREATE_TRACE_PACKET(vk%s, %s);' % (proto.name, packet_size))
-                func_body.append('    %sreal_vk%s;' % (return_txt, proto.c_call()))
-                func_body.append('    pPacket = interpret_body_as_vk%s(pHeader);' % proto.name)
-                func_body.append(packet_update_txt.strip('\n'))
-                for idx in buff_ptr_indices:
-                    if 'char' in proto.params[idx].ty:
-                            func_body.append('    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->%s), ((%s != NULL) ? strlen(%s) + 1 : 0), %s);' % (proto.params[idx].name, proto.params[idx].name, proto.params[idx].name, proto.params[idx].name))
-                    elif 'Size' in proto.params[idx-1].name:
-                        func_body.append('    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->%s), %s, %s);' % (proto.params[idx].name, proto.params[idx-1].name, proto.params[idx].name))
-                    elif 'DbgRegisterMsgCallback' in proto.name:
-                        func_body.append('    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->%s), sizeof(%s), %s);' % (proto.params[idx].name, 'char', proto.params[idx].name))
-                    else:
-                        func_body.append('    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->%s), sizeof(%s), %s);' % (proto.params[idx].name, proto.params[idx].ty.strip('*').replace('const ', ''), proto.params[idx].name))
-                if 'void' not in proto.ret or '*' in proto.ret:
-                    func_body.append('    pPacket->result = result;')
-                for idx in buff_ptr_indices:
-                    func_body.append('    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->%s));' % (proto.params[idx].name))
-                func_body.append('    FINISH_TRACE_PACKET();')
                 if 'void' not in proto.ret or '*' in proto.ret:
                     func_body.append('    return result;')
                 func_body.append('}\n')
@@ -2054,6 +2002,7 @@ class GlaveWsiC(Subcommand):
         header_txt.append('#include "glvtrace_vk_vk_wsi_lunarg.h"')
         header_txt.append('#include "glv_vk_vk_wsi_lunarg_structs.h"')
         header_txt.append('#include "glv_vk_packet_id.h"')
+        header_txt.append('#include "vk_struct_size_helper.h"')
         header_txt.append('#ifdef WIN32')
         header_txt.append('#include "mhook/mhook-lib/mhook.h"')
         header_txt.append('#endif')
@@ -2063,7 +2012,7 @@ class GlaveWsiC(Subcommand):
         body = [self._generate_func_ptr_assignments_ext(),
                 self._generate_attach_hooks_ext(),
                 self._generate_detach_hooks_ext(),
-                self._generate_trace_funcs_ext()]
+                self._generate_trace_funcs('WSI')]
 
         return "\n".join(body)
 
@@ -2105,6 +2054,7 @@ class GlaveDbgC(Subcommand):
         header_txt.append('#include "glvtrace_vk_vkdbg.h"')
         header_txt.append('#include "glv_vk_vkdbg_structs.h"')
         header_txt.append('#include "glv_vk_packet_id.h"')
+        header_txt.append('#include "vk_struct_size_helper.h"')
         header_txt.append('#ifdef WIN32')
         header_txt.append('#include "mhook/mhook-lib/mhook.h"')
         header_txt.append('#endif')
@@ -2114,7 +2064,7 @@ class GlaveDbgC(Subcommand):
         body = [self._generate_func_ptr_assignments_ext('Dbg'),
                 self._generate_attach_hooks_ext('Dbg'),
                 self._generate_detach_hooks_ext('Dbg'),
-                self._generate_trace_funcs_ext('Dbg')]
+                self._generate_trace_funcs('Dbg')]
 
         return "\n".join(body)
 
