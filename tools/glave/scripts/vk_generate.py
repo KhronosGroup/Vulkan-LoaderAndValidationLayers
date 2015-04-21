@@ -1693,11 +1693,6 @@ class Subcommand(object):
                             'CmdBindDescriptorSets': self._gen_replay_bind_descriptor_sets,
                             'CmdWaitEvents': self._gen_replay_cmd_wait_events,
                             'CmdPipelineBarrier': self._gen_replay_cmd_pipeline_barrier}
-        # Despite returning a value, don't check these funcs b/c custom code includes check already
-        custom_check_ret_val = ['CreateInstance', 'EnumeratePhysicalDevices', 'GetPhysicalDeviceInfo', 'CreateDevice', 'QueueSubmit', 'GetObjectInfo',
-                                'GetFormatInfo', 'GetImageSubresourceInfo', 'CreateDescriptorSetLayout', 'CreateGraphicsPipeline',
-                                'CreateFramebuffer', 'CreateRenderPass', 'BeginCommandBuffer', 'StorePipeline', 'GetMultiDeviceCompatibility',
-                                'DestroyObject', 'WaitForFences', 'FreeMemory', 'MapMemory', 'UnmapMemory']
         # multi-gpu Open funcs w/ list of local params to create
         custom_open_params = {'OpenSharedMemory': (-1,),
                               'OpenSharedSemaphore': (-1,),
@@ -1723,7 +1718,7 @@ class Subcommand(object):
             create_view = False
             create_func = False
             # TODO : How to handle void* return of GetProcAddr?
-            if ('void' not in proto.ret) and (proto.name not in custom_check_ret_val):
+            if ('void' not in proto.ret) and (proto.name not in custom_body_dict):
                 ret_value = True
             if proto.name in create_view_list:
                 create_view = True
