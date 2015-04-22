@@ -1790,6 +1790,8 @@ class Subcommand(object):
                         rbody.append('            createInfo.buffer = m_objMapper.remap(pPacket->pCreateInfo->buffer);')
                     else:
                         rbody.append('            createInfo.image = m_objMapper.remap(pPacket->pCreateInfo->image);')
+                    if 'CreateColorAttachmentView' == proto.name or 'CreateDepthStencilView' == proto.name:
+                        rbody.append('            createInfo.msaaResolveImage = m_objMapper.remap(pPacket->pCreateInfo->msaaResolveImage);')
                     rbody.append('            %s local_%s;' % (proto.params[-1].ty.strip('*').replace('const ', ''), proto.params[-1].name))
                 elif create_func: # Declare local var to store created handle into
                     rbody.append('            %s local_%s;' % (proto.params[-1].ty.strip('*').replace('const ', ''), proto.params[-1].name))
