@@ -1988,10 +1988,10 @@ static void demo_init(struct demo *demo, HINSTANCE hInstance, LPSTR pCmdLine)
 static void demo_init(struct demo *demo, int argc, char **argv)
 #endif // _WIN32
 {
+    bool argv_error = false;
     vec3 eye = {0.0f, 3.0f, 5.0f};
     vec3 origin = {0, 0, 0};
     vec3 up = {0.0f, 1.0f, 0.0};
-    bool argv_error = false;
 
     memset(demo, 0, sizeof(*demo));
 
