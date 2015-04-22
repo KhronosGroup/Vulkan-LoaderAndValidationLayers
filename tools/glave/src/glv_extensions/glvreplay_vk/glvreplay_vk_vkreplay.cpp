@@ -843,6 +843,33 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCmdBindDescriptorSets(
     return returnValue;
 }
 
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCmdBindVertexBuffers(struct_vkCmdBindVertexBuffers* pPacket)
+{
+    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+    VkBuffer *pSaveBuff = GLV_NEW_ARRAY(VkBuffer, pPacket->bindingCount);
+    if (pSaveBuff == NULL)
+    {
+        glv_LogError("Replay of CmdBindVertexBuffers out of memory\n");
+    }
+    uint32_t i = 0;
+    if (pPacket->pBuffers) {
+        for (uint32_t i = 0; i < pPacket->bindingCount; i++)
+        {
+            VkBuffer *pBuff = (VkBuffer*) &(pPacket->pBuffers[i]);
+            pSaveBuff[i] = pPacket->pBuffers[i];
+            *pBuff = m_objMapper.remap(pPacket->pBuffers[i]);
+        }
+    }
+    m_vkFuncs.real_vkCmdBindVertexBuffers(m_objMapper.remap(pPacket->cmdBuffer), pPacket->startBinding, pPacket->bindingCount, pSaveBuff, pPacket->pOffsets);
+    for (uint32_t k = 0; k < i; i++)
+    {
+        VkBuffer *pBuff = (VkBuffer*) &(pPacket->pBuffers[k]);
+        *pBuff = pSaveBuff[k];
+    }
+    GLV_DELETE(pSaveBuff);
+    return returnValue;
+}
+
 glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCreateGraphicsPipeline(struct_vkCreateGraphicsPipeline* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;

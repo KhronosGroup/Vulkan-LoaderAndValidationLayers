@@ -46,7 +46,6 @@ class Subcommand(object):
         header = self.generate_header()
         body = self.generate_body()
         footer = self.generate_footer()
-
         contents = []
         if copyright:
             contents.append(copyright)
@@ -1569,6 +1568,11 @@ class Subcommand(object):
         cbds_body.append('            returnValue = manually_handle_vkCmdBindDescriptorSets(pPacket);')
         return "\n".join(cbds_body)
 
+    def _gen_replay_bind_vertex_buffers(self):
+        cbvb_body = []
+        cbvb_body.append('            returnValue = manually_handle_vkCmdBindVertexBuffers(pPacket);')
+        return "\n".join(cbvb_body)
+
     def _gen_replay_create_graphics_pipeline(self):
         cgp_body = []
         cgp_body.append('            returnValue = manually_handle_vkCreateGraphicsPipeline(pPacket);')
@@ -1713,6 +1717,7 @@ class Subcommand(object):
                             'UpdateDescriptors': self._gen_replay_update_descriptors,
                             'CreateDescriptorSetLayout': self._gen_replay_create_descriptor_set_layout,
                             'CmdBindDescriptorSets': self._gen_replay_bind_descriptor_sets,
+                            'CmdBindVertexBuffers': self._gen_replay_bind_vertex_buffers,
                             'CmdWaitEvents': self._gen_replay_cmd_wait_events,
                             'CmdPipelineBarrier': self._gen_replay_cmd_pipeline_barrier}
         # multi-gpu Open funcs w/ list of local params to create
