@@ -1668,15 +1668,6 @@ class Subcommand(object):
         psm_body.append('                m_objMapper.add_to_map(pPacket->pMem, &local_mem);')
         return "\n".join(psm_body)
 
-    # I don't think this function is being generated anymore (ie, it may have been removed from VK)
-    def _gen_replay_bind_dynamic_memory_view(self):
-        bdmv_body = []
-        bdmv_body.append('            VK_MEMORY_VIEW_ATTACH_INFO memView;')
-        bdmv_body.append('            memcpy(&memView, pPacket->pMemView, sizeof(VK_MEMORY_VIEW_ATTACH_INFO));')
-        bdmv_body.append('            memView.mem = m_objMapper.remap(pPacket->pMemView->mem);')
-        bdmv_body.append('            m_vkFuncs.real_vkCmdBindDynamicMemoryView(m_objMapper.remap(pPacket->cmdBuffer), pPacket->pipelineBindPoint, &memView);')
-        return "\n".join(bdmv_body)
-
     # Generate main replay case statements where actual replay API call is dispatched based on input packet data
     def _generate_replay(self):
         # map protos to custom functions if body is fully custom
@@ -1711,7 +1702,6 @@ class Subcommand(object):
                             'MapMemory': self._gen_replay_map_memory,
                             'UnmapMemory': self._gen_replay_unmap_memory,
                             'PinSystemMemory': self._gen_replay_pin_system_memory,
-                            'CmdBindDynamicMemoryView': self._gen_replay_bind_dynamic_memory_view,
                             'UpdateDescriptors': self._gen_replay_update_descriptors,
                             'CreateDescriptorSetLayout': self._gen_replay_create_descriptor_set_layout,
                             'CmdBindDescriptorSets': self._gen_replay_bind_descriptor_sets,
