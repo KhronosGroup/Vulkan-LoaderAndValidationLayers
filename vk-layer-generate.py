@@ -687,6 +687,9 @@ class APIDumpSubcommand(Subcommand):
             if prev_count_name != '' and (prev_count_name.replace('Count', '')[1:] in p.name):
                 sp_param_dict[pindex] = prev_count_name
                 prev_count_name = ''
+            elif 'bindingCount' == prev_count_name: # TODO : Special case for CmdBindVertexBuffers
+                sp_param_dict[pindex] = prev_count_name
+                # Don't reset prev count in this case b/c last 2 params both bound by bindingCount
             elif 'pDescriptorSets' == p.name and proto.params[-1].name == 'pCount':
                 sp_param_dict[pindex] = '*pCount'
             elif vk_helper.is_type(p.ty.strip('*').replace('const ', ''), 'struct'):
@@ -753,10 +756,10 @@ class APIDumpSubcommand(Subcommand):
                      '        %s    %s    %s\n'
                      '    %s'
                      '    } else {\n'
-                     '        if (pOutLayerCount == NULL || pOutLayers == NULL || pOutLayers[0] == NULL)\n'
+                     '        if (pLayerCount == NULL || pOutLayers == NULL || pOutLayers[0] == NULL)\n'
                      '            return VK_ERROR_INVALID_POINTER;\n'
                      '        // This layer compatible with all PhysicalDevices\n'
-                     '        *pOutLayerCount = 1;\n'
+                     '        *pLayerCount = 1;\n'
                      '        strncpy((char *) pOutLayers[0], "%s", maxStringSize);\n'
                      '        return VK_SUCCESS;\n'
                      '    }\n'
