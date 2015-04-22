@@ -24,6 +24,7 @@ add_custom_command(OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/codegen/glvtrace_vk_vk.h
                           ${CMAKE_CURRENT_SOURCE_DIR}/codegen/vk_enum_string_helper.h
                           ${CMAKE_CURRENT_SOURCE_DIR}/codegen/vk_wsi_lunarg_enum_string_helper.h
                           ${CMAKE_CURRENT_SOURCE_DIR}/codegen/vk_wsi_lunarg_struct_size_helper.h
+                          ${CMAKE_CURRENT_SOURCE_DIR}/codegen/vk_wsi_lunarg_struct_size_helper.c
         COMMAND ${PYTHON_CMD} ${SRC_DIR}/../scripts/vk_generate.py glave-trace-h > glvtrace_vk_vk.h
         COMMAND ${PYTHON_CMD} ${SRC_DIR}/../scripts/vk_generate.py glave-trace-c > glvtrace_vk_vk.c
         COMMAND ${PYTHON_CMD} ${SRC_DIR}/../scripts/vk_generate.py glave-packet-id > glv_vk_packet_id.h
@@ -52,6 +53,7 @@ set(SRC_LIST
     codegen/glvtrace_vk_vk.c
     codegen/glvtrace_vk_vkdbg.c
     codegen/glvtrace_vk_vk_wsi_lunarg.c
+    codegen/vk_wsi_lunarg_struct_size_helper.c
 )
 
 set_source_files_properties( ${SRC_LIST} PROPERTIES LANGUAGE C)
@@ -67,6 +69,8 @@ set (HDR_LIST
     codegen/glv_vk_vk_wsi_lunarg_structs.h
     codegen/vk_struct_size_helper.h
     codegen/vk_enum_string_helper.h
+    codegen/vk_wsi_lunarg_enum_string_helper.h
+    codegen/vk_wsi_lunarg_struct_size_helper.h
 )
 
 include_directories(

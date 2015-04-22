@@ -397,16 +397,21 @@ class Subcommand(object):
         return ptr_param_list
 
     # Take a list of params and return a list of packet size elements
-    def _get_packet_size(self, params):
+    def _get_packet_size(self, func_class, params):
         ps = [] # List of elements to be added together to account for packet size for given params
         skip_list = [] # store params that are already accounted for so we don't count them twice
         # Dict of specific params with unique custom sizes
         custom_size_dict = {'pSetBindPoints': '(VK_SHADER_STAGE_COMPUTE * sizeof(uint32_t))', # Accounting for largest possible array
                             }
+        size_func_suffix = ''
+        if func_class == 'WSI':
+            size_func_suffix = '_vk_wsi_lunarg'
+        elif func_class == 'Dbg':
+            size_func_suffix = '_vk_dbg'
         for p in params:
             #First handle custom cases
             if p.name in ['pCreateInfo', 'pSetLayoutInfoList', 'pBeginInfo', 'pAllocInfo']:
-                ps.append('get_struct_chain_size((void*)%s)' % p.name)
+                ps.append('get_struct_chain_size%s((void*)%s)' % (size_func_suffix, p.name))
                 skip_list.append(p.name)
             elif p.name in custom_size_dict:
                 ps.append(custom_size_dict[p.name])
@@ -492,7 +497,7 @@ class Subcommand(object):
                         else:
                             raw_packet_update_list.append('    pPacket->%s = %s;' % (p.name, p.name))
                 # Get list of packet size modifiers due to ptr params
-                packet_size = self._get_packet_size(proto.params)
+                packet_size = self._get_packet_size(func_class, proto.params)
                 ptr_packet_update_list = self._get_packet_ptr_param_list(proto.params)
                 func_body[-1] = func_body[-1].replace(',', ')')
                 # End of function declaration portion, begin function body

@@ -300,7 +300,7 @@ def recreate_structs():
 #
 # TODO: Fix construction of struct name
 def get_struct_name_from_struct_type(struct_type):
-    # Note: All struct types are now camel-case
+    # Note: All struct types are now camel-case with exceptions
     caps_struct_name = struct_type.replace("_STRUCTURE_TYPE", "")
     char_idx = 0
     struct_name = ''
@@ -312,6 +312,7 @@ def get_struct_name_from_struct_type(struct_type):
         else:
             struct_name += caps_struct_name[char_idx].lower()
         char_idx += 1
+    struct_name = struct_name.replace("Wsi", "WSI")
     return struct_name
 
 # class for writing common file elements
@@ -360,6 +361,13 @@ class StructWrapperGen:
         self.struct_dict = in_struct_dict
         self.include_headers = []
         self.api = prefix
+        if self.api == 'vulkan':
+            self.size_func_name_suffix = ''
+            self.size_header_name = 'vk_struct_size_helper.h'
+        else:
+            self.size_func_name_suffix = '_%s' % self.api
+            self.size_header_name = '%s_struct_size_helper.h' % self.api
+
         if prefix.lower() == "vulkan":
             self.api_prefix = "vk"
         else:
@@ -1151,12 +1159,17 @@ class StructWrapperGen:
             indent = '    '
             sh_funcs.append('%s}' % (indent))
             sh_funcs.append("%sreturn structSize;\n}" % (indent))
+        # Since extension headers don't have the VkStructureType the enum_type_dict needs to be append to
+        # eventually need to be able to handle this extension of the VkStructureType via #defines
+        if self.api != 'vulkan':
+            enum_type_dict["VkStructureType"] = ["VK_STRUCTURE_TYPE_SWAP_CHAIN_CREATE_INFO_WSI", "VK_STRUCTURE_TYPE_PRESENT_INFO_WSI"]
+
         # Now generate generic functions to loop over entire struct chain (or just handle single generic structs)
         for follow_chain in [True, False]:
             if follow_chain:
-                sh_funcs.append('size_t get_struct_chain_size(const void* pStruct)\n{')
+                sh_funcs.append('size_t get_struct_chain_size%s(const void* pStruct)\n{' % self.size_func_name_suffix)
             else:
-                sh_funcs.append('size_t get_dynamic_struct_size(const void* pStruct)\n{')
+                sh_funcs.append('size_t get_dynamic_struct_size%s(const void* pStruct)\n{' % self.size_func_name_suffix)
             indent = '    '
             sh_funcs.append('%s// Just use VkApplicationInfo as struct until actual type is resolved' % (indent))
             sh_funcs.append('%sVkApplicationInfo* pNext = (VkApplicationInfo*)pStruct;' % (indent))
@@ -1196,14 +1209,16 @@ class StructWrapperGen:
         header.append("//#includes, #defines, globals and such...\n")
         for f in self.include_headers:
             header.append("#include <%s>\n" % f)
+        if self.api != 'vulkan':
+            header.append("#include <%s.h>\n" % self.api)
         header.append('\n// Function Prototypes\n')
-        header.append("size_t get_struct_chain_size(const void* pStruct);\n")
-        header.append("size_t get_dynamic_struct_size(const void* pStruct);\n")
+        header.append("size_t get_struct_chain_size%s(const void* pStruct);\n" % self.size_func_name_suffix)
+        header.append("size_t get_dynamic_struct_size%s(const void* pStruct);\n"  % self.size_func_name_suffix)
         return "".join(header)
 
     def _generateSizeHelperHeaderC(self):
         header = []
-        header.append('#include "vk_struct_size_helper.h"')
+        header.append('#include "%s"' % self.size_header_name)
         header.append('#include <string.h>')
         header.append('#include <assert.h>')
         header.append('\n// Function definitions\n')
