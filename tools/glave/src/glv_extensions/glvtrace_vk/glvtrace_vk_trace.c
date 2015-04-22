@@ -157,8 +157,8 @@ GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkAllocDescriptorSets(
     size_t customSize = (*pCount <= 0) ? (sizeof(VkDescriptorSet)) : (*pCount * sizeof(VkDescriptorSet));
     CREATE_TRACE_PACKET(vkAllocDescriptorSets, sizeof(VkDescriptorSetLayout) + customSize + sizeof(uint32_t));
     pHeader->entrypoint_begin_time = startTime;
-    pPacket->device = device;
     pPacket = interpret_body_as_vkAllocDescriptorSets(pHeader);
+    pPacket->device = device;
     pPacket->descriptorPool = descriptorPool;
     pPacket->setUsage = setUsage;
     pPacket->count = count;
