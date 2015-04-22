@@ -895,7 +895,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCmdBindVertexBuffers(s
             *pBuff = m_objMapper.remap(pPacket->pBuffers[i]);
         }
     }
-    m_vkFuncs.real_vkCmdBindVertexBuffers(m_objMapper.remap(pPacket->cmdBuffer), pPacket->startBinding, pPacket->bindingCount, pSaveBuff, pPacket->pOffsets);
+    m_vkFuncs.real_vkCmdBindVertexBuffers(m_objMapper.remap(pPacket->cmdBuffer), pPacket->startBinding, pPacket->bindingCount, pPacket->pBuffers, pPacket->pOffsets);
     for (uint32_t k = 0; k < i; k++)
     {
         VkBuffer *pBuff = (VkBuffer*) &(pPacket->pBuffers[k]);
