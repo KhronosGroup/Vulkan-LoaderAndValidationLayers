@@ -1368,7 +1368,7 @@ LOADER_EXPORT VkResult VKAPI vkGetGlobalExtensionInfo(
     return VK_SUCCESS;
 }
 
-LOADER_EXPORT VkResult VKAPI vkEnumerateLayers(VkPhysicalDevice gpu, size_t maxLayerCount, size_t maxStringSize, size_t* pOutLayerCount, char* const* pOutLayers, void* pReserved)
+LOADER_EXPORT VkResult VKAPI vkEnumerateLayers(VkPhysicalDevice gpu, size_t maxStringSize, size_t* pLayerCount, char* const* pOutLayers, void* pReserved)
 {
     uint32_t gpu_index;
     size_t count = 0;
@@ -1378,13 +1378,16 @@ LOADER_EXPORT VkResult VKAPI vkEnumerateLayers(VkPhysicalDevice gpu, size_t maxL
     PFN_vkEnumerateLayers fpEnumerateLayers;
     char layer_buf[16][256];
     char * layers[16];
+    size_t maxLayerCount;
 
-    if (pOutLayerCount == NULL || pOutLayers == NULL)
+    if (pLayerCount == NULL || pOutLayers == NULL)
         return VK_ERROR_INVALID_POINTER;
 
     if (!icd)
         return VK_ERROR_UNAVAILABLE;
 
+    maxLayerCount = *pLayerCount;
+    
     for (int i = 0; i < 16; i++)
          layers[i] = &layer_buf[i][0];
 
@@ -1417,11 +1420,11 @@ LOADER_EXPORT VkResult VKAPI vkEnumerateLayers(VkPhysicalDevice gpu, size_t maxL
             count++;
             free(cpyStr);
         } else {
-            size_t cnt;
+            size_t cnt = 16;
             uint32_t n;
             VkResult res;
             n = (uint32_t) ((maxStringSize < 256) ? maxStringSize : 256);
-            res = fpEnumerateLayers((VkPhysicalDevice) NULL, 16, n, &cnt, layers, (char *) icd->gpus + gpu_index);
+            res = fpEnumerateLayers((VkPhysicalDevice) NULL, n, &cnt, layers, (char *) icd->gpus + gpu_index);
             loader_platform_close_library(handle);
             if (res != VK_SUCCESS)
                 continue;
@@ -1436,7 +1439,7 @@ LOADER_EXPORT VkResult VKAPI vkEnumerateLayers(VkPhysicalDevice gpu, size_t maxL
         }
     }
 
-    *pOutLayerCount = count;
+    *pLayerCount = count;
 
     return VK_SUCCESS;
 }

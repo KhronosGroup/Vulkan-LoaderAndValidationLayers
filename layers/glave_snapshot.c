@@ -542,7 +542,7 @@ VK_LAYER_EXPORT VkResult VKAPI vkDestroyDevice(VkDevice device)
     return result;
 }
 
-VK_LAYER_EXPORT VkResult VKAPI vkEnumerateLayers(VkPhysicalDevice physicalDevice, size_t maxLayerCount, size_t maxStringSize, size_t* pOutLayerCount, char* const* pOutLayers, void* pReserved)
+VK_LAYER_EXPORT VkResult VKAPI vkEnumerateLayers(VkPhysicalDevice physicalDevice, size_t maxStringSize, size_t* pOutLayerCount, char* const* pOutLayers, void* pReserved)
 {
     if ((void*)physicalDevice != NULL)
     {
@@ -552,7 +552,7 @@ VK_LAYER_EXPORT VkResult VKAPI vkEnumerateLayers(VkPhysicalDevice physicalDevice
         loader_platform_thread_unlock_mutex(&objLock);
         pCurObj = gpuw;
         loader_platform_thread_once(&tabOnce, initGlaveSnapshot);
-        VkResult result = nextTable.EnumerateLayers((VkPhysicalDevice)gpuw->nextObject, maxLayerCount, maxStringSize, pOutLayerCount, pOutLayers, pReserved);
+        VkResult result = nextTable.EnumerateLayers((VkPhysicalDevice)gpuw->nextObject, maxStringSize, pOutLayerCount, pOutLayers, pReserved);
         return result;
     } else {
         if (pOutLayerCount == NULL || pOutLayers == NULL || pOutLayers[0] == NULL)
