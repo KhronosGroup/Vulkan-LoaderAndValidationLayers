@@ -1811,7 +1811,7 @@ class Subcommand(object):
                 elif proto.name in do_while_dict:
                     rbody.append('            do {')
                 elif proto.name == 'EnumerateLayers':
-                    rbody.append('            size_t local_layerCount = *pPacket->pOutLayerCount;')
+                    rbody.append('            size_t local_layerCount = *pPacket->pLayerCount;')
                     rbody.append('            char** bufptr = GLV_NEW_ARRAY(char *, local_layerCount);')
                     rbody.append('            char **ptrLayers = (pPacket->pOutLayers == NULL) ? bufptr : (char **) pPacket->pOutLayers;')
                 elif proto.name == 'DestroyInstance':
