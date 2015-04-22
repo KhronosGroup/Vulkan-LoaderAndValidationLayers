@@ -1116,6 +1116,13 @@ class Subcommand(object):
 
     def _generate_interp_funcs_ext(self, func_class='WSI'):
         if_body = []
+        custom_case_dict = { 'CreateSwapChainWSI' : {'param': 'pCreateInfo', 'txt':
+                                   ['VkSwapChainCreateInfoWSI* pInfo = (VkSwapChainCreateInfoWSI*)pPacket->pCreateInfo;\n',
+                                    'pInfo->pNativeWindowSystemHandle = glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pPacket->pCreateInfo->pNativeWindowSystemHandle);\n',
+                                    'pInfo->pNativeWindowHandle = glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pPacket->pCreateInfo->pNativeWindowHandle);\n',
+                                    'pInfo->pDisplays = (VkDisplayWSI*) glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pPacket->pCreateInfo->pDisplays);\n'
+                                   ]}
+        }
         for proto in self.protos:
             if func_class in proto.name:
                 if_body.append('typedef struct struct_vk%s {' % proto.name)
@@ -1132,6 +1139,13 @@ class Subcommand(object):
                 for p in proto.params:
                     if '*' in p.ty:
                         if_body.append('    pPacket->%s = (%s)glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pPacket->%s);' % (p.name, p.ty, p.name))
+                        # TODO : Generalize this custom code to kill dict data struct above.
+                        #  Really the point of this block is to catch params w/ embedded ptrs to structs and chains of structs
+                        if proto.name in custom_case_dict and p.name == custom_case_dict[proto.name]['param']:
+                            if_body.append('    if (pPacket->%s != NULL)' % custom_case_dict[proto.name]['param'])
+                            if_body.append('    {')
+                            if_body.append('        %s' % "        ".join(custom_case_dict[proto.name]['txt']))
+                            if_body.append('    }')
                 if_body.append('    return pPacket;')
                 if_body.append('}\n')
         return "\n".join(if_body)
@@ -1668,6 +1682,16 @@ class Subcommand(object):
         psm_body.append('                m_objMapper.add_to_map(pPacket->pMem, &local_mem);')
         return "\n".join(psm_body)
 
+    def _gen_replay_create_swap_chain_wsi(self):
+        csw_body = []
+        csw_body.append('            returnValue = manually_handle_vkCreateSwapChainWSI(pPacket);')
+        return "\n".join(csw_body)
+
+    def _gen_replay_queue_present_wsi(self):
+        qpw_body = []
+        qpw_body.append('            returnValue = manually_handle_vkQueuePresentWSI(pPacket);')
+        return "\n".join(qpw_body)
+
     # Generate main replay case statements where actual replay API call is dispatched based on input packet data
     def _generate_replay(self):
         # map protos to custom functions if body is fully custom
@@ -1696,7 +1720,6 @@ class Subcommand(object):
                             'GetMultiPhysicalDeviceCompatibility': self._gen_replay_get_multi_gpu_compatibility,
                             'DestroyObject': self._gen_replay_destroy_object,
                             'WaitForFences': self._gen_replay_wait_for_fences,
-# todo any custom code for WSI lunarg ext
                             'AllocMemory': self._gen_replay_alloc_memory,
                             'FreeMemory': self._gen_replay_free_memory,
                             'MapMemory': self._gen_replay_map_memory,
@@ -1707,7 +1730,9 @@ class Subcommand(object):
                             'CmdBindDescriptorSets': self._gen_replay_bind_descriptor_sets,
                             'CmdBindVertexBuffers': self._gen_replay_bind_vertex_buffers,
                             'CmdWaitEvents': self._gen_replay_cmd_wait_events,
-                            'CmdPipelineBarrier': self._gen_replay_cmd_pipeline_barrier}
+                            'CmdPipelineBarrier': self._gen_replay_cmd_pipeline_barrier,
+                            'CreateSwapChainWSI': self._gen_replay_create_swap_chain_wsi,
+                            'QueuePresentWSI': self._gen_replay_queue_present_wsi}
         # multi-gpu Open funcs w/ list of local params to create
         custom_open_params = {'OpenSharedMemory': (-1,),
                               'OpenSharedSemaphore': (-1,),

@@ -453,26 +453,6 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkGetPhysicalDeviceExten
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCreateSwapChainWSI(struct_vkCreateSwapChainWSI* pPacket)
-{
-    VkResult replayResult = VK_ERROR_UNKNOWN;
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
-    VkSwapChainWSI local_pSwapChain;
-
-    void** ppNativeWindowHandle = (void**)&(pPacket->pCreateInfo->pNativeWindowHandle);
-    *ppNativeWindowHandle = (void*)m_display->get_window_handle();
-    void** ppNativeWindowSystemHandle = (void**)&(pPacket->pCreateInfo->pNativeWindowSystemHandle);
-    *ppNativeWindowSystemHandle = (void*)m_display->get_connection_handle();
-
-    replayResult = m_vkFuncs.real_vkCreateSwapChainWSI(m_objMapper.remap(pPacket->device), pPacket->pCreateInfo, &local_pSwapChain);
-    if (replayResult == VK_SUCCESS)
-    {
-        m_objMapper.add_to_map(pPacket->pSwapChain, &local_pSwapChain);
-    }
-    CHECK_RETURN_VALUE(vkCreateSwapChainWSI);
-    return returnValue;
-}
-
 glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkQueueSubmit(struct_vkQueueSubmit* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
@@ -1302,5 +1282,52 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkUnmapMemory(struct_vkU
         }
     }
     CHECK_RETURN_VALUE(vkUnmapMemory);
+    return returnValue;
+}
+
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCreateSwapChainWSI(struct_vkCreateSwapChainWSI* pPacket)
+{
+    VkResult replayResult = VK_ERROR_UNKNOWN;
+    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+    VkSwapChainWSI local_pSwapChain;
+    VkDisplayWSI *local_pDisplays = GLV_NEW_ARRAY(VkDisplayWSI, pPacket->pCreateInfo->displayCount);
+    uint32_t idx = 0;
+
+    for (idx = 0; idx < pPacket->pCreateInfo->displayCount; idx++)
+    {
+        VkDisplayWSI *pDisplays = (VkDisplayWSI *) &(pPacket->pCreateInfo->pDisplays[idx]);
+        local_pDisplays[idx] = pPacket->pCreateInfo->pDisplays[idx];
+        *pDisplays = m_objMapper.remap(pPacket->pCreateInfo->pDisplays[idx]);
+    }
+
+    void** ppNativeWindowHandle = (void**)&(pPacket->pCreateInfo->pNativeWindowHandle);
+    *ppNativeWindowHandle = (void*)m_display->get_window_handle();
+    void** ppNativeWindowSystemHandle = (void**)&(pPacket->pCreateInfo->pNativeWindowSystemHandle);
+    *ppNativeWindowSystemHandle = (void*)m_display->get_connection_handle();
+
+    replayResult = m_vkFuncs.real_vkCreateSwapChainWSI(m_objMapper.remap(pPacket->device), pPacket->pCreateInfo, &local_pSwapChain);
+    if (replayResult == VK_SUCCESS)
+    {
+        m_objMapper.add_to_map(pPacket->pSwapChain, &local_pSwapChain);
+    }
+    CHECK_RETURN_VALUE(vkCreateSwapChainWSI);
+    for (idx = 0; idx < pPacket->pCreateInfo->displayCount; idx++)
+    {
+        VkDisplayWSI *pDisplays = (VkDisplayWSI *) &(pPacket->pCreateInfo->pDisplays[idx]);
+        *pDisplays = local_pDisplays[idx];
+    }
+    GLV_DELETE(local_pDisplays);
+    return returnValue;
+}
+
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkQueuePresentWSI(struct_vkQueuePresentWSI* pPacket)
+{
+    VkResult replayResult = VK_ERROR_UNKNOWN;
+    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+    VkImage save_image = pPacket->pPresentInfo->image;
+    ((VkPresentInfoWSI *) pPacket->pPresentInfo)->image = m_objMapper.remap(pPacket->pPresentInfo->image);
+    replayResult = m_vkFuncs.real_vkQueuePresentWSI(m_objMapper.remap(pPacket->queue), pPacket->pPresentInfo);
+    ((VkPresentInfoWSI *) pPacket->pPresentInfo)->image = save_image;
+    CHECK_RETURN_VALUE(vkQueuePresentWSI);
     return returnValue;
 }
