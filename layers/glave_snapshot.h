@@ -151,7 +151,7 @@ void glv_vk_snapshot_destroy_createdevice_params(GLV_VK_SNAPSHOT_CREATEDEVICE_PA
 
 // Node that stores information about an object
 typedef struct _GLV_VK_SNAPSHOT_OBJECT_NODE {
-    void*           pVkObject;
+    VkObject        object;
     VkObjectType    objType;
     uint64_t        numUses;
     OBJECT_STATUS   status;
@@ -184,7 +184,7 @@ typedef struct _GLV_VK_SNAPSHOT_LL_NODE {
 // but the delta snapshot never saw it get created.
 typedef struct _GLV_VK_SNAPSHOT_DELETED_OBJ_NODE {
     struct _GLV_VK_SNAPSHOT_DELETED_OBJ_NODE* pNextObj;
-    void* pVkObject;
+    VkObject object;
     VkObjectType objType;
 } GLV_VK_SNAPSHOT_DELETED_OBJ_NODE;
 
