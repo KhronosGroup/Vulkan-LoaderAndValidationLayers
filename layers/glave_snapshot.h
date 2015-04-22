@@ -58,7 +58,7 @@ typedef enum _OBJECT_STATUS
 } OBJECT_STATUS;
 
 static const char* string_VK_OBJECT_TYPE(VkObjectType type) {
-    switch (type)
+    switch ((unsigned int)type)
     {
         case VK_OBJECT_TYPE_INSTANCE:
             return "INSTANCE";
