@@ -116,6 +116,7 @@ private:
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkMapMemory(struct_vkMapMemory* pPacket);
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkUnmapMemory(struct_vkUnmapMemory* pPacket);
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkCreateSwapChainWSI(struct_vkCreateSwapChainWSI* pPacket);
+    glv_replay::GLV_REPLAY_RESULT manually_handle_vkGetSwapChainInfoWSI(struct_vkGetSwapChainInfoWSI* pPacket);
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkQueuePresentWSI(struct_vkQueuePresentWSI* pPacket);
 
     void process_screenshot_list(const char *list)

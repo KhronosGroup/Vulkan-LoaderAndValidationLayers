@@ -453,6 +453,41 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkGetPhysicalDeviceExten
     return returnValue;
 }
 
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkGetSwapChainInfoWSI(struct_vkGetSwapChainInfoWSI* pPacket)
+{
+    VkResult replayResult = VK_ERROR_UNKNOWN;
+    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+    size_t dataSize = *pPacket->pDataSize;
+    void* pData = malloc(dataSize);
+    replayResult = m_vkFuncs.real_vkGetSwapChainInfoWSI(m_objMapper.remap(pPacket->swapChain), pPacket->infoType, &dataSize, pData);
+    if (replayResult == VK_SUCCESS)
+    {
+        if (dataSize != *pPacket->pDataSize)
+        {
+            glv_LogWarn("SwapChainInfo dataSize differs between trace (%d bytes) and replay (%d bytes)", *pPacket->pDataSize, dataSize);
+        }
+        if (pPacket->infoType == VK_SWAP_CHAIN_INFO_TYPE_PERSISTENT_IMAGES_WSI)
+        {
+            VkSwapChainImageInfoWSI* pImageInfoReplay = (VkSwapChainImageInfoWSI*)pData;
+            VkSwapChainImageInfoWSI* pImageInfoTrace = (VkSwapChainImageInfoWSI*)pPacket->pData;
+            size_t imageCountReplay = dataSize / sizeof(VkSwapChainImageInfoWSI);
+            size_t imageCountTrace = *pPacket->pDataSize / sizeof(VkSwapChainImageInfoWSI);
+            for (size_t i = 0; i < imageCountReplay && i < imageCountTrace; i++)
+            {
+                imageObj imgObj;
+                imgObj.replayImage = pImageInfoReplay[i].image;
+                m_objMapper.add_to_map(&pImageInfoTrace[i].image, &imgObj);
+
+                gpuMemObj memObj;
+                memObj.replayGpuMem = pImageInfoReplay[i].memory;
+                m_objMapper.add_to_map(&pImageInfoTrace[i].memory, &memObj);
+            }
+        }
+    }
+    CHECK_RETURN_VALUE(vkCreateSwapChainWSI);
+    return returnValue;
+}
+
 glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkQueueSubmit(struct_vkQueueSubmit* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
