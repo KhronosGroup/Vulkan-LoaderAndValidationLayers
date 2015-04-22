@@ -1656,16 +1656,7 @@ class Subcommand(object):
 
     def _gen_replay_alloc_memory(self):
         am_body = []
-        am_body.append('            gpuMemObj local_mem;')
-        am_body.append('            if (!m_objMapper.m_adjustForGPU)')
-        am_body.append('                replayResult = m_vkFuncs.real_vkAllocMemory(m_objMapper.remap(pPacket->device), pPacket->pAllocInfo, &local_mem.replayGpuMem);')
-        am_body.append('            if (replayResult == VK_SUCCESS || m_objMapper.m_adjustForGPU)')
-        am_body.append('            {')
-        am_body.append('                local_mem.pGpuMem = new (gpuMemory);')
-        am_body.append('                if (local_mem.pGpuMem)')
-        am_body.append('                    local_mem.pGpuMem->setAllocInfo(pPacket->pAllocInfo, m_objMapper.m_adjustForGPU);')
-        am_body.append('                m_objMapper.add_to_map(pPacket->pMem, &local_mem);')
-        am_body.append('            }')
+        am_body.append('            returnValue = manually_handle_vkAllocMemory(pPacket);')
         return "\n".join(am_body)
 
     def _gen_replay_free_memory(self):
@@ -1685,11 +1676,7 @@ class Subcommand(object):
 
     def _gen_replay_pin_system_memory(self):
         psm_body = []
-        psm_body.append('            gpuMemObj local_mem;')
-        psm_body.append('            /* TODO do we need to skip (make pending) this call for m_adjustForGPU */')
-        psm_body.append('            replayResult = m_vkFuncs.real_vkPinSystemMemory(m_objMapper.remap(pPacket->device), pPacket->pSysMem, pPacket->memSize, &local_mem.replayGpuMem);')
-        psm_body.append('            if (replayResult == VK_SUCCESS)')
-        psm_body.append('                m_objMapper.add_to_map(pPacket->pMem, &local_mem);')
+        psm_body.append('            returnValue = manually_handle_vkPinSystemMemory(pPacket);')
         return "\n".join(psm_body)
 
     def _gen_replay_create_swap_chain_wsi(self):

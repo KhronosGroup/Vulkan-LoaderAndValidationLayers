@@ -1245,6 +1245,25 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkWaitForFences(struct_v
     return returnValue;
 }
 
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkAllocMemory(struct_vkAllocMemory* pPacket)
+{
+    VkResult replayResult = VK_ERROR_UNKNOWN;
+    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+    gpuMemObj local_mem;
+
+    if (!m_objMapper.m_adjustForGPU)
+        replayResult = m_vkFuncs.real_vkAllocMemory(m_objMapper.remap(pPacket->device), pPacket->pAllocInfo, &local_mem.replayGpuMem);
+    if (replayResult == VK_SUCCESS || m_objMapper.m_adjustForGPU)
+    {
+        local_mem.pGpuMem = new (gpuMemory);
+        if (local_mem.pGpuMem)
+            local_mem.pGpuMem->setAllocInfo(pPacket->pAllocInfo, m_objMapper.m_adjustForGPU);
+        m_objMapper.add_to_map(pPacket->pMem, &local_mem);
+    }
+    CHECK_RETURN_VALUE(vkAllocMemory);
+    return returnValue;
+}
+
 glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkFreeMemory(struct_vkFreeMemory* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
@@ -1317,6 +1336,19 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkUnmapMemory(struct_vkU
         }
     }
     CHECK_RETURN_VALUE(vkUnmapMemory);
+    return returnValue;
+}
+
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkPinSystemMemory(struct_vkPinSystemMemory* pPacket)
+{
+    VkResult replayResult = VK_ERROR_UNKNOWN;
+    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+    gpuMemObj local_mem;
+    /* TODO do we need to skip (make pending) this call for m_adjustForGPU */
+    replayResult = m_vkFuncs.real_vkPinSystemMemory(m_objMapper.remap(pPacket->device), pPacket->pSysMem, pPacket->memSize, &local_mem.replayGpuMem);
+    if (replayResult == VK_SUCCESS)
+        m_objMapper.add_to_map(pPacket->pMem, &local_mem);
+    CHECK_RETURN_VALUE(vkPinSystemMemory);
     return returnValue;
 }
 

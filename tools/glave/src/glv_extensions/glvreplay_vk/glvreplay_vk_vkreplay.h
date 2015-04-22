@@ -112,9 +112,11 @@ private:
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkGetMultiDeviceCompatibility(struct_vkGetMultiDeviceCompatibility* pPacket);
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkDestroyObject(struct_vkDestroyObject* pPacket);
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkWaitForFences(struct_vkWaitForFences* pPacket);
+    glv_replay::GLV_REPLAY_RESULT manually_handle_vkAllocMemory(struct_vkAllocMemory* pPacket);
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkFreeMemory(struct_vkFreeMemory* pPacket);
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkMapMemory(struct_vkMapMemory* pPacket);
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkUnmapMemory(struct_vkUnmapMemory* pPacket);
+    glv_replay::GLV_REPLAY_RESULT manually_handle_vkPinSystemMemory(struct_vkPinSystemMemory* pPacket);
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkCreateSwapChainWSI(struct_vkCreateSwapChainWSI* pPacket);
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkGetSwapChainInfoWSI(struct_vkGetSwapChainInfoWSI* pPacket);
     glv_replay::GLV_REPLAY_RESULT manually_handle_vkQueuePresentWSI(struct_vkQueuePresentWSI* pPacket);
