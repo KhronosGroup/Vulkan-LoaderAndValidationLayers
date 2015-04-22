@@ -379,6 +379,8 @@ class Subcommand(object):
             if '*' in p.ty and p.name not in ['pSysMem', 'pReserved']:
                 if 'const' in p.ty.lower() and 'count' in params[params.index(p)-1].name.lower():
                     pp_dict['add_txt'] = 'glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->%s), %s*sizeof(%s), %s)' % (p.name, params[params.index(p)-1].name, p.ty.strip('*').replace('const ', ''), p.name)
+                elif 'pOffsets' == p.name: # TODO : This is a custom case for BindVertexBuffers last param, need to clean this up
+                    pp_dict['add_txt'] = 'glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->%s), %s*sizeof(%s), %s)' % (p.name, params[params.index(p)-2].name, p.ty.strip('*').replace('const ', ''), p.name)
                 elif p.ty.strip('*').replace('const ', '') in custom_ptr_dict:
                     pp_dict['add_txt'] = custom_ptr_dict[p.ty.strip('*').replace('const ', '')]['add_txt']
                     pp_dict['finalize_txt'] = custom_ptr_dict[p.ty.strip('*').replace('const ', '')]['finalize_txt']
@@ -429,6 +431,9 @@ class Subcommand(object):
                     else:
                         ps.append('%s*sizeof(%s)' % (p.name, params[next_idx].ty.strip('*').replace('const ', '')))
                     skip_list.append(params[next_idx].name)
+                if 'bindingCount' == p.name: # TODO : This is custom case for CmdBindVertexBuffers, need to clean it up
+                    ps.append('%s*sizeof(%s)' % (p.name, params[next_idx+1].ty.strip('*').replace('const ', '')))
+                    skip_list.append(params[next_idx+1].name)
             elif '*' in p.ty and p.name not in ['pSysMem', 'pReserved']:
                 if 'pData' == p.name:
                     if 'dataSize' == params[params.index(p)-1].name:
@@ -483,19 +488,19 @@ class Subcommand(object):
                 in_data_size = False # flag when we need to capture local input size variable for in/out size
                 func_body.append('GLVTRACER_EXPORT %s VKAPI __HOOKED_vk%s(' % (proto.ret, proto.name))
                 for p in proto.params: # TODO : For all of the ptr types, check them for NULL and return 0 if NULL
-                    if '[' in p.ty: # Correctly declare static arrays in function parameters
-                        func_body.append('    %s %s[%s],' % (p.ty[:p.ty.find('[')], p.name, p.ty[p.ty.find('[')+1:p.ty.find(']')]))
-                    else:
-                        func_body.append('    %s %s,' % (p.ty, p.name))
+#                    if '[' in p.ty: # Correctly declare static arrays in function parameters
+#                        func_body.append('    %s %s[%s],' % (p.ty[:p.ty.find('[')], p.name, p.ty[p.ty.find('[')+1:p.ty.find(']')]))
+#                    else:
+                    func_body.append('    %s %s,' % (p.ty, p.name))
                     if '*' in p.ty and p.name not in ['pSysMem', 'pReserved']:
                         if 'pDataSize' in p.name:
                             in_data_size = True;
                     else:
-                        if '[' in p.ty:
-                            array_str = p.ty[p.ty.find('[')+1:p.ty.find(']')]
-                            raw_packet_update_list.append('    memcpy((void*)pPacket->color, color, %s * sizeof(%s));' % (array_str, p.ty.strip('*').replace('const ', '').replace('[%s]' % array_str, '')))
-                        else:
-                            raw_packet_update_list.append('    pPacket->%s = %s;' % (p.name, p.name))
+#                        if '[' in p.ty:
+#                            array_str = p.ty[p.ty.find('[')+1:p.ty.find(']')]
+#                            raw_packet_update_list.append('    memcpy((void*)pPacket->color, color, %s * sizeof(%s));' % (array_str, p.ty.strip('*').replace('const ', '').replace('[%s]' % array_str, '')))
+#                        else:
+                        raw_packet_update_list.append('    pPacket->%s = %s;' % (p.name, p.name))
                 # Get list of packet size modifiers due to ptr params
                 packet_size = self._get_packet_size(func_class, proto.params)
                 ptr_packet_update_list = self._get_packet_ptr_param_list(proto.params)
