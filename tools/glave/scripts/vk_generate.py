@@ -1498,6 +1498,11 @@ class Subcommand(object):
         cd_body.append('            returnValue = manually_handle_vkCreateDevice(pPacket);')
         return "\n".join(cd_body)
 
+    def _gen_replay_create_swap_chain_wsi(self):
+        cd_body = []
+        cd_body.append('            returnValue = manually_handle_vkCreateSwapChainWSI(pPacket);')
+        return "\n".join(cd_body)
+
     def _gen_replay_get_global_extension_info(self):
         gei_body = []
         gei_body.append('            returnValue = manually_handle_vkGetGlobalExtensionInfo(pPacket);')
@@ -1692,6 +1697,7 @@ class Subcommand(object):
                             'EnumeratePhysicalDevices': self._gen_replay_enum_gpus,
                             'GetPhysicalDeviceInfo': self._gen_replay_get_gpu_info,
                             'CreateDevice': self._gen_replay_create_device,
+                            'CreateSwapChainWSI': self._gen_replay_create_swap_chain_wsi,
                             'GetGlobalExtensionInfo': self._gen_replay_get_global_extension_info,
                             'GetPhysicalDeviceExtensionInfo': self._gen_replay_get_physical_device_extension_info,
                             'QueueSubmit': self._gen_replay_queue_submit,

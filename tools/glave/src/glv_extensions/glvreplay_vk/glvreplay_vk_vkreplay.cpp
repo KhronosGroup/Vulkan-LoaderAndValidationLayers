@@ -453,6 +453,26 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkGetPhysicalDeviceExten
     return returnValue;
 }
 
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCreateSwapChainWSI(struct_vkCreateSwapChainWSI* pPacket)
+{
+    VkResult replayResult = VK_ERROR_UNKNOWN;
+    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+    VkSwapChainWSI local_pSwapChain;
+
+    void** ppNativeWindowHandle = (void**)&(pPacket->pCreateInfo->pNativeWindowHandle);
+    *ppNativeWindowHandle = (void*)m_display->get_window_handle();
+    void** ppNativeWindowSystemHandle = (void**)&(pPacket->pCreateInfo->pNativeWindowSystemHandle);
+    *ppNativeWindowSystemHandle = (void*)m_display->get_connection_handle();
+
+    replayResult = m_vkFuncs.real_vkCreateSwapChainWSI(m_objMapper.remap(pPacket->device), pPacket->pCreateInfo, &local_pSwapChain);
+    if (replayResult == VK_SUCCESS)
+    {
+        m_objMapper.add_to_map(pPacket->pSwapChain, &local_pSwapChain);
+    }
+    CHECK_RETURN_VALUE(vkCreateSwapChainWSI);
+    return returnValue;
+}
+
 glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkQueueSubmit(struct_vkQueueSubmit* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;

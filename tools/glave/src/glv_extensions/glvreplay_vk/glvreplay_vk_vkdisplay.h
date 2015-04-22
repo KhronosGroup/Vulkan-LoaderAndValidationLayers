@@ -40,6 +40,7 @@ public:
     // VK_DEVICE get_device() { return m_dev[m_gpuIdx];}
 #if defined(PLATFORM_LINUX) || defined(XCB_NVIDIA)
     xcb_window_t get_window_handle() { return m_XcbWindow; }
+    xcb_connection_t* get_connection_handle() { return m_pXcbConnection; }
 #elif defined(WIN32)
     HWND get_window_handle() { return m_windowHandle; }
 #endif
