@@ -735,7 +735,8 @@ bool loadTexture(const char *filename, uint8_t *rgba_data,
 {
   //header for testing if it is a png
   png_byte header[8];
-  int is_png, bit_depth, color_type,rowbytes;
+  int is_png, bit_depth, color_type, rowbytes;
+  size_t retval;
   png_uint_32 i, twidth, theight;
   png_structp  png_ptr;
   png_infop info_ptr, end_info;
@@ -1277,7 +1278,7 @@ static VkShader demo_prepare_shader(struct demo *demo,
     err = vkCreateShader(demo->device, &createInfo, &shader);
     if (err) {
         free((void *) createInfo.pCode);
-        return (VkShader) NULL;
+        return (VkShader) VK_NULL_HANDLE;
     }
 #endif
 
@@ -1666,7 +1667,7 @@ LRESULT CALLBACK WndProc(HWND hWnd,
                          WPARAM wParam,
                          LPARAM lParam)
 {
-    char tmp_str[] = APP_LONG_NAME;
+    char tmp_str[] = "Test Vulkan Cube Program"; 
 
     switch(uMsg)
     {

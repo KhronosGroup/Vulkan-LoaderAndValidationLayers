@@ -519,12 +519,12 @@ static bool32_t deleteCBInfoList()
 // For given MemObjInfo, report Obj & CB bindings
 static void reportMemReferencesAndCleanUp(MT_MEM_OBJ_INFO* pMemObjInfo)
 {
-    uint32_t cmdBufRefCount = (uint32_t) pMemObjInfo->pCmdBufferBindings.size();
-    uint32_t objRefCount    = (uint32_t) pMemObjInfo->pObjBindings.size();
+    size_t cmdBufRefCount = pMemObjInfo->pCmdBufferBindings.size();
+    size_t objRefCount    = pMemObjInfo->pObjBindings.size();
 
     if ((pMemObjInfo->pCmdBufferBindings.size() + pMemObjInfo->pObjBindings.size()) != 0) {
         char str[1024];
-        sprintf(str, "Attempting to free memory object %p which still contains %d references", pMemObjInfo->mem, (cmdBufRefCount + objRefCount));
+        sprintf(str, "Attempting to free memory object %p which still contains %lu references", pMemObjInfo->mem, (cmdBufRefCount + objRefCount));
         layerCbMsg(VK_DBG_MSG_ERROR, VK_VALIDATION_LEVEL_0, pMemObjInfo->mem, 0, MEMTRACK_INTERNAL_ERROR, "MEM", str);
     }
 
@@ -1060,7 +1060,7 @@ VK_LAYER_EXPORT VkResult VKAPI vkQueueRemoveMemReferences(VkQueue queue, uint32_
             layerCbMsg(VK_DBG_MSG_ERROR, VK_VALIDATION_LEVEL_0, queue, 0, MEMTRACK_INVALID_QUEUE, "MEM", str);
         } else {
             for (uint32_t i = 0; i < count; i++) {
-				if (pQueueInfo->pMemRefList.size() > 0) {
+                if (pQueueInfo->pMemRefList.size() > 0) {
                     for (list<VkDeviceMemory>::iterator it = pQueueInfo->pMemRefList.begin(); it != pQueueInfo->pMemRefList.end();) {
                         if ((*it) == pMems[i]) {
                             it = pQueueInfo->pMemRefList.erase(it);
