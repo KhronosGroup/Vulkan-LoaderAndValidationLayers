@@ -248,24 +248,23 @@ GLVTRACER_EXPORT void VKAPI __HOOKED_vkCmdWaitEvents(
     const void**                                ppMemBarriers)
 
 {
-#if 0 // TODO implement
     glv_trace_packet_header* pHeader;
     struct_vkCmdWaitEvents* pPacket = NULL;
     size_t customSize;
-    uint32_t eventCount = (pWaitInfo != NULL && pWaitInfo->pEvents != NULL) ? pWaitInfo->eventCount : 0;
-    uint32_t mbCount = (pWaitInfo != NULL && pWaitInfo->ppMemBarriers != NULL) ? pWaitInfo->memBarrierCount : 0;
-    customSize = (eventCount * sizeof(VkEvent)) + mbCount * sizeof(void*) + calculate_memory_barrier_size(mbCount, pWaitInfo->ppMemBarriers);
-    CREATE_TRACE_PACKET(vkCmdWaitEvents, sizeof(VkEventWaitInfo) + customSize);
-    real_vkCmdWaitEvents(cmdBuffer, pWaitInfo);
+    customSize = (eventCount * sizeof(VkEvent)) + memBarrierCount * sizeof(void*) + calculate_memory_barrier_size(memBarrierCount, ppMemBarriers);
+    CREATE_TRACE_PACKET(vkCmdWaitEvents, customSize);
+    real_vkCmdWaitEvents(cmdBuffer, waitEvent, eventCount, pEvents, memBarrierCount, ppMemBarriers);
     pPacket = interpret_body_as_vkCmdWaitEvents(pHeader);
     pPacket->cmdBuffer = cmdBuffer;
-    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pWaitInfo), sizeof(VkEventWaitInfo), pWaitInfo);
-    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pWaitInfo->pEvents), eventCount * sizeof(VkEvent), pWaitInfo->pEvents);
-    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pWaitInfo->pEvents));
-    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pWaitInfo->ppMemBarriers), mbCount * sizeof(void*), pWaitInfo->ppMemBarriers);
+    pPacket->waitEvent = waitEvent;
+    pPacket->eventCount = eventCount;
+    pPacket->memBarrierCount = memBarrierCount;
+    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pEvents), eventCount * sizeof(VkEvent), pEvents);
+    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pEvents));
+    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->ppMemBarriers), memBarrierCount * sizeof(void*), ppMemBarriers);
     uint32_t i, siz;
-    for (i = 0; i < mbCount; i++) {
-        VkMemoryBarrier *pNext = (VkMemoryBarrier *) pWaitInfo->ppMemBarriers[i];
+    for (i = 0; i < memBarrierCount; i++) {
+        VkMemoryBarrier *pNext = (VkMemoryBarrier *) ppMemBarriers[i];
         switch (pNext->sType) {
             case VK_STRUCTURE_TYPE_MEMORY_BARRIER:
                 siz = sizeof(VkMemoryBarrier);
@@ -281,13 +280,11 @@ GLVTRACER_EXPORT void VKAPI __HOOKED_vkCmdWaitEvents(
                 siz = 0;
                 break;
         }
-        glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pWaitInfo->ppMemBarriers[i]), siz, pWaitInfo->ppMemBarriers[i]);
-        glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pWaitInfo->ppMemBarriers[i]));
+        glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->ppMemBarriers[i]), siz, ppMemBarriers[i]);
+        glv_finalize_buffer_address(pHeader, (void**)&(pPacket->ppMemBarriers[i]));
     }
-    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pWaitInfo->ppMemBarriers));
-    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pWaitInfo));
+    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->ppMemBarriers));
     FINISH_TRACE_PACKET();
-#endif
 }
 
 GLVTRACER_EXPORT void VKAPI __HOOKED_vkCmdPipelineBarrier(
@@ -298,24 +295,23 @@ GLVTRACER_EXPORT void VKAPI __HOOKED_vkCmdPipelineBarrier(
     uint32_t                                    memBarrierCount,
     const void**                                ppMemBarriers)
 {
-#if 0 //TODO implement
     glv_trace_packet_header* pHeader;
     struct_vkCmdPipelineBarrier* pPacket = NULL;
     size_t customSize;
-    uint32_t eventCount = (pBarrier != NULL && pBarrier->pEvents != NULL) ? pBarrier->eventCount : 0;
-    uint32_t mbCount = (pBarrier != NULL && pBarrier->ppMemBarriers != NULL) ? pBarrier->memBarrierCount : 0;
-    customSize = (eventCount * sizeof(VkPipeEvent)) + mbCount * sizeof(void*) + calculate_memory_barrier_size(mbCount, pBarrier->ppMemBarriers);
-    CREATE_TRACE_PACKET(vkCmdPipelineBarrier, sizeof(VkPipelineBarrier) + customSize);
-    real_vkCmdPipelineBarrier(cmdBuffer, pBarrier);
+    customSize = (pipeEventCount * sizeof(VkPipeEvent)) + memBarrierCount * sizeof(void*) + calculate_memory_barrier_size(memBarrierCount, ppMemBarriers);
+    CREATE_TRACE_PACKET(vkCmdPipelineBarrier, customSize);
+    real_vkCmdPipelineBarrier(cmdBuffer, waitEvent, pipeEventCount, pPipeEvents, memBarrierCount, ppMemBarriers);
     pPacket = interpret_body_as_vkCmdPipelineBarrier(pHeader);
     pPacket->cmdBuffer = cmdBuffer;
-    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pBarrier), sizeof(VkPipelineBarrier), pBarrier);
-    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pBarrier->pEvents), eventCount * sizeof(VkPipeEvent), pBarrier->pEvents);
-    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pBarrier->pEvents));
-    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pBarrier->ppMemBarriers), mbCount * sizeof(void*), pBarrier->ppMemBarriers);
+    pPacket->waitEvent = waitEvent;
+    pPacket->pipeEventCount = pipeEventCount;
+    pPacket->memBarrierCount = memBarrierCount;
+    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pPipeEvents), sizeof(VkPipeEvent), pPipeEvents);
+    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pPipeEvents));
+    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->ppMemBarriers), memBarrierCount * sizeof(void*), ppMemBarriers);
     uint32_t i, siz;
-    for (i = 0; i < mbCount; i++) {
-        VkMemoryBarrier *pNext = (VkMemoryBarrier *) pBarrier->ppMemBarriers[i];
+    for (i = 0; i < memBarrierCount; i++) {
+        VkMemoryBarrier *pNext = (VkMemoryBarrier *) ppMemBarriers[i];
         switch (pNext->sType) {
             case VK_STRUCTURE_TYPE_MEMORY_BARRIER:
                 siz = sizeof(VkMemoryBarrier);
@@ -331,11 +327,9 @@ GLVTRACER_EXPORT void VKAPI __HOOKED_vkCmdPipelineBarrier(
                 siz = 0;
                 break;
         }
-        glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pBarrier->ppMemBarriers[i]), siz, pBarrier->ppMemBarriers[i]);
-        glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pBarrier->ppMemBarriers[i]));
+        glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->ppMemBarriers[i]), siz, ppMemBarriers[i]);
+        glv_finalize_buffer_address(pHeader, (void**)&(pPacket->ppMemBarriers[i]));
     }
-    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pBarrier->ppMemBarriers));
-    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pBarrier));
+    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->ppMemBarriers));
     FINISH_TRACE_PACKET();
-#endif
 }

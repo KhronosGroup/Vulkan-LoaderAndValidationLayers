@@ -842,6 +842,13 @@ class Subcommand(object):
     #  This code gets generated into glv_vk_vk_structs.h file
     def _generate_interp_funcs(self):
         # Custom txt for given function and parameter.  First check if param is NULL, then insert txt if not
+        # First some common code used by both CmdWaitEvents & CmdPipelineBarrier
+        mem_barrier_interp = ['uint32_t i = 0;\n',
+                              'for (i = 0; i < pPacket->memBarrierCount; i++) {\n',
+                              '    pPacket->ppMemBarriers[i] = glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pPacket->ppMemBarriers[i]);\n',
+                              '    //VkMemoryBarrier* pBarr = (VkMemoryBarrier*)pPacket->ppMemBarriers[i];\n',
+                              '    // TODO : Could fix up the pNext ptrs here if they were finalized and if we cared by switching on Barrier type and remapping\n',
+                              '}']
         # TODO : This code is now too large and complex, need to make codegen smarter for pointers embedded in struct params to handle those cases automatically
         custom_case_dict = { 'CreateShader' : {'param': 'pCreateInfo', 'txt': ['VkShaderCreateInfo* pInfo = (VkShaderCreateInfo*)pPacket->pCreateInfo;\n',
                                                'pInfo->pCode = glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pPacket->pCreateInfo->pCode);']},
@@ -861,22 +868,8 @@ class Subcommand(object):
                                                        'pInfo->pSetLayouts = (VkDescriptorSetLayout*) glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pPacket->pCreateInfo->pSetLayouts);\n']},
                              'CreateDescriptorPool' : {'param': 'pCreateInfo', 'txt': ['VkDescriptorPoolCreateInfo* pInfo = (VkDescriptorPoolCreateInfo*)pPacket->pCreateInfo;\n',
                                                        'pInfo->pTypeCount = (VkDescriptorTypeCount*) glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pPacket->pCreateInfo->pTypeCount);\n']},
-                             'CmdWaitEvents' : {'param': 'pWaitInfo', 'txt': ['VkEventWaitInfo* pInfo = (VkEventWaitInfo*)pPacket->pWaitInfo;\n',
-                                                                          'pInfo->pEvents = (VkEvent*) glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pPacket->pWaitInfo->pEvents);\n',
-                                                                          'pInfo->ppMemBarriers = (const void**) glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pPacket->pWaitInfo->ppMemBarriers);\n',
-                                                                          'uint32_t i;\n',
-                                                                          'for (i = 0; i < pInfo->memBarrierCount; i++) {\n',
-                                                                          '    void** ppLocalMemBarriers = (void**)&pInfo->ppMemBarriers[i];\n',
-                                                                          '    *ppLocalMemBarriers = (void*) glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pInfo->ppMemBarriers[i]);\n',
-                                                                          '}']},
-                             'CmdPipelineBarrier' : {'param': 'pBarrier', 'txt': ['VkPipelineBarrier* pBarrier = (VkPipelineBarrier*)pPacket->pBarrier;\n',
-                                                                          'pBarrier->pEvents = (VkPipeEvent*) glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pPacket->pBarrier->pEvents);\n',
-                                                                          'pBarrier->ppMemBarriers = (const void**) glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pPacket->pBarrier->ppMemBarriers);\n',
-                                                                          'uint32_t i;\n',
-                                                                          'for (i = 0; i < pBarrier->memBarrierCount; i++) {\n',
-                                                                          '    void** ppLocalMemBarriers = (void**)&pBarrier->ppMemBarriers[i];\n',
-                                                                          '    *ppLocalMemBarriers = (void*) glv_trace_packet_interpret_buffer_pointer(pHeader, (intptr_t)pBarrier->ppMemBarriers[i]);\n',
-                                                                          '}']},
+                             'CmdWaitEvents' : {'param': 'ppMemBarriers', 'txt': mem_barrier_interp},
+                             'CmdPipelineBarrier' : {'param': 'ppMemBarriers', 'txt': mem_barrier_interp},
                              'CreateDescriptorSetLayout' : {'param': 'pCreateInfo', 'txt': ['if (pPacket->pCreateInfo->sType == VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO) {\n',
                                                                                          '    VkDescriptorSetLayoutCreateInfo* pNext = (VkDescriptorSetLayoutCreateInfo*)pPacket->pCreateInfo;\n',
                                                                                          '    do\n','    {\n',
@@ -1094,10 +1087,7 @@ class Subcommand(object):
                 if_body.append('typedef struct struct_vk%s {' % proto.name)
                 if_body.append('    glv_trace_packet_header* header;')
                 for p in proto.params:
-                    if '[4]' in p.ty:
-                        if_body.append('    %s %s[4];' % (p.ty.strip('[4]'), p.name))
-                    else:
-                        if_body.append('    %s %s;' % (p.ty, p.name))
+                    if_body.append('    %s %s;' % (p.ty, p.name))
                 if 'void' != proto.ret:
                     if_body.append('    %s result;' % proto.ret)
                 if_body.append('} struct_vk%s;\n' % proto.name)
@@ -1154,10 +1144,7 @@ class Subcommand(object):
         for proto in self.protos:
             xf_body.append('    typedef %s( VKAPI * type_vk%s)(' % (proto.ret, proto.name))
             for p in proto.params:
-                if '[4]' in p.ty:
-                    xf_body.append('        %s %s[4],' % (p.ty.strip('[4]'), p.name))
-                else:
-                    xf_body.append('        %s %s,' % (p.ty, p.name))
+                xf_body.append('        %s %s,' % (p.ty, p.name))
             xf_body[-1] = xf_body[-1].replace(',', ');')
             xf_body.append('    type_vk%s real_vk%s;' % (proto.name, proto.name))
         xf_body.append('};')
