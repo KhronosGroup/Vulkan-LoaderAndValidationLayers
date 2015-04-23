@@ -93,8 +93,8 @@ target_link_libraries(${PROJECT_NAME}
 endif()
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DVK_PROTOTYPES -DXCB_NVIDIA")
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DVK_PROTOTYPES -DXCB_NVIDIA")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DVK_PROTOTYPES")
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DVK_PROTOTYPES")
     set(PATH_TO_WIN_VULKAN ${CMAKE_CURRENT_BINARY_DIR}/../../../../../loader/${CMAKE_CFG_INTDIR})
     set(PATH_TO_MHOOK ${CMAKE_CURRENT_BINARY_DIR}/../../thirdparty/mhook/mhook-lib/${CMAKE_CFG_INTDIR})
     set(PATH_TO_DISASM ${CMAKE_CURRENT_BINARY_DIR}/../../thirdparty/mhook/disasm-lib/${CMAKE_CFG_INTDIR})
@@ -102,7 +102,6 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
         ${PATH_TO_WIN_VULKAN}/vulkan.lib
         ${PATH_TO_MHOOK}/mhook.lib
         ${PATH_TO_DISASM}/disasm.lib
-        xcb_nvidia
     )
     target_link_libraries(${PROJECT_NAME} 
         glvcommon

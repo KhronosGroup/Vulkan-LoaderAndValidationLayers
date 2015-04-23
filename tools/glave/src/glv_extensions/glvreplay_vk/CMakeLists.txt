@@ -32,12 +32,9 @@ add_custom_command(OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/codegen/glv_vk_packet_id.h
                    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/codegen)
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DXCB_NVIDIA")
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DXCB_NVIDIA")
     set(PATH_TO_WIN_VULKAN ${CMAKE_CURRENT_BINARY_DIR}/../../../../../loader/${CMAKE_CFG_INTDIR})
     set(OS_REPLAYER_LIBS
         ${PATH_TO_WIN_VULKAN}/vulkan.lib
-        xcb_nvidia
     )
 endif()
 

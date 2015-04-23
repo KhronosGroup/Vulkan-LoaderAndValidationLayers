@@ -25,6 +25,9 @@
 
 #include "glvreplay_vk_vkreplay.h"
 
+#define APP_NAME "glvreplay_vk"
+#define IDI_ICON 101
+
 vkDisplay::vkDisplay()
     : m_initedVK(false),
     m_windowWidth(0),
@@ -133,7 +136,8 @@ int vkDisplay::init(const unsigned int gpu_idx)
         m_initedVK = true;
     }
 #endif
-#if defined(PLATFORM_LINUX) || defined(XCB_NVIDIA)
+//#if defined(PLATFORM_LINUX) || defined(XCB_NVIDIA)
+#if 0
     const xcb_setup_t *setup;
     xcb_screen_iterator_t iter;
     int scr;

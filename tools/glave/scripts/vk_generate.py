@@ -2163,8 +2163,6 @@ class GlaveReplayC(Subcommand):
         header_txt.append('#include "glv_vk_vk_wsi_lunarg_structs.h"')
         header_txt.append('#include "glv_vk_packet_id.h"')
         header_txt.append('#include "vk_enum_string_helper.h"\n}\n')
-        header_txt.append('#define APP_NAME "glvreplay_vk"')
-        header_txt.append('#define IDI_ICON 101\n')
 
         return "\n".join(header_txt)
 

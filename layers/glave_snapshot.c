@@ -565,6 +565,57 @@ VK_LAYER_EXPORT VkResult VKAPI vkEnumerateLayers(VkPhysicalDevice physicalDevice
         return VK_SUCCESS;
     }
 }
+struct extProps {
+    uint32_t version;
+    const char * const name;
+};
+#define GLAVE_SNAPSHOT_LAYER_EXT_ARRAY_SIZE 1
+static const struct extProps mtExts[GLAVE_SNAPSHOT_LAYER_EXT_ARRAY_SIZE] = {
+    // TODO what is the version?
+    0x10, LAYER_NAME_STR,
+};
+
+VK_LAYER_EXPORT VkResult VKAPI vkGetGlobalExtensionInfo(
+                                               VkExtensionInfoType infoType,
+                                               uint32_t extensionIndex,
+                                               size_t*  pDataSize,
+                                               void*    pData)
+{
+    VkResult result;
+
+    /* This entrypoint is NOT going to init it's own dispatch table since loader calls here early */
+    VkExtensionProperties *ext_props;
+    uint32_t *count;
+
+    if (pDataSize == NULL)
+        return VK_ERROR_INVALID_POINTER;
+
+    switch (infoType) {
+        case VK_EXTENSION_INFO_TYPE_COUNT:
+            *pDataSize = sizeof(uint32_t);
+            if (pData == NULL)
+                return VK_SUCCESS;
+            count = (uint32_t *) pData;
+            *count = GLAVE_SNAPSHOT_LAYER_EXT_ARRAY_SIZE;
+            break;
+        case VK_EXTENSION_INFO_TYPE_PROPERTIES:
+            *pDataSize = sizeof(VkExtensionProperties);
+            if (pData == NULL)
+                return VK_SUCCESS;
+            if (extensionIndex >= GLAVE_SNAPSHOT_LAYER_EXT_ARRAY_SIZE)
+                return VK_ERROR_INVALID_VALUE;
+            ext_props = (VkExtensionProperties *) pData;
+            ext_props->version = mtExts[extensionIndex].version;
+            strncpy(ext_props->extName, mtExts[extensionIndex].name,
+                                        VK_MAX_EXTENSION_NAME);
+            ext_props->extName[VK_MAX_EXTENSION_NAME - 1] = '\0';
+            break;
+        default:
+            return VK_ERROR_INVALID_VALUE;
+    };
+
+    return VK_SUCCESS;
+}
 
 VK_LAYER_EXPORT VkResult VKAPI vkGetDeviceQueue(VkDevice device, uint32_t queueNodeIndex, uint32_t queueIndex, VkQueue* pQueue)
 {
@@ -1919,10 +1970,12 @@ VK_LAYER_EXPORT void* VKAPI vkGetProcAddr(VkPhysicalDevice physicalDevice, const
     pCurObj = gpuw;
     loader_platform_thread_once(&tabOnce, initGlaveSnapshot);
 
-    addr = layer_intercept_proc(funcName);
-    if (addr)
-        return addr;
-    else if (!strncmp("glvSnapshotGetObjectCount", funcName, sizeof("glvSnapshotGetObjectCount")))
+    // TODO: This needs to be changed, need only the entry points this layer intercepts
+    //addr = layer_intercept_proc(funcName);
+    //if (addr)
+    //    return addr;
+    //else
+    if (!strncmp("glvSnapshotGetObjectCount", funcName, sizeof("glvSnapshotGetObjectCount")))
         return glvSnapshotGetObjectCount;
     else if (!strncmp("glvSnapshotGetObjects", funcName, sizeof("glvSnapshotGetObjects")))
         return glvSnapshotGetObjects;

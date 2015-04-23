@@ -43,6 +43,7 @@ public:
     xcb_connection_t* get_connection_handle() { return m_pXcbConnection; }
 #elif defined(WIN32)
     HWND get_window_handle() { return m_windowHandle; }
+	void * get_connection_handle() { return NULL; }
 #endif
 private:
     VkResult init_vk(const unsigned int gpu_idx);
