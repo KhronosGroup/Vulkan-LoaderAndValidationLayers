@@ -1212,13 +1212,18 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkDestroyObject(struct_v
 glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkWaitForFences(struct_vkWaitForFences* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
+    uint32_t i;
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
     VkFence *pFence = GLV_NEW_ARRAY(VkFence, pPacket->fenceCount);
-    for (uint32_t i = 0; i < pPacket->fenceCount; i++)
+    for (i = 0; i < pPacket->fenceCount; i++)
     {
         *(pFence + i) = m_objMapper.remap(*(pPacket->pFences + i));
     }
     replayResult = m_vkFuncs.real_vkWaitForFences(m_objMapper.remap(pPacket->device), pPacket->fenceCount, pFence, pPacket->waitAll, pPacket->timeout);
+    for (i = 0; i < pPacket->fenceCount; i++)
+    {
+        *((VkFence *)(pPacket->pFences + i)) = *(pFence + i);
+    }
     GLV_DELETE(pFence);
     CHECK_RETURN_VALUE(vkWaitForFences);
     return returnValue;
