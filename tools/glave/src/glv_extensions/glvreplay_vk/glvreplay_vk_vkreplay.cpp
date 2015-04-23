@@ -166,33 +166,44 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCreateInstance(struct_
         VkInstance inst;
         if (g_vkReplaySettings.debugLevel > 0)
         {
-            VkInstanceCreateInfo cInfo, *ci, *pCreateInfoSaved;
-            unsigned int numLayers = 0;
+            // save for restoring later
+            const char* const* ppSavedExtensionNames = pPacket->pCreateInfo->ppEnabledExtensionNames;
+            size_t savedExtensionCount = pPacket->pCreateInfo->extensionCount;
+
+            // pointers to const locations that will need updating / restoring
+            const char* const** pppExtNames = (const char* const**)&pPacket->pCreateInfo->ppEnabledExtensionNames;
+            uint32_t* pExtensionCount = (uint32_t*)&pPacket->pCreateInfo->extensionCount;
+
+            // get the list of layers that the debugger wants to enable
+            uint32_t numLayers = 0;
             char ** layersStr = get_enableLayers_list(&numLayers);
             apply_layerSettings_overrides();
-            //VkLayerCreateInfo layerInfo;
-            pCreateInfoSaved = (VkInstanceCreateInfo *) pPacket->pCreateInfo;
-            ci = (VkInstanceCreateInfo *) pPacket->pCreateInfo;
             if (layersStr != NULL && numLayers > 0)
             {
-                // TODO change this to add the layers into the extension string
-#if 0
-                while (ci->pNext != NULL)
-                    ci = (VkInstanceCreateInfo *) ci->pNext;
-                ci->pNext = &layerInfo;
-                layerInfo.sType = VK_STRUCTURE_TYPE_LAYER_CREATE_INFO;
-                layerInfo.pNext = 0;
-                layerInfo.layerCount = numLayers;
-                layerInfo.ppActiveLayerNames = layersStr;
-#endif
+                uint32_t totalCount = pPacket->pCreateInfo->extensionCount + numLayers;
+
+                *pExtensionCount = totalCount;
+
+                *pppExtNames = GLV_NEW_ARRAY(const char*, totalCount);
+
+                // copy app-supplied extension names
+                memcpy((void*)*pppExtNames, ppSavedExtensionNames, savedExtensionCount * sizeof(char*));
+
+                // copy debugger-supplied layer names
+                memcpy((void*)&pPacket->pCreateInfo->ppEnabledExtensionNames[savedExtensionCount], layersStr, numLayers * sizeof(char*));
+
             }
-            memcpy(&cInfo, pPacket->pCreateInfo, sizeof(VkInstanceCreateInfo));
-            pPacket->pCreateInfo = &cInfo;
+            // make the call
             replayResult = m_vkFuncs.real_vkCreateInstance(pPacket->pCreateInfo, &inst);
-            // restore the packet for next replay
-            ci->pNext = NULL;
-            pPacket->pCreateInfo = pCreateInfoSaved;
+
+            // clean up and restore
+            void* pTmp = (void*)pPacket->pCreateInfo->ppEnabledExtensionNames;
+            GLV_DELETE(pTmp);
+            *pppExtNames = ppSavedExtensionNames;
+            *pExtensionCount = savedExtensionCount;
             release_enableLayer_list(layersStr);
+
+            // get entrypoints from layers that we plan to call
 #if !defined(_WIN32)
             m_pDSDump = (void (*)(char*)) m_vkFuncs.real_vkGetProcAddr(NULL, "drawStateDumpDotFile");
             m_pCBDump = (void (*)(char*)) m_vkFuncs.real_vkGetProcAddr(NULL, "drawStateDumpCommandBufferDotFile");
@@ -200,7 +211,9 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCreateInstance(struct_
 #endif
         }
         else
+        {
             replayResult = m_vkFuncs.real_vkCreateInstance(pPacket->pCreateInfo, &inst);
+        }
         CHECK_RETURN_VALUE(vkCreateInstance);
         if (replayResult == VK_SUCCESS)
         {
@@ -217,41 +230,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCreateDevice(struct_vk
     if (!m_display->m_initedVK)
     {
         VkDevice device;
-        if (g_vkReplaySettings.debugLevel > 0)
-        {
-            VkDeviceCreateInfo cInfo, *ci, *pCreateInfoSaved;
-            unsigned int numLayers = 0;
-            char ** layersStr = get_enableLayers_list(&numLayers);
-            apply_layerSettings_overrides();
-            VkLayerCreateInfo layerInfo;
-            pCreateInfoSaved = (VkDeviceCreateInfo *) pPacket->pCreateInfo;
-            ci = (VkDeviceCreateInfo *) pPacket->pCreateInfo;
-            if (layersStr != NULL && numLayers > 0)
-            {
-                while (ci->pNext != NULL)
-                    ci = (VkDeviceCreateInfo *) ci->pNext;
-                ci->pNext = &layerInfo;
-                layerInfo.sType = VK_STRUCTURE_TYPE_LAYER_CREATE_INFO;
-                layerInfo.pNext = 0;
-                layerInfo.layerCount = numLayers;
-                layerInfo.ppActiveLayerNames = layersStr;
-            }
-            memcpy(&cInfo, pPacket->pCreateInfo, sizeof(VkDeviceCreateInfo));
-            cInfo.flags = pPacket->pCreateInfo->flags | VK_DEVICE_CREATE_VALIDATION_BIT;
-            pPacket->pCreateInfo = &cInfo;
-            replayResult = m_vkFuncs.real_vkCreateDevice(m_objMapper.remap(pPacket->physicalDevice), pPacket->pCreateInfo, &device);
-            // restore the packet for next replay
-            ci->pNext = NULL;
-            pPacket->pCreateInfo = pCreateInfoSaved;
-            release_enableLayer_list(layersStr);
-#if !defined(_WIN32)
-            m_pDSDump = (void (*)(char*)) m_vkFuncs.real_vkGetProcAddr(m_objMapper.remap(pPacket->physicalDevice), "drawStateDumpDotFile");
-            m_pCBDump = (void (*)(char*)) m_vkFuncs.real_vkGetProcAddr(m_objMapper.remap(pPacket->physicalDevice), "drawStateDumpCommandBufferDotFile");
-            m_pGlvSnapshotPrint = (GLVSNAPSHOT_PRINT_OBJECTS) m_vkFuncs.real_vkGetProcAddr(m_objMapper.remap(pPacket->physicalDevice), "glvSnapshotPrintObjects");
-#endif
-        }
-        else
-            replayResult = m_vkFuncs.real_vkCreateDevice(m_objMapper.remap(pPacket->physicalDevice), pPacket->pCreateInfo, &device);
+        replayResult = m_vkFuncs.real_vkCreateDevice(m_objMapper.remap(pPacket->physicalDevice), pPacket->pCreateInfo, &device);
         CHECK_RETURN_VALUE(vkCreateDevice);
         if (replayResult == VK_SUCCESS)
         {
