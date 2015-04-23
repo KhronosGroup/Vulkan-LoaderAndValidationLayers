@@ -148,6 +148,18 @@ class Proto(object):
         return "Proto(\"%s\", \"%s\",\n%s)" % \
                 (self.ret, self.name, param_str)
 
+class VkObject(object):
+    def __init__(self, type, enum):
+        self.type = type
+        self.enum = enum
+
+    def __repr__(self):
+        lines = []
+        lines.append("VkObject(")
+        lines.append("    type=\"%s\"," % self.type)
+        lines.append("    enum=\"%s\"" % self.enum)
+        lines.append(")")
+
 class Extension(object):
     def __init__(self, name, headers, objects, protos):
         self.name = name
@@ -981,48 +993,48 @@ wsi_lunarg = Extension(
 extensions = [core, wsi_lunarg]
 
 object_root_list = [
-    "VkInstance",
-    "VkPhysicalDevice",
-    "VkDisplayWSI",
-    "VkSwapChainWSI",
+    VkObject("VkInstance", "VK_OBJECT_TYPE_INSTANCE"),
+    VkObject("VkPhysicalDevice", "VK_OBJECT_TYPE_PHYSICAL_DEVICE"),
+    VkObject("VkDisplayWSI", "VK_OBJECT_TYPE_DISPLAY_WSI"),
+    VkObject("VkSwapChainWSI", "VK_OBJECT_TYPE_SWAP_CHAIN_WSI")
 ]
 
 object_base_list = [
-    "VkDevice",
-    "VkQueue",
-    "VkDeviceMemory",
-    "VkObject"
+    VkObject("VkDevice", "VK_OBJECT_TYPE_DEVICE"),
+    VkObject("VkQueue", "VK_OBJECT_TYPE_QUEUE"),
+    VkObject("VkDeviceMemory", "VK_OBJECT_TYPE_DEVICE_MEMORY"),
+    VkObject("VkObject", ""),  # VK_OBJECT_TYPE_OBJECT is not defined
 ]
 
 object_list = [
-    "VkBuffer",
-    "VkBufferView",
-    "VkImage",
-    "VkImageView",
-    "VkColorAttachmentView",
-    "VkDepthStencilView",
-    "VkShader",
-    "VkPipeline",
-    "VkPipelineLayout",
-    "VkSampler",
-    "VkDescriptorSet",
-    "VkDescriptorSetLayout",
-    "VkDescriptorPool",
-    "VkDynamicStateObject",
-    "VkCmdBuffer",
-    "VkFence",
-    "VkSemaphore",
-    "VkEvent",
-    "VkQueryPool",
-    "VkFramebuffer",
-    "VkRenderPass"
+    VkObject("VkBuffer", "VK_OBJECT_TYPE_BUFFER"),
+    VkObject("VkBufferView", "VK_OBJECT_TYPE_BUFFER_VIEW"),
+    VkObject("VkImage", "VK_OBJECT_TYPE_IMAGE"),
+    VkObject("VkImageView", "VK_OBJECT_TYPE_IMAGE_VIEW"),
+    VkObject("VkColorAttachmentView", "VK_OBJECT_TYPE_COLOR_ATTACHMENT_VIEW"),
+    VkObject("VkDepthStencilView", "VK_OBJECT_TYPE_DEPTH_STENCIL_VIEW"),
+    VkObject("VkShader", "VK_OBJECT_TYPE_SHADER"),
+    VkObject("VkPipeline", "VK_OBJECT_TYPE_PIPELINE"),
+    VkObject("VkPipelineLayout", "VK_OBJECT_TYPE_PIPELINE_LAYOUT"),
+    VkObject("VkSampler", "VK_OBJECT_TYPE_SAMPLER"),
+    VkObject("VkDescriptorSet", "VK_OBJECT_TYPE_DESCRIPTOR_SET"),
+    VkObject("VkDescriptorSetLayout", "VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT"),
+    VkObject("VkDescriptorPool", "VK_OBJECT_TYPE_DESCRIPTOR_POOL"),
+    VkObject("VkDynamicStateObject", ""),  # VK_OBJECT_TYPE_DYNAMIC_STATE_OBJECT is not defined
+    VkObject("VkCmdBuffer", "VK_OBJECT_TYPE_COMMAND_BUFFER"),
+    VkObject("VkFence", "VK_OBJECT_TYPE_FENCE"),
+    VkObject("VkSemaphore", "VK_OBJECT_TYPE_SEMAPHORE"),
+    VkObject("VkEvent", "VK_OBJECT_TYPE_EVENT"),
+    VkObject("VkQueryPool", "VK_OBJECT_TYPE_QUERY_POOL"),
+    VkObject("VkFramebuffer", "VK_OBJECT_TYPE_FRAMEBUFFER"),
+    VkObject("VkRenderPass", "VK_OBJECT_TYPE_RENDER_PASS")
 ]
 
 object_dynamic_state_list = [
-    "VkDynamicVpState",
-    "VkDynamicRsState",
-    "VkDynamicCbState",
-    "VkDynamicDsState"
+    VkObject("VkDynamicVpState", "VK_OBJECT_TYPE_DYNAMIC_VP_STATE"),
+    VkObject("VkDynamicRsState", "VK_OBJECT_TYPE_DYNAMIC_RS_STATE"),
+    VkObject("VkDynamicCbState", "VK_OBJECT_TYPE_DYNAMIC_CB_STATE"),
+    VkObject("VkDynamicDsState", "VK_OBJECT_TYPE_DYNAMIC_DS_STATE")
 ]
 
 object_type_list = object_root_list + object_base_list + object_list + object_dynamic_state_list

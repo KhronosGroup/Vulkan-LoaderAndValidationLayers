@@ -1261,15 +1261,17 @@ class Subcommand(object):
     def _generate_replay_objmapper_class(self):
         # Create dict mapping member var names to VK type (i.e. 'm_imageViews' : 'VkImage_VIEW')
         obj_map_dict = {}
-        for ty in vulkan.object_type_list:
-            if ty in vulkan.object_parent_list:
+        for obj in vulkan.object_type_list:
+            if obj.type in vulkan.object_parent_list:
                 continue
-            if (ty.startswith('Vk')):
-                mem_var = ty.replace('Vk', '').lower()
+            if (obj.type.startswith('Vk')):
+                mem_var = obj.type.replace('Vk', '').lower()
             mem_var_list = mem_var.split('_')
             mem_var = 'm_%s%ss' % (mem_var_list[0], "".join([m.title() for m in mem_var_list[1:]]))
-            obj_map_dict[mem_var] = ty
+            obj_map_dict[mem_var] = obj.type
         rc_body = []
+        rc_body.append('#define GLV_VK_OBJECT_TYPE_UNKNOWN (VkObjectType)-1')
+        rc_body.append('')
         rc_body.append('typedef struct _VKAllocInfo {')
         rc_body.append('    VkDeviceSize size;')
         rc_body.append('    void *pData;')
@@ -1423,43 +1425,45 @@ class Subcommand(object):
         state_obj_remap_types = vulkan.object_dynamic_state_list
         rc_body.append('    VkDynamicStateObject remap(const VkDynamicStateObject& state)\n    {')
         rc_body.append('        VkDynamicStateObject obj;')
-        for t in state_obj_remap_types:
-            rc_body.append('        if ((obj = remap(static_cast <%s> (state))) != VK_NULL_HANDLE)' % t)
+        for obj in state_obj_remap_types:
+            rc_body.append('        if ((obj = remap(static_cast <%s> (state))) != VK_NULL_HANDLE)' % obj.type)
             rc_body.append('            return obj;')
         rc_body.append('        return VK_NULL_HANDLE;\n    }')
         rc_body.append('    void rm_from_map(const VkDynamicStateObject& state)\n    {')
-        for t in state_obj_remap_types:
-            rc_body.append('        rm_from_map(static_cast <%s> (state));' % t)
+        for obj in state_obj_remap_types:
+            rc_body.append('        rm_from_map(static_cast <%s> (state));' % obj.type)
         rc_body.append('    }')
         rc_body.append('')
         # OBJECT code
-        rc_body.append('    VkObject remap(const VkObject& object)\n    {')
+        rc_body.append('    VkObject remap(const VkObject& object, VkObjectType objectType)\n    {')
         rc_body.append('        VkObject obj;')
-        # remaps objects that previously inherited from VkBaseObject
-        base_obj_remap_types = ['VkDevice', 'VkQueue', 'VkDeviceMemory']
-        for t in base_obj_remap_types:
-            rc_body.append('        if ((obj = remap(static_cast <%s> (object))) != VK_NULL_HANDLE)' % t)
-            rc_body.append('            return obj;')
-        # remaps objects that inherited from VkObject
-        obj_remap_types = vulkan.object_list
-        for var in obj_remap_types:
-            rc_body.append('        if ((obj = remap(static_cast <%s> (object))) != VK_NULL_HANDLE)' % (var))
-            rc_body.append('            return obj;')
-        rc_body.append('        return VK_NULL_HANDLE;\n    }')
-        rc_body.append('    void rm_from_map(const VkObject & objKey)\n    {')
-        for var in obj_remap_types:
-            rc_body.append('        rm_from_map(static_cast <%s> (objKey));' % (var))
-        rc_body.append('    }\n')
-        rc_body.append('// This is likely to come back in the future, so just commenting out for now.')
-        rc_body.append('//    VkObject remap(const VkObject& object)')
-        rc_body.append('//    {')
-        rc_body.append('//        VkObject obj;')
-        base_obj_remap_types = ['VkDevice', 'VkQueue', 'VkDeviceMemory', 'VkObject']
-        for t in base_obj_remap_types:
-            rc_body.append('//        if ((obj = remap(static_cast <%s> (object))) != VK_NULL_HANDLE)' % t)
-            rc_body.append('//            return obj;')
-        rc_body.append('//        return VK_NULL_HANDLE;')
-        rc_body.append('//    }')
+        obj_remap_types = vulkan.object_type_list
+        rc_body.append('        switch ((unsigned int)objectType) {')
+        for obj in obj_remap_types:
+            if obj.type not in vulkan.object_parent_list:
+                rc_body.append('        case %s:' % obj.enum)
+                rc_body.append('            return remap(static_cast <%s> (object));' % obj.type)
+        rc_body.append('        case GLV_VK_OBJECT_TYPE_UNKNOWN:')
+        rc_body.append('        default:')
+        for obj in obj_remap_types:
+            if obj.type not in vulkan.object_parent_list:
+                rc_body.append('            if ((obj = remap(static_cast <%s> (object))) != VK_NULL_HANDLE) return obj;' % obj.type)
+        rc_body.append('        }')
+        rc_body.append('        return VK_NULL_HANDLE;')
+        rc_body.append('    }')
+        rc_body.append('')
+        rc_body.append('    void rm_from_map(const VkObject& objKey, VkObjectType objectType)\n    {')
+        rc_body.append('        switch ((unsigned int)objectType) {')
+        for obj in obj_remap_types:
+            if obj.type not in vulkan.object_parent_list:
+                rc_body.append('        case %s:' % obj.enum)
+                rc_body.append('           rm_from_map(static_cast <%s> (objKey));' % (obj.type))
+                rc_body.append('           break;')
+        rc_body.append('        default:')
+        rc_body.append('           assert(!"Unhandled or invalid VkObjectType passed into rm_from_map(..)");')
+        rc_body.append('           break;')
+        rc_body.append('        }')
+        rc_body.append('    }')
         rc_body.append('};')
         return "\n".join(rc_body)
 
@@ -1471,18 +1475,26 @@ class Subcommand(object):
         rif_body.append('}')
         return "\n".join(rif_body)
 
-    def _get_packet_param(self, t, n):
+    def _get_packet_param(self, funcName, paramType, paramName):
         # list of types that require remapping
         remap_list = vulkan.object_type_list
         param_exclude_list = ['p1', 'p2', 'pGpus', 'pDescriptorSets']
-        if t.strip('*').replace('const ', '') in remap_list and n not in param_exclude_list:
-            if '*' in t:
-                if 'const ' not in t:
-                    return 'm_objMapper.remap(*pPacket->%s)' % (n)
-                else: # TODO : Don't remap array ptrs?
-                    return 'pPacket->%s' % (n)
-            return 'm_objMapper.remap(pPacket->%s)' % (n)
-        return 'pPacket->%s' % (n)
+        cleanParamType = paramType.strip('*').replace('const ', '')
+        for obj in remap_list:
+            if obj.type == cleanParamType and paramName not in param_exclude_list:
+                objectTypeRemapParam = ''
+                if 'object' == paramName:
+                    if 'DbgSetObjectTag' == funcName:
+                        objectTypeRemapParam = ', GLV_VK_OBJECT_TYPE_UNKNOWN'
+                    else:
+                        objectTypeRemapParam = ', pPacket->objType'
+                if '*' in paramType:
+                    if 'const ' not in paramType:
+                        return 'm_objMapper.remap(*pPacket->%s%s)' % (paramName, objectTypeRemapParam)
+                    else: # TODO : Don't remap array ptrs?
+                        return 'pPacket->%s' % (paramName)
+                return 'm_objMapper.remap(pPacket->%s%s)' % (paramName, objectTypeRemapParam)
+        return 'pPacket->%s' % (paramName)
 
     def _gen_replay_create_instance(self):
         ci_body = []
@@ -1769,10 +1781,8 @@ class Subcommand(object):
                 rbody.append(custom_body_dict[proto.name]())
             else:
                 if proto.name in custom_open_params:
-                    rbody.append('            VkDevice handle;')
                     for pidx in custom_open_params[proto.name]:
                         rbody.append('            %s local_%s;' % (proto.params[pidx].ty.replace('const ', '').strip('*'), proto.params[pidx].name))
-                    rbody.append('            handle = m_objMapper.remap(pPacket->device);')
                 elif create_view:
                     rbody.append('            %s createInfo;' % (proto.params[1].ty.strip('*').replace('const ', '')))
                     rbody.append('            memcpy(&createInfo, pPacket->pCreateInfo, sizeof(%s));' % (proto.params[1].ty.strip('*').replace('const ', '')))
@@ -1828,13 +1838,12 @@ class Subcommand(object):
                         elif proto.name == 'AllocDescriptorSets' and p.name == proto.params[-2].name:
                             rr_string += 'local_%s, ' % p.name
                         else:
-                            rr_string += '%s, ' % self._get_packet_param(p.ty, p.name)
+                            rr_string += '%s, ' % self._get_packet_param(proto.name, p.ty, p.name)
                     else:
-                        rr_string += '%s, ' % self._get_packet_param(p.ty, p.name)
+                        rr_string += '%s, ' % self._get_packet_param(proto.name, p.ty, p.name)
                 rr_string = '%s);' % rr_string[:-2]
                 if proto.name in custom_open_params:
                     rr_list = rr_string.split(', ')
-                    rr_list[0] = rr_list[0].replace('m_objMapper.remap(pPacket->device)', 'handle')
                     for pidx in custom_open_params[proto.name]:
                         rr_list[pidx] = '&local_%s' % proto.params[pidx].name
                     rr_string = ', '.join(rr_list)

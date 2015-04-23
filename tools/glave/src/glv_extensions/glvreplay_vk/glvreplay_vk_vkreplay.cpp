@@ -535,7 +535,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkGetObjectInfo(struct_v
         memcpy(pData, pPacket->pData, *pPacket->pDataSize);
     }
     // TODO only search for object once rather than at remap() and init_objMemXXX()
-    replayResult = m_vkFuncs.real_vkGetObjectInfo(m_objMapper.remap(pPacket->device), pPacket->objType, m_objMapper.remap(pPacket->object), pPacket->infoType, &size, pData);
+    replayResult = m_vkFuncs.real_vkGetObjectInfo(m_objMapper.remap(pPacket->device), pPacket->objType, m_objMapper.remap(pPacket->object, pPacket->objType), pPacket->infoType, &size, pData);
     if (replayResult == VK_SUCCESS)
     {
         if (size != *pPacket->pDataSize && pData != NULL)
@@ -1191,11 +1191,11 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkDestroyObject(struct_v
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
-    VkObject object = m_objMapper.remap(pPacket->object);
+    VkObject object = m_objMapper.remap(pPacket->object, pPacket->objType);
     if (object != VK_NULL_HANDLE)
         replayResult = m_vkFuncs.real_vkDestroyObject(m_objMapper.remap(pPacket->device), pPacket->objType, object);
     if (replayResult == VK_SUCCESS)
-        m_objMapper.rm_from_map(pPacket->object);
+        m_objMapper.rm_from_map(pPacket->object, pPacket->objType);
     CHECK_RETURN_VALUE(vkDestroyObject);
     return returnValue;
 }
