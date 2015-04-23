@@ -136,8 +136,7 @@ int vkDisplay::init(const unsigned int gpu_idx)
         m_initedVK = true;
     }
 #endif
-//#if defined(PLATFORM_LINUX) || defined(XCB_NVIDIA)
-#if 0
+#if defined(PLATFORM_LINUX) || defined(XCB_NVIDIA)
     const xcb_setup_t *setup;
     xcb_screen_iterator_t iter;
     int scr;
