@@ -166,20 +166,19 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCreateInstance(struct_
         VkInstance inst;
         if (g_vkReplaySettings.debugLevel > 0)
         {
-            // save for restoring later
-            const char* const* ppSavedExtensionNames = pPacket->pCreateInfo->ppEnabledExtensionNames;
-            size_t savedExtensionCount = pPacket->pCreateInfo->extensionCount;
-
-            // pointers to const locations that will need updating / restoring
-            const char* const** pppExtNames = (const char* const**)&pPacket->pCreateInfo->ppEnabledExtensionNames;
-            uint32_t* pExtensionCount = (uint32_t*)&pPacket->pCreateInfo->extensionCount;
-
             // get the list of layers that the debugger wants to enable
             uint32_t numLayers = 0;
             char ** layersStr = get_enableLayers_list(&numLayers);
             apply_layerSettings_overrides();
             if (layersStr != NULL && numLayers > 0)
             {
+                // save for restoring later
+                const char* const* ppSavedExtensionNames = pPacket->pCreateInfo->ppEnabledExtensionNames;
+                size_t savedExtensionCount = pPacket->pCreateInfo->extensionCount;
+
+                // pointers to const locations that will need updating / restoring
+                const char* const** pppExtNames = (const char* const**)&pPacket->pCreateInfo->ppEnabledExtensionNames;
+                uint32_t* pExtensionCount = (uint32_t*)&pPacket->pCreateInfo->extensionCount;
                 uint32_t totalCount = pPacket->pCreateInfo->extensionCount + numLayers;
 
                 *pExtensionCount = totalCount;
@@ -192,15 +191,19 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCreateInstance(struct_
                 // copy debugger-supplied layer names
                 memcpy((void*)&pPacket->pCreateInfo->ppEnabledExtensionNames[savedExtensionCount], layersStr, numLayers * sizeof(char*));
 
-            }
-            // make the call
-            replayResult = m_vkFuncs.real_vkCreateInstance(pPacket->pCreateInfo, &inst);
+                // make the call
+                replayResult = m_vkFuncs.real_vkCreateInstance(pPacket->pCreateInfo, &inst);
 
-            // clean up and restore
-            void* pTmp = (void*)pPacket->pCreateInfo->ppEnabledExtensionNames;
-            GLV_DELETE(pTmp);
-            *pppExtNames = ppSavedExtensionNames;
-            *pExtensionCount = savedExtensionCount;
+                // clean up and restore
+                void* pTmp = (void*)pPacket->pCreateInfo->ppEnabledExtensionNames;
+                GLV_DELETE(pTmp);
+                *pppExtNames = ppSavedExtensionNames;
+                *pExtensionCount = savedExtensionCount;
+            }
+            else
+            {
+                replayResult = m_vkFuncs.real_vkCreateInstance(pPacket->pCreateInfo, &inst);
+            }
             release_enableLayer_list(layersStr);
 
             // get entrypoints from layers that we plan to call
