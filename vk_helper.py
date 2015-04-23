@@ -1183,7 +1183,7 @@ class StructWrapperGen:
             if follow_chain:
                 sh_funcs.append('%swhile (pNext) {' % (indent))
                 indent = '        '
-            sh_funcs.append('%sswitch (pNext->sType) {' % (indent))
+            sh_funcs.append('%sswitch ((unsigned int)pNext->sType) {' % (indent))
             indent += '    '
             for e in enum_type_dict:
                 if 'StructureType' in e:
