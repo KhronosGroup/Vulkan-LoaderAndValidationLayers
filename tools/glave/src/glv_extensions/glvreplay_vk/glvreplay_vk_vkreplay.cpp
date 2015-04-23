@@ -359,6 +359,16 @@ VkResult vkReplay::manually_replay_vkGetPhysicalDeviceInfo(struct_vkGetPhysicalD
                 {
                     glv_LogWarn("vkGetGpuInfo returned differing data contents than the trace file contained.\n");
                 }
+                // TODO : We could pull this out into its own case of switch, and also may want to perform some
+                //   validation between the trace values and replay values
+                else if (pPacket->infoType == VK_PHYSICAL_DEVICE_INFO_TYPE_DISPLAY_PROPERTIES_WSI) {
+                    VkDisplayPropertiesWSI* physicalInfo = (VkDisplayPropertiesWSI*)pData;
+                    VkDisplayPropertiesWSI* mapInfo = (VkDisplayPropertiesWSI*)pPacket->pData;
+                    uint32_t count = size / sizeof(*physicalInfo), i;
+                    for (i = 0; i < count; i++) {
+                        m_objMapper.add_to_map(&mapInfo[i].display, &physicalInfo[i].display);
+                    }
+                }
             }
             glv_free(pData);
             break;
