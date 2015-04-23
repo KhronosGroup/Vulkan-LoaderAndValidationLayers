@@ -39,18 +39,6 @@ extern "C" {
 
 glvreplay_settings *g_pReplaySettings;
 
-static const char* g_extensions[] =
-{
-        "VK_WSI_WINDOWS",
-        "VK_TIMER_QUEUE",
-        "VK_GPU_TIMESTAMP_CALIBRATION",
-        "VK_DMA_QUEUE",
-        "VK_COMMAND_BUFFER_CONTROL_FLOW",
-        "VK_COPY_OCCLUSION_QUERY_DATA",
-        "VK_ADVANCED_MULTISAMPLING",
-        "VK_BORDER_COLOR_PALETTE"
-};
-
 vkReplay::vkReplay(glvreplay_settings *pReplaySettings)
 {
     g_pReplaySettings = pReplaySettings;

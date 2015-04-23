@@ -569,10 +569,11 @@ struct extProps {
     uint32_t version;
     const char * const name;
 };
+
 #define GLAVE_SNAPSHOT_LAYER_EXT_ARRAY_SIZE 1
 static const struct extProps mtExts[GLAVE_SNAPSHOT_LAYER_EXT_ARRAY_SIZE] = {
     // TODO what is the version?
-    0x10, LAYER_NAME_STR,
+{ 0x10, LAYER_NAME_STR }
 };
 
 VK_LAYER_EXPORT VkResult VKAPI vkGetGlobalExtensionInfo(
@@ -581,8 +582,6 @@ VK_LAYER_EXPORT VkResult VKAPI vkGetGlobalExtensionInfo(
                                                size_t*  pDataSize,
                                                void*    pData)
 {
-    VkResult result;
-
     /* This entrypoint is NOT going to init it's own dispatch table since loader calls here early */
     VkExtensionProperties *ext_props;
     uint32_t *count;
@@ -1964,7 +1963,6 @@ void glvSnapshotPrintObjects(void)
 VK_LAYER_EXPORT void* VKAPI vkGetProcAddr(VkPhysicalDevice physicalDevice, const char* funcName)
 {
     VkBaseLayerObject* gpuw = (VkBaseLayerObject *) physicalDevice;
-    void* addr;
     if ((void*)physicalDevice == NULL)
         return NULL;
     pCurObj = gpuw;
