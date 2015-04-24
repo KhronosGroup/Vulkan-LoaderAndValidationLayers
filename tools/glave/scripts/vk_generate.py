@@ -95,42 +95,45 @@ class Subcommand(object):
         pass
 
     # Return set of printf '%' qualifier, input to that qualifier, and any dereference
-    def _get_printf_params(self, vk_type, name, output_param):
+    def _get_printf_params(self, param_type, param_name, output_param):
         deref = ""
         # TODO : Need ENUM and STRUCT checks here
-        if "VkImage_LAYOUT" in vk_type:
-            return ("%s", "string_%s(%s)" % (vk_type.replace('const ', '').strip('*'), name), deref)
-        if "VkClearColor" in vk_type:
-            return ("%p", "(void*)&%s" % name, deref)
-        if "_type" in vk_type.lower(): # TODO : This should be generic ENUM check
-            return ("%s", "string_%s(%s)" % (vk_type.replace('const ', '').strip('*'), name), deref)
-        if "char*" == vk_type:
-            return ("%s", name, "*")
-        if "const char*" == vk_type:
-            return ("%s", name, "*")
-        if "uint64_t" in vk_type:
-            if '*' in vk_type:
-                return ("%lu",  "(%s == NULL) ? 0 : *(%s)" % (name, name), "*")
-            return ("%lu", name, deref)
-        if "size_t" in vk_type:
-            if '*' in vk_type:
-                return ("%zu", "(%s == NULL) ? 0 : *(%s)" % (name, name), "*")
-            return ("%zu", name, deref)
-        if "float" in vk_type:
-            if '[' in vk_type: # handle array, current hard-coded to 4 (TODO: Make this dynamic)
-                return ("[%f, %f, %f, %f]", "%s[0], %s[1], %s[2], %s[3]" % (name, name, name, name), deref)
-            return ("%f", name, deref)
-        if "bool" in vk_type or 'xcb_randr_crtc_t' in vk_type:
-            return ("%u", name, deref)
-        if True in [t in vk_type.lower() for t in ["int", "flags", "mask", "xcb_window_t"]]:
-            if '[' in vk_type: # handle array, current hard-coded to 4 (TODO: Make this dynamic)
-                return ("[%i, %i, %i, %i]", "%s[0], %s[1], %s[2], %s[3]" % (name, name, name, name), deref)
-            if '*' in vk_type:
-                return ("%i", "(%s == NULL) ? 0 : *(%s)" % (name, name), "*")
-            return ("%i", name, deref)
+        if "VkImage_LAYOUT" in param_type:
+            return ("%s", "string_%s(%s)" % (param_type.replace('const ', '').strip('*'), param_name), deref)
+        if "VkClearColor" in param_type:
+            return ("%p", "(void*)&%s" % param_name, deref)
+        if "_type" in param_type.lower(): # TODO : This should be generic ENUM check
+            return ("%s", "string_%s(%s)" % (param_type.replace('const ', '').strip('*'), param_name), deref)
+        if "char*" == param_type:
+            return ("%s", param_name, "*")
+        if "const char*" == param_type:
+            return ("%s", param_name, "*")
+        for vkObj in vulkan.object_type_list:
+            if "%s*" % vkObj.type == param_type:
+                return ("%p {%p}", "(void*)%s, (void*)((%s != NULL) ? *(%s) : 0)" % (param_name, param_name, param_name), deref)
+        if "uint64_t" in param_type:
+            if '*' in param_type:
+                return ("%lu",  "(%s == NULL) ? 0 : *(%s)" % (param_name, param_name), "*")
+            return ("%lu", param_name, deref)
+        if "size_t" in param_type:
+            if '*' in param_type:
+                return ("%zu", "(%s == NULL) ? 0 : *(%s)" % (param_name, param_name), "*")
+            return ("%zu", param_name, deref)
+        if "float" in param_type:
+            if '[' in param_type: # handle array, current hard-coded to 4 (TODO: Make this dynamic)
+                return ("[%f, %f, %f, %f]", "%s[0], %s[1], %s[2], %s[3]" % (param_name, param_name, param_name, param_name), deref)
+            return ("%f", param_name, deref)
+        if "bool" in param_type or 'xcb_randr_crtc_t' in param_type:
+            return ("%u", param_name, deref)
+        if True in [t in param_type.lower() for t in ["int", "flags", "mask", "xcb_window_t"]]:
+            if '[' in param_type: # handle array, current hard-coded to 4 (TODO: Make this dynamic)
+                return ("[%i, %i, %i, %i]", "%s[0], %s[1], %s[2], %s[3]" % (param_name, param_name, param_name, param_name), deref)
+            if '*' in param_type:
+                return ("%i", "(%s == NULL) ? 0 : *(%s)" % (param_name, param_name), "*")
+            return ("%i", param_name, deref)
         if output_param:
-            return ("%p", "(void*)%s" % name, deref)
-        return ("%p", "(void*)(%s)" % name, deref)
+            return ("%p", "(void*)%s" % param_name, deref)
+        return ("%p", "(void*)(%s)" % param_name, deref)
 
     def _generate_trace_func_ptrs(self):
         func_ptrs = []
