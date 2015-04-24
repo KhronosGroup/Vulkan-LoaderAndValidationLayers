@@ -98,20 +98,16 @@ class Subcommand(object):
     def _get_printf_params(self, param_type, param_name, output_param):
         deref = ""
         # TODO : Need ENUM and STRUCT checks here
-        if "VkImage_LAYOUT" in param_type:
-            return ("%s", "string_%s(%s)" % (param_type.replace('const ', '').strip('*'), param_name), deref)
         if "VkClearColor" in param_type:
             return ("%p", "(void*)&%s" % param_name, deref)
-        if "_type" in param_type.lower(): # TODO : This should be generic ENUM check
-            return ("%s", "string_%s(%s)" % (param_type.replace('const ', '').strip('*'), param_name), deref)
         if "char*" == param_type:
             return ("%s", param_name, "*")
         if "const char*" == param_type:
             return ("%s", param_name, "*")
         for vkObj in vulkan.object_type_list:
-            if "%s*" % vkObj.type == param_type:
+            if "%s*" % vkObj.type == param_type: # if pointer to a vulkan object
                 return ("%p {%p}", "(void*)%s, (void*)((%s != NULL) ? *(%s) : 0)" % (param_name, param_name, param_name), deref)
-        if "uint64_t" in param_type:
+        if "uint64_t" in param_type or 'VkDeviceSize' in param_type:
             if '*' in param_type:
                 return ("%lu",  "(%s == NULL) ? 0 : *(%s)" % (param_name, param_name), "*")
             return ("%lu", param_name, deref)
@@ -125,6 +121,13 @@ class Subcommand(object):
             return ("%f", param_name, deref)
         if "bool" in param_type or 'xcb_randr_crtc_t' in param_type:
             return ("%u", param_name, deref)
+
+        # handle ENUMs
+        vktypelist = [obj.type for obj in vulkan.object_type_list]
+        if param_type[0] == 'V' and param_type[1] == 'k' and param_type not in vktypelist:
+            if param_type not in ['VkFlags', 'VkValidationLevel', 'VkPhysicalDeviceCompatibilityInfo*', 'VkQueryResultFlags']: # There are some types or structs that are not yet supported by the string_* functions
+                return ("%s", "string_%s(%s)" % (param_type.replace('const ', '').strip('*'), param_name), deref)
+
         if True in [t in param_type.lower() for t in ["int", "flags", "mask", "xcb_window_t"]]:
             if '[' in param_type: # handle array, current hard-coded to 4 (TODO: Make this dynamic)
                 return ("[%i, %i, %i, %i]", "%s[0], %s[1], %s[2], %s[3]" % (param_name, param_name, param_name, param_name), deref)
