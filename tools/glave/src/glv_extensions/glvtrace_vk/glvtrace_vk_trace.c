@@ -75,6 +75,44 @@ GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkCreateInstance(
     return result;
 }
 
+GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkGetGlobalExtensionInfo(
+    VkExtensionInfoType infoType,
+    uint32_t extensionIndex,
+    size_t* pDataSize,
+    void* pData)
+{
+    glv_trace_packet_header* pHeader;
+    VkResult result;
+    size_t _dataSize;
+    struct_vkGetGlobalExtensionInfo* pPacket = NULL;
+    uint64_t startTime;
+    glv_platform_thread_once(&gInitOnce, InitTracer);
+    if (real_vkGetGlobalExtensionInfo == vkGetGlobalExtensionInfo)
+    {
+        glv_platform_get_next_lib_sym((void **) &real_vkGetGlobalExtensionInfo,"vkGetGlobalExtensionInfo");
+    }
+    startTime = glv_get_time();
+    result = real_vkGetGlobalExtensionInfo(infoType, extensionIndex, pDataSize, pData);
+    CREATE_TRACE_PACKET(vkGetGlobalExtensionInfo, (((pDataSize != NULL) ? sizeof(size_t) : 0) + ((pDataSize != NULL && pData != NULL) ? *pDataSize : 0)));
+    pHeader->entrypoint_begin_time = startTime;
+    if (isHooked == FALSE) {
+        AttachHooks();
+        AttachHooks_vkdbg();
+        AttachHooks_vk_wsi_lunarg();
+    }
+    _dataSize = (pDataSize == NULL || pData == NULL) ? 0 : *pDataSize;
+    pPacket = interpret_body_as_vkGetGlobalExtensionInfo(pHeader);
+    pPacket->infoType = infoType;
+    pPacket->extensionIndex = extensionIndex;
+    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pDataSize), sizeof(size_t), &_dataSize);
+    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pData), _dataSize, pData);
+    pPacket->result = result;
+    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pDataSize));
+    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pData));
+    FINISH_TRACE_PACKET();
+    return result;
+}
+
 GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkEnumerateLayers(
     VkPhysicalDevice gpu,
     size_t maxStringSize,

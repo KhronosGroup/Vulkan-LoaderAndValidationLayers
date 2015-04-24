@@ -106,6 +106,8 @@ class Subcommand(object):
             return ("%s", "string_%s(%s)" % (vk_type.replace('const ', '').strip('*'), name), deref)
         if "char*" == vk_type:
             return ("%s", name, "*")
+        if "const char*" == vk_type:
+            return ("%s", name, "*")
         if "uint64_t" in vk_type:
             if '*' in vk_type:
                 return ("%lu",  "(%s == NULL) ? 0 : *(%s)" % (name, name), "*")
@@ -345,6 +347,8 @@ class Subcommand(object):
                                      'finalize_txt': 'default'},
                            'pName': {'add_txt': 'glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pName), ((pName != NULL) ? strlen(pName) + 1 : 0), pName)',
                                      'finalize_txt': 'default'},
+                           'pMarker': {'add_txt': 'glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pMarker), ((pMarker != NULL) ? strlen(pMarker) + 1 : 0), pMarker)',
+                                       'finalize_txt': 'default'},
                            'pExtName': {'add_txt': 'glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pExtName), ((pExtName != NULL) ? strlen(pExtName) + 1 : 0), pExtName)',
                                         'finalize_txt': 'default'},
                            'pDescriptorSets': {'add_txt': 'glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pDescriptorSets), customSize, pDescriptorSets)',
@@ -470,8 +474,7 @@ class Subcommand(object):
         func_body = []
         manually_written_hooked_funcs = ['CreateInstance', 'EnumerateLayers', 'EnumeratePhysicalDevices',
                                          'AllocDescriptorSets', 'MapMemory', 'UnmapMemory',
-                                         'CmdPipelineBarrier', 'CmdWaitEvents']
-        thread_once_funcs = ['CreateInstance', 'GetGlobalExtensionInfo']
+                                         'CmdPipelineBarrier', 'CmdWaitEvents', 'GetGlobalExtensionInfo']
         for proto in self.protos:
             if func_class == '':
                 if 'WSI' in proto.name or 'Dbg' in proto.name:
@@ -513,16 +516,6 @@ class Subcommand(object):
                 if in_data_size:
                     func_body.append('    size_t _dataSize;')
                 func_body.append('    struct_vk%s* pPacket = NULL;' % proto.name)
-                if proto.name in thread_once_funcs:
-                    func_body.append('    glv_platform_thread_once(&gInitOnce, InitTracer);')
-                if proto.name == 'GetGlobalExtensionInfo':
-                    func_body.append('    if (real_vkGetGlobalExtensionInfo == vkGetGlobalExtensionInfo)')
-                    func_body.append('        glv_platform_get_next_lib_sym((void **) &real_vkGetGlobalExtensionInfo,"vkGetGlobalExtensionInfo");')
-                    func_body.append('    if (isHooked == FALSE) {')
-                    func_body.append('        AttachHooks();')
-                    func_body.append('        AttachHooks_vkdbg();')
-                    func_body.append('        AttachHooks_vk_wsi_lunarg();')
-                    func_body.append('    }')
 
                 # functions that have non-standard sequence of packet creation and calling real function
                 # NOTE: Anytime we call the function before CREATE_TRACE_PACKET, need to add custom code for correctly tracking API call time
