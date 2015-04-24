@@ -1429,20 +1429,26 @@ class Subcommand(object):
         rc_body.append('')
         # OBJECT code
         rc_body.append('    VkObject remap(const VkObject& object, VkObjectType objectType)\n    {')
-        rc_body.append('        VkObject obj;')
+        rc_body.append('        VkObject obj = VK_NULL_HANDLE;')
         obj_remap_types = vulkan.object_type_list
         rc_body.append('        switch ((unsigned int)objectType) {')
         for obj in obj_remap_types:
             if obj.type not in vulkan.object_parent_list:
                 rc_body.append('        case %s:' % obj.enum)
-                rc_body.append('            return remap(static_cast <%s> (object));' % obj.type)
+                rc_body.append('            obj = remap(static_cast <%s> (object));' % obj.type)
+                rc_body.append('            break;')
         rc_body.append('        case GLV_VK_OBJECT_TYPE_UNKNOWN:')
         rc_body.append('        default:')
+        rc_body.append('            obj = VK_NULL_HANDLE;')
+        rc_body.append('            break;')
+        rc_body.append('        }\n')
+        rc_body.append('        if (obj == VK_NULL_HANDLE)')
+        rc_body.append('        {')
         for obj in obj_remap_types:
             if obj.type not in vulkan.object_parent_list:
                 rc_body.append('            if ((obj = remap(static_cast <%s> (object))) != VK_NULL_HANDLE) return obj;' % obj.type)
         rc_body.append('        }')
-        rc_body.append('        return VK_NULL_HANDLE;')
+        rc_body.append('        return obj;')
         rc_body.append('    }')
         rc_body.append('')
         rc_body.append('    void rm_from_map(const VkObject& objKey, VkObjectType objectType)\n    {')
