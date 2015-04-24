@@ -39,6 +39,7 @@ vkDisplay::vkDisplay()
     m_XcbWindow = 0;
 #elif defined(WIN32)
     m_windowHandle = NULL;
+	m_connection = NULL;
 #endif
 }
 
@@ -205,12 +206,13 @@ int vkDisplay::create_window(const unsigned int width, const unsigned int height
 #elif defined(WIN32)
     // Register Window class
     WNDCLASSEX wcex = {};
+	m_connection = GetModuleHandle(0);
     wcex.cbSize = sizeof( WNDCLASSEX);
     wcex.style = CS_HREDRAW | CS_VREDRAW;
     wcex.lpfnWndProc = WindowProcVk;
     wcex.cbClsExtra = 0;
     wcex.cbWndExtra = 0;
-    wcex.hInstance = GetModuleHandle(0);
+    wcex.hInstance = m_connection;
     wcex.hIcon = LoadIcon(wcex.hInstance, MAKEINTRESOURCE( IDI_ICON));
     wcex.hCursor = LoadCursor( NULL, IDC_ARROW);
     wcex.hbrBackground = ( HBRUSH )( COLOR_WINDOW + 1);

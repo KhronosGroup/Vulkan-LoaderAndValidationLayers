@@ -1952,10 +1952,11 @@ class GlaveTraceC(Subcommand):
         header_txt.append('#include "vk_struct_size_helper.h"')
         header_txt.append('#ifdef WIN32')
         header_txt.append('#include "mhook/mhook-lib/mhook.h"')
+        header_txt.append('#else')
+        header_txt.append('#include <pthread.h>\n')
         header_txt.append('#endif')
         header_txt.append('#include "glv_trace_packet_utils.h"')
         header_txt.append('#include <stdio.h>')
-        header_txt.append('#include <pthread.h>\n')
         return "\n".join(header_txt)
 
     def generate_body(self):
