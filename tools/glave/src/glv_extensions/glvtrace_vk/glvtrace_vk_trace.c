@@ -42,6 +42,137 @@
 GLV_CRITICAL_SECTION g_memInfoLock;
 VKMemInfo g_memInfo = {0, NULL, NULL, 0};
 
+GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkAllocMemory(
+    VkDevice device,
+    const VkMemoryAllocInfo* pAllocInfo,
+    VkDeviceMemory* pMem)
+{
+    glv_trace_packet_header* pHeader;
+    VkResult result;
+    struct_vkAllocMemory* pPacket = NULL;
+    CREATE_TRACE_PACKET(vkAllocMemory, get_struct_chain_size((void*)pAllocInfo) + sizeof(VkDeviceMemory));
+    result = real_vkAllocMemory(device, pAllocInfo, pMem);
+    pPacket = interpret_body_as_vkAllocMemory(pHeader);
+    pPacket->device = device;
+    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pAllocInfo), sizeof(VkMemoryAllocInfo), pAllocInfo);
+    add_alloc_memory_to_trace_packet(pHeader, (void**)&(pPacket->pAllocInfo->pNext), pAllocInfo->pNext);
+    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pMem), sizeof(VkDeviceMemory), pMem);
+    pPacket->result = result;
+    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pAllocInfo));
+    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pMem));
+    FINISH_TRACE_PACKET();
+    // begin custom code
+    add_new_handle_to_mem_info(*pMem, pAllocInfo->allocationSize, NULL);
+    // end custom code
+    return result;
+}
+
+GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkFreeMemory(
+    VkDevice device,
+    VkDeviceMemory mem)
+{
+    glv_trace_packet_header* pHeader;
+    VkResult result;
+    struct_vkFreeMemory* pPacket = NULL;
+    CREATE_TRACE_PACKET(vkFreeMemory, 0);
+    result = real_vkFreeMemory(device, mem);
+    pPacket = interpret_body_as_vkFreeMemory(pHeader);
+    pPacket->device = device;
+    pPacket->mem = mem;
+    pPacket->result = result;
+    FINISH_TRACE_PACKET();
+    // begin custom code
+    rm_handle_from_mem_info(mem);
+    // end custom code
+    return result;
+}
+
+GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkCreateDescriptorPool(
+    VkDevice device,
+    VkDescriptorPoolUsage poolUsage,
+    uint32_t maxSets,
+    const VkDescriptorPoolCreateInfo* pCreateInfo,
+    VkDescriptorPool* pDescriptorPool)
+{
+    glv_trace_packet_header* pHeader;
+    VkResult result;
+    struct_vkCreateDescriptorPool* pPacket = NULL;
+    // begin custom code (needs to use get_struct_chain_size)
+    CREATE_TRACE_PACKET(vkCreateDescriptorPool,  get_struct_chain_size((void*)pCreateInfo) + sizeof(VkDescriptorPool));
+    // end custom code
+    result = real_vkCreateDescriptorPool(device, poolUsage, maxSets, pCreateInfo, pDescriptorPool);
+    pPacket = interpret_body_as_vkCreateDescriptorPool(pHeader);
+    pPacket->device = device;
+    pPacket->poolUsage = poolUsage;
+    pPacket->maxSets = maxSets;
+    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pCreateInfo), sizeof(VkDescriptorPoolCreateInfo), pCreateInfo);
+    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pCreateInfo->pTypeCount), pCreateInfo->count * sizeof(VkDescriptorTypeCount), pCreateInfo->pTypeCount);
+    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pDescriptorPool), sizeof(VkDescriptorPool), pDescriptorPool);
+    pPacket->result = result;
+    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pCreateInfo->pTypeCount));
+    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pCreateInfo));
+    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pDescriptorPool));
+    FINISH_TRACE_PACKET();
+    return result;
+}
+
+GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkCreateDynamicViewportState(
+    VkDevice device,
+    const VkDynamicVpStateCreateInfo* pCreateInfo,
+    VkDynamicVpState* pState)
+{
+    glv_trace_packet_header* pHeader;
+    VkResult result;
+    struct_vkCreateDynamicViewportState* pPacket = NULL;
+    // begin custom code (needs to call get_struct_chain_size)
+    uint32_t vpsCount = (pCreateInfo != NULL && pCreateInfo->pViewports != NULL) ? pCreateInfo->viewportAndScissorCount : 0;
+    CREATE_TRACE_PACKET(vkCreateDynamicViewportState,  get_struct_chain_size((void*)pCreateInfo) + sizeof(VkDynamicVpState));
+    // end custom code
+    result = real_vkCreateDynamicViewportState(device, pCreateInfo, pState);
+    pPacket = interpret_body_as_vkCreateDynamicViewportState(pHeader);
+    pPacket->device = device;
+    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pCreateInfo), sizeof(VkDynamicVpStateCreateInfo), pCreateInfo);
+    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pCreateInfo->pViewports), vpsCount * sizeof(VkViewport), pCreateInfo->pViewports);
+    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pCreateInfo->pScissors), vpsCount * sizeof(VkRect), pCreateInfo->pScissors);
+    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pState), sizeof(VkDynamicVpState), pState);
+    pPacket->result = result;
+    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pCreateInfo->pViewports));
+    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pCreateInfo->pScissors));
+    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pCreateInfo));
+    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pState));
+    FINISH_TRACE_PACKET();
+    return result;
+}
+
+GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkCreateFramebuffer(
+    VkDevice device,
+    const VkFramebufferCreateInfo* pCreateInfo,
+    VkFramebuffer* pFramebuffer)
+{
+    glv_trace_packet_header* pHeader;
+    VkResult result;
+    struct_vkCreateFramebuffer* pPacket = NULL;
+    // begin custom code
+    int dsSize = (pCreateInfo != NULL && pCreateInfo->pDepthStencilAttachment != NULL) ? sizeof(VkDepthStencilBindInfo) : 0;
+    uint32_t colorCount = (pCreateInfo != NULL && pCreateInfo->pColorAttachments != NULL) ? pCreateInfo->colorAttachmentCount : 0;
+    CREATE_TRACE_PACKET(vkCreateFramebuffer, get_struct_chain_size((void*)pCreateInfo) + sizeof(VkFramebuffer));
+    // end custom code
+    result = real_vkCreateFramebuffer(device, pCreateInfo, pFramebuffer);
+    pPacket = interpret_body_as_vkCreateFramebuffer(pHeader);
+    pPacket->device = device;
+    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pCreateInfo), sizeof(VkFramebufferCreateInfo), pCreateInfo);
+    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pCreateInfo->pColorAttachments), colorCount * sizeof(VkColorAttachmentBindInfo), pCreateInfo->pColorAttachments);
+    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pCreateInfo->pDepthStencilAttachment), dsSize, pCreateInfo->pDepthStencilAttachment);
+    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pFramebuffer), sizeof(VkFramebuffer), pFramebuffer);
+    pPacket->result = result;
+    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pCreateInfo->pColorAttachments));
+    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pCreateInfo->pDepthStencilAttachment));
+    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pCreateInfo));
+    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pFramebuffer));
+    FINISH_TRACE_PACKET();
+    return result;
+}
+
 GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkCreateInstance(
     const VkInstanceCreateInfo* pCreateInfo,
     VkInstance* pInstance)
@@ -71,6 +202,40 @@ GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkCreateInstance(
     glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pInstance), sizeof(VkInstance), pInstance);
     pPacket->result = result;
     glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pInstance));
+    FINISH_TRACE_PACKET();
+    return result;
+}
+
+GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkCreateRenderPass(
+    VkDevice device,
+    const VkRenderPassCreateInfo* pCreateInfo,
+    VkRenderPass* pRenderPass)
+{
+    glv_trace_packet_header* pHeader;
+    VkResult result;
+    struct_vkCreateRenderPass* pPacket = NULL;
+    // begin custom code (get_struct_chain_size)
+    uint32_t colorCount = (pCreateInfo != NULL && (pCreateInfo->pColorFormats != NULL || pCreateInfo->pColorLayouts != NULL || pCreateInfo->pColorLoadOps != NULL || pCreateInfo->pColorStoreOps != NULL || pCreateInfo->pColorLoadClearValues != NULL)) ? pCreateInfo->colorAttachmentCount : 0;
+    CREATE_TRACE_PACKET(vkCreateRenderPass, get_struct_chain_size((void*)pCreateInfo) + sizeof(VkRenderPass));
+    // end custom code
+    result = real_vkCreateRenderPass(device, pCreateInfo, pRenderPass);
+    pPacket = interpret_body_as_vkCreateRenderPass(pHeader);
+    pPacket->device = device;
+    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pCreateInfo), sizeof(VkRenderPassCreateInfo), pCreateInfo);
+    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pCreateInfo->pColorFormats), colorCount * sizeof(VkFormat), pCreateInfo->pColorFormats);
+    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pCreateInfo->pColorLayouts), colorCount * sizeof(VkImageLayout), pCreateInfo->pColorLayouts);
+    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pCreateInfo->pColorLoadOps), colorCount * sizeof(VkAttachmentLoadOp), pCreateInfo->pColorLoadOps);
+    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pCreateInfo->pColorStoreOps), colorCount * sizeof(VkAttachmentStoreOp), pCreateInfo->pColorStoreOps);
+    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pCreateInfo->pColorLoadClearValues), colorCount * sizeof(VkClearColor), pCreateInfo->pColorLoadClearValues);
+    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pRenderPass), sizeof(VkRenderPass), pRenderPass);
+    pPacket->result = result;
+    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pCreateInfo->pColorFormats));
+    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pCreateInfo->pColorLayouts));
+    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pCreateInfo->pColorLoadOps));
+    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pCreateInfo->pColorStoreOps));
+    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pCreateInfo->pColorLoadClearValues));
+    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pCreateInfo));
+    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pRenderPass));
     FINISH_TRACE_PACKET();
     return result;
 }
@@ -274,6 +439,35 @@ GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkUnmapMemory(
     pPacket->result = result;
     FINISH_TRACE_PACKET();
     return result;
+}
+
+// Manually written because it needs to use get_struct_chain_size and allocate some extra pointers (why?)
+// Also since it needs to app the array of pointers and sub-buffers (see comments in function)
+GLVTRACER_EXPORT void VKAPI __HOOKED_vkUpdateDescriptors(
+    VkDevice device,
+    VkDescriptorSet descriptorSet,
+    uint32_t updateCount,
+    const void** ppUpdateArray)
+{
+    glv_trace_packet_header* pHeader;
+    struct_vkUpdateDescriptors* pPacket = NULL;
+    // begin custom code
+    size_t arrayByteCount = get_struct_chain_size(*ppUpdateArray);
+    CREATE_TRACE_PACKET(vkUpdateDescriptors, arrayByteCount + 5 * sizeof(void*));
+    // end custom code
+    real_vkUpdateDescriptors(device, descriptorSet, updateCount, ppUpdateArray);
+    pPacket = interpret_body_as_vkUpdateDescriptors(pHeader);
+    pPacket->device = device;
+    pPacket->descriptorSet = descriptorSet;
+    pPacket->updateCount = updateCount;
+    // begin custom code
+    // add buffer which is an array of pointers
+    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->ppUpdateArray), updateCount * sizeof(intptr_t), ppUpdateArray);
+    // add all the sub buffers with descriptor updates
+    add_update_descriptors_to_trace_packet(pHeader, updateCount, (void ***) &pPacket->ppUpdateArray, ppUpdateArray);
+    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->ppUpdateArray));
+    // end custom code
+    FINISH_TRACE_PACKET();
 }
 
 GLVTRACER_EXPORT void VKAPI __HOOKED_vkCmdWaitEvents(

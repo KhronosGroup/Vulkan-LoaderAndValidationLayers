@@ -345,7 +345,7 @@ class Subcommand(object):
                                                   'finalize_txt': ''},
                            'VkApplicationInfo': {'add_txt': 'add_VkApplicationInfo_to_packet(pHeader, (VkApplicationInfo**)&(pPacket->pAppInfo), pAppInfo)',
                                                 'finalize_txt': ''},
-                           'VK_PHYSICAL_GPU': {'add_txt': 'glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pGpus), *pGpuCount*sizeof(VK_PHYSICAL_GPU), pGpus)',
+                           'VkPhysicalDevice': {'add_txt': 'glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pGpus), *pGpuCount*sizeof(VkPhysicalDevice), pGpus)',
                                                 'finalize_txt': 'default'},
                            'pDataSize': {'add_txt': 'glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pDataSize), sizeof(size_t), &_dataSize)',
                                          'finalize_txt': 'glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pDataSize))'},
@@ -472,15 +472,36 @@ class Subcommand(object):
     # Packet struct decl
     # ?Special case : setup call to function first and do custom API call time tracking
     # CREATE_PACKET
-    # Call (w/ result?)
+    # call real entrypoint and get return value (if there is one)
     # Assign packet values
     # FINISH packet
-    # return result?
+    # return result if needed
     def _generate_trace_funcs(self, func_class=''):
         func_body = []
-        manually_written_hooked_funcs = ['CreateInstance', 'EnumerateLayers', 'EnumeratePhysicalDevices',
-                                         'AllocDescriptorSets', 'MapMemory', 'UnmapMemory',
-                                         'CmdPipelineBarrier', 'CmdWaitEvents', 'GetGlobalExtensionInfo']
+        manually_written_hooked_funcs = ['AllocMemory',
+                                         'AllocDescriptorSets',
+                                         'CreateDynamicViewportState',
+                                         'CreateDescriptorPool',
+                                         'CreateFramebuffer',
+                                         'CreateInstance',
+                                         'CreateRenderPass',
+                                         'CmdPipelineBarrier',
+                                         'CmdWaitEvents',
+                                         'EnumerateLayers',
+                                         'EnumeratePhysicalDevices',
+                                         'FreeMemory',
+                                         'GetGlobalExtensionInfo',
+                                         'MapMemory',
+                                         'UnmapMemory',
+                                         'UpdateDescriptors']
+
+        # validate the manually_written_hooked_funcs list
+        protoFuncs = [proto.name for proto in self.protos]
+        for func in manually_written_hooked_funcs:
+            if func not in protoFuncs:
+                sys.exit("Entry '%s' in manually_written_hooked_funcs list is not in the vulkan function prototypes" % func)
+
+        # process each of the entrypoint prototypes
         for proto in self.protos:
             if func_class == '':
                 if 'WSI' in proto.name or 'Dbg' in proto.name:
@@ -522,58 +543,26 @@ class Subcommand(object):
                 if in_data_size:
                     func_body.append('    size_t _dataSize;')
                 func_body.append('    struct_vk%s* pPacket = NULL;' % proto.name)
-
-                # functions that have non-standard sequence of packet creation and calling real function
-                # NOTE: Anytime we call the function before CREATE_TRACE_PACKET, need to add custom code for correctly tracking API call time
-                if proto.name in ['CreateFramebuffer', 'CreateRenderPass', 'CreateDynamicViewportState',
-                                  'CreateDescriptorPool', 'UpdateDescriptors']:
-                    # these are regular case as far as sequence of tracing but have some custom size element
-                    if 'CreateFramebuffer' == proto.name:
-                        func_body.append('    int dsSize = (pCreateInfo != NULL && pCreateInfo->pDepthStencilAttachment != NULL) ? sizeof(VkDepthStencilBindInfo) : 0;')
-                        func_body.append('    uint32_t colorCount = (pCreateInfo != NULL && pCreateInfo->pColorAttachments != NULL) ? pCreateInfo->colorAttachmentCount : 0;')
-                        func_body.append('    CREATE_TRACE_PACKET(vkCreateFramebuffer, get_struct_chain_size((void*)pCreateInfo) + sizeof(VkFramebuffer));')
-                    elif 'CreateRenderPass' == proto.name:
-                        func_body.append('    uint32_t colorCount = (pCreateInfo != NULL && (pCreateInfo->pColorFormats != NULL || pCreateInfo->pColorLayouts != NULL || pCreateInfo->pColorLoadOps != NULL || pCreateInfo->pColorStoreOps != NULL || pCreateInfo->pColorLoadClearValues != NULL)) ? pCreateInfo->colorAttachmentCount : 0;')
-                        func_body.append('    CREATE_TRACE_PACKET(vkCreateRenderPass, get_struct_chain_size((void*)pCreateInfo) + sizeof(VkRenderPass));')
-                    elif 'CreateDynamicViewportState' == proto.name:
-                        func_body.append('    uint32_t vpsCount = (pCreateInfo != NULL && pCreateInfo->pViewports != NULL) ? pCreateInfo->viewportAndScissorCount : 0;')
-                        func_body.append('    CREATE_TRACE_PACKET(vkCreateDynamicViewportState,  get_struct_chain_size((void*)pCreateInfo) + sizeof(VkDynamicVpState));')
-                    elif 'CreateDescriptorPool' == proto.name:
-                        func_body.append('    CREATE_TRACE_PACKET(vkCreateDescriptorPool,  get_struct_chain_size((void*)pCreateInfo) + sizeof(VkDescriptorPool));')
-                    elif 'UpdateDescriptors' == proto.name:
-                        func_body.append('    size_t arrayByteCount = get_struct_chain_size(*ppUpdateArray);')
-                        func_body.append('    CREATE_TRACE_PACKET(vkUpdateDescriptors, arrayByteCount + 5 * sizeof(void*));')
-                    func_body.append('    %sreal_vk%s;' % (return_txt, proto.c_call()))
+                if (0 == len(packet_size)):
+                    func_body.append('    CREATE_TRACE_PACKET(vk%s, 0);' % (proto.name))
                 else:
-                    if (0 == len(packet_size)):
-                        func_body.append('    CREATE_TRACE_PACKET(vk%s, 0);' % (proto.name))
-                    else:
-                        func_body.append('    CREATE_TRACE_PACKET(vk%s, %s);' % (proto.name, ' + '.join(packet_size)))
-                    func_body.append('    %sreal_vk%s;' % (return_txt, proto.c_call()))
+                    func_body.append('    CREATE_TRACE_PACKET(vk%s, %s);' % (proto.name, ' + '.join(packet_size)))
+                # call real entrypoint and get return value (if there is one)
+                func_body.append('    %sreal_vk%s;' % (return_txt, proto.c_call()))
                 if in_data_size:
                     func_body.append('    _dataSize = (pDataSize == NULL || pData == NULL) ? 0 : *pDataSize;')
                 func_body.append('    pPacket = interpret_body_as_vk%s(pHeader);' % proto.name)
                 func_body.append('\n'.join(raw_packet_update_list))
-                if 'UpdateDescriptors' == proto.name:
-                    func_body.append('    // add buffer which is an array of pointers')
-                    func_body.append('    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->ppUpdateArray), updateCount * sizeof(intptr_t), ppUpdateArray);')
-                    func_body.append('    // add all the sub buffers with descriptor updates')
-                    func_body.append('    add_update_descriptors_to_trace_packet(pHeader, updateCount, (void ***) &pPacket->ppUpdateArray, ppUpdateArray);')
-                    func_body.append('    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->ppUpdateArray));')
-                    func_body.append('    FINISH_TRACE_PACKET();')
-                else:
-                    for pp_dict in ptr_packet_update_list: #buff_ptr_indices:
-                        func_body.append('    %s;' % (pp_dict['add_txt']))
-                    if 'void' not in proto.ret or '*' in proto.ret:
-                        func_body.append('    pPacket->result = result;')
-                    for pp_dict in ptr_packet_update_list:
-                        if ('DeviceCreateInfo' not in proto.params[pp_dict['index']].ty) and ('APPLICATION_INFO' not in proto.params[pp_dict['index']].ty):
-                            func_body.append('    %s;' % (pp_dict['finalize_txt']))
-                    func_body.append('    FINISH_TRACE_PACKET();')
-                    if 'AllocMemory' in proto.name:
-                        func_body.append('    add_new_handle_to_mem_info(*pMem, pAllocInfo->allocationSize, NULL);')
-                    elif 'FreeMemory' in proto.name:
-                        func_body.append('    rm_handle_from_mem_info(mem);')
+                for pp_dict in ptr_packet_update_list: #buff_ptr_indices:
+                    func_body.append('    %s;' % (pp_dict['add_txt']))
+                if 'void' not in proto.ret or '*' in proto.ret:
+                    func_body.append('    pPacket->result = result;')
+                for pp_dict in ptr_packet_update_list:
+                    if ('DeviceCreateInfo' not in proto.params[pp_dict['index']].ty):
+                        func_body.append('    %s;' % (pp_dict['finalize_txt']))
+                # All buffers should be finalized by now, and the trace packet can be finished (which sends it over the socket)
+                func_body.append('    FINISH_TRACE_PACKET();')
+                # return result if needed
                 if 'void' not in proto.ret or '*' in proto.ret:
                     func_body.append('    return result;')
                 func_body.append('}\n')
