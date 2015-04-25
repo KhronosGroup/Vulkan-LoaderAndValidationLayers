@@ -145,7 +145,7 @@ int vkReplay::dump_validation_data()
    return 0;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCreateInstance(struct_vkCreateInstance* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkCreateInstance(struct_vkCreateInstance* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
@@ -214,7 +214,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCreateInstance(struct_
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCreateDevice(struct_vkCreateDevice* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkCreateDevice(struct_vkCreateDevice* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
@@ -231,7 +231,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCreateDevice(struct_vk
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkEnumeratePhysicalDevices(struct_vkEnumeratePhysicalDevices* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkEnumeratePhysicalDevices(struct_vkEnumeratePhysicalDevices* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
@@ -270,7 +270,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkEnumeratePhysicalDevic
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkGetPhysicalDeviceInfo(struct_vkGetPhysicalDeviceInfo* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkGetPhysicalDeviceInfo(struct_vkGetPhysicalDeviceInfo* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
@@ -367,7 +367,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkGetPhysicalDeviceInfo(
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkGetGlobalExtensionInfo(struct_vkGetGlobalExtensionInfo* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkGetGlobalExtensionInfo(struct_vkGetGlobalExtensionInfo* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
@@ -395,7 +395,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkGetGlobalExtensionInfo
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkGetPhysicalDeviceExtensionInfo(struct_vkGetPhysicalDeviceExtensionInfo* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkGetPhysicalDeviceExtensionInfo(struct_vkGetPhysicalDeviceExtensionInfo* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
@@ -423,7 +423,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkGetPhysicalDeviceExten
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkGetSwapChainInfoWSI(struct_vkGetSwapChainInfoWSI* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkGetSwapChainInfoWSI(struct_vkGetSwapChainInfoWSI* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
@@ -458,7 +458,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkGetSwapChainInfoWSI(st
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkQueueSubmit(struct_vkQueueSubmit* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkQueueSubmit(struct_vkQueueSubmit* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
@@ -480,7 +480,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkQueueSubmit(struct_vkQ
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkQueueAddMemReferences(struct_vkQueueAddMemReferences* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkQueueAddMemReferences(struct_vkQueueAddMemReferences* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
@@ -501,7 +501,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkQueueAddMemReferences(
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkQueueRemoveMemReferences(struct_vkQueueRemoveMemReferences* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkQueueRemoveMemReferences(struct_vkQueueRemoveMemReferences* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
@@ -522,7 +522,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkQueueRemoveMemReferenc
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkGetObjectInfo(struct_vkGetObjectInfo* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkGetObjectInfo(struct_vkGetObjectInfo* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
@@ -591,7 +591,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkGetObjectInfo(struct_v
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkGetFormatInfo(struct_vkGetFormatInfo* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkGetFormatInfo(struct_vkGetFormatInfo* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
@@ -619,7 +619,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkGetFormatInfo(struct_v
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkGetImageSubresourceInfo(struct_vkGetImageSubresourceInfo* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkGetImageSubresourceInfo(struct_vkGetImageSubresourceInfo* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
@@ -647,7 +647,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkGetImageSubresourceInf
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkUpdateDescriptors(struct_vkUpdateDescriptors* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkUpdateDescriptors(struct_vkUpdateDescriptors* pPacket)
 {
     // We have to remap handles internal to the structures so save the handles prior to remap and then restore
     // Rather than doing a deep memcpy of the entire struct and fixing any intermediate pointers, do save and restores via STL queue
@@ -786,7 +786,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkUpdateDescriptors(stru
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCreateDescriptorSetLayout(struct_vkCreateDescriptorSetLayout* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkCreateDescriptorSetLayout(struct_vkCreateDescriptorSetLayout* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
@@ -824,7 +824,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCreateDescriptorSetLay
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCmdBindDescriptorSets(struct_vkCmdBindDescriptorSets* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkCmdBindDescriptorSets(struct_vkCmdBindDescriptorSets* pPacket)
 {
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
     VkDescriptorSet *pSaveSets = (VkDescriptorSet *) glv_malloc(sizeof(VkDescriptorSet) * pPacket->setCount);
@@ -848,7 +848,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCmdBindDescriptorSets(
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCmdBindVertexBuffers(struct_vkCmdBindVertexBuffers* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkCmdBindVertexBuffers(struct_vkCmdBindVertexBuffers* pPacket)
 {
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
     VkBuffer *pSaveBuff = GLV_NEW_ARRAY(VkBuffer, pPacket->bindingCount);
@@ -875,7 +875,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCmdBindVertexBuffers(s
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCreateGraphicsPipeline(struct_vkCreateGraphicsPipeline* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkCreateGraphicsPipeline(struct_vkCreateGraphicsPipeline* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
@@ -929,7 +929,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCreateGraphicsPipeline
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCreatePipelineLayout(struct_vkCreatePipelineLayout* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkCreatePipelineLayout(struct_vkCreatePipelineLayout* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
@@ -961,7 +961,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCreatePipelineLayout(s
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCmdWaitEvents(struct_vkCmdWaitEvents* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkCmdWaitEvents(struct_vkCmdWaitEvents* pPacket)
 {
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
     VkEvent* saveEvent = GLV_NEW_ARRAY(VkEvent, pPacket->eventCount);
@@ -1013,7 +1013,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCmdWaitEvents(struct_v
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCmdPipelineBarrier(struct_vkCmdPipelineBarrier* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkCmdPipelineBarrier(struct_vkCmdPipelineBarrier* pPacket)
 {
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
     uint32_t idx = 0;
@@ -1051,7 +1051,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCmdPipelineBarrier(str
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCreateFramebuffer(struct_vkCreateFramebuffer* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkCreateFramebuffer(struct_vkCreateFramebuffer* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
@@ -1094,7 +1094,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCreateFramebuffer(stru
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCreateRenderPass(struct_vkCreateRenderPass* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkCreateRenderPass(struct_vkCreateRenderPass* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
@@ -1108,7 +1108,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCreateRenderPass(struc
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCmdBeginRenderPass(struct_vkCmdBeginRenderPass* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkCmdBeginRenderPass(struct_vkCmdBeginRenderPass* pPacket)
 {
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
     VkRenderPassBegin local_renderPassBegin;
@@ -1118,7 +1118,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCmdBeginRenderPass(str
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkBeginCommandBuffer(struct_vkBeginCommandBuffer* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkBeginCommandBuffer(struct_vkBeginCommandBuffer* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
@@ -1146,7 +1146,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkBeginCommandBuffer(str
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkStorePipeline(struct_vkStorePipeline* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkStorePipeline(struct_vkStorePipeline* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
@@ -1174,7 +1174,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkStorePipeline(struct_v
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkGetMultiDeviceCompatibility(struct_vkGetMultiDeviceCompatibility* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkGetMultiDeviceCompatibility(struct_vkGetMultiDeviceCompatibility* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
@@ -1187,7 +1187,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkGetMultiDeviceCompatib
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkDestroyObject(struct_vkDestroyObject* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkDestroyObject(struct_vkDestroyObject* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
@@ -1200,7 +1200,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkDestroyObject(struct_v
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkWaitForFences(struct_vkWaitForFences* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkWaitForFences(struct_vkWaitForFences* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
     uint32_t i;
@@ -1220,7 +1220,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkWaitForFences(struct_v
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkAllocMemory(struct_vkAllocMemory* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkAllocMemory(struct_vkAllocMemory* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
@@ -1239,7 +1239,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkAllocMemory(struct_vkA
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkFreeMemory(struct_vkFreeMemory* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkFreeMemory(struct_vkFreeMemory* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
@@ -1256,7 +1256,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkFreeMemory(struct_vkFr
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkMapMemory(struct_vkMapMemory* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkMapMemory(struct_vkMapMemory* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
@@ -1284,7 +1284,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkMapMemory(struct_vkMap
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkUnmapMemory(struct_vkUnmapMemory* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkUnmapMemory(struct_vkUnmapMemory* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
@@ -1314,7 +1314,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkUnmapMemory(struct_vkU
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkPinSystemMemory(struct_vkPinSystemMemory* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkPinSystemMemory(struct_vkPinSystemMemory* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
@@ -1327,7 +1327,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkPinSystemMemory(struct
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCreateSwapChainWSI(struct_vkCreateSwapChainWSI* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkCreateSwapChainWSI(struct_vkCreateSwapChainWSI* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
@@ -1362,7 +1362,7 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkCreateSwapChainWSI(str
     return returnValue;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_handle_vkQueuePresentWSI(struct_vkQueuePresentWSI* pPacket)
+glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkQueuePresentWSI(struct_vkQueuePresentWSI* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
     glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;

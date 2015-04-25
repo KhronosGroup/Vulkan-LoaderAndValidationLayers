@@ -1501,71 +1501,6 @@ class Subcommand(object):
                 return 'm_objMapper.remap(pPacket->%s%s)' % (paramName, objectTypeRemapParam)
         return 'pPacket->%s' % (paramName)
 
-    def _gen_replay_create_instance(self):
-        ci_body = []
-        ci_body.append('            returnValue = manually_handle_vkCreateInstance(pPacket);')
-        return "\n".join(ci_body)
-
-    def _gen_replay_enum_gpus(self):
-        ieg_body = []
-        ieg_body.append('            returnValue = manually_handle_vkEnumeratePhysicalDevices(pPacket);')
-        return "\n".join(ieg_body)
-
-    def _gen_replay_get_gpu_info(self):
-        ggi_body = []
-        ggi_body.append('            returnValue = manually_handle_vkGetPhysicalDeviceInfo(pPacket);')
-        return "\n".join(ggi_body)
-
-    def _gen_replay_create_device(self):
-        cd_body = []
-        cd_body.append('            returnValue = manually_handle_vkCreateDevice(pPacket);')
-        return "\n".join(cd_body)
-
-    def _gen_replay_create_swap_chain_wsi(self):
-        cd_body = []
-        cd_body.append('            returnValue = manually_handle_vkCreateSwapChainWSI(pPacket);')
-        return "\n".join(cd_body)
-
-    def _gen_replay_get_swap_chain_info_wsi(self):
-        cd_body = []
-        cd_body.append('            returnValue = manually_handle_vkGetSwapChainInfoWSI(pPacket);')
-        return "\n".join(cd_body)
-
-    def _gen_replay_get_global_extension_info(self):
-        gei_body = []
-        gei_body.append('            returnValue = manually_handle_vkGetGlobalExtensionInfo(pPacket);')
-        return "\n".join(gei_body)
-
-    def _gen_replay_get_physical_device_extension_info(self):
-        gpdei_body = []
-        gpdei_body.append('            returnValue = manually_handle_vkGetPhysicalDeviceExtensionInfo(pPacket);')
-        return "\n".join(gpdei_body)
-
-    def _gen_replay_queue_submit(self):
-        qs_body = []
-        qs_body.append('            returnValue = manually_handle_vkQueueSubmit(pPacket);')
-        return "\n".join(qs_body)
-
-    def _gen_replay_queue_add_mem_references(self):
-        qamr_body = []
-        qamr_body.append('            returnValue = manually_handle_vkQueueAddMemReferences(pPacket);')
-        return "\n".join(qamr_body)
-
-    def _gen_replay_queue_remove_mem_references(self):
-        qrmr_body = []
-        qrmr_body.append('            returnValue = manually_handle_vkQueueRemoveMemReferences(pPacket);')
-        return "\n".join(qrmr_body)
-
-    def _gen_replay_get_object_info(self):
-        goi_body = []
-        goi_body.append('            returnValue = manually_handle_vkGetObjectInfo(pPacket);')
-        return "\n".join(goi_body)
-
-    def _gen_replay_get_format_info(self):
-        gfi_body = []
-        gfi_body.append('            returnValue = manually_handle_vkGetFormatInfo(pPacket);')
-        return "\n".join(gfi_body)
-
     def _gen_replay_create_image(self):
         ci_body = []
         ci_body.append('            imageObj local_imageObj;')
@@ -1586,168 +1521,54 @@ class Subcommand(object):
         cb_body.append('            }')
         return "\n".join(cb_body)
 
-    def _gen_replay_get_image_subresource_info(self):
-        isi_body = []
-        isi_body.append('            returnValue = manually_handle_vkGetImageSubresourceInfo(pPacket);')
-        return "\n".join(isi_body)
-
-    def _gen_replay_update_descriptors(self):
-        ud_body = []
-        ud_body.append('            returnValue = manually_handle_vkUpdateDescriptors(pPacket);')
-        return "\n".join(ud_body)
-
-    def _gen_replay_create_descriptor_set_layout(self):
-        cdsl_body = []
-        cdsl_body.append('            returnValue = manually_handle_vkCreateDescriptorSetLayout(pPacket);')
-        return "\n".join(cdsl_body)
-
-    def _gen_replay_bind_descriptor_sets(self):
-        cbds_body = []
-        cbds_body.append('            returnValue = manually_handle_vkCmdBindDescriptorSets(pPacket);')
-        return "\n".join(cbds_body)
-
-    def _gen_replay_bind_vertex_buffers(self):
-        cbvb_body = []
-        cbvb_body.append('            returnValue = manually_handle_vkCmdBindVertexBuffers(pPacket);')
-        return "\n".join(cbvb_body)
-
-    def _gen_replay_create_graphics_pipeline(self):
-        cgp_body = []
-        cgp_body.append('            returnValue = manually_handle_vkCreateGraphicsPipeline(pPacket);')
-        return "\n".join(cgp_body)
-
-    def _gen_replay_cmd_wait_events(self):
-        cwe_body = []
-        cwe_body.append('            returnValue = manually_handle_vkCmdWaitEvents(pPacket);')
-        return "\n".join(cwe_body)
-
-    def _gen_replay_cmd_pipeline_barrier(self):
-        cpb_body = []
-        cpb_body.append('            returnValue = manually_handle_vkCmdPipelineBarrier(pPacket);')
-        return "\n".join(cpb_body)
-
-    def _gen_replay_create_framebuffer(self):
-        cf_body = []
-        cf_body.append('            returnValue = manually_handle_vkCreateFramebuffer(pPacket);')
-        return "\n".join(cf_body)
-
-    def _gen_replay_create_renderpass(self):
-        cr_body = []
-        cr_body.append('            returnValue = manually_handle_vkCreateRenderPass(pPacket);')
-        return "\n".join(cr_body)
-
-    def _gen_replay_create_pipeline_layout(self):
-        cpl_body = []
-        cpl_body.append('            returnValue = manually_handle_vkCreatePipelineLayout(pPacket);')
-        return "\n".join(cpl_body)
-
-    def _gen_replay_cmd_begin_renderpass(self):
-        cr_body = []
-        cr_body.append('            returnValue = manually_handle_vkCmdBeginRenderPass(pPacket);')
-        return "\n".join(cr_body)
-
-    def _gen_replay_begin_command_buffer(self):
-        bcb_body = []
-        bcb_body.append('            returnValue = manually_handle_vkBeginCommandBuffer(pPacket);')
-        return "\n".join(bcb_body)
-
-    def _gen_replay_store_pipeline(self):
-        sp_body = []
-        sp_body.append('            returnValue = manually_handle_vkStorePipeline(pPacket);')
-        return "\n".join(sp_body)
-
-    def _gen_replay_get_multi_gpu_compatibility(self):
-        gmgc_body = []
-        gmgc_body.append('            returnValue = manually_handle_vkGetMultiDeviceCompatibility(pPacket);')
-        return "\n".join(gmgc_body)
-
-    def _gen_replay_destroy_object(self):
-        do_body = []
-        do_body.append('            returnValue = manually_handle_vkDestroyObject(pPacket);')
-        return "\n".join(do_body)
-
-    def _gen_replay_wait_for_fences(self):
-        wf_body = []
-        wf_body.append('            returnValue = manually_handle_vkWaitForFences(pPacket);')
-        return "\n".join(wf_body)
-
-    def _gen_replay_alloc_memory(self):
-        am_body = []
-        am_body.append('            returnValue = manually_handle_vkAllocMemory(pPacket);')
-        return "\n".join(am_body)
-
-    def _gen_replay_free_memory(self):
-        fm_body = []
-        fm_body.append('            returnValue = manually_handle_vkFreeMemory(pPacket);')
-        return "\n".join(fm_body)
-
-    def _gen_replay_map_memory(self):
-        mm_body = []
-        mm_body.append('            returnValue = manually_handle_vkMapMemory(pPacket);')
-        return "\n".join(mm_body)
-
-    def _gen_replay_unmap_memory(self):
-        um_body = []
-        um_body.append('            returnValue = manually_handle_vkUnmapMemory(pPacket);')
-        return "\n".join(um_body)
-
-    def _gen_replay_pin_system_memory(self):
-        psm_body = []
-        psm_body.append('            returnValue = manually_handle_vkPinSystemMemory(pPacket);')
-        return "\n".join(psm_body)
-
-    def _gen_replay_create_swap_chain_wsi(self):
-        csw_body = []
-        csw_body.append('            returnValue = manually_handle_vkCreateSwapChainWSI(pPacket);')
-        return "\n".join(csw_body)
-
-    def _gen_replay_queue_present_wsi(self):
-        qpw_body = []
-        qpw_body.append('            returnValue = manually_handle_vkQueuePresentWSI(pPacket);')
-        return "\n".join(qpw_body)
-
     # Generate main replay case statements where actual replay API call is dispatched based on input packet data
     def _generate_replay(self):
+        manually_replay_funcs = ['AllocMemory',
+                                 'BeginCommandBuffer',
+                                 'CreateDescriptorSetLayout',
+                                 'CreateDevice',
+                                 'CreateFramebuffer',
+                                 'CreateGraphicsPipeline',
+                                 'CreateInstance',
+                                 'CreatePipelineLayout',
+                                 'CreateRenderPass',
+                                 'CmdBeginRenderPass',
+                                 'CmdBindDescriptorSets',
+                                 'CmdBindVertexBuffers',
+                                 'CmdPipelineBarrier',
+                                 'CreateSwapChainWSI',
+                                 'CmdWaitEvents',
+                                 'DestroyObject',
+                                 'EnumeratePhysicalDevices',
+                                 'FreeMemory',
+                                 'GetFormatInfo',
+                                 'GetGlobalExtensionInfo',
+                                 'GetImageSubresourceInfo',
+                                 'GetMultiDeviceCompatibility',
+                                 'GetObjectInfo',
+                                 'GetPhysicalDeviceExtensionInfo',
+                                 'GetPhysicalDeviceInfo',
+                                 'GetSwapChainInfoWSI',
+                                 'MapMemory',
+                                 'PinSystemMemory',
+                                 'QueueAddMemReferences',
+                                 'QueuePresentWSI',
+                                 'QueueRemoveMemReferences',
+                                 'QueueSubmit',
+                                 'StorePipeline',
+                                 'UnmapMemory',
+                                 'UpdateDescriptors',
+                                 'WaitForFences']
+
+        # validate the manually_replay_funcs list
+        protoFuncs = [proto.name for proto in self.protos]
+        for func in manually_replay_funcs:
+            if func not in protoFuncs:
+                sys.exit("Entry '%s' in manually_replay_funcs list is not in the vulkan function prototypes" % func)
+
         # map protos to custom functions if body is fully custom
-        custom_body_dict = {'CreateInstance': self._gen_replay_create_instance,
-                            'EnumeratePhysicalDevices': self._gen_replay_enum_gpus,
-                            'GetPhysicalDeviceInfo': self._gen_replay_get_gpu_info,
-                            'CreateDevice': self._gen_replay_create_device,
-                            'CreateSwapChainWSI': self._gen_replay_create_swap_chain_wsi,
-                            'GetSwapChainInfoWSI': self._gen_replay_get_swap_chain_info_wsi,
-                            'GetGlobalExtensionInfo': self._gen_replay_get_global_extension_info,
-                            'GetPhysicalDeviceExtensionInfo': self._gen_replay_get_physical_device_extension_info,
-                            'QueueSubmit': self._gen_replay_queue_submit,
-                            'QueueAddMemReferences': self._gen_replay_queue_add_mem_references,
-                            'QueueRemoveMemReferences': self._gen_replay_queue_remove_mem_references,
-                            'GetObjectInfo': self._gen_replay_get_object_info,
-                            'GetFormatInfo': self._gen_replay_get_format_info,
-                            'CreateImage': self._gen_replay_create_image,
-                            'CreateBuffer': self._gen_replay_create_buffer,
-                            'GetImageSubresourceInfo': self._gen_replay_get_image_subresource_info,
-                            'CreateGraphicsPipeline': self._gen_replay_create_graphics_pipeline,
-                            'CreateFramebuffer': self._gen_replay_create_framebuffer,
-                            'CreateRenderPass': self._gen_replay_create_renderpass,
-                            'CreatePipelineLayout': self._gen_replay_create_pipeline_layout,
-                            'CmdBeginRenderPass': self._gen_replay_cmd_begin_renderpass,
-                            'BeginCommandBuffer': self._gen_replay_begin_command_buffer,
-                            'StorePipeline': self._gen_replay_store_pipeline,
-                            'GetMultiPhysicalDeviceCompatibility': self._gen_replay_get_multi_gpu_compatibility,
-                            'DestroyObject': self._gen_replay_destroy_object,
-                            'WaitForFences': self._gen_replay_wait_for_fences,
-                            'AllocMemory': self._gen_replay_alloc_memory,
-                            'FreeMemory': self._gen_replay_free_memory,
-                            'MapMemory': self._gen_replay_map_memory,
-                            'UnmapMemory': self._gen_replay_unmap_memory,
-                            'PinSystemMemory': self._gen_replay_pin_system_memory,
-                            'UpdateDescriptors': self._gen_replay_update_descriptors,
-                            'CreateDescriptorSetLayout': self._gen_replay_create_descriptor_set_layout,
-                            'CmdBindDescriptorSets': self._gen_replay_bind_descriptor_sets,
-                            'CmdBindVertexBuffers': self._gen_replay_bind_vertex_buffers,
-                            'CmdWaitEvents': self._gen_replay_cmd_wait_events,
-                            'CmdPipelineBarrier': self._gen_replay_cmd_pipeline_barrier,
-                            'CreateSwapChainWSI': self._gen_replay_create_swap_chain_wsi,
-                            'QueuePresentWSI': self._gen_replay_queue_present_wsi}
+        custom_body_dict = {'CreateImage': self._gen_replay_create_image,
+                            'CreateBuffer': self._gen_replay_create_buffer }
         # multi-gpu Open funcs w/ list of local params to create
         custom_open_params = {'OpenSharedMemory': (-1,),
                               'OpenSharedSemaphore': (-1,),
@@ -1782,7 +1603,9 @@ class Subcommand(object):
             rbody.append('        case GLV_TPI_VK_vk%s:' % proto.name)
             rbody.append('        {')
             rbody.append('            struct_vk%s* pPacket = (struct_vk%s*)(packet->pBody);' % (proto.name, proto.name))
-            if proto.name in custom_body_dict:
+            if proto.name in manually_replay_funcs:
+                rbody.append('            returnValue = manually_replay_vk%s(pPacket);' % proto.name)
+            elif proto.name in custom_body_dict:
                 rbody.append(custom_body_dict[proto.name]())
             else:
                 if proto.name in custom_open_params:
