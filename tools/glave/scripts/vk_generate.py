@@ -1728,7 +1728,12 @@ class Subcommand(object):
                     rbody.append('                m_objMapper.rm_from_map(pPacket->device);')
                     rbody.append('                m_display->m_initedVK = false;')
                     rbody.append('            }')
-                if 'DestroyInstance' in proto.name:
+                elif 'DestroySwapChainWSI' in proto.name:
+                    rbody.append('            if (replayResult == VK_SUCCESS)')
+                    rbody.append('            {')
+                    rbody.append('                m_objMapper.rm_from_map(pPacket->swapChain);')
+                    rbody.append('            }')
+                elif 'DestroyInstance' in proto.name:
                     rbody.append('            if (replayResult == VK_SUCCESS)')
                     rbody.append('            {')
                     rbody.append('                // TODO need to handle multiple instances and only clearing maps within an instance.')

@@ -437,7 +437,7 @@ VkResult vkReplay::manually_replay_vkGetSwapChainInfoWSI(struct_vkGetSwapChainIn
     VkResult replayResult = VK_ERROR_UNKNOWN;
 
     size_t dataSize = *pPacket->pDataSize;
-    void* pData = malloc(dataSize);
+    void* pData = glv_malloc(dataSize);
     replayResult = m_vkFuncs.real_vkGetSwapChainInfoWSI(m_objMapper.remap(pPacket->swapChain), pPacket->infoType, &dataSize, pData);
     if (replayResult == VK_SUCCESS)
     {
@@ -463,6 +463,7 @@ VkResult vkReplay::manually_replay_vkGetSwapChainInfoWSI(struct_vkGetSwapChainIn
             }
         }
     }
+    glv_free(pData);
     return replayResult;
 }
 
