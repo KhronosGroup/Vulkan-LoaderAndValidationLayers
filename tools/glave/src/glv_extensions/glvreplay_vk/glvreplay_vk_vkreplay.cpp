@@ -232,9 +232,13 @@ VkResult vkReplay::manually_replay_vkEnumeratePhysicalDevices(struct_vkEnumerate
     VkResult replayResult = VK_ERROR_UNKNOWN;
     if (!m_display->m_initedVK)
     {
-        uint32_t deviceCount = 0;
-        VkPhysicalDevice devices[VK_MAX_PHYSICAL_DEVICE_NAME];
-        replayResult = m_vkFuncs.real_vkEnumeratePhysicalDevices(m_objMapper.remap(pPacket->instance), &deviceCount, &devices[0]);
+        uint32_t deviceCount = *(pPacket->pPhysicalDeviceCount);
+		VkPhysicalDevice *pDevices = pPacket->pPhysicalDevices;
+
+		if (pPacket->pPhysicalDevices != NULL)
+			pDevices = GLV_NEW_ARRAY(VkPhysicalDevice, deviceCount);
+		replayResult = m_vkFuncs.real_vkEnumeratePhysicalDevices(m_objMapper.remap(pPacket->instance), &deviceCount, pDevices);
+
         //TODO handle different number of physical devices in trace versus replay
         if (deviceCount != *(pPacket->pPhysicalDeviceCount))
         {
@@ -244,23 +248,27 @@ VkResult vkReplay::manually_replay_vkEnumeratePhysicalDevices(struct_vkEnumerate
         {
              glv_LogError("vkEnumeratePhysicalDevices number of gpus is zero\n");
         }
-        else
+		else if (pDevices != NULL)
         {
             glv_LogInfo("Enumerated %d physical devices in the system\n", deviceCount);
         }
         // TODO handle enumeration results in a different order from trace to replay
         for (uint32_t i = 0; i < deviceCount; i++)
         {
-            if (pPacket->pPhysicalDevices != NULL)
+            if (pDevices != NULL)
             {
-                m_objMapper.add_to_map(&(pPacket->pPhysicalDevices[i]), &(devices[i]));
+                m_objMapper.add_to_map(&(pPacket->pPhysicalDevices[i]), &(pDevices[i]));
             }
         }
+		GLV_DELETE(pDevices);
     }
-    if (vkDbgRegisterMsgCallback(m_objMapper.remap(pPacket->instance), g_fpDbgMsgCallback, NULL) != VK_SUCCESS)
-    {
-        glv_LogError("Failed to register vulkan callback for replayer error handling\\n");
-    }
+	if (pPacket->pPhysicalDevices != NULL)
+	{
+		if (vkDbgRegisterMsgCallback(m_objMapper.remap(pPacket->instance), g_fpDbgMsgCallback, NULL) != VK_SUCCESS)
+		{
+			glv_LogError("Failed to register vulkan callback for replayer error handling\\n");
+		}
+	}
     return replayResult;
 }
 
@@ -547,7 +555,7 @@ VkResult vkReplay::manually_replay_vkGetObjectInfo(struct_vkGetObjectInfo* pPack
                 {
                     VkMemoryRequirements *traceReqs = (VkMemoryRequirements *) pPacket->pData;
                     VkMemoryRequirements *replayReqs = (VkMemoryRequirements *) pData;
-                    unsigned int num = size / sizeof(VkMemoryRequirements);
+                    size_t num = size / sizeof(VkMemoryRequirements);
                     for (unsigned int i = 0; i < num; i++)
                     {
                         if (traceReqs->size != replayReqs->size)
