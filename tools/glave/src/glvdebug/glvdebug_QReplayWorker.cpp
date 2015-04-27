@@ -297,11 +297,11 @@ void glvdebug_QReplayWorker::playCurrentTraceFile(uint64_t startPacketIndex)
                         res == glv_replay::GLV_REPLAY_INVALID_ID ||
                         res == glv_replay::GLV_REPLAY_CALL_ERROR)
                     {
-                        emit OutputError(QString("Failed to replay packet_id %1.\n").arg(pCurPacket->pHeader->packet_id));
+                        emit OutputError(QString("Failed to replay packet %1.\n").arg(pCurPacket->pHeader->global_packet_index));
                     }
                     else if (res == glv_replay::GLV_REPLAY_BAD_RETURN)
                     {
-                        emit OutputWarning(QString("Replay of packet_id %1 has diverged from trace due to a different return value.\n").arg(pCurPacket->pHeader->packet_id));
+                        emit OutputWarning(QString("Replay of packet %1 has diverged from trace due to a different return value.\n").arg(pCurPacket->pHeader->global_packet_index));
                     }
                     else if (res == glv_replay::GLV_REPLAY_INVALID_PARAMS ||
                              res == glv_replay::GLV_REPLAY_VALIDATION_ERROR)
@@ -310,7 +310,7 @@ void glvdebug_QReplayWorker::playCurrentTraceFile(uint64_t startPacketIndex)
                     }
                     else if (res != glv_replay::GLV_REPLAY_SUCCESS)
                     {
-                        emit OutputError(QString("Unknown error caused by packet_id %1.\n").arg(pCurPacket->pHeader->packet_id));
+                        emit OutputError(QString("Unknown error caused by packet %1.\n").arg(pCurPacket->pHeader->global_packet_index));
                     }
                 } else {
                     emit OutputError(QString("Bad packet type id=%1, index=%2.\n").arg(pCurPacket->pHeader->packet_id).arg(pCurPacket->pHeader->global_packet_index));
