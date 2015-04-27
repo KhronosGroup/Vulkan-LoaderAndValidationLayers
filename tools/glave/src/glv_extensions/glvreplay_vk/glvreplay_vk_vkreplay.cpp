@@ -233,11 +233,11 @@ VkResult vkReplay::manually_replay_vkEnumeratePhysicalDevices(struct_vkEnumerate
     if (!m_display->m_initedVK)
     {
         uint32_t deviceCount = *(pPacket->pPhysicalDeviceCount);
-		VkPhysicalDevice *pDevices = pPacket->pPhysicalDevices;
+        VkPhysicalDevice *pDevices = pPacket->pPhysicalDevices;
 
-		if (pPacket->pPhysicalDevices != NULL)
-			pDevices = GLV_NEW_ARRAY(VkPhysicalDevice, deviceCount);
-		replayResult = m_vkFuncs.real_vkEnumeratePhysicalDevices(m_objMapper.remap(pPacket->instance), &deviceCount, pDevices);
+        if (pPacket->pPhysicalDevices != NULL)
+            pDevices = GLV_NEW_ARRAY(VkPhysicalDevice, deviceCount);
+        replayResult = m_vkFuncs.real_vkEnumeratePhysicalDevices(m_objMapper.remap(pPacket->instance), &deviceCount, pDevices);
 
         //TODO handle different number of physical devices in trace versus replay
         if (deviceCount != *(pPacket->pPhysicalDeviceCount))
@@ -248,7 +248,7 @@ VkResult vkReplay::manually_replay_vkEnumeratePhysicalDevices(struct_vkEnumerate
         {
              glv_LogError("vkEnumeratePhysicalDevices number of gpus is zero\n");
         }
-		else if (pDevices != NULL)
+        else if (pDevices != NULL)
         {
             glv_LogInfo("Enumerated %d physical devices in the system\n", deviceCount);
         }
@@ -260,15 +260,15 @@ VkResult vkReplay::manually_replay_vkEnumeratePhysicalDevices(struct_vkEnumerate
                 m_objMapper.add_to_map(&(pPacket->pPhysicalDevices[i]), &(pDevices[i]));
             }
         }
-		GLV_DELETE(pDevices);
+        GLV_DELETE(pDevices);
     }
-	if (pPacket->pPhysicalDevices != NULL)
-	{
-		if (vkDbgRegisterMsgCallback(m_objMapper.remap(pPacket->instance), g_fpDbgMsgCallback, NULL) != VK_SUCCESS)
-		{
-			glv_LogError("Failed to register vulkan callback for replayer error handling\\n");
-		}
-	}
+    if (pPacket->pPhysicalDevices != NULL)
+    {
+        if (vkDbgRegisterMsgCallback(m_objMapper.remap(pPacket->instance), g_fpDbgMsgCallback, NULL) != VK_SUCCESS)
+        {
+            glv_LogError("Failed to register vulkan callback for replayer error handling\\n");
+        }
+    }
     return replayResult;
 }
 
