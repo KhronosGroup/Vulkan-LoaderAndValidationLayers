@@ -145,10 +145,9 @@ int vkReplay::dump_validation_data()
    return 0;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkCreateInstance(struct_vkCreateInstance* pPacket)
+VkResult vkReplay::manually_replay_vkCreateInstance(struct_vkCreateInstance* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
     if (!m_display->m_initedVK)
     {
         VkInstance inst;
@@ -205,42 +204,37 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkCreateInstance(struct_
         {
             replayResult = m_vkFuncs.real_vkCreateInstance(pPacket->pCreateInfo, &inst);
         }
-        CHECK_RETURN_VALUE(vkCreateInstance);
         if (replayResult == VK_SUCCESS)
         {
             m_objMapper.add_to_map(pPacket->pInstance, &inst);
         }
     }
-    return returnValue;
+    return replayResult;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkCreateDevice(struct_vkCreateDevice* pPacket)
+VkResult vkReplay::manually_replay_vkCreateDevice(struct_vkCreateDevice* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
     if (!m_display->m_initedVK)
     {
         VkDevice device;
         replayResult = m_vkFuncs.real_vkCreateDevice(m_objMapper.remap(pPacket->physicalDevice), pPacket->pCreateInfo, &device);
-        CHECK_RETURN_VALUE(vkCreateDevice);
         if (replayResult == VK_SUCCESS)
         {
             m_objMapper.add_to_map(pPacket->pDevice, &device);
         }
     }
-    return returnValue;
+    return replayResult;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkEnumeratePhysicalDevices(struct_vkEnumeratePhysicalDevices* pPacket)
+VkResult vkReplay::manually_replay_vkEnumeratePhysicalDevices(struct_vkEnumeratePhysicalDevices* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
     if (!m_display->m_initedVK)
     {
         uint32_t deviceCount = 0;
         VkPhysicalDevice devices[VK_MAX_PHYSICAL_DEVICE_NAME];
         replayResult = m_vkFuncs.real_vkEnumeratePhysicalDevices(m_objMapper.remap(pPacket->instance), &deviceCount, &devices[0]);
-        CHECK_RETURN_VALUE(vkEnumeratePhysicalDevices);
         //TODO handle different number of physical devices in trace versus replay
         if (deviceCount != *(pPacket->pPhysicalDeviceCount))
         {
@@ -267,13 +261,13 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkEnumeratePhysicalDevic
     {
         glv_LogError("Failed to register vulkan callback for replayer error handling\\n");
     }
-    return returnValue;
+    return replayResult;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkGetPhysicalDeviceInfo(struct_vkGetPhysicalDeviceInfo* pPacket)
+VkResult vkReplay::manually_replay_vkGetPhysicalDeviceInfo(struct_vkGetPhysicalDeviceInfo* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+
     if (!m_display->m_initedVK)
     {
         switch (pPacket->infoType) {
@@ -362,18 +356,16 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkGetPhysicalDeviceInfo(
             break;
         }
         };
-        CHECK_RETURN_VALUE(vkGetGpuInfo);
     }
-    return returnValue;
+    return replayResult;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkGetGlobalExtensionInfo(struct_vkGetGlobalExtensionInfo* pPacket)
+VkResult vkReplay::manually_replay_vkGetGlobalExtensionInfo(struct_vkGetGlobalExtensionInfo* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+
     if (!m_display->m_initedVK) {
         replayResult = m_vkFuncs.real_vkGetGlobalExtensionInfo(pPacket->infoType, pPacket->extensionIndex, pPacket->pDataSize, pPacket->pData);
-        CHECK_RETURN_VALUE(vkGetGlobalExtensionInfo);
 // TODO: Confirm that replay'd properties match with traced properties to ensure compatibility.
 //        if (replayResult == VK_SUCCESS) {
 //            for (unsigned int ext = 0; ext < sizeof(g_extensions) / sizeof(g_extensions[0]); ext++)
@@ -392,16 +384,15 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkGetGlobalExtensionInfo
 //            }
 //        }
     }
-    return returnValue;
+    return replayResult;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkGetPhysicalDeviceExtensionInfo(struct_vkGetPhysicalDeviceExtensionInfo* pPacket)
+VkResult vkReplay::manually_replay_vkGetPhysicalDeviceExtensionInfo(struct_vkGetPhysicalDeviceExtensionInfo* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+
     if (!m_display->m_initedVK) {
         replayResult = m_vkFuncs.real_vkGetPhysicalDeviceExtensionInfo(m_objMapper.remap(pPacket->physicalDevice), pPacket->infoType, pPacket->extensionIndex, pPacket->pDataSize, pPacket->pData);
-        CHECK_RETURN_VALUE(vkGetPhysicalDeviceExtensionInfo);
 // TODO: Confirm that replay'd properties match with traced properties to ensure compatibility.
 //        if (replayResult == VK_SUCCESS) {
 //            for (unsigned int ext = 0; ext < sizeof(g_extensions) / sizeof(g_extensions[0]); ext++)
@@ -420,13 +411,13 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkGetPhysicalDeviceExten
 //            }
 //        }
     }
-    return returnValue;
+    return replayResult;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkGetSwapChainInfoWSI(struct_vkGetSwapChainInfoWSI* pPacket)
+VkResult vkReplay::manually_replay_vkGetSwapChainInfoWSI(struct_vkGetSwapChainInfoWSI* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+
     size_t dataSize = *pPacket->pDataSize;
     void* pData = malloc(dataSize);
     replayResult = m_vkFuncs.real_vkGetSwapChainInfoWSI(m_objMapper.remap(pPacket->swapChain), pPacket->infoType, &dataSize, pData);
@@ -454,14 +445,13 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkGetSwapChainInfoWSI(st
             }
         }
     }
-    CHECK_RETURN_VALUE(vkCreateSwapChainWSI);
-    return returnValue;
+    return replayResult;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkQueueSubmit(struct_vkQueueSubmit* pPacket)
+VkResult vkReplay::manually_replay_vkQueueSubmit(struct_vkQueueSubmit* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+
     VkCmdBuffer *remappedBuffers = NULL;
     if (pPacket->pCmdBuffers != NULL)
     {
@@ -476,14 +466,13 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkQueueSubmit(struct_vkQ
                                                   remappedBuffers,
                                                   m_objMapper.remap(pPacket->fence));
     GLV_DELETE(remappedBuffers);
-    CHECK_RETURN_VALUE(vkQueueSubmit);
-    return returnValue;
+    return replayResult;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkQueueAddMemReferences(struct_vkQueueAddMemReferences* pPacket)
+VkResult vkReplay::manually_replay_vkQueueAddMemReferences(struct_vkQueueAddMemReferences* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+
     VkDeviceMemory *remappedMem = NULL;
     if (pPacket->pMems != NULL)
     {
@@ -497,14 +486,13 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkQueueAddMemReferences(
                                                           pPacket->count,
                                                           remappedMem);
     GLV_DELETE(remappedMem);
-    CHECK_RETURN_VALUE(vkQueueAddMemReferences);
-    return returnValue;
+    return replayResult;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkQueueRemoveMemReferences(struct_vkQueueRemoveMemReferences* pPacket)
+VkResult vkReplay::manually_replay_vkQueueRemoveMemReferences(struct_vkQueueRemoveMemReferences* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+
     VkDeviceMemory *remappedMem = NULL;
     if (pPacket->pMems != NULL)
     {
@@ -518,14 +506,13 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkQueueRemoveMemReferenc
                                                              pPacket->count,
                                                              remappedMem);
     GLV_DELETE(remappedMem);
-    CHECK_RETURN_VALUE(vkQueueRemoveMemReferences);
-    return returnValue;
+    return replayResult;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkGetObjectInfo(struct_vkGetObjectInfo* pPacket)
+VkResult vkReplay::manually_replay_vkGetObjectInfo(struct_vkGetObjectInfo* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+
     size_t size = 0;
     void* pData = NULL;
     if (pPacket->pData != NULL && pPacket->pDataSize != NULL)
@@ -587,14 +574,13 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkGetObjectInfo(struct_v
         }
     }
     glv_free(pData);
-    CHECK_RETURN_VALUE(vkGetObjectInfo);
-    return returnValue;
+    return replayResult;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkGetFormatInfo(struct_vkGetFormatInfo* pPacket)
+VkResult vkReplay::manually_replay_vkGetFormatInfo(struct_vkGetFormatInfo* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+
     size_t size = 0;
     void* pData = NULL;
     if (pPacket->pData != NULL && pPacket->pDataSize != NULL)
@@ -615,14 +601,13 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkGetFormatInfo(struct_v
         }
     }
     glv_free(pData);
-    CHECK_RETURN_VALUE(vkGetFormatInfo);
-    return returnValue;
+    return replayResult;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkGetImageSubresourceInfo(struct_vkGetImageSubresourceInfo* pPacket)
+VkResult vkReplay::manually_replay_vkGetImageSubresourceInfo(struct_vkGetImageSubresourceInfo* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+
     size_t size = 0;
     void* pData = NULL;
     if (pPacket->pData != NULL && pPacket->pDataSize != NULL)
@@ -643,15 +628,14 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkGetImageSubresourceInf
         }
     }
     glv_free(pData);
-    CHECK_RETURN_VALUE(vkGetImageSubresourceInfo);
-    return returnValue;
+    return replayResult;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkUpdateDescriptors(struct_vkUpdateDescriptors* pPacket)
+void vkReplay::manually_replay_vkUpdateDescriptors(struct_vkUpdateDescriptors* pPacket)
 {
     // We have to remap handles internal to the structures so save the handles prior to remap and then restore
     // Rather than doing a deep memcpy of the entire struct and fixing any intermediate pointers, do save and restores via STL queue
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+
     std::queue<VkSampler> saveSamplers;
     std::queue<VkBufferView> saveBufferViews;
     std::queue<VkImageView> saveImageViews;
@@ -783,13 +767,13 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkUpdateDescriptors(stru
             }
         }
     }
-    return returnValue;
+    return;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkCreateDescriptorSetLayout(struct_vkCreateDescriptorSetLayout* pPacket)
+VkResult vkReplay::manually_replay_vkCreateDescriptorSetLayout(struct_vkCreateDescriptorSetLayout* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+
     VkSampler *local_pImmutableSamplers;
     // TODO: Need to make a whole new CreateInfo struct so that we can remap pImmutableSamplers without affecting the packet.
     VkDescriptorSetLayoutCreateInfo *pInfo = (VkDescriptorSetLayoutCreateInfo*) pPacket->pCreateInfo;
@@ -820,13 +804,12 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkCreateDescriptorSetLay
         m_objMapper.add_to_map(pPacket->pSetLayout, &setLayout);
     }
     glv_free(local_pImmutableSamplers);
-    CHECK_RETURN_VALUE(vkCreateDescriptorSetLayout);
-    return returnValue;
+    return replayResult;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkCmdBindDescriptorSets(struct_vkCmdBindDescriptorSets* pPacket)
+void vkReplay::manually_replay_vkCmdBindDescriptorSets(struct_vkCmdBindDescriptorSets* pPacket)
 {
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+
     VkDescriptorSet *pSaveSets = (VkDescriptorSet *) glv_malloc(sizeof(VkDescriptorSet) * pPacket->setCount);
     if (pSaveSets == NULL)
     {
@@ -845,12 +828,12 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkCmdBindDescriptorSets(
         *pSet = pSaveSets[idx];
     }
     glv_free(pSaveSets);
-    return returnValue;
+    return;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkCmdBindVertexBuffers(struct_vkCmdBindVertexBuffers* pPacket)
+void vkReplay::manually_replay_vkCmdBindVertexBuffers(struct_vkCmdBindVertexBuffers* pPacket)
 {
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+
     VkBuffer *pSaveBuff = GLV_NEW_ARRAY(VkBuffer, pPacket->bindingCount);
     if (pSaveBuff == NULL)
     {
@@ -872,13 +855,13 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkCmdBindVertexBuffers(s
         *pBuff = pSaveBuff[k];
     }
     GLV_DELETE(pSaveBuff);
-    return returnValue;
+    return;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkCreateGraphicsPipeline(struct_vkCreateGraphicsPipeline* pPacket)
+VkResult vkReplay::manually_replay_vkCreateGraphicsPipeline(struct_vkCreateGraphicsPipeline* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+
     VkGraphicsPipelineCreateInfo createInfo;
 
     // array to store the original trace-time shaders, so that we can remap them inside the packet and then
@@ -925,14 +908,13 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkCreateGraphicsPipeline
     for (unsigned int i = 0; i < idx; i++)
         *(saveShader[i].addr) = saveShader[i].val;
 
-    CHECK_RETURN_VALUE(vkCreateGraphicsPipeline);
-    return returnValue;
+    return replayResult;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkCreatePipelineLayout(struct_vkCreatePipelineLayout* pPacket)
+VkResult vkReplay::manually_replay_vkCreatePipelineLayout(struct_vkCreatePipelineLayout* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+
     // array to store the original trace-time layouts, so that we can remap them inside the packet and then
     // restore them after replaying the API call.
     VkDescriptorSetLayout* pSaveLayouts = (VkDescriptorSetLayout*) glv_malloc(sizeof(VkDescriptorSetLayout) * pPacket->pCreateInfo->descriptorSetCount);
@@ -957,13 +939,12 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkCreatePipelineLayout(s
         *pSL = pSaveLayouts[k];
     }
     glv_free(pSaveLayouts);
-    CHECK_RETURN_VALUE(vkCreatePipelineLayout);
-    return returnValue;
+    return replayResult;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkCmdWaitEvents(struct_vkCmdWaitEvents* pPacket)
+void vkReplay::manually_replay_vkCmdWaitEvents(struct_vkCmdWaitEvents* pPacket)
 {
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+
     VkEvent* saveEvent = GLV_NEW_ARRAY(VkEvent, pPacket->eventCount);
     uint32_t idx = 0;
     uint32_t numRemapBuf = 0;
@@ -1010,12 +991,12 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkCmdWaitEvents(struct_v
     GLV_DELETE(saveEvent);
     GLV_DELETE(saveBuf);
     GLV_DELETE(saveImg);
-    return returnValue;
+    return;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkCmdPipelineBarrier(struct_vkCmdPipelineBarrier* pPacket)
+void vkReplay::manually_replay_vkCmdPipelineBarrier(struct_vkCmdPipelineBarrier* pPacket)
 {
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+
     uint32_t idx = 0;
     uint32_t numRemapBuf = 0;
     uint32_t numRemapImg = 0;
@@ -1048,13 +1029,13 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkCmdPipelineBarrier(str
     }
     GLV_DELETE(saveBuf);
     GLV_DELETE(saveImg);
-    return returnValue;
+    return;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkCreateFramebuffer(struct_vkCreateFramebuffer* pPacket)
+VkResult vkReplay::manually_replay_vkCreateFramebuffer(struct_vkCreateFramebuffer* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+
     VkFramebufferCreateInfo *pInfo = (VkFramebufferCreateInfo *) pPacket->pCreateInfo;
     VkColorAttachmentBindInfo *pColorAttachments, *pSavedColor = (VkColorAttachmentBindInfo*)pInfo->pColorAttachments;
     bool allocatedColorAttachments = false;
@@ -1090,38 +1071,36 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkCreateFramebuffer(stru
     {
         GLV_DELETE((void*)pColorAttachments);
     }
-    CHECK_RETURN_VALUE(vkCreateFramebuffer);
-    return returnValue;
+    return replayResult;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkCreateRenderPass(struct_vkCreateRenderPass* pPacket)
+VkResult vkReplay::manually_replay_vkCreateRenderPass(struct_vkCreateRenderPass* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+
     VkRenderPass local_renderpass;
     replayResult = m_vkFuncs.real_vkCreateRenderPass(m_objMapper.remap(pPacket->device), pPacket->pCreateInfo, &local_renderpass);
     if (replayResult == VK_SUCCESS)
     {
         m_objMapper.add_to_map(pPacket->pRenderPass, &local_renderpass);
     }
-    CHECK_RETURN_VALUE(vkCreateRenderPass);
-    return returnValue;
+    return replayResult;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkCmdBeginRenderPass(struct_vkCmdBeginRenderPass* pPacket)
+void vkReplay::manually_replay_vkCmdBeginRenderPass(struct_vkCmdBeginRenderPass* pPacket)
 {
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+
     VkRenderPassBegin local_renderPassBegin;
     local_renderPassBegin.framebuffer = m_objMapper.remap(pPacket->pRenderPassBegin->framebuffer);
     local_renderPassBegin.renderPass = m_objMapper.remap(pPacket->pRenderPassBegin->renderPass);
     m_vkFuncs.real_vkCmdBeginRenderPass(m_objMapper.remap(pPacket->cmdBuffer), &local_renderPassBegin);
-    return returnValue;
+    return;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkBeginCommandBuffer(struct_vkBeginCommandBuffer* pPacket)
+VkResult vkReplay::manually_replay_vkBeginCommandBuffer(struct_vkBeginCommandBuffer* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+
     VkCmdBufferBeginInfo* pInfo = (VkCmdBufferBeginInfo*)pPacket->pBeginInfo;
     // assume only zero or one graphics_begin_info in the chain
     VkRenderPassBegin savedRP, *pRP;
@@ -1142,14 +1121,13 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkBeginCommandBuffer(str
     replayResult = m_vkFuncs.real_vkBeginCommandBuffer(m_objMapper.remap(pPacket->cmdBuffer), pPacket->pBeginInfo);
     if (pGInfo != NULL)
         pGInfo->renderPassContinue = savedRP;
-    CHECK_RETURN_VALUE(vkBeginCommandBuffer);
-    return returnValue;
+    return replayResult;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkStorePipeline(struct_vkStorePipeline* pPacket)
+VkResult vkReplay::manually_replay_vkStorePipeline(struct_vkStorePipeline* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+
     size_t size = 0;
     void* pData = NULL;
     if (pPacket->pData != NULL && pPacket->pDataSize != NULL)
@@ -1170,41 +1148,38 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkStorePipeline(struct_v
         }
     }
     glv_free(pData);
-    CHECK_RETURN_VALUE(vkStorePipeline);
-    return returnValue;
+    return replayResult;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkGetMultiDeviceCompatibility(struct_vkGetMultiDeviceCompatibility* pPacket)
+VkResult vkReplay::manually_replay_vkGetMultiDeviceCompatibility(struct_vkGetMultiDeviceCompatibility* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+
     VkPhysicalDeviceCompatibilityInfo compatInfo;
     VkPhysicalDevice handle0, handle1;
     handle0 = m_objMapper.remap(pPacket->physicalDevice0);
     handle1 = m_objMapper.remap(pPacket->physicalDevice1);
     replayResult = m_vkFuncs.real_vkGetMultiDeviceCompatibility(handle0, handle1, &compatInfo);
-    CHECK_RETURN_VALUE(vkGetMultiDeviceCompatibility);
-    return returnValue;
+    return replayResult;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkDestroyObject(struct_vkDestroyObject* pPacket)
+VkResult vkReplay::manually_replay_vkDestroyObject(struct_vkDestroyObject* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+
     VkObject object = m_objMapper.remap(pPacket->object, pPacket->objType);
     if (object != VK_NULL_HANDLE)
         replayResult = m_vkFuncs.real_vkDestroyObject(m_objMapper.remap(pPacket->device), pPacket->objType, object);
     if (replayResult == VK_SUCCESS)
         m_objMapper.rm_from_map(pPacket->object, pPacket->objType);
-    CHECK_RETURN_VALUE(vkDestroyObject);
-    return returnValue;
+    return replayResult;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkWaitForFences(struct_vkWaitForFences* pPacket)
+VkResult vkReplay::manually_replay_vkWaitForFences(struct_vkWaitForFences* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
     uint32_t i;
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+
     VkFence *pFence = GLV_NEW_ARRAY(VkFence, pPacket->fenceCount);
     for (i = 0; i < pPacket->fenceCount; i++)
     {
@@ -1216,14 +1191,13 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkWaitForFences(struct_v
         *((VkFence *)(pPacket->pFences + i)) = *(pFence + i);
     }
     GLV_DELETE(pFence);
-    CHECK_RETURN_VALUE(vkWaitForFences);
-    return returnValue;
+    return replayResult;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkAllocMemory(struct_vkAllocMemory* pPacket)
+VkResult vkReplay::manually_replay_vkAllocMemory(struct_vkAllocMemory* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+
     gpuMemObj local_mem;
 
     if (!m_objMapper.m_adjustForGPU)
@@ -1235,14 +1209,13 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkAllocMemory(struct_vkA
             local_mem.pGpuMem->setAllocInfo(pPacket->pAllocInfo, m_objMapper.m_adjustForGPU);
         m_objMapper.add_to_map(pPacket->pMem, &local_mem);
     }
-    CHECK_RETURN_VALUE(vkAllocMemory);
-    return returnValue;
+    return replayResult;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkFreeMemory(struct_vkFreeMemory* pPacket)
+VkResult vkReplay::manually_replay_vkFreeMemory(struct_vkFreeMemory* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+
     gpuMemObj local_mem;
     local_mem = m_objMapper.m_devicememorys.find(pPacket->mem)->second;
     // TODO how/when to free pendingAlloc that did not use and existing gpuMemObj
@@ -1252,14 +1225,13 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkFreeMemory(struct_vkFr
         delete local_mem.pGpuMem;
         m_objMapper.rm_from_map(pPacket->mem);
     }
-    CHECK_RETURN_VALUE(vkFreeMemory);
-    return returnValue;
+    return replayResult;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkMapMemory(struct_vkMapMemory* pPacket)
+VkResult vkReplay::manually_replay_vkMapMemory(struct_vkMapMemory* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+
     gpuMemObj local_mem = m_objMapper.m_devicememorys.find(pPacket->mem)->second;
     void* pData;
     if (!local_mem.pGpuMem->isPendingAlloc())
@@ -1280,14 +1252,13 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkMapMemory(struct_vkMap
             local_mem.pGpuMem->setMemoryMapRange(NULL, 0, 0, true);
         }
     }
-    CHECK_RETURN_VALUE(vkMapMemory);
-    return returnValue;
+    return replayResult;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkUnmapMemory(struct_vkUnmapMemory* pPacket)
+VkResult vkReplay::manually_replay_vkUnmapMemory(struct_vkUnmapMemory* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+
     gpuMemObj local_mem = m_objMapper.m_devicememorys.find(pPacket->mem)->second;
     if (!local_mem.pGpuMem->isPendingAlloc())
     {
@@ -1310,27 +1281,25 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkUnmapMemory(struct_vkU
             local_mem.pGpuMem->copyMappingData(pPacket->pData);
         }
     }
-    CHECK_RETURN_VALUE(vkUnmapMemory);
-    return returnValue;
+    return replayResult;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkPinSystemMemory(struct_vkPinSystemMemory* pPacket)
+VkResult vkReplay::manually_replay_vkPinSystemMemory(struct_vkPinSystemMemory* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+
     gpuMemObj local_mem;
     /* TODO do we need to skip (make pending) this call for m_adjustForGPU */
     replayResult = m_vkFuncs.real_vkPinSystemMemory(m_objMapper.remap(pPacket->device), pPacket->pSysMem, pPacket->memSize, &local_mem.replayGpuMem);
     if (replayResult == VK_SUCCESS)
         m_objMapper.add_to_map(pPacket->pMem, &local_mem);
-    CHECK_RETURN_VALUE(vkPinSystemMemory);
-    return returnValue;
+    return replayResult;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkCreateSwapChainWSI(struct_vkCreateSwapChainWSI* pPacket)
+VkResult vkReplay::manually_replay_vkCreateSwapChainWSI(struct_vkCreateSwapChainWSI* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+
     VkSwapChainWSI local_pSwapChain;
     VkDisplayWSI *local_pDisplays = GLV_NEW_ARRAY(VkDisplayWSI, pPacket->pCreateInfo->displayCount);
     uint32_t idx = 0;
@@ -1352,24 +1321,22 @@ glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkCreateSwapChainWSI(str
     {
         m_objMapper.add_to_map(pPacket->pSwapChain, &local_pSwapChain);
     }
-    CHECK_RETURN_VALUE(vkCreateSwapChainWSI);
     for (idx = 0; idx < pPacket->pCreateInfo->displayCount; idx++)
     {
         VkDisplayWSI *pDisplays = (VkDisplayWSI *) &(pPacket->pCreateInfo->pDisplays[idx]);
         *pDisplays = local_pDisplays[idx];
     }
     GLV_DELETE(local_pDisplays);
-    return returnValue;
+    return replayResult;
 }
 
-glv_replay::GLV_REPLAY_RESULT vkReplay::manually_replay_vkQueuePresentWSI(struct_vkQueuePresentWSI* pPacket)
+VkResult vkReplay::manually_replay_vkQueuePresentWSI(struct_vkQueuePresentWSI* pPacket)
 {
     VkResult replayResult = VK_ERROR_UNKNOWN;
-    glv_replay::GLV_REPLAY_RESULT returnValue = glv_replay::GLV_REPLAY_SUCCESS;
+
     VkImage save_image = pPacket->pPresentInfo->image;
     ((VkPresentInfoWSI *) pPacket->pPresentInfo)->image = m_objMapper.remap(pPacket->pPresentInfo->image);
     replayResult = m_vkFuncs.real_vkQueuePresentWSI(m_objMapper.remap(pPacket->queue), pPacket->pPresentInfo);
     ((VkPresentInfoWSI *) pPacket->pPresentInfo)->image = save_image;
-    CHECK_RETURN_VALUE(vkQueuePresentWSI);
-    return returnValue;
+    return replayResult;
 }

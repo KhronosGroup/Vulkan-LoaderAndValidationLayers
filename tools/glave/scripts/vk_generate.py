@@ -1623,7 +1623,10 @@ class Subcommand(object):
             rbody.append('        {')
             rbody.append('            struct_vk%s* pPacket = (struct_vk%s*)(packet->pBody);' % (proto.name, proto.name))
             if proto.name in manually_replay_funcs:
-                rbody.append('            returnValue = manually_replay_vk%s(pPacket);' % proto.name)
+                if ret_value == True:
+                    rbody.append('            replayResult = manually_replay_vk%s(pPacket);' % proto.name)
+                else:
+                    rbody.append('            manually_replay_vk%s(pPacket);' % proto.name)
             elif proto.name in custom_body_dict:
                 rbody.append(custom_body_dict[proto.name]())
             else:
