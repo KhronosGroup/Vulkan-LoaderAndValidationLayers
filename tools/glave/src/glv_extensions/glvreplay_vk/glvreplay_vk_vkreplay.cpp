@@ -1194,10 +1194,6 @@ VkResult vkReplay::manually_replay_vkWaitForFences(struct_vkWaitForFences* pPack
         *(pFence + i) = m_objMapper.remap(*(pPacket->pFences + i));
     }
     replayResult = m_vkFuncs.real_vkWaitForFences(m_objMapper.remap(pPacket->device), pPacket->fenceCount, pFence, pPacket->waitAll, pPacket->timeout);
-    for (i = 0; i < pPacket->fenceCount; i++)
-    {
-        *((VkFence *)(pPacket->pFences + i)) = *(pFence + i);
-    }
     GLV_DELETE(pFence);
     return replayResult;
 }
