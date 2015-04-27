@@ -47,9 +47,9 @@ bool consoleCreated = false;
         if (consoleCreated) \
             Sleep(INFINITE); \
     } while (0)
-#else
+#else  // _WIN32
     #define WAIT_FOR_CONSOLE_DESTROY
-#endif
+#endif // _WIN32
 
 
 #define ERR_EXIT(err) \

@@ -36,6 +36,8 @@
 #ifdef _WIN32
 #pragma comment(linker, "/subsystem:windows")
 #include <windows.h>
+#include <fcntl.h>
+#include <io.h>
 #define APP_NAME_STR_LEN 80
 #else  // _WIN32
 #include <xcb/xcb.h>
@@ -50,6 +52,23 @@
 #define DEMO_BUFFER_COUNT 2
 #define DEMO_TEXTURE_COUNT 1
 #define VERTEX_BUFFER_BIND_ID 0
+
+#ifdef _WIN32
+bool consoleCreated = false;
+
+#define WAIT_FOR_CONSOLE_DESTROY \
+    do { \
+        if (consoleCreated) \
+            Sleep(INFINITE); \
+    } while (0)
+
+// NOTE: If the following values (copied from "loader_platform.h") change, they
+// need to change here as well:
+#define LAYER_NAMES_ENV "VK_LAYER_NAMES"
+#define LAYER_NAMES_REGISTRY_VALUE "VK_LAYER_NAMES"
+#else  // _WIN32
+    #define WAIT_FOR_CONSOLE_DESTROY
+#endif // _WIN32
 
 struct texture_object {
     VkSampler sampler;
@@ -1198,12 +1217,14 @@ LRESULT CALLBACK WndProc(HWND hWnd,
 
     switch(uMsg)
     {
-    case WM_CREATE: 
+    case WM_CREATE:
         return 0;
-    case WM_CLOSE: 
+    case WM_CLOSE:
+        demo.prepared = false;
+        DestroyWindow(hWnd);
         PostQuitMessage(0);
         return 0;
-    case WM_PAINT: 
+    case WM_PAINT:
         demo_run(&demo);
         return 0;
     default:
@@ -1234,6 +1255,7 @@ static void demo_create_window(struct demo *demo)
         // It didn't work, so try to give a useful error:
         printf("Unexpected error trying to start the application!\n");
         fflush(stdout);
+        WAIT_FOR_CONSOLE_DESTROY;
         exit(1);
     }
     // Create window with the registered class:
@@ -1254,6 +1276,7 @@ static void demo_create_window(struct demo *demo)
         // It didn't work, so try to give a useful error:
         printf("Cannot create a window in which to draw!\n");
         fflush(stdout);
+        WAIT_FOR_CONSOLE_DESTROY;
         exit(1);
     }
 }
@@ -1402,6 +1425,7 @@ static void demo_init_vk(struct demo *demo)
 #ifdef _WIN32
         MessageBox(NULL, "vkCreateInstance failed - do you have a Vulkan graphics driver installed?",
                    "vkCreateInstance Failure", MB_OK);
+        WAIT_FOR_CONSOLE_DESTROY;
 #else
         printf("vkCreateInstance failed - Do you have a Vulkan graphics driver installed?"
                "(\nExiting ...\n");
@@ -1504,6 +1528,7 @@ static void demo_init(struct demo *demo, const int argc, const char *argv[])
     if (argv_error) {
         fprintf(stderr, "Usage:\n  tri [--use_staging]\n");
         fflush(stderr);
+        WAIT_FOR_CONSOLE_DESTROY;
         exit(1);
     }
 
@@ -1574,6 +1599,146 @@ static void demo_cleanup(struct demo *demo)
 }
 
 #ifdef _WIN32
+// The following function was copied from the Vulkan loader:
+char *get_registry_string(const HKEY hive,
+                          const LPCTSTR sub_key,
+                          const char *value)
+{
+    DWORD access_flags = KEY_QUERY_VALUE;
+    DWORD value_type;
+    HKEY key;
+    LONG  rtn_value;
+    char *rtn_str = NULL;
+    size_t rtn_len = 0;
+    size_t allocated_len = 0;
+
+    rtn_value = RegOpenKeyEx(hive, sub_key, 0, access_flags, &key);
+    if (rtn_value != ERROR_SUCCESS) {
+        // We didn't find the key.  Try the 32-bit hive (where we've seen the
+        // key end up on some people's systems):
+        access_flags |= KEY_WOW64_32KEY;
+        rtn_value = RegOpenKeyEx(hive, sub_key, 0, access_flags, &key);
+        if (rtn_value != ERROR_SUCCESS) {
+            // We still couldn't find the key, so give up:
+            return NULL;
+        }
+    }
+
+    rtn_value = RegQueryValueEx(key, value, NULL, &value_type,
+                                (PVOID) rtn_str, &rtn_len);
+    if (rtn_value == ERROR_SUCCESS) {
+        // If we get to here, we found the key, and need to allocate memory
+        // large enough for rtn_str, and query again:
+        allocated_len = rtn_len + 4;
+        rtn_str = malloc(allocated_len);
+        rtn_value = RegQueryValueEx(key, value, NULL, &value_type,
+                                    (PVOID) rtn_str, &rtn_len);
+        if (rtn_value == ERROR_SUCCESS) {
+            // We added 4 extra bytes to rtn_str, so that we can ensure that
+            // the string is NULL-terminated (albeit, in a brute-force manner):
+            rtn_str[allocated_len-1] = '\0';
+        } else {
+            // This should never occur, but in case it does, clean up:
+            free(rtn_str);
+            rtn_str = NULL;
+        }
+    } // else - shouldn't happen, but if it does, return rtn_str, which is NULL
+
+    // Close the registry key that was opened:
+    RegCloseKey(key);
+
+    return rtn_str;
+}
+
+
+// The following function was copied from the Vulkan loader:
+static char *get_registry_and_env(const char *env_var,
+                                  const char *registry_value)
+{
+    char *env_str = getenv(env_var);
+    size_t env_len = (env_str == NULL) ? 0 : strlen(env_str);
+    char *registry_str = NULL;
+    DWORD registry_len = 0;
+    char *rtn_str = NULL;
+    size_t rtn_len;
+
+    registry_str = get_registry_string(HKEY_LOCAL_MACHINE,
+                                       "Software\\Vulkan",
+                                       registry_value);
+    registry_len = (registry_str) ? strlen(registry_str) : 0;
+
+    rtn_len = env_len + registry_len + 1;
+    if (rtn_len <= 2) {
+        // We found neither the desired registry value, nor the environment
+        // variable; return NULL:
+        return NULL;
+    } else {
+        // We found something, and so we need to allocate memory for the string
+        // to return:
+        rtn_str = malloc(rtn_len);
+    }
+
+    if (registry_len == 0) {
+        // We didn't find the desired registry value, and so we must have found
+        // only the environment variable:
+        _snprintf(rtn_str, rtn_len, "%s", env_str);
+    } else if (env_str != NULL) {
+        // We found both the desired registry value and the environment
+        // variable, so concatenate them both:
+        _snprintf(rtn_str, rtn_len, "%s;%s", registry_str, env_str);
+    } else {
+        // We must have only found the desired registry value:
+        _snprintf(rtn_str, rtn_len, "%s", registry_str);
+    }
+
+    if (registry_str) {
+      free(registry_str);
+    }
+
+    return(rtn_str);
+}
+
+// Create a console window with a large scrollback size to which to send stdout.
+// Returns true if console window was successfully created, false otherwise.
+bool SetStdOutToNewConsole()
+{
+    // don't do anything if we already have a console
+    if (GetStdHandle(STD_OUTPUT_HANDLE))
+        return false;
+
+    // allocate a console for this app
+    AllocConsole();
+
+    // redirect unbuffered STDOUT to the console
+    HANDLE consoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+    int fileDescriptor = _open_osfhandle((intptr_t)consoleHandle, _O_TEXT);
+    FILE *fp = _fdopen( fileDescriptor, "w" );
+    *stdout = *fp;
+    setvbuf( stdout, NULL, _IONBF, 0 );
+
+    // make the console window bigger
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    SMALL_RECT r;
+    COORD bufferSize;
+    if (!GetConsoleScreenBufferInfo(consoleHandle, &csbi))
+        return false;
+    bufferSize.X = csbi.dwSize.X;
+    bufferSize.Y = 1000;
+    if (!SetConsoleScreenBufferSize(consoleHandle, bufferSize))
+        return false;
+    r.Left = r.Top = 0;
+    r.Right = csbi.dwSize.X-1;
+    r.Bottom = 60;
+    if (!SetConsoleWindowInfo(consoleHandle, true, &r))
+        return false;
+
+    // change the console window title
+    if (!SetConsoleTitle(TEXT("vulkaninfo")))
+        return false;
+
+    return true;
+}
+
 int APIENTRY WinMain(HINSTANCE hInstance,
                      HINSTANCE hPrevInstance,
                      LPSTR pCmdLine,
@@ -1581,6 +1746,13 @@ int APIENTRY WinMain(HINSTANCE hInstance,
 {
     MSG msg;         // message
     bool done;        // flag saying when app is complete
+    char *layers_enabled = get_registry_and_env(LAYER_NAMES_ENV,
+                                                LAYER_NAMES_REGISTRY_VALUE);
+
+    if (layers_enabled != NULL) {
+        consoleCreated = SetStdOutToNewConsole();
+        free(layers_enabled);
+    }
 
     demo_init(&demo, hInstance, pCmdLine);
     demo_create_window(&demo);
@@ -1605,6 +1777,13 @@ int APIENTRY WinMain(HINSTANCE hInstance,
     }
 
     demo_cleanup(&demo);
+
+    if (consoleCreated) {
+        printf("\nPlease close this window when you are finished looking at "
+               "the console output\n");
+        fflush(stdout);
+        WAIT_FOR_CONSOLE_DESTROY;
+    }
 
     return msg.wParam;
 }
