@@ -1297,7 +1297,7 @@ static VkShader demo_prepare_shader(struct demo *demo,
     err = vkCreateShader(demo->device, &createInfo, &shader);
     if (err) {
         free((void *) createInfo.pCode);
-        return NULL;
+        return (VkShader) NULL;
     }
 #endif
 
@@ -1682,8 +1682,6 @@ LRESULT CALLBACK WndProc(HWND hWnd,
                          WPARAM wParam,
                          LPARAM lParam)
 {
-    PAINTSTRUCT paint_struct;
-    HDC hDC; // Device context
     char tmp_str[] = APP_LONG_NAME;
 
     switch(uMsg)
@@ -2123,7 +2121,7 @@ char *get_registry_string(const HKEY hive,
     DWORD access_flags = KEY_QUERY_VALUE;
     DWORD value_type;
     HKEY key;
-    LONG  rtn_value;
+    VkResult  rtn_value;
     char *rtn_str = NULL;
     size_t rtn_len = 0;
     size_t allocated_len = 0;
@@ -2141,14 +2139,14 @@ char *get_registry_string(const HKEY hive,
     }
 
     rtn_value = RegQueryValueEx(key, value, NULL, &value_type,
-                                (PVOID) rtn_str, &rtn_len);
+                                (PVOID) rtn_str, (LPDWORD) &rtn_len);
     if (rtn_value == ERROR_SUCCESS) {
         // If we get to here, we found the key, and need to allocate memory
         // large enough for rtn_str, and query again:
         allocated_len = rtn_len + 4;
         rtn_str = malloc(allocated_len);
         rtn_value = RegQueryValueEx(key, value, NULL, &value_type,
-                                    (PVOID) rtn_str, &rtn_len);
+                                    (PVOID) rtn_str, (LPDWORD) &rtn_len);
         if (rtn_value == ERROR_SUCCESS) {
             // We added 4 extra bytes to rtn_str, so that we can ensure that
             // the string is NULL-terminated (albeit, in a brute-force manner):
@@ -2181,7 +2179,7 @@ static char *get_registry_and_env(const char *env_var,
     registry_str = get_registry_string(HKEY_LOCAL_MACHINE,
                                        "Software\\Vulkan",
                                        registry_value);
-    registry_len = (registry_str) ? strlen(registry_str) : 0;
+    registry_len = (registry_str) ? (DWORD) strlen(registry_str) : 0;
 
     rtn_len = env_len + registry_len + 1;
     if (rtn_len <= 2) {
@@ -2255,10 +2253,10 @@ bool SetStdOutToNewConsole()
     return true;
 }
 
-int APIENTRY WinMain(HINSTANCE hInstance,
-                     HINSTANCE hPrevInstance,
-                     LPSTR pCmdLine,
-                     int nCmdShow)
+int WINAPI WinMain(HINSTANCE hInstance,
+                   HINSTANCE hPrevInstance,
+                   LPSTR pCmdLine,
+                   int nCmdShow)
 {
     MSG msg;         // message
     bool done;        // flag saying when app is complete
@@ -2279,7 +2277,7 @@ int APIENTRY WinMain(HINSTANCE hInstance,
     /* main message loop*/
     while(!done)
     {
-        PeekMessage(&msg,NULL,NULL,NULL,PM_REMOVE);
+        PeekMessage(&msg, NULL, 0, 0, PM_REMOVE);
         if (msg.message == WM_QUIT) //check for a quit message
         {
             done = true; //if found, quit app
@@ -2301,7 +2299,7 @@ int APIENTRY WinMain(HINSTANCE hInstance,
         WAIT_FOR_CONSOLE_DESTROY;
     }
 
-    return msg.wParam;
+    return (int) msg.wParam;
 }
 #else  // _WIN32
 int main(int argc, char **argv)
