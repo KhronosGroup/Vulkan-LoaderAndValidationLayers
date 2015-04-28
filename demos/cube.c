@@ -2221,7 +2221,7 @@ bool SetStdOutToNewConsole()
         return false;
 
     // change the console window title
-    if (!SetConsoleTitle(TEXT("vulkaninfo")))
+    if (!SetConsoleTitle(TEXT("cube")))
         return false;
 
     return true;

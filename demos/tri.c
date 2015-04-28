@@ -1733,7 +1733,7 @@ bool SetStdOutToNewConsole()
         return false;
 
     // change the console window title
-    if (!SetConsoleTitle(TEXT("vulkaninfo")))
+    if (!SetConsoleTitle(TEXT("tri")))
         return false;
 
     return true;
