@@ -178,6 +178,7 @@ bool glvdebug_QReplayWorker::load_replayers(glvdebug_trace_file_info* pTraceFile
             {
                 // replayer failed to be created
                 emit OutputError(QString("Couldn't create replayer for TracerId %1.").arg(tracerId));
+                bReplayerLoaded = false;
             }
             else
             {
@@ -216,7 +217,7 @@ bool glvdebug_QReplayWorker::load_replayers(glvdebug_trace_file_info* pTraceFile
         m_pView->add_calltree_contextmenu_item(m_pActionRunToHere);
     }
 
-    return true;
+    return bReplayerLoaded;
 }
 
 void glvdebug_QReplayWorker::unloadReplayers()
