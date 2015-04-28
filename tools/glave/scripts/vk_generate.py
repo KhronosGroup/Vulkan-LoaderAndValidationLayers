@@ -99,7 +99,7 @@ class Subcommand(object):
         deref = ""
         # TODO : Need ENUM and STRUCT checks here
         if "VkClearColor" in param_type:
-            return ("%p", "(void*)&%s" % param_name, deref)
+            return ("{%ff, %ff, %ff, %ff}", "%s.color.floatColor[0], %s.color.floatColor[1],%s.color.floatColor[2],%s.color.floatColor[3]" % (param_name, param_name, param_name, param_name), deref)
         if "char*" == param_type:
             return ("%s", param_name, "*")
         if "const char*" == param_type:
