@@ -1005,15 +1005,11 @@ static void addCmd(GLOBAL_CB_NODE* pCB, const CMD_TYPE cmd)
 {
     CMD_NODE* pCmd = new CMD_NODE;
     if (pCmd) {
-        loader_platform_thread_lock_mutex(&globalLock);
-
         // init cmd node and append to end of cmd LL
         memset(pCmd, 0, sizeof(CMD_NODE));
         pCmd->cmdNumber = ++pCB->numCmds;
         pCmd->type = cmd;
         pCB->pCmds.push_back(pCmd);
-
-        loader_platform_thread_unlock_mutex(&globalLock);
     }
     else {
         char str[1024];
