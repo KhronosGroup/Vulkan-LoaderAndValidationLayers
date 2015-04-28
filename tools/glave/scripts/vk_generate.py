@@ -411,9 +411,12 @@ class Subcommand(object):
                                                                       '    add_pipeline_shader_to_trace_packet(pHeader, (VkPipelineShader*)&pPacket->pCreateInfo->cs, &pCreateInfo->cs)',
                                                       'finalize_txt': 'finalize_pipeline_shader_address(pHeader, &pPacket->pCreateInfo->cs);\n'
                                                                       '    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pCreateInfo))'},
-
                            'VkDescriptorSetLayoutCreateInfo': {'add_txt': 'add_create_ds_layout_to_trace_packet(pHeader, &pPacket->pCreateInfo, pCreateInfo)',
                                                           'finalize_txt': '// pCreateInfo finalized in add_create_ds_layout_to_trace_packet'},
+                           'VkSwapChainCreateInfoWSI': {'add_txt':      'glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pCreateInfo), sizeof(VkSwapChainCreateInfoWSI), pCreateInfo);\n'
+                                                                        '    glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pCreateInfo->pDisplays), pCreateInfo->displayCount * sizeof(VkDisplayWSI), pCreateInfo->pDisplays)',
+                                                        'finalize_txt': 'glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pCreateInfo->pDisplays));\n'
+                                                                        '    glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pCreateInfo))'},
                           }
 
         for p in params:
@@ -550,18 +553,11 @@ class Subcommand(object):
                 in_data_size = False # flag when we need to capture local input size variable for in/out size
                 func_body.append('GLVTRACER_EXPORT %s VKAPI __HOOKED_vk%s(' % (proto.ret, proto.name))
                 for p in proto.params: # TODO : For all of the ptr types, check them for NULL and return 0 if NULL
-#                    if '[' in p.ty: # Correctly declare static arrays in function parameters
-#                        func_body.append('    %s %s[%s],' % (p.ty[:p.ty.find('[')], p.name, p.ty[p.ty.find('[')+1:p.ty.find(']')]))
-#                    else:
                     func_body.append('    %s %s,' % (p.ty, p.name))
                     if '*' in p.ty and p.name not in ['pSysMem', 'pReserved']:
                         if 'pDataSize' in p.name:
                             in_data_size = True;
                     else:
-#                        if '[' in p.ty:
-#                            array_str = p.ty[p.ty.find('[')+1:p.ty.find(']')]
-#                            raw_packet_update_list.append('    memcpy((void*)pPacket->color, color, %s * sizeof(%s));' % (array_str, p.ty.strip('*').replace('const ', '').replace('[%s]' % array_str, '')))
-#                        else:
                         raw_packet_update_list.append('    pPacket->%s = %s;' % (p.name, p.name))
                 # Get list of packet size modifiers due to ptr params
                 packet_size = self._get_packet_size(func_class, proto.params)
