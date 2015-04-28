@@ -288,6 +288,30 @@ void glvdebug::select_call_at_packet_index(unsigned long long packetIndex)
     }
 }
 
+void glvdebug::highlight_timeline_item(unsigned long long packetArrayIndex, bool bScrollTo, bool bSelect)
+{
+    if (m_pTraceFileModel != NULL)
+    {
+        QModelIndex location = m_pTraceFileModel->index(packetArrayIndex, 0);
+
+        if (m_pTimeline->currentIndex() != location)
+        {
+            // scroll to the index
+            if (bScrollTo)
+            {
+                m_pTimeline->scrollTo(location);
+            }
+
+            // select the index
+            if (bSelect)
+            {
+                m_pTimeline->setCurrentIndex(location);
+            }
+        }
+    }
+}
+
+
 void glvdebug::on_replay_state_changed(bool bReplayInProgress)
 {
     bool bEnableUi = !bReplayInProgress;
@@ -674,7 +698,7 @@ void glvdebug::selectApicallModelIndex(QModelIndex index, bool scrollTo, bool se
     // make sure the index is visible in tree view
     QModelIndex treeIndex = mapTreeIndexFromModel(index);
 
-    if (ui->treeView->currentIndex() != treeIndex)
+    if (ui->treeView->currentIndex() != treeIndex && ui->treeView->isEnabled())
     {
         QModelIndex parentIndex = treeIndex.parent();
         while (parentIndex.isValid())

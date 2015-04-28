@@ -47,6 +47,7 @@ public:
     virtual void set_calltree_model(glvdebug_QTraceFileModel* pTraceFileModel, QAbstractProxyModel *pModel) = 0;
     virtual void add_calltree_contextmenu_item(QAction* pAction) = 0;
     virtual void select_call_at_packet_index(unsigned long long packetIndex) = 0;
+    virtual void highlight_timeline_item(unsigned long long packetArrayIndex, bool bScrollTo, bool bSelect) = 0;
 
     // \return tab index of state viewer
     virtual int add_custom_state_viewer(QWidget* pWidget, const QString& title, bool bBringToFront = false) = 0;

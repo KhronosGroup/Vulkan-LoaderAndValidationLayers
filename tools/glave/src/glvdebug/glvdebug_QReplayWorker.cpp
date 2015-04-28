@@ -249,8 +249,9 @@ void glvdebug_QReplayWorker::playCurrentTraceFile(uint64_t startPacketIndex)
     for (uint64_t i = startPacketIndex; i < pTraceFileInfo->packetCount; i++)
     {
         m_currentReplayPacketIndex = i;
+        emit ReplayProgressUpdate(m_currentReplayPacketIndex);
 
-        pCurPacket = &pTraceFileInfo->pPacketOffsets[i];
+        pCurPacket = &pTraceFileInfo->pPacketOffsets[i];        
         switch (pCurPacket->pHeader->packet_id) {
             case GLV_TPI_MESSAGE:
             {

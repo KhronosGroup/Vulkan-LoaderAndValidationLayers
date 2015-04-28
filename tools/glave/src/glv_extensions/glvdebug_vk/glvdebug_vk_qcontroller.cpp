@@ -97,6 +97,7 @@ bool glvdebug_vk_QController::LoadTraceFile(glvdebug_trace_file_info* pTraceFile
             connect(m_pReplayWidget, SIGNAL(ReplayContinued()), this, SLOT(onReplayContinued()));
             connect(m_pReplayWidget, SIGNAL(ReplayStopped(uint64_t)), this, SLOT(onReplayStopped(uint64_t)));
             connect(m_pReplayWidget, SIGNAL(ReplayFinished(uint64_t)), this, SLOT(onReplayFinished(uint64_t)));
+            connect(m_pReplayWidget, SIGNAL(ReplayProgressUpdate(uint64_t)), this, SLOT(onReplayProgressUpdate(uint64_t)));
 
             connect(m_pReplayWidget, SIGNAL(OutputMessage(const QString&)), this, SLOT(OnOutputMessage(const QString&)));
             connect(m_pReplayWidget, SIGNAL(OutputError(const QString&)), this, SLOT(OnOutputError(const QString&)));
@@ -261,6 +262,11 @@ void glvdebug_vk_QController::onReplayStopped(uint64_t packetIndex)
     // Stopping the replay means that it will 'play' or 'step' from the beginning,
     // so select the first packet index to indicate to the user what stopping replay does.
     m_pView->select_call_at_packet_index(0);
+}
+
+void glvdebug_vk_QController::onReplayProgressUpdate(uint64_t packetArrayIndex)
+{
+    m_pView->highlight_timeline_item(packetArrayIndex, true, true);
 }
 
 void glvdebug_vk_QController::onReplayFinished(uint64_t packetIndex)

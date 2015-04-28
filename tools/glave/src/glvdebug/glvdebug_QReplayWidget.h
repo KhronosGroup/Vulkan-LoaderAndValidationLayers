@@ -108,6 +108,7 @@ public:
         connect(m_pWorker, SIGNAL(ReplayContinued()), this, SLOT(slotReplayContinued()), Qt::QueuedConnection);
         connect(m_pWorker, SIGNAL(ReplayStopped(uint64_t)), this, SLOT(slotReplayStopped(uint64_t)), Qt::QueuedConnection);
         connect(m_pWorker, SIGNAL(ReplayFinished(uint64_t)), this, SLOT(slotReplayFinished(uint64_t)), Qt::QueuedConnection);
+        connect(m_pWorker, SIGNAL(ReplayProgressUpdate(uint64_t)), this, SIGNAL(ReplayProgressUpdate(uint64_t)), Qt::QueuedConnection);
 
         connect(m_pWorker, SIGNAL(OutputMessage(const QString&)), this, SLOT(OnOutputMessage(const QString&)), Qt::QueuedConnection);
         connect(m_pWorker, SIGNAL(OutputError(const QString&)), this, SLOT(OnOutputError(const QString&)), Qt::QueuedConnection);
@@ -143,6 +144,7 @@ signals:
     void ReplayContinued();
     void ReplayStopped(uint64_t packetIndex);
     void ReplayFinished(uint64_t packetIndex);
+    void ReplayProgressUpdate(uint64_t packetIndex);
 
     void OutputMessage(const QString& msg);
     void OutputError(const QString& msg);

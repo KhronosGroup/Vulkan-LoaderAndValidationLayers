@@ -60,6 +60,7 @@ protected slots:
     void onReplayContinued();
     void onReplayStopped(uint64_t packetIndex);
     void onReplayFinished(uint64_t packetIndex);
+    void onReplayProgressUpdate(uint64_t packetArrayIndex);
 
     void OnOutputMessage(const QString& msg);
     void OnOutputError(const QString& msg);

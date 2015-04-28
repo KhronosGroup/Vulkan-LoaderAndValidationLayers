@@ -79,6 +79,8 @@ signals:
     void ReplayStopped(uint64_t packetIndex);
     void ReplayFinished(uint64_t packetIndex);
 
+    void ReplayProgressUpdate(uint64_t packetIndex);
+
     void OutputMessage(const QString& msg);
     void OutputError(const QString& msg);
     void OutputWarning(const QString& msg);

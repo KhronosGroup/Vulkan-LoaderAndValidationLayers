@@ -87,6 +87,7 @@ public:
     virtual void add_calltree_contextmenu_item(QAction* pAction);
     virtual void set_calltree_model(glvdebug_QTraceFileModel* pTraceFileModel, QAbstractProxyModel *pModel);
     virtual void select_call_at_packet_index(unsigned long long packetIndex);
+    virtual void highlight_timeline_item(unsigned long long packetArrayIndex, bool bScrollTo, bool bSelect);
     virtual void on_replay_state_changed(bool bReplayInProgress);
     virtual unsigned long long get_current_packet_index();
 
