@@ -518,8 +518,8 @@ static bool32_t deleteCBInfoList()
 // For given MemObjInfo, report Obj & CB bindings
 static void reportMemReferencesAndCleanUp(MT_MEM_OBJ_INFO* pMemObjInfo)
 {
-    uint32_t cmdBufRefCount = pMemObjInfo->pCmdBufferBindings.size();
-    uint32_t objRefCount    = pMemObjInfo->pObjBindings.size();
+    uint32_t cmdBufRefCount = (uint32_t) pMemObjInfo->pCmdBufferBindings.size();
+    uint32_t objRefCount    = (uint32_t) pMemObjInfo->pObjBindings.size();
 
     if ((pMemObjInfo->pCmdBufferBindings.size() + pMemObjInfo->pObjBindings.size()) != 0) {
         char str[1024];
@@ -950,8 +950,6 @@ VK_LAYER_EXPORT VkResult VKAPI vkGetGlobalExtensionInfo(
                                                size_t*  pDataSize,
                                                void*    pData)
 {
-    VkResult result;
-
     /* This entrypoint is NOT going to init it's own dispatch table since loader calls here early */
     VkExtensionProperties *ext_props;
     uint32_t *count;
@@ -1030,7 +1028,7 @@ VK_LAYER_EXPORT VkResult VKAPI vkQueueAddMemReferences(VkQueue queue, uint32_t c
             sprintf(str, "Unknown Queue %p", queue);
             layerCbMsg(VK_DBG_MSG_ERROR, VK_VALIDATION_LEVEL_0, queue, 0, MEMTRACK_INVALID_QUEUE, "MEM", str);
         } else {
-            for (int i = 0; i < count; i++) {
+            for (uint32_t i = 0; i < count; i++) {
                 if (checkMemRef(queue, pMems[i]) == VK_TRUE) {
                     // Alread in list, just warn
                     char str[1024];
@@ -1060,7 +1058,7 @@ VK_LAYER_EXPORT VkResult VKAPI vkQueueRemoveMemReferences(VkQueue queue, uint32_
             sprintf(str, "Unknown Queue %p", queue);
             layerCbMsg(VK_DBG_MSG_ERROR, VK_VALIDATION_LEVEL_0, queue, 0, MEMTRACK_INVALID_QUEUE, "MEM", str);
         } else {
-            for (int i = 0; i < count; i++) {
+            for (uint32_t i = 0; i < count; i++) {
 				if (pQueueInfo->pMemRefList.size() > 0) {
                     for (list<VkDeviceMemory>::iterator it = pQueueInfo->pMemRefList.begin(); it != pQueueInfo->pMemRefList.end();) {
                         if ((*it) == pMems[i]) {

@@ -1353,7 +1353,6 @@ class ThreadingSubcommand(Subcommand):
         if proto.name == "EnumerateLayers":
             funcs.append('%s%s\n'
                      '{\n'
-                     '    char str[1024];\n'
                      '    if (gpu != NULL) {\n'
                      '        pCurObj = (VkBaseLayerObject *) %s;\n'
                      '        loader_platform_thread_once(&tabOnce, init%s);\n'

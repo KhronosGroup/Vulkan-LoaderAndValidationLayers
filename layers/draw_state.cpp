@@ -30,9 +30,13 @@
 #include "loader_platform.h"
 #include "vk_dispatch_table_helper.h"
 #include "vk_struct_string_helper_cpp.h"
+#ifndef _WIN32
 #pragma GCC diagnostic ignored "-Wwrite-strings"
+#endif
 #include "vk_struct_graphviz_helper.h"
+#ifndef _WIN32
 #pragma GCC diagnostic warning "-Wwrite-strings"
+#endif
 #include "vk_struct_size_helper.h"
 #include "draw_state.h"
 #include "layers_config.h"
@@ -1505,8 +1509,6 @@ VK_LAYER_EXPORT VkResult VKAPI vkGetGlobalExtensionInfo(
                                                size_t*  pDataSize,
                                                void*    pData)
 {
-    VkResult result;
-
     /* This entrypoint is NOT going to init it's own dispatch table since loader calls here early */
     VkExtensionProperties *ext_props;
     uint32_t *count;
