@@ -40,6 +40,7 @@
 
 // declared as extern in glvtrace_vk_helpers.h
 GLV_CRITICAL_SECTION g_memInfoLock;
+GLV_CRITICAL_SECTION g_traceLock;
 VKMemInfo g_memInfo = {0, NULL, NULL, 0};
 
 GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkAllocMemory(
@@ -182,14 +183,15 @@ GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkCreateInstance(
     struct_vkCreateInstance* pPacket = NULL;
     uint64_t startTime;
     glv_platform_thread_once(&gInitOnce, InitTracer);
-    SEND_ENTRYPOINT_ID(vkCreateInstance);
+    glv_enter_critical_section(&g_traceLock);
     if (real_vkCreateInstance == vkCreateInstance)
     {
         glv_platform_get_next_lib_sym((void **) &real_vkCreateInstance,"vkCreateInstance");
     }
     startTime = glv_get_time();
     result = real_vkCreateInstance(pCreateInfo, pInstance);
-    CREATE_TRACE_PACKET(vkCreateInstance, sizeof(VkInstance) + get_struct_chain_size((void*)pCreateInfo));
+    pHeader = glv_create_trace_packet(GLV_TID_VULKAN, GLV_TPI_VK_vkCreateInstance, sizeof(struct_vkCreateInstance), sizeof(VkInstance) + get_struct_chain_size((void*)pCreateInfo));
+    //CREATE_TRACE_PACKET(vkCreateInstance, sizeof(VkInstance) + get_struct_chain_size((void*)pCreateInfo));
     pHeader->entrypoint_begin_time = startTime;
     if (isHooked == FALSE) {
         AttachHooks();
@@ -353,11 +355,12 @@ GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkAllocDescriptorSets(
     VkResult result;
     struct_vkAllocDescriptorSets* pPacket = NULL;
     uint64_t startTime;
-    SEND_ENTRYPOINT_ID(vkAllocDescriptorSets);
+    glv_enter_critical_section(&g_traceLock);
     startTime = glv_get_time();
     result = real_vkAllocDescriptorSets(device, descriptorPool, setUsage, count, pSetLayouts, pDescriptorSets, pCount);
     size_t customSize = (*pCount <= 0) ? (sizeof(VkDescriptorSet)) : (*pCount * sizeof(VkDescriptorSet));
-    CREATE_TRACE_PACKET(vkAllocDescriptorSets, sizeof(VkDescriptorSetLayout) + customSize + sizeof(uint32_t));
+    pHeader = glv_create_trace_packet(GLV_TID_VULKAN, GLV_TPI_VK_vkAllocDescriptorSets, sizeof(struct_vkAllocDescriptorSets), sizeof(VkDescriptorSetLayout) + customSize + sizeof(uint32_t));
+    //CREATE_TRACE_PACKET(vkAllocDescriptorSets, sizeof(VkDescriptorSetLayout) + customSize + sizeof(uint32_t));
     pHeader->entrypoint_begin_time = startTime;
     pPacket = interpret_body_as_vkAllocDescriptorSets(pHeader);
     pPacket->device = device;
