@@ -32,10 +32,12 @@
 extern BOOL isHooked;
 
 // Support for shadowing CPU mapped memory
+//TODO better handling of multiple range rather than fixed array
 typedef struct _VKAllocInfo {
     VkDeviceSize   totalSize;
-    VkDeviceSize   rangeSize;
-    VkDeviceSize   rangeOffset;
+    uint32_t       numRanges;
+    VkDeviceSize   rangeSizes[32];  // entry 0 will be the original mapped range
+    VkDeviceSize   rangeOffsets[32];
     VkDeviceMemory handle;
     uint8_t        *pData;
     BOOL           valid;
@@ -60,8 +62,9 @@ static void init_mem_info_entrys(VKAllocInfo *ptr, const unsigned int num)
         VKAllocInfo *entry = ptr + i;
         entry->pData = NULL;
         entry->totalSize = 0;
-        entry->rangeSize = 0;
-        entry->rangeOffset = 0;
+        entry->numRanges = 0;
+        memset(entry->rangeSizes, 0, sizeof(entry->rangeSizes));
+        memset(entry->rangeOffsets, 0, sizeof(entry->rangeOffsets));
         memset(&entry->handle, 0, sizeof(VkDeviceMemory));
         entry->valid = FALSE;
     }
@@ -171,11 +174,20 @@ static void add_new_handle_to_mem_info(const VkDeviceMemory handle, VkDeviceSize
         entry->valid = TRUE;
         entry->handle = handle;
         entry->totalSize = size;
-        entry->rangeSize = 0;
-        entry->rangeOffset = 0;
+        entry->numRanges = 0;
+        memset(entry->rangeSizes, 0, sizeof(entry->rangeSizes));
+        memset(entry->rangeOffsets, 0, sizeof(entry->rangeOffsets));
         entry->pData = pData;   // NOTE: VKFreeMemory will free this mem, so no malloc()
     }
     glv_leave_critical_section(&g_memInfoLock);
+}
+
+static void add_range_to_entry(VKAllocInfo *entry, VkDeviceSize rangeSize, VkDeviceSize rangeOffset)
+{
+    assert(entry->numRanges >= 1 && entry->numRanges < (sizeof(entry->rangeSizes) / sizeof(VkDeviceSize)));
+    //TODO handle overlapping ranges (not counting the alloc range (index 0))
+    entry->rangeSizes[entry->numRanges] = rangeSize;
+    entry->rangeOffsets[entry->numRanges++] = rangeOffset;
 }
 
 static void add_data_to_mem_info(const VkDeviceMemory handle, VkDeviceSize rangeSize, VkDeviceSize rangeOffset, void *pData)
@@ -187,13 +199,13 @@ static void add_data_to_mem_info(const VkDeviceMemory handle, VkDeviceSize range
     if (entry)
     {
         entry->pData = pData;
-        if (entry->totalSize != rangeSize)
-            glv_LogInfo("map data range size %u  total size = %u\n", rangeSize , entry->totalSize);
+        assert(entry->numRanges == 0);
         if (rangeSize == 0)
-            entry->rangeSize = entry->totalSize - rangeOffset;
+            entry->rangeSizes[0] = entry->totalSize - rangeOffset;
         else
-            entry->rangeSize = rangeSize;
-        entry->rangeOffset = rangeOffset;
+            entry->rangeSizes[0] = rangeSize;
+        entry->rangeOffsets[0] = entry->rangeOffsets[0];
+        entry->numRanges++;
         assert(entry->totalSize >= rangeSize + rangeOffset);
     }
     g_memInfo.pLastMapped = entry;
@@ -211,8 +223,9 @@ static void rm_handle_from_mem_info(const VkDeviceMemory handle)
         entry->valid = FALSE;
         entry->pData = NULL;
         entry->totalSize = 0;
-        entry->rangeSize = 0;
-        entry->rangeOffset = 0;
+        entry->numRanges = 0;
+        memset(entry->rangeSizes, 0, sizeof(entry->rangeSizes));
+        memset(entry->rangeOffsets, 0, sizeof(entry->rangeOffsets));
         memset(&entry->handle, 0, sizeof(VkDeviceMemory));
 
         if (entry == g_memInfo.pLastMapped)

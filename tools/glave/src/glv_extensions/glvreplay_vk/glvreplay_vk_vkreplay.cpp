@@ -1279,7 +1279,8 @@ VkResult vkReplay::manually_replay_vkUnmapMemory(struct_vkUnmapMemory* pPacket)
     {
         if (local_mem.pGpuMem)
         {
-            local_mem.pGpuMem->copyMappingData(pPacket->pData);  // copies data from packet into memory buffer
+            if (pPacket->size != 0)
+                local_mem.pGpuMem->copyMappingData(pPacket->pData, pPacket->size, pPacket->offset);  // copies data from packet into memory buffer
         }
         replayResult = m_vkFuncs.real_vkUnmapMemory(m_objMapper.remap(pPacket->device), local_mem.replayGpuMem);
     }
@@ -1293,7 +1294,38 @@ VkResult vkReplay::manually_replay_vkUnmapMemory(struct_vkUnmapMemory* pPacket)
                 glv_LogError("vkUnmapMemory() malloc failed");
             }
             local_mem.pGpuMem->setMemoryDataAddr(pBuf);
-            local_mem.pGpuMem->copyMappingData(pPacket->pData);
+            local_mem.pGpuMem->copyMappingData(pPacket->pData, pPacket->size, pPacket->offset);
+        }
+    }
+    return replayResult;
+}
+
+VkResult vkReplay::manually_replay_vkFlushMappedMemory(struct_vkFlushMappedMemory* pPacket)
+{
+    VkResult replayResult = VK_ERROR_UNKNOWN;
+
+    gpuMemObj local_mem = m_objMapper.m_devicememorys.find(pPacket->mem)->second;
+    if (!local_mem.pGpuMem->isPendingAlloc())
+    {
+        if (local_mem.pGpuMem)
+        {
+            if (pPacket->size != 0)
+                local_mem.pGpuMem->copyMappingData(pPacket->pData, pPacket->size, pPacket->offset);
+        }
+        replayResult = m_vkFuncs.real_vkFlushMappedMemory(m_objMapper.remap(pPacket->device), local_mem.replayGpuMem, pPacket->offset, pPacket->size);
+    }
+    else
+    {
+        //TODO Is this correct handling???
+        if (local_mem.pGpuMem)
+        {
+            unsigned char *pBuf = (unsigned char *) glv_malloc(local_mem.pGpuMem->getMemoryMapSize());
+            if (!pBuf)
+            {
+                glv_LogError("vkFlushMappedMemory() malloc failed");
+            }
+            local_mem.pGpuMem->setMemoryDataAddr(pBuf);
+            local_mem.pGpuMem->copyMappingData(pPacket->pData, pPacket->size, pPacket->offset);
         }
     }
     return replayResult;

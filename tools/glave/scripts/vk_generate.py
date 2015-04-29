@@ -523,6 +523,7 @@ class Subcommand(object):
                                          'EnumerateLayers',
                                          'EnumeratePhysicalDevices',
                                          'FreeMemory',
+                                         'FlushMappedMemory',
                                          'GetGlobalExtensionInfo',
                                          'MapMemory',
                                          'UnmapMemory',
@@ -1102,6 +1103,10 @@ class Subcommand(object):
         for proto in self.protos:
             if 'WSI' not in proto.name and 'Dbg' not in proto.name:
                 if 'UnmapMemory' == proto.name:
+                    proto.params.append(vulkan.Param("VkDeviceSize", "size"))
+                    proto.params.append(vulkan.Param("VkDeviceSize", "offset"))
+                    proto.params.append(vulkan.Param("void*", "pData"))
+                elif 'FlushMappedMemory' == proto.name:
                     proto.params.append(vulkan.Param("void*", "pData"))
                 if_body.append('typedef struct struct_vk%s {' % proto.name)
                 if_body.append('    glv_trace_packet_header* header;')
@@ -1248,13 +1253,14 @@ class Subcommand(object):
         rof_body.append('        assert(m_allocInfo.allocationSize >= (size + offset));')
         rof_body.append('    }')
         rof_body.append('')
-        rof_body.append('    void copyMappingData(const void* pSrcData)')
+        rof_body.append('    void copyMappingData(const void* pSrcData, size_t size, size_t offset)')
         rof_body.append('    {')
         rof_body.append('        if (m_mapRange.empty())')
         rof_body.append('        {')
         rof_body.append('            glv_LogError("gpuMemory::copyMappingData() m_mapRange is empty\\n");')
         rof_body.append('            return;')
         rof_body.append('        }')
+        rof_body.append('        //TODO now that size, offset come from packet remove list m_mapRange')
         rof_body.append('        MapRange mr = m_mapRange.back();')
         rof_body.append('        if (!pSrcData || !mr.pData)')
         rof_body.append('        {')
@@ -1265,9 +1271,11 @@ class Subcommand(object):
         rof_body.append('            m_mapRange.pop_back();')
         rof_body.append('            return;')
         rof_body.append('        }')
-        rof_body.append('        memcpy(mr.pData + mr.offset, pSrcData, mr.size);')
-        rof_body.append('        if (!mr.pending)')
-        rof_body.append('            m_mapRange.pop_back();')
+        rof_body.append('        assert(offset >= mr.offset);')
+        rof_body.append('        assert(size <= mr.size && (size + offset) <= mr.size);')
+        rof_body.append('        memcpy(mr.pData + offset, pSrcData, size);')
+        rof_body.append('        //TODO fixme if (!mr.pending)')
+        rof_body.append('        //TODO fixme    m_mapRange.pop_back();')
         rof_body.append('    }')
         rof_body.append('')
         rof_body.append('    size_t getMemoryMapSize()')
@@ -1293,6 +1301,7 @@ class Subcommand(object):
         rc_body.append('typedef struct _VKAllocInfo {')
         rc_body.append('    VkDeviceSize size;')
         rc_body.append('    uint8_t *pData;')
+        rc_body.append('    bool rangeUpdated;')
         rc_body.append('} VKAllocInfo;')
         rc_body.append('')
         rc_body.append('class objMemory {')
@@ -1560,6 +1569,7 @@ class Subcommand(object):
                                  'DestroyObject',
                                  'EnumeratePhysicalDevices',
                                  'FreeMemory',
+                                 'FlushMappedMemory',
                                  'GetFormatInfo',
                                  'GetGlobalExtensionInfo',
                                  'GetImageSubresourceInfo',

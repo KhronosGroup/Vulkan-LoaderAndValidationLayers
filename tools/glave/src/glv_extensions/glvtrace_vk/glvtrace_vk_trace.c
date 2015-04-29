@@ -81,7 +81,6 @@ GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkMapMemory(
     CREATE_TRACE_PACKET(vkMapMemory, sizeof(void*));
     result = real_vkMapMemory(device, mem, offset, size, flags, ppData);
     pPacket = interpret_body_as_vkMapMemory(pHeader);
-    //TODO handle offset and size in packet and add_data_to_mem_info
     pPacket->device = device;
     pPacket->mem = mem;
     pPacket->offset = offset;
@@ -106,27 +105,54 @@ GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkUnmapMemory(
     VkResult result;
     struct_vkUnmapMemory* pPacket;
     VKAllocInfo *entry;
-    SEND_ENTRYPOINT_PARAMS("vkUnmapMemory(mem %p)\n", mem);
+    size_t siz = 0, off = 0;
     // insert into packet the data that was written by CPU between the vkMapMemory call and here
     // Note must do this prior to the real vkUnMap() or else may get a FAULT
     glv_enter_critical_section(&g_memInfoLock);
     entry = find_mem_info_entry(mem);
-    CREATE_TRACE_PACKET(vkUnmapMemory, (entry) ? entry->totalSize : 0);
+    if (entry && entry->pData != NULL)
+    {
+        // find any mapped ranges not already FlushMappedMemory
+        // TODO handle more than one FlushMappedMemory range
+        assert(entry->numRanges <= 2 && entry->numRanges > 0);
+        switch (entry->numRanges) {
+            case 1: // no FlushMapped Memory
+                siz = entry->rangeSizes[0];
+                off = entry->rangeOffsets[0];
+                break;
+            case 2:
+#if 0
+                if (entry->rangeOffsets[1] > entry->rangeOffsets[0])
+                {
+                    off = entry->rangeOffsets[0];
+                    siz = entry->rangeOffsets[1] - entry->rangeOffsets[0];
+                } else
+                {
+                    off = entry->rangeOffsets[1] + entry->rangeSizes[1];
+                    siz = entry->rangeSizes[0] - off;
+                }
+#endif
+                //TODO FIXME
+                siz = 0;
+                off = 0;
+                break;
+        }
+        entry->numRanges = 0;
+    }
+    CREATE_TRACE_PACKET(vkUnmapMemory, siz);
     pPacket = interpret_body_as_vkUnmapMemory(pHeader);
-    if (entry)
+    if (siz)
     {
         assert(entry->handle == mem);
-        glv_add_buffer_to_trace_packet(pHeader, (void**) &(pPacket->pData), entry->rangeSize, entry->pData + entry->rangeOffset);
+        glv_add_buffer_to_trace_packet(pHeader, (void**) &(pPacket->pData), siz, entry->pData + off);
         glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pData));
         entry->pData = NULL;
-    } else
-    {
-         glv_LogError("Failed to copy app memory into trace packet (idx = %u) on vkUnmapMemory\n", pHeader->global_packet_index);
     }
     glv_leave_critical_section(&g_memInfoLock);
-//    glv_LogError("manual address of vkUnmapMemory: %p\n", real_vkUnmapMemory);
     result = real_vkUnmapMemory(device, mem);
     pPacket->device = device;
+    pPacket->size = siz;
+    pPacket->offset = off;
     pPacket->mem = mem;
     pPacket->result = result;
     FINISH_TRACE_PACKET();
@@ -150,6 +176,49 @@ GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkFreeMemory(
     // begin custom code
     rm_handle_from_mem_info(mem);
     // end custom code
+    return result;
+}
+
+GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkFlushMappedMemory(
+    VkDevice device,
+    VkDeviceMemory mem,
+    VkDeviceSize offset,
+    VkDeviceSize size)
+{
+    glv_trace_packet_header* pHeader;
+    VkResult result;
+    size_t siz, off;
+    VKAllocInfo *entry;
+    struct_vkFlushMappedMemory* pPacket = NULL;
+    // insert into packet the data that was written by CPU between the vkMapMemory call and here
+    glv_enter_critical_section(&g_memInfoLock);
+    entry = find_mem_info_entry(mem);
+    assert(entry->totalSize >= (size + offset));
+    assert(entry->rangeSizes[0] >= size);
+    assert(offset >= entry->rangeOffsets[0] && (offset + size) <= (entry->rangeOffsets[0] + entry->rangeSizes[0]));
+    assert(entry->handle == mem);
+    siz = (entry) ? size : 0;
+    off = (size == 0) ? 0 : offset;
+    CREATE_TRACE_PACKET(vkFlushMappedMemory, siz);
+    pPacket = interpret_body_as_vkFlushMappedMemory(pHeader);
+    if (siz)
+    {
+
+        glv_add_buffer_to_trace_packet(pHeader, (void**) &(pPacket->pData), siz, entry->pData + off);
+        glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pData));
+        add_range_to_entry(entry, siz, off);
+    } else
+    {
+         glv_LogError("Failed to copy app memory into trace packet (idx = %u) on vkFlushedMappedMemory\\n", pHeader->global_packet_index);
+    }
+    glv_leave_critical_section(&g_memInfoLock);
+    result = real_vkFlushMappedMemory(device, mem, offset, size);
+    pPacket->device = device;
+    pPacket->mem = mem;
+    pPacket->offset = off;
+    pPacket->size = siz;   // so replay can know how bug buffer is
+    pPacket->result = result;
+    FINISH_TRACE_PACKET();
     return result;
 }
 

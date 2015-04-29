@@ -116,6 +116,7 @@ private:
     VkResult manually_replay_vkFreeMemory(struct_vkFreeMemory* pPacket);
     VkResult manually_replay_vkMapMemory(struct_vkMapMemory* pPacket);
     VkResult manually_replay_vkUnmapMemory(struct_vkUnmapMemory* pPacket);
+    VkResult manually_replay_vkFlushMappedMemory(struct_vkFlushMappedMemory* pPacket);
     VkResult manually_replay_vkPinSystemMemory(struct_vkPinSystemMemory* pPacket);
     VkResult manually_replay_vkCreateSwapChainWSI(struct_vkCreateSwapChainWSI* pPacket);
     VkResult manually_replay_vkGetSwapChainInfoWSI(struct_vkGetSwapChainInfoWSI* pPacket);
