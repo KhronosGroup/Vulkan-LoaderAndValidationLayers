@@ -51,7 +51,6 @@ typedef struct _VKMemInfo {
 // defined in manually written file: glvtrace_vk_trace.c
 extern VKMemInfo g_memInfo;
 extern GLV_CRITICAL_SECTION g_memInfoLock;
-extern GLV_CRITICAL_SECTION g_traceLock;
 
 static void init_mem_info_entrys(VKAllocInfo *ptr, const unsigned int num)
 {

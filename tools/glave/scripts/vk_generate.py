@@ -323,7 +323,6 @@ class Subcommand(object):
         init_tracer.append('    FINISH_TRACE_PACKET();\n}\n')
 
         init_tracer.append('extern GLV_CRITICAL_SECTION g_memInfoLock;')
-        init_tracer.append('extern GLV_CRITICAL_SECTION g_traceLock;')
         init_tracer.append('void InitTracer(void)\n{')
         init_tracer.append('    char *ipAddr = glv_get_global_var("GLVLIB_TRACE_IPADDR");')
         init_tracer.append('    if (ipAddr == NULL)')
@@ -333,7 +332,6 @@ class Subcommand(object):
         init_tracer.append('//    glv_tracelog_set_log_file(glv_FileLike_create_file(fopen("glv_log_traceside.txt","w")));')
         init_tracer.append('    glv_tracelog_set_tracer_id(GLV_TID_VULKAN);')
         init_tracer.append('    glv_create_critical_section(&g_memInfoLock);')
-        init_tracer.append('    glv_create_critical_section(&g_traceLock);')
         init_tracer.append('    send_vk_api_version_packet();\n}\n')
         return "\n".join(init_tracer)
 
@@ -1821,7 +1819,6 @@ class GlaveTraceC(Subcommand):
         header_txt.append('#endif')
         header_txt.append('#include "glv_trace_packet_utils.h"')
         header_txt.append('#include <stdio.h>')
-        header_txt.append('#include <stdio.h>')
         return "\n".join(header_txt)
 
     def generate_body(self):
@@ -1852,15 +1849,12 @@ class GlavePacketID(Subcommand):
         header_txt.append('//#define SEND_ENTRYPOINT_ID(entrypoint) glv_TraceInfo(#entrypoint "\\n");\n')
         header_txt.append('#define SEND_ENTRYPOINT_PARAMS(entrypoint, ...) ;')
         header_txt.append('//#define SEND_ENTRYPOINT_PARAMS(entrypoint, ...) glv_TraceInfo(entrypoint, __VA_ARGS__);\n')
-        header_txt.append('extern GLV_CRITICAL_SECTION g_traceLock;')
         header_txt.append('#define CREATE_TRACE_PACKET(entrypoint, buffer_bytes_needed) \\')
-        header_txt.append('    glv_enter_critical_section(&g_traceLock); \\')
         header_txt.append('    pHeader = glv_create_trace_packet(GLV_TID_VULKAN, GLV_TPI_VK_##entrypoint, sizeof(struct_##entrypoint), buffer_bytes_needed);\n')
         header_txt.append('#define FINISH_TRACE_PACKET() \\')
         header_txt.append('    glv_finalize_trace_packet(pHeader); \\')
         header_txt.append('    glv_write_trace_packet(pHeader, glv_trace_get_trace_file()); \\')
-        header_txt.append('    glv_delete_trace_packet(&pHeader); \\')
-        header_txt.append('    glv_leave_critical_section(&g_traceLock);')
+        header_txt.append('    glv_delete_trace_packet(&pHeader);')
         return "\n".join(header_txt)
 
     def generate_body(self):
