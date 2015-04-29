@@ -452,7 +452,11 @@ GLVTRACER_EXPORT void VKAPI __HOOKED_vkUpdateDescriptors(
     glv_trace_packet_header* pHeader;
     struct_vkUpdateDescriptors* pPacket = NULL;
     // begin custom code
-    size_t arrayByteCount = get_struct_chain_size(*ppUpdateArray);
+    size_t arrayByteCount = 0;
+    size_t i;
+
+    for (i = 0; i < updateCount; i++)
+        arrayByteCount += get_struct_chain_size(* (ppUpdateArray + i));
     CREATE_TRACE_PACKET(vkUpdateDescriptors, arrayByteCount + updateCount * sizeof(intptr_t));
     // end custom code
     real_vkUpdateDescriptors(device, descriptorSet, updateCount, ppUpdateArray);
