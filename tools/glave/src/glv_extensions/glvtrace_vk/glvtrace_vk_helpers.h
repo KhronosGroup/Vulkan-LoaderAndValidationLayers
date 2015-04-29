@@ -33,9 +33,11 @@ extern BOOL isHooked;
 
 // Support for shadowing CPU mapped memory
 typedef struct _VKAllocInfo {
-    VkDeviceSize   size;
+    VkDeviceSize   totalSize;
+    VkDeviceSize   rangeSize;
+    VkDeviceSize   rangeOffset;
     VkDeviceMemory handle;
-    void           *pData;
+    uint8_t        *pData;
     BOOL           valid;
 } VKAllocInfo;
 
@@ -58,7 +60,9 @@ static void init_mem_info_entrys(VKAllocInfo *ptr, const unsigned int num)
     {
         VKAllocInfo *entry = ptr + i;
         entry->pData = NULL;
-        entry->size  = 0;
+        entry->totalSize = 0;
+        entry->rangeSize = 0;
+        entry->rangeOffset = 0;
         memset(&entry->handle, 0, sizeof(VkDeviceMemory));
         entry->valid = FALSE;
     }
@@ -167,13 +171,15 @@ static void add_new_handle_to_mem_info(const VkDeviceMemory handle, VkDeviceSize
     {
         entry->valid = TRUE;
         entry->handle = handle;
-        entry->size = size;
+        entry->totalSize = size;
+        entry->rangeSize = 0;
+        entry->rangeOffset = 0;
         entry->pData = pData;   // NOTE: VKFreeMemory will free this mem, so no malloc()
     }
     glv_leave_critical_section(&g_memInfoLock);
 }
 
-static void add_data_to_mem_info(const VkDeviceMemory handle, void *pData)
+static void add_data_to_mem_info(const VkDeviceMemory handle, VkDeviceSize rangeSize, VkDeviceSize rangeOffset, void *pData)
 {
     VKAllocInfo *entry;
 
@@ -182,6 +188,14 @@ static void add_data_to_mem_info(const VkDeviceMemory handle, void *pData)
     if (entry)
     {
         entry->pData = pData;
+        if (entry->totalSize != rangeSize)
+            glv_LogInfo("map data range size %u  total size = %u\n", rangeSize , entry->totalSize);
+        if (rangeSize == 0)
+            entry->rangeSize = entry->totalSize - rangeOffset;
+        else
+            entry->rangeSize = rangeSize;
+        entry->rangeOffset = rangeOffset;
+        assert(entry->totalSize >= rangeSize + rangeOffset);
     }
     g_memInfo.pLastMapped = entry;
     glv_leave_critical_section(&g_memInfoLock);
@@ -197,7 +211,9 @@ static void rm_handle_from_mem_info(const VkDeviceMemory handle)
     {
         entry->valid = FALSE;
         entry->pData = NULL;
-        entry->size = 0;
+        entry->totalSize = 0;
+        entry->rangeSize = 0;
+        entry->rangeOffset = 0;
         memset(&entry->handle, 0, sizeof(VkDeviceMemory));
 
         if (entry == g_memInfo.pLastMapped)

@@ -92,7 +92,7 @@ GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkMapMemory(
     {
         glv_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->ppData), sizeof(void*), *ppData);
         glv_finalize_buffer_address(pHeader, (void**)&(pPacket->ppData));
-        add_data_to_mem_info(mem, *ppData);
+        add_data_to_mem_info(mem, size, offset, *ppData);
     }
     pPacket->result = result;
     FINISH_TRACE_PACKET();
@@ -112,12 +112,12 @@ GLVTRACER_EXPORT VkResult VKAPI __HOOKED_vkUnmapMemory(
     // Note must do this prior to the real vkUnMap() or else may get a FAULT
     glv_enter_critical_section(&g_memInfoLock);
     entry = find_mem_info_entry(mem);
-    CREATE_TRACE_PACKET(vkUnmapMemory, (entry) ? entry->size : 0);
+    CREATE_TRACE_PACKET(vkUnmapMemory, (entry) ? entry->totalSize : 0);
     pPacket = interpret_body_as_vkUnmapMemory(pHeader);
     if (entry)
     {
         assert(entry->handle == mem);
-        glv_add_buffer_to_trace_packet(pHeader, (void**) &(pPacket->pData), entry->size, entry->pData);
+        glv_add_buffer_to_trace_packet(pHeader, (void**) &(pPacket->pData), entry->rangeSize, entry->pData + entry->rangeOffset);
         glv_finalize_buffer_address(pHeader, (void**)&(pPacket->pData));
         entry->pData = NULL;
     } else

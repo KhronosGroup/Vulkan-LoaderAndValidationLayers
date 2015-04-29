@@ -1256,7 +1256,7 @@ VkResult vkReplay::manually_replay_vkMapMemory(struct_vkMapMemory* pPacket)
         {
             if (local_mem.pGpuMem)
             {
-                local_mem.pGpuMem->setMemoryMapRange(pData, 0, 0, false);
+                local_mem.pGpuMem->setMemoryMapRange(pData, pPacket->size, pPacket->offset, false);
             }
         }
     }
@@ -1264,7 +1264,7 @@ VkResult vkReplay::manually_replay_vkMapMemory(struct_vkMapMemory* pPacket)
     {
         if (local_mem.pGpuMem)
         {
-            local_mem.pGpuMem->setMemoryMapRange(NULL, 0, 0, true);
+            local_mem.pGpuMem->setMemoryMapRange(NULL, pPacket->size, pPacket->offset, true);
         }
     }
     return replayResult;
