@@ -386,8 +386,10 @@ struct demo {
     int32_t curFrame;
     int32_t frameCount;
     bool validate;
+    bool use_break;
     PFN_vkDbgCreateMsgCallback dbgCreateMsgCallback;
     PFN_vkDbgDestroyMsgCallback dbgDestroyMsgCallback;
+    PFN_vkDbgBreakCallback dbgBreakCallback;
     VkDbgMsgCallback msg_callback;
 
     uint32_t current_buffer;
@@ -2349,26 +2351,56 @@ static void demo_init_vk(struct demo *demo)
             ERR_EXIT("GetProcAddr: Unable to find vkDbgDestroyMsgCallback\n",
                      "vkGetProcAddr Failure");
         }
-        err = demo->dbgCreateMsgCallback(
-                  demo->inst,
-                  VK_DBG_REPORT_ERROR_BIT | VK_DBG_REPORT_WARN_BIT,
-                  dbgFunc, NULL,
-                  &demo->msg_callback);
-        switch (err) {
-        case VK_SUCCESS:
-            break;
-        case VK_ERROR_INVALID_POINTER:
-            ERR_EXIT("dbgCreateMsgCallback: Invalid pointer\n",
-                     "dbgCreateMsgCallback Failure");
-            break;
-        case VK_ERROR_OUT_OF_HOST_MEMORY:
-            ERR_EXIT("dbgCreateMsgCallback: out of host memory\n",
-                     "dbgCreateMsgCallback Failure");
-            break;
-        default:
-            ERR_EXIT("dbgCreateMsgCallback: unknown failure\n",
-                     "dbgCreateMsgCallback Failure");
-            break;
+        demo->dbgBreakCallback = (PFN_vkDbgBreakCallback) vkGetInstanceProcAddr(demo->inst, "vkDbgBreakCallback");
+        if (!demo->dbgBreakCallback) {
+            ERR_EXIT("GetProcAddr: Unable to find vkDbgBreakCallback\n",
+                     "vkGetProcAddr Failure");
+        }
+
+        if (!demo->use_break) {
+            err = demo->dbgCreateMsgCallback(
+                      demo->inst,
+                      VK_DBG_REPORT_ERROR_BIT | VK_DBG_REPORT_WARN_BIT,
+                      dbgFunc, NULL,
+                      &demo->msg_callback);
+            switch (err) {
+            case VK_SUCCESS:
+                break;
+            case VK_ERROR_INVALID_POINTER:
+                ERR_EXIT("dbgCreateMsgCallback: Invalid pointer\n",
+                         "dbgCreateMsgCallback Failure");
+                break;
+            case VK_ERROR_OUT_OF_HOST_MEMORY:
+                ERR_EXIT("dbgCreateMsgCallback: out of host memory\n",
+                         "dbgCreateMsgCallback Failure");
+                break;
+            default:
+                ERR_EXIT("dbgCreateMsgCallback: unknown failure\n",
+                         "dbgCreateMsgCallback Failure");
+                break;
+            }
+        } else {
+            err = demo->dbgCreateMsgCallback(
+                      demo->inst,
+                      VK_DBG_REPORT_ERROR_BIT | VK_DBG_REPORT_WARN_BIT,
+                      demo->dbgBreakCallback, NULL,
+                      &demo->msg_callback);
+            switch (err) {
+            case VK_SUCCESS:
+                break;
+            case VK_ERROR_INVALID_POINTER:
+                ERR_EXIT("dbgCreateMsgCallback: Invalid pointer\n",
+                         "dbgCreateMsgCallback Failure");
+                break;
+            case VK_ERROR_OUT_OF_HOST_MEMORY:
+                ERR_EXIT("dbgCreateMsgCallback: out of host memory\n",
+                         "dbgCreateMsgCallback Failure");
+                break;
+            default:
+                ERR_EXIT("dbgCreateMsgCallback: unknown failure\n",
+                         "dbgCreateMsgCallback Failure");
+                break;
+            }
         }
     }
 
@@ -2554,6 +2586,10 @@ static void demo_init(struct demo *demo, int argc, char **argv)
             demo->use_glsl = true;
             continue;
         }
+        if (strcmp(argv[i], "--break") == 0) {
+            demo->use_break = true;
+            continue;
+        }
         if (strcmp(argv[i], "--validate") == 0) {
             demo->validate = true;
             continue;
@@ -2568,7 +2604,7 @@ static void demo_init(struct demo *demo, int argc, char **argv)
             continue;
         }
 
-        fprintf(stderr, "Usage:\n  %s [--use_staging] [--validate] [--c <framecount>]\n", APP_SHORT_NAME);
+        fprintf(stderr, "Usage:\n  %s [--use_staging] [--validate] [--break] [--c <framecount>]\n", APP_SHORT_NAME);
         fflush(stderr);
         exit(1);
     }
