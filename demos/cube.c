@@ -389,7 +389,7 @@ struct demo {
     bool use_break;
     PFN_vkDbgCreateMsgCallback dbgCreateMsgCallback;
     PFN_vkDbgDestroyMsgCallback dbgDestroyMsgCallback;
-    PFN_vkDbgBreakCallback dbgBreakCallback;
+    PFN_vkDbgMsgCallback dbgBreakCallback;
     VkDbgMsgCallback msg_callback;
 
     uint32_t current_buffer;
@@ -2351,56 +2351,39 @@ static void demo_init_vk(struct demo *demo)
             ERR_EXIT("GetProcAddr: Unable to find vkDbgDestroyMsgCallback\n",
                      "vkGetProcAddr Failure");
         }
-        demo->dbgBreakCallback = (PFN_vkDbgBreakCallback) vkGetInstanceProcAddr(demo->inst, "vkDbgBreakCallback");
+        demo->dbgBreakCallback = (PFN_vkDbgMsgCallback) vkGetInstanceProcAddr(demo->inst, "vkDbgBreakCallback");
         if (!demo->dbgBreakCallback) {
             ERR_EXIT("GetProcAddr: Unable to find vkDbgBreakCallback\n",
                      "vkGetProcAddr Failure");
         }
 
+        PFN_vkDbgMsgCallback callback;
+
         if (!demo->use_break) {
-            err = demo->dbgCreateMsgCallback(
-                      demo->inst,
-                      VK_DBG_REPORT_ERROR_BIT | VK_DBG_REPORT_WARN_BIT,
-                      dbgFunc, NULL,
-                      &demo->msg_callback);
-            switch (err) {
-            case VK_SUCCESS:
-                break;
-            case VK_ERROR_INVALID_POINTER:
-                ERR_EXIT("dbgCreateMsgCallback: Invalid pointer\n",
-                         "dbgCreateMsgCallback Failure");
-                break;
-            case VK_ERROR_OUT_OF_HOST_MEMORY:
-                ERR_EXIT("dbgCreateMsgCallback: out of host memory\n",
-                         "dbgCreateMsgCallback Failure");
-                break;
-            default:
-                ERR_EXIT("dbgCreateMsgCallback: unknown failure\n",
-                         "dbgCreateMsgCallback Failure");
-                break;
-            }
+            callback = dbgFunc;
         } else {
-            err = demo->dbgCreateMsgCallback(
-                      demo->inst,
-                      VK_DBG_REPORT_ERROR_BIT | VK_DBG_REPORT_WARN_BIT,
-                      demo->dbgBreakCallback, NULL,
-                      &demo->msg_callback);
-            switch (err) {
-            case VK_SUCCESS:
-                break;
-            case VK_ERROR_INVALID_POINTER:
-                ERR_EXIT("dbgCreateMsgCallback: Invalid pointer\n",
-                         "dbgCreateMsgCallback Failure");
-                break;
-            case VK_ERROR_OUT_OF_HOST_MEMORY:
-                ERR_EXIT("dbgCreateMsgCallback: out of host memory\n",
-                         "dbgCreateMsgCallback Failure");
-                break;
-            default:
-                ERR_EXIT("dbgCreateMsgCallback: unknown failure\n",
-                         "dbgCreateMsgCallback Failure");
-                break;
-            }
+            callback = demo->dbgBreakCallback;
+        }
+        err = demo->dbgCreateMsgCallback(
+                  demo->inst,
+                  VK_DBG_REPORT_ERROR_BIT | VK_DBG_REPORT_WARN_BIT,
+                  callback, NULL,
+                  &demo->msg_callback);
+        switch (err) {
+        case VK_SUCCESS:
+            break;
+        case VK_ERROR_INVALID_POINTER:
+            ERR_EXIT("dbgCreateMsgCallback: Invalid pointer\n",
+                     "dbgCreateMsgCallback Failure");
+            break;
+        case VK_ERROR_OUT_OF_HOST_MEMORY:
+            ERR_EXIT("dbgCreateMsgCallback: out of host memory\n",
+                     "dbgCreateMsgCallback Failure");
+            break;
+        default:
+            ERR_EXIT("dbgCreateMsgCallback: unknown failure\n",
+                     "dbgCreateMsgCallback Failure");
+            break;
         }
     }
 
