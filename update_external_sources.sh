@@ -17,14 +17,18 @@ function create_glslang () {
    mkdir -p $BASEDIR/glslang
    cd $BASEDIR/glslang
    git clone https://github.com/KhronosGroup/glslang.git .
-   git checkout $GLSLANG_REVISION
+   git checkout 
 }
 
 function update_glslang () {
    echo "Updating $BASEDIR/glslang"
    cd $BASEDIR/glslang
-   git fetch --all
-   git checkout $GLSLANG_REVISION
+#
+#   until v31 is default on github repo
+#   git fetch --all
+#   git checkout $GLSLANG_REVISION
+   svn checkout --force https://cvs.khronos.org/svn/repos/SPIRV/trunk/glslang/ .
+   svn revert -R .
 }
 
 function create_LunarGLASS () {
@@ -42,7 +46,15 @@ function create_LunarGLASS () {
 function update_LunarGLASS () {
    echo "Updating $BASEDIR/LunarGLASS"
    cd $BASEDIR/LunarGLASS
-   svn update -r "$LUNARGLASS_REVISION"
+   svn revert -R .
+   svn update 
+   rm -rf $BASEDIR/temp
+   mkdir $BASEDIR/temp
+   cd $BASEDIR/temp
+   svn checkout --force https://cvs.khronos.org/svn/repos/SPIRV/trunk/LunarGLASS/ .
+   cd Frontends
+   cd SPIRV
+   cp SpvToTop.cpp $BASEDIR/LunarGLASS/Frontends/SPIRV
 }
 
 function build_glslang () {
@@ -73,6 +85,9 @@ function build_LunarGLASS () {
    make
    make install
 }
+
+# until v31 is default in glslang github repo
+rm -rf $BASEDIR/glslang
 
 if [ ! -d "$BASEDIR/glslang" -o ! -d "$BASEDIR/glslang/.git" ]; then
    create_glslang
