@@ -260,8 +260,12 @@ static inline void VKAPI log_callback(
     char msg_flags[30];
 
     print_msg_flags(msgFlags, msg_flags);
-
+#ifdef WIN32
+    fprintf((FILE *) pUserData, "%s(%s): object: %#" PRIx64 " type: %d location: %Iu msgCode: %d: %s\n",
+             pLayerPrefix, msg_flags, srcObject, objType, location, msgCode, pMsg);
+#else
     fprintf((FILE *) pUserData, "%s(%s): object: %#" PRIx64 " type: %d location: %zu msgCode: %d: %s\n",
              pLayerPrefix, msg_flags, srcObject, objType, location, msgCode, pMsg);
+#endif
 }
 #endif // LAYER_LOGGING_H
