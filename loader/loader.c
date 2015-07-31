@@ -1467,6 +1467,9 @@ static void loader_get_manifest_files(const char *env_override,
         strcpy(loc, override);
     }
 
+    // Print out the paths being searched if debugging is enabled
+    loader_log(VK_DBG_REPORT_DEBUG_BIT, 0, "Searching the following paths for manifest files: %s\n", loc);
+
     file = loc;
     while (*file) {
         next_file = loader_get_next_path(file);
