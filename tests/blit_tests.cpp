@@ -1473,7 +1473,7 @@ TEST_F(VkCmdClearDepthStencilTest, Basic)
         img_info.extent.width = 64;
         img_info.extent.height = 64;
         img_info.tiling = it->tiling;
-        img_info.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_BIT;
+        img_info.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_BIT | VK_IMAGE_USAGE_TRANSFER_SOURCE_BIT;
 
         const VkImageSubresourceRange range =
             vk_testing::Image::subresource_range(img_info, VK_IMAGE_ASPECT_DEPTH);
