@@ -25,7 +25,7 @@ cp ../$GDIR/libglvreplay_vk.so .
 cp ../$GDIR/libglvtrace_vk.so .
 cp ../../demos/cube .
 cp ../../demos/*png .
-cp ../../demos/*spv .
+cp ../../demos/cube*spv .
 export LD_LIBRARY_PATH=`pwd`:$LD_LIBRARY_PATH
 (
     ./glvtrace   -s 1 -p cube  -o c01.glv -l0 libglvtrace_vk.so &

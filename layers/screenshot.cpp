@@ -480,7 +480,6 @@ VK_LAYER_EXPORT VkResult VKAPI vkGetSwapChainInfoWSI(
 VK_LAYER_EXPORT VkResult VKAPI vkQueuePresentWSI(VkQueue queue, VkPresentInfoWSI* pPresentInfo)
 {
     static int frameNumber = 0;
-    if (frameNumber == 10) {fflush(stdout); /* *((int*)0)=0; */ }
     VkResult result = get_dispatch_table(screenshot_device_table_map, queue)->QueuePresentWSI(queue, pPresentInfo);
 
     loader_platform_thread_lock_mutex(&globalLock);
