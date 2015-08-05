@@ -1856,7 +1856,7 @@ static void demo_prepare(struct demo *demo)
     demo_flush_init_cmd(demo);
 
     demo->current_buffer = 0;
-	demo->prepared = true;
+    demo->prepared = true;
 }
 
 static void demo_cleanup(struct demo *demo)
