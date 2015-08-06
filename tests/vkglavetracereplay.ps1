@@ -27,13 +27,15 @@ cp ..\$gdir\src\glv_extensions\$dPath\glvreplay_vk.dll .
 cp ..\$gdir\src\glv_extensions\$dPath\glvtrace_vk.dll .
 cp ..\..\demos\$dPath\cube.exe .
 cp ..\..\demos\*.png .
-cp ..\..\loader\$dPath\vulkan.dll .
+cp ..\..\demos\cube*.spv .
+cp ..\..\loader\$dPath\vulkan.0.dll .
 cp ..\..\layers\$dPath\VKLayerScreenShot.dll .
+cp ..\..\layers\$dPath\screenshot.json .
 
 # Change PATH to the temp directory
 $oldpath = $Env:PATH
 $Env:PATH = $pwd
-$Env:VK_LAYERS_PATH = $pwd
+$Env:VK_LAYER_FOLDERS = $pwd
 
 # Do a trace and replay
 & glvtrace -o c01.glv -s 1 -p cube -a "--c 10" -l0 glvtrace_vk.dll > trace.sout 2> trace.serr
@@ -49,15 +51,15 @@ rename-item -path 1.ppm -newname 1-replay.ppm
 # Restore PATH
 $Env:PATH = $oldpath
 
-# Compare the trace file, print a message
+# Compare the images, print a message
 if (!(Test-Path 1-trace.ppm) -or !(Test-Path 1-replay.ppm)) {
-        echo 'Trace file does not exist'
+        echo 'Image file does not exist'
         write-host -background black -foreground red "[  FAILED  ] "  -nonewline;
         $exitstatus = 1
 } else {
     fc.exe /b 1-trace.ppm 1-replay.ppm > $null
     if (!(Test-Path 1-trace.ppm) -or !(Test-Path 1-replay.ppm) -or $LastExitCode -eq 1) {
-        echo 'Trace files do not match'
+        echo 'Image files do not match'
         write-host -background black -foreground red "[  FAILED  ] "  -nonewline;
         $exitstatus = 1
     } else {
