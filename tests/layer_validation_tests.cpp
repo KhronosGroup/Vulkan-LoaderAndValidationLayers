@@ -1089,9 +1089,12 @@ TEST_F(VkLayerTest, DescriptorSetNotUpdated)
     ASSERT_VK_SUCCESS(err);
 
     VkShaderObj vs(m_device, bindStateVertShaderText, VK_SHADER_STAGE_VERTEX, this);
+    VkShaderObj fs(m_device, bindStateFragShaderText, VK_SHADER_STAGE_FRAGMENT, this); //  TODO - We shouldn't need a fragment shader
+                                                                                       // but add it to be able to run on more devices
 
     VkPipelineObj pipe(m_device);
     pipe.AddShader(&vs);
+    pipe.AddShader(&fs);
     pipe.CreateVKPipeline(pipeline_layout, renderPass());
 
     BeginCommandBuffer();
@@ -1395,9 +1398,11 @@ TEST_F(VkLayerTest, VtxBufferNoRenderPass)
     ASSERT_VK_SUCCESS(err);
 
     VkShaderObj vs(m_device, bindStateVertShaderText, VK_SHADER_STAGE_VERTEX, this);
-
+    VkShaderObj fs(m_device, bindStateFragShaderText, VK_SHADER_STAGE_FRAGMENT, this); //  TODO - We shouldn't need a fragment shader
+                                                                                       // but add it to be able to run on more devices
     VkPipelineObj pipe(m_device);
     pipe.AddShader(&vs);
+    pipe.AddShader(&fs);
     pipe.CreateVKPipeline(pipeline_layout, renderPass());
 
     BeginCommandBuffer();
@@ -1826,8 +1831,11 @@ TEST_F(VkLayerTest, NumSamplesMismatch)
     ASSERT_VK_SUCCESS(err);
 
     VkShaderObj vs(m_device, bindStateVertShaderText, VK_SHADER_STAGE_VERTEX, this);
+    VkShaderObj fs(m_device, bindStateFragShaderText, VK_SHADER_STAGE_FRAGMENT, this); //  TODO - We shouldn't need a fragment shader
+                                                                                       // but add it to be able to run on more devices
     VkPipelineObj pipe(m_device);
     pipe.AddShader(&vs);
+    pipe.AddShader(&fs);
     pipe.SetMSAA(&pipe_ms_state_ci);
     pipe.CreateVKPipeline(pipeline_layout, renderPass());
 
@@ -1973,8 +1981,11 @@ TEST_F(VkLayerTest, ClearCmdNoDraw)
     ASSERT_VK_SUCCESS(err);
     
     VkShaderObj vs(m_device, bindStateVertShaderText, VK_SHADER_STAGE_VERTEX, this);
+    VkShaderObj fs(m_device, bindStateFragShaderText, VK_SHADER_STAGE_FRAGMENT, this); //  TODO - We shouldn't need a fragment shader
+                                                                                       // but add it to be able to run on more devices
     VkPipelineObj pipe(m_device);
     pipe.AddShader(&vs);
+    pipe.AddShader(&fs);
     pipe.SetMSAA(&pipe_ms_state_ci);
     pipe.CreateVKPipeline(pipeline_layout, renderPass());
 
@@ -2062,8 +2073,11 @@ TEST_F(VkLayerTest, VtxBufferBadIndex)
     ASSERT_VK_SUCCESS(err);
 
     VkShaderObj vs(m_device, bindStateVertShaderText, VK_SHADER_STAGE_VERTEX, this);
+    VkShaderObj fs(m_device, bindStateFragShaderText, VK_SHADER_STAGE_FRAGMENT, this); //  TODO - We shouldn't need a fragment shader
+                                                                                       // but add it to be able to run on more devices
     VkPipelineObj pipe(m_device);
     pipe.AddShader(&vs);
+    pipe.AddShader(&fs);
     pipe.SetMSAA(&pipe_ms_state_ci);
     pipe.CreateVKPipeline(pipeline_layout, renderPass());
 
