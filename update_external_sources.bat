@@ -194,9 +194,15 @@ set /p GLSLANG_REVISION= < glslang_revision
 echo LUNARGLASS_REVISION=%LUNARGLASS_REVISION%
 echo GLSLANG_REVISION=%GLSLANG_REVISION%
 
+set /p LUNARGLASS_REVISION_V31= < LunarGLASS_revision_v31
+set /p GLSLANG_REVISION_V31= < glslang_revision_v31
+echo LUNARGLASS_REVISION_V31=%LUNARGLASS_REVISION_V31%
+echo GLSLANG_REVISION_V31=%GLSLANG_REVISION_V31%
+
 echo Creating and/or updating glslang and LunarGLASS in %BASE_DIR%
 
 if %sync-glslang% equ 1 (
+   rd /S /Q %GLSLANG_DIR%
    if not exist %GLSLANG_DIR% (
       call:create_glslang
    )
@@ -245,7 +251,6 @@ REM // ======== Functions ======== //
 
 :create_glslang
    REM Windows complains if it can't find the directory below, no need to call
-   REM rd /S /Q %GLSLANG_DIR%
    echo.
    echo Creating local glslang repository %GLSLANG_DIR%)
    mkdir %GLSLANG_DIR%
@@ -262,8 +267,12 @@ goto:eof
    echo.
    echo Updating %GLSLANG_DIR%
    cd %GLSLANG_DIR%
-   git fetch --all
-   git checkout %GLSLANG_REVISION%
+REM   until v31 is public
+REM   git fetch --all
+REM   git checkout %GLSLANG_REVISION%
+   svn.exe checkout --force https://cvs.khronos.org/svn/repos/SPIRV/trunk/glslang/ .
+   svn.exe update -r %GLSLANG_REVISION_V31%
+   svn.exe revert -R .
 goto:eof
 
 :create_LunarGLASS
@@ -296,8 +305,8 @@ goto:eof
    echo.
    echo Syncing LunarGLASS source...
    cd %LUNARGLASS_DIR%
-   svn checkout --force https://lunarglass.googlecode.com/svn/trunk/ .
-   svn revert --depth=infinity .
+   svn.exe checkout --force https://lunarglass.googlecode.com/svn/trunk/ .
+   svn.exe revert --depth=infinity .
    if not exist %LUNARGLASS_DIR%\Frontends\SPIRV (
       echo.
       echo LunarGLASS source download failed!
@@ -309,9 +318,18 @@ goto:eof
    echo.
    echo Updating %LUNARGLASS_DIR%
    cd %LUNARGLASS_DIR%
-   svn update -r %LUNARGLASS_REVISION%
+   svn.exe update -r %LUNARGLASS_REVISION%
    REM Just in case we are moving backward, do a revert
-   svn revert -R .
+   svn.exe revert -R .
+   if not exist %BASE_DIR%\temp (
+      mkdir %BASE_DIR%\temp
+   )
+   cd %BASE_DIR%\temp
+   svn.exe checkout --force https://cvs.khronos.org/svn/repos/SPIRV/trunk/LunarGLASS/ .
+   svn.exe update -r %LUNARGLASS_REVISION_V31%
+   cd Frontends
+   cd SPIRV
+   copy SpvToTop.cpp %BASE_DIR%\LunarGLASS\Frontends\SPIRV
 goto:eof
 
 :build_glslang
