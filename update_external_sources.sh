@@ -8,11 +8,6 @@ GLSLANG_REVISION=$(cat $PWD/glslang_revision)
 echo "LUNARGLASS_REVISION=$LUNARGLASS_REVISION"
 echo "GLSLANG_REVISION=$GLSLANG_REVISION"
 
-LUNARGLASS_REVISION_V31=$(cat $PWD/LunarGLASS_revision_v31)
-GLSLANG_REVISION_V31=$(cat $PWD/glslang_revision_v31)
-echo "LUNARGLASS_REVISION_V31=$LUNARGLASS_REVISION_V31"
-echo "GLSLANG_REVISION_V31=$GLSLANG_REVISION_V31"
-
 BUILDDIR=$PWD
 BASEDIR=$BUILDDIR/..
 
@@ -28,13 +23,8 @@ function create_glslang () {
 function update_glslang () {
    echo "Updating $BASEDIR/glslang"
    cd $BASEDIR/glslang
-#
-#   until v31 is default on github repo
-#   git fetch --all
-#   git checkout $GLSLANG_REVISION
-   svn checkout --force https://cvs.khronos.org/svn/repos/SPIRV/trunk/glslang/ .
-   svn update -r $GLSLANG_REVISION_V31
-   svn revert -R .
+   git fetch --all
+   git checkout $GLSLANG_REVISION
 }
 
 function create_LunarGLASS () {
@@ -53,15 +43,7 @@ function update_LunarGLASS () {
    echo "Updating $BASEDIR/LunarGLASS"
    cd $BASEDIR/LunarGLASS
    svn revert -R .
-   svn update -r $LUNARGLASS_REVISION
-   rm -rf $BASEDIR/temp
-   mkdir $BASEDIR/temp
-   cd $BASEDIR/temp
-   svn checkout --force https://cvs.khronos.org/svn/repos/SPIRV/trunk/LunarGLASS/ .
-   svn update -r $LUNARGLASS_REVISION_V31
-   cd Frontends
-   cd SPIRV
-   cp SpvToTop.cpp $BASEDIR/LunarGLASS/Frontends/SPIRV
+   svn update -r "$LUNARGLASS_REVISION"
 }
 
 function build_glslang () {
@@ -92,9 +74,6 @@ function build_LunarGLASS () {
    make
    make install
 }
-
-# until v31 is default in glslang github repo
-rm -rf $BASEDIR/glslang
 
 if [ ! -d "$BASEDIR/glslang" -o ! -d "$BASEDIR/glslang/.git" ]; then
    create_glslang
