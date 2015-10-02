@@ -250,11 +250,11 @@ There are no rules about the name of the layer shared library files.
 As with ICDs, developers may need to use special, pre-production layers,
 without modifying the properly-installed layers.
 
-This need is met with the use of the “VK_LAYER_DIRS” environment variable,
+This need is met with the use of the “VK_LAYER_PATH” environment variable,
 which will override the mechanism using for finding properly-installed layers.
 Because many layers may exist on a system, this environment variable is a
 colon-separated list of directories that contain layer info files.  Only the
-directories listed in “VK_LAYER_DIRS” will be scanned for info files.  Each
+directories listed in “VK_LAYER_PATH” will be scanned for info files.  Each
 colon-separated entry is:
 
 - The full pathname of a directory containing layer info files
