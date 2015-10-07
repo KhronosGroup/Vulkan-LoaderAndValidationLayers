@@ -31,6 +31,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unordered_map>
+#include <vector>
 #include "vk_loader_platform.h"
 #include "vk_layer.h"
 #include "vk_layer_config.h"
@@ -67,11 +68,10 @@ typedef enum _SWAPCHAIN_ERROR
 // The following is for logging error messages:
 struct layer_data {
     debug_report_data *report_data;
-    VkDbgMsgCallback logging_callback;
+    std::vector<VkDbgMsgCallback> logging_callback;
 
     layer_data() :
-        report_data(nullptr),
-        logging_callback(nullptr)
+        report_data(nullptr)
     {};
 };
 

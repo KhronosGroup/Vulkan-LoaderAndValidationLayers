@@ -135,6 +135,7 @@ static void initSwapchain(void)
     uint32_t debug_action = 0;
     FILE *log_output = NULL;
     const char *option_str;
+    VkDbgMsgCallback callback;
 
     // Initialize Swapchain options:
     report_flags = getLayerOptionFlags("SwapchainReportFlags", 0);
@@ -147,7 +148,13 @@ static void initSwapchain(void)
         log_output = getLayerLogOutput(option_str, "Swapchain");
         layer_create_msg_callback(mydata.report_data, report_flags,
                                   log_callback, (void *) log_output,
-                                  &mydata.logging_callback);
+                                  &callback);
+        mydata.logging_callback.push_back(callback);
+    }
+
+    if (debug_action & VK_DBG_LAYER_ACTION_DEBUG_OUTPUT) {
+        layer_create_msg_callback(mydata.report_data, report_flags, win32_debug_output_msg, NULL, &callback);
+        mydata.logging_callback.push_back(callback);
     }
 }
 
