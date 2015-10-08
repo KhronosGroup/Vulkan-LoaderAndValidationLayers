@@ -1870,8 +1870,8 @@ void loader_icd_scan(
 #if defined(__linux__)
                     loader_get_fullpath(library_path, def_path, path_len, fullpath);
 #else // WIN32
-                    strncpy(fullpath, library_path, sizeof (fullpath));
-                    fullpath[sizeof (fullpath) - 1] = '\0';
+                    strncpy(fullpath, library_path, path_len);
+                    fullpath[path_len - 1] = '\0';
 #endif
                 } else {
                     // a relative or absolute path
