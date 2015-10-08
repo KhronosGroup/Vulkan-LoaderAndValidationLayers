@@ -36,13 +36,17 @@
 
 #include "swapchain.h"
 
+
 // FIXME/TODO: Make sure this layer is thread-safe!
 
+
 // The following is for logging error messages:
-static layer_data mydata;
+static std::unordered_map<void *, layer_data *> layer_data_map;
 
+template layer_data *get_my_data_ptr<layer_data>(
+        void *data_key,
+        std::unordered_map<void *, layer_data *> &data_map);
 
-static LOADER_PLATFORM_THREAD_ONCE_DECLARATION(initOnce);
 
 // NOTE: The following are for keeping track of info that is used for
 // validating the WSI extensions.
@@ -71,6 +75,7 @@ static void createDeviceRegisterExtensions(VkPhysicalDevice physicalDevice, cons
         deviceMap[device].pPhysicalDevice = pPhysicalDevice;
         pPhysicalDevice->pDevice = &deviceMap[device];
     } else {
+        layer_data *my_data = get_my_data_ptr(get_dispatch_key(physicalDevice), layer_data_map);
         LOG_ERROR_NON_VALID_OBJ(VK_OBJECT_TYPE_PHYSICAL_DEVICE,
                                 physicalDevice,
                                 "VkPhysicalDevice");
@@ -119,7 +124,7 @@ static void createInstanceRegisterExtensions(const VkInstanceCreateInfo* pCreate
 
 
 #include "vk_dispatch_table_helper.h"
-static void initSwapchain(void)
+static void initSwapchain(layer_data *my_data)
 {
     uint32_t report_flags = 0;
     uint32_t debug_action = 0;
@@ -136,15 +141,15 @@ static void initSwapchain(void)
         // Turn on logging, since it was requested:
         option_str = getLayerOption("SwapchainLogFilename");
         log_output = getLayerLogOutput(option_str, "Swapchain");
-        layer_create_msg_callback(mydata.report_data, report_flags,
+        layer_create_msg_callback(my_data->report_data, report_flags,
                                   log_callback, (void *) log_output,
                                   &callback);
-        mydata.logging_callback.push_back(callback);
+        my_data->logging_callback.push_back(callback);
     }
 
     if (debug_action & VK_DBG_LAYER_ACTION_DEBUG_OUTPUT) {
-        layer_create_msg_callback(mydata.report_data, report_flags, win32_debug_output_msg, NULL, &callback);
-        mydata.logging_callback.push_back(callback);
+        layer_create_msg_callback(my_data->report_data, report_flags, win32_debug_output_msg, NULL, &callback);
+        my_data->logging_callback.push_back(callback);
     }
 }
 
@@ -212,7 +217,15 @@ VK_LAYER_EXPORT VkResult VKAPI vkCreateInstance(const VkInstanceCreateInfo* pCre
     VkResult result = instance_dispatch_table(*pInstance)->CreateInstance(pCreateInfo, pInstance);
     if (result == VK_SUCCESS) {
         // Since it succeeded, do layer-specific work:
+        layer_data *my_data = get_my_data_ptr(get_dispatch_key(*pInstance), layer_data_map);
+        my_data->report_data = debug_report_create_instance(
+                                   instance_dispatch_table(*pInstance),
+                                   *pInstance,
+                                   pCreateInfo->extensionCount,
+                                   pCreateInfo->ppEnabledExtensionNames);
+        // Call the following function after my_data is initialized:
         createInstanceRegisterExtensions(pCreateInfo, *pInstance);
+        initSwapchain(my_data);
     }
     return result;
 }
@@ -224,6 +237,7 @@ VK_LAYER_EXPORT void VKAPI vkDestroyInstance(VkInstance instance)
     // Validate that a valid VkInstance was used:
     SwpInstance *pInstance = &instanceMap[instance];
     if (!pInstance) {
+        layer_data *my_data = get_my_data_ptr(get_dispatch_key(instance), layer_data_map);
         skipCall |= LOG_ERROR_NON_VALID_OBJ(VK_OBJECT_TYPE_INSTANCE,
                                             instance,
                                             "VkInstance");
@@ -234,6 +248,17 @@ VK_LAYER_EXPORT void VKAPI vkDestroyInstance(VkInstance instance)
         dispatch_key key = get_dispatch_key(instance);
         VkLayerInstanceDispatchTable *pDisp = instance_dispatch_table(instance);
         pDisp->DestroyInstance(instance);
+
+        // Clean up logging callback, if any
+        layer_data *my_data = get_my_data_ptr(key, layer_data_map);
+        while (my_data->logging_callback.size() > 0) {
+            VkDbgMsgCallback callback = my_data->logging_callback.back();
+            layer_destroy_msg_callback(my_data->report_data, callback);
+            my_data->logging_callback.pop_back();
+        }
+        layer_debug_report_destroy_instance(my_data->report_data);
+        layer_data_map.erase(key);
+
         destroy_instance_dispatch_table(key);
     }
 
@@ -259,6 +284,7 @@ VK_LAYER_EXPORT VkResult VKAPI vkEnumeratePhysicalDevices(VkInstance instance, u
     // Validate that a valid VkInstance was used:
     SwpInstance *pInstance = &instanceMap[instance];
     if (!pInstance) {
+        layer_data *my_data = get_my_data_ptr(get_dispatch_key(instance), layer_data_map);
         skipCall |= LOG_ERROR_NON_VALID_OBJ(VK_OBJECT_TYPE_INSTANCE,
                                             instance,
                                             "VkInstance");
@@ -293,6 +319,7 @@ VK_LAYER_EXPORT VkResult VKAPI vkCreateDevice(VkPhysicalDevice physicalDevice, c
 {
     VkResult result = VK_SUCCESS;
     VkBool32 skipCall = VK_FALSE;
+    layer_data *my_data = get_my_data_ptr(get_dispatch_key(physicalDevice), layer_data_map);
 
     // Validate that a valid VkPhysicalDevice was used:
     SwpPhysicalDevice *pPhysicalDevice = &physicalDeviceMap[physicalDevice];
@@ -308,6 +335,7 @@ VK_LAYER_EXPORT VkResult VKAPI vkCreateDevice(VkPhysicalDevice physicalDevice, c
                 physicalDevice, pCreateInfo, pDevice);
         if (result == VK_SUCCESS) {
             // Since it succeeded, do layer-specific work:
+            my_data->report_data = layer_debug_report_create_device(my_data->report_data, *pDevice);
             createDeviceRegisterExtensions(physicalDevice, pCreateInfo,
                                            *pDevice);
         }
@@ -319,6 +347,7 @@ VK_LAYER_EXPORT VkResult VKAPI vkCreateDevice(VkPhysicalDevice physicalDevice, c
 VK_LAYER_EXPORT void VKAPI vkDestroyDevice(VkDevice device)
 {
     VkBool32 skipCall = VK_FALSE;
+    layer_data *my_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
 
     // Validate that a valid VkDevice was used:
     SwpDevice *pDevice = &deviceMap[device];
@@ -370,6 +399,7 @@ VK_LAYER_EXPORT VkResult VKAPI vkGetPhysicalDeviceSurfaceSupportKHR(VkPhysicalDe
 {
     VkResult result = VK_SUCCESS;
     VkBool32 skipCall = VK_FALSE;
+    layer_data *my_data = get_my_data_ptr(get_dispatch_key(physicalDevice), layer_data_map);
 
     // Validate that a valid VkPhysicalDevice was used, and that the instance
     // extension was enabled:
@@ -413,6 +443,7 @@ VK_LAYER_EXPORT VkResult VKAPI vkGetSurfacePropertiesKHR(VkDevice device, const 
 {
     VkResult result = VK_SUCCESS;
     VkBool32 skipCall = VK_FALSE;
+    layer_data *my_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
 
     // Validate that a valid VkDevice was used, and that the device
     // extension was enabled:
@@ -449,6 +480,7 @@ VK_LAYER_EXPORT VkResult VKAPI vkGetSurfaceFormatsKHR(VkDevice device, const VkS
 {
     VkResult result = VK_SUCCESS;
     VkBool32 skipCall = VK_FALSE;
+    layer_data *my_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
 
     // Validate that a valid VkDevice was used, and that the device
     // extension was enabled:
@@ -494,6 +526,7 @@ VK_LAYER_EXPORT VkResult VKAPI vkGetSurfacePresentModesKHR(VkDevice device, cons
 {
     VkResult result = VK_SUCCESS;
     VkBool32 skipCall = VK_FALSE;
+    layer_data *my_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
 
     // Validate that a valid VkDevice was used, and that the device
     // extension was enabled:
@@ -544,6 +577,7 @@ static VkBool32 validateCreateSwapchainKHR(VkDevice device, const VkSwapchainCre
 // assumes a new swapchain is being created).
     VkResult result = VK_SUCCESS;
     VkBool32 skipCall = VK_FALSE;
+    layer_data *my_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
     char fn[] = "vkCreateSwapchainKHR";
 
     // Validate that a valid VkDevice was used, and that the device
@@ -654,7 +688,7 @@ static VkBool32 validateCreateSwapchainKHR(VkDevice device, const VkSwapchainCre
                 }
             }
             // Log the message that we've built up:
-            skipCall |= debug_report_log_msg(mydata.report_data,
+            skipCall |= debug_report_log_msg(my_data->report_data,
                                              VK_DBG_REPORT_ERROR_BIT,
                                              VK_OBJECT_TYPE_DEVICE,
                                              (uint64_t) device, 0, 
@@ -812,6 +846,7 @@ VK_LAYER_EXPORT VkResult VKAPI vkCreateSwapchainKHR(VkDevice device, const VkSwa
 VK_LAYER_EXPORT VkResult VKAPI vkDestroySwapchainKHR(VkDevice device, VkSwapchainKHR swapchain)
 {
     VkBool32 skipCall = VK_FALSE;
+    layer_data *my_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
 
     // Validate that a valid VkDevice was used, and that the device
     // extension was enabled:
@@ -865,6 +900,7 @@ VK_LAYER_EXPORT VkResult VKAPI vkGetSwapchainImagesKHR(VkDevice device, VkSwapch
 {
     VkResult result = VK_SUCCESS;
     VkBool32 skipCall = VK_FALSE;
+    layer_data *my_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
 
     // Validate that a valid VkDevice was used, and that the device
     // extension was enabled:
@@ -920,6 +956,7 @@ VK_LAYER_EXPORT VkResult VKAPI vkAcquireNextImageKHR(VkDevice device, VkSwapchai
 // (e.g. VK_ERROR_OUT_OF_DATE_KHR).
     VkResult result = VK_SUCCESS;
     VkBool32 skipCall = VK_FALSE;
+    layer_data *my_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
 
     // Validate that a valid VkDevice was used, and that the device
     // extension was enabled:
@@ -996,6 +1033,7 @@ VK_LAYER_EXPORT VkResult VKAPI vkQueuePresentKHR(VkQueue queue, VkPresentInfoKHR
 //   (e.g. VK_ERROR_OUT_OF_DATE_KHR).
     VkResult result = VK_SUCCESS;
     VkBool32 skipCall = VK_FALSE;
+    layer_data *my_data = get_my_data_ptr(get_dispatch_key(queue), layer_data_map);
 
     for (uint32_t i = 0; i < pPresentInfo->swapchainCount ; i++) {
         uint32_t index = pPresentInfo->imageIndices[i];
@@ -1101,13 +1139,20 @@ static inline PFN_vkVoidFunction layer_intercept_instance_proc(const char *name)
 
 VK_LAYER_EXPORT VkResult VKAPI vkDbgCreateMsgCallback(VkInstance instance, VkFlags msgFlags, const PFN_vkDbgMsgCallback pfnMsgCallback, void* pUserData, VkDbgMsgCallback* pMsgCallback)
 {
-    return layer_create_msg_callback(mydata.report_data, msgFlags, pfnMsgCallback, pUserData, pMsgCallback);
+    VkResult result = instance_dispatch_table(instance)->DbgCreateMsgCallback(instance, msgFlags, pfnMsgCallback, pUserData, pMsgCallback);
+    if (VK_SUCCESS == result) {
+        layer_data *my_data = get_my_data_ptr(get_dispatch_key(instance), layer_data_map);
+        result = layer_create_msg_callback(my_data->report_data, msgFlags, pfnMsgCallback, pUserData, pMsgCallback);
+    }
+    return result;
 }
 
 VK_LAYER_EXPORT VkResult VKAPI vkDbgDestroyMsgCallback(VkInstance instance, VkDbgMsgCallback msgCallback)
 {
-    layer_destroy_msg_callback(mydata.report_data, msgCallback);
-    return VK_SUCCESS;
+    VkResult result = instance_dispatch_table(instance)->DbgDestroyMsgCallback(instance, msgCallback);
+    layer_data *my_data = get_my_data_ptr(get_dispatch_key(instance), layer_data_map);
+    layer_destroy_msg_callback(my_data->report_data, msgCallback);
+    return result;
 }
 
 VK_LAYER_EXPORT PFN_vkVoidFunction VKAPI vkGetDeviceProcAddr(VkDevice device, const char* funcName)
@@ -1116,7 +1161,6 @@ VK_LAYER_EXPORT PFN_vkVoidFunction VKAPI vkGetDeviceProcAddr(VkDevice device, co
     if (device == VK_NULL_HANDLE) {
         return NULL;
     }
-    loader_platform_thread_once(&initOnce, initSwapchain);
 
     /* loader uses this to force layer initialization; device object is wrapped */
     if (!strcmp("vkGetDeviceProcAddr", funcName)) {
@@ -1162,7 +1206,6 @@ VK_LAYER_EXPORT PFN_vkVoidFunction VKAPI vkGetInstanceProcAddr(VkInstance instan
     if (instance == VK_NULL_HANDLE) {
         return NULL;
     }
-    loader_platform_thread_once(&initOnce, initSwapchain);
 
     /* loader uses this to force layer initialization; instance object is wrapped */
     if (!strcmp("vkGetInstanceProcAddr", funcName)) {
@@ -1175,6 +1218,12 @@ VK_LAYER_EXPORT PFN_vkVoidFunction VKAPI vkGetInstanceProcAddr(VkInstance instan
         return addr;
 
     VkLayerInstanceDispatchTable* pTable = instance_dispatch_table(instance);
+    layer_data *my_data = get_my_data_ptr(get_dispatch_key(instance), layer_data_map);
+    addr = debug_report_get_instance_proc_addr(my_data->report_data, funcName);
+    if (addr) {
+        return addr;
+    }
+
     if (instanceMap.size() != 0 &&
         instanceMap[instance].swapchainExtensionEnabled)
     {
