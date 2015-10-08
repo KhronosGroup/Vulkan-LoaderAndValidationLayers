@@ -9,9 +9,7 @@ echo "LUNARGLASS_REVISION=$LUNARGLASS_REVISION"
 echo "GLSLANG_REVISION=$GLSLANG_REVISION"
 
 LUNARGLASS_REVISION_R32=$(cat $PWD/LunarGLASS_revision_R32)
-GLSLANG_REVISION_R32=$(cat $PWD/glslang_revision_R32)
 echo "LUNARGLASS_REVISION_R32=$LUNARGLASS_REVISION_R32"
-echo "GLSLANG_REVISION_R32=$GLSLANG_REVISION_R32"
 
 BUILDDIR=$PWD
 BASEDIR=$BUILDDIR/..
@@ -29,7 +27,6 @@ function update_glslang () {
    echo "Updating $BASEDIR/glslang"
    cd $BASEDIR/glslang
    git fetch --all
-   git pull
    git checkout $GLSLANG_REVISION
 }
 
