@@ -22,18 +22,15 @@ function create_glslang () {
    mkdir -p $BASEDIR/glslang
    cd $BASEDIR/glslang
    git clone git@gitlab.khronos.org:GLSL/glslang.git .
-   git branch --track Rev32 origin/Rev32
-   git checkout Rev32
-   # git checkout $GLSLANG_REVISION
+   git checkout $GLSLANG_REVISION
 }
 
 function update_glslang () {
    echo "Updating $BASEDIR/glslang"
    cd $BASEDIR/glslang
    git fetch --all
-   git checkout Rev32
-   git checkout -f .
-   # git checkout $GLSLANG_REVISION
+   git pull
+   git checkout $GLSLANG_REVISION
 }
 
 function create_LunarGLASS () {
