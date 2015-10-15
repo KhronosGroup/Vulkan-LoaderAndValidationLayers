@@ -491,6 +491,7 @@ ICD_EXPORT VkResult VKAPI vkGetPhysicalDeviceFeatures(
 
     /* TODO: fill out features */
     memset(pFeatures, 0, sizeof(*pFeatures));
+    pFeatures->occlusionQueryNonConservative = 1;
 
     return ret;
 }
