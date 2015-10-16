@@ -1536,6 +1536,7 @@ static void demo_prepare_pipeline(struct demo *demo)
 {
     VkGraphicsPipelineCreateInfo pipeline;
     VkPipelineCacheCreateInfo pipelineCache;
+    VkPipelineVertexInputStateCreateInfo   vi;
     VkPipelineInputAssemblyStateCreateInfo ia;
     VkPipelineRasterStateCreateInfo        rs;
     VkPipelineColorBlendStateCreateInfo    cb;
@@ -1554,6 +1555,9 @@ static void demo_prepare_pipeline(struct demo *demo)
     memset(&pipeline, 0, sizeof(pipeline));
     pipeline.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     pipeline.layout = demo->pipeline_layout;
+
+    memset(&vi, 0, sizeof(vi));
+    vi.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
     memset(&ia, 0, sizeof(ia));
     ia.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -1620,7 +1624,7 @@ static void demo_prepare_pipeline(struct demo *demo)
     err = vkCreatePipelineCache(demo->device, &pipelineCache, &demo->pipelineCache);
     assert(!err);
 
-    pipeline.pVertexInputState   = NULL;
+    pipeline.pVertexInputState   = &vi;
     pipeline.pInputAssemblyState = &ia;
     pipeline.pRasterState        = &rs;
     pipeline.pColorBlendState    = &cb;
