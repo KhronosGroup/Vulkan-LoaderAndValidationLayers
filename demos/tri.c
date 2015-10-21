@@ -1553,6 +1553,9 @@ LRESULT CALLBACK WndProc(HWND hWnd,
             demo_run(&demo);
             break;
         }
+    case WM_SIZE:
+        demo_resize(&demo);
+        break;
     default:
         break;
     }
