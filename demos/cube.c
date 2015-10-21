@@ -1867,9 +1867,6 @@ static void demo_resize(struct demo *demo)
         vkFreeMemory(demo->device, demo->textures[i].mem);
         vkDestroySampler(demo->device, demo->textures[i].sampler);
     }
-#if 0
-    demo->fpDestroySwapchainKHR(demo->device, demo->swapchain);
-#endif
 
     vkDestroyImageView(demo->device, demo->depth.view);
     vkDestroyImage(demo->device, demo->depth.image);
@@ -1883,16 +1880,6 @@ static void demo_resize(struct demo *demo)
         vkDestroyCommandBuffer(demo->device, demo->buffers[i].cmd);
     }
     free(demo->buffers);
-
-#if 0
-    free(demo->queue_props);
-
-    vkDestroyCommandPool(demo->device, demo->cmd_pool);
-    vkDestroyDevice(demo->device);
-    if (demo->validate) {
-        demo->dbgDestroyMsgCallback(demo->inst, demo->msg_callback);
-    }
-#endif
 
 
     // Second, re-perform the demo_prepare() function, which will re-create the
