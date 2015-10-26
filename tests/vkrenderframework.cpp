@@ -906,8 +906,9 @@ VkConstantBufferObj::VkConstantBufferObj(VkDeviceObj *device, int constantCount,
     m_stride = constantSize;
 
     VkMemoryPropertyFlags reqs = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+    VkBufferUsageFlags usage = {};
     const size_t allocationSize = constantCount * constantSize;
-    init_as_src_and_dst(*m_device, allocationSize, reqs);
+    init_as_src_and_dst(*m_device, allocationSize, reqs, usage);
 
     void *pData = memory().map();
     memcpy(pData, data, allocationSize);
@@ -1028,22 +1029,27 @@ void VkIndexBufferObj::CreateAndInitBuffer(int numIndexes, VkIndexType indexType
 
     const size_t allocationSize = numIndexes * m_stride;
     VkMemoryPropertyFlags reqs = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-    init_as_src_and_dst(*m_device, allocationSize, reqs);
+    VkBufferUsageFlags usage = {};
+    init_as_src_and_dst(*m_device, allocationSize, reqs, usage);
 
     void *pData = memory().map();
     memcpy(pData, data, allocationSize);
     memory().unmap();
 
-    // set up the buffer view for the constant buffer
-    VkBufferViewCreateInfo view_info = {};
-    view_info.sType = VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO;
-    view_info.buffer = handle();
-    view_info.format = viewFormat;
-    view_info.offset = 0;
-    view_info.range  = allocationSize;
-    m_bufferView.init(*m_device, view_info);
+    if ((usage & VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT) ||
+        (usage & VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT))
+    {
+        // set up the buffer view for the constant buffer
+        VkBufferViewCreateInfo view_info = {};
+        view_info.sType = VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO;
+        view_info.buffer = handle();
+        view_info.format = viewFormat;
+        view_info.offset = 0;
+        view_info.range  = allocationSize;
+        m_bufferView.init(*m_device, view_info);
 
-    this->m_descriptorInfo.bufferView = m_bufferView.handle();
+        this->m_descriptorInfo.bufferView = m_bufferView.handle();
+    }
 }
 
 void VkIndexBufferObj::Bind(VkCmdBuffer cmdBuffer, VkDeviceSize offset)

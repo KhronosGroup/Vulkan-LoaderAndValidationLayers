@@ -754,6 +754,7 @@ TEST_F(VkCmdCopyBufferTest, RAWHazard)
     VkEvent event;
     VkResult err;
     VkMemoryPropertyFlags reqs = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+    VkBufferUsageFlags usage = {};
 
     //        typedef struct VkEventCreateInfo_
     //        {
@@ -771,7 +772,7 @@ TEST_F(VkCmdCopyBufferTest, RAWHazard)
     ASSERT_VK_SUCCESS(err);
 
     for (int i = 0; i < ARRAY_SIZE(bufs); i++) {
-        bufs[i].init_as_src_and_dst(dev_, 4, reqs);
+        bufs[i].init_as_src_and_dst(dev_, 4, reqs, usage);
 
         uint32_t *data = static_cast<uint32_t *>(bufs[i].memory().map());
         data[0] = 0x22222222 * (i + 1);
