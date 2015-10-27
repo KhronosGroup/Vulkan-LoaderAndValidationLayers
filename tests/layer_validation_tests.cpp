@@ -2159,14 +2159,6 @@ TEST_F(VkLayerTest, PSOViewportCountWithoutDataAndDynScissorMismatch)
 	shaderStages[1].stage = VK_SHADER_STAGE_FRAGMENT;
 	shaderStages[1].shader = fs.handle();
 
-	VkPipelineVertexInputStateCreateInfo vi_ci = {};
-	vi_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vi_ci.pNext = nullptr;
-	vi_ci.bindingCount = 0;
-	vi_ci.pVertexBindingDescriptions = nullptr;
-	vi_ci.attributeCount = 0;
-	vi_ci.pVertexAttributeDescriptions = nullptr;
-
 	VkPipelineInputAssemblyStateCreateInfo ia_ci = {};
 	ia_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 	ia_ci.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
@@ -2183,7 +2175,7 @@ TEST_F(VkLayerTest, PSOViewportCountWithoutDataAndDynScissorMismatch)
         gp_ci.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
         gp_ci.stageCount = 2;
         gp_ci.pStages = shaderStages;
-        gp_ci.pVertexInputState = &vi_ci;
+        gp_ci.pVertexInputState = nullptr;
         gp_ci.pInputAssemblyState = &ia_ci;
         gp_ci.pViewportState = &vp_state_ci;
         gp_ci.pRasterState = &rs_ci;
@@ -2315,14 +2307,6 @@ TEST_F(VkLayerTest, PSOScissorCountWithoutDataAndDynViewportMismatch)
 	shaderStages[1].stage = VK_SHADER_STAGE_FRAGMENT;
 	shaderStages[1].shader = fs.handle();
 
-    VkPipelineVertexInputStateCreateInfo vi_ci = {};
-    vi_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vi_ci.pNext = nullptr;
-    vi_ci.bindingCount = 0;
-    vi_ci.pVertexBindingDescriptions = nullptr;
-    vi_ci.attributeCount = 0;
-    vi_ci.pVertexAttributeDescriptions = nullptr;
-
     VkPipelineInputAssemblyStateCreateInfo ia_ci = {};
     ia_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
     ia_ci.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
@@ -2339,7 +2323,7 @@ TEST_F(VkLayerTest, PSOScissorCountWithoutDataAndDynViewportMismatch)
         gp_ci.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
         gp_ci.stageCount = 2;
         gp_ci.pStages = shaderStages;
-        gp_ci.pVertexInputState = &vi_ci;
+        gp_ci.pVertexInputState = nullptr;
         gp_ci.pInputAssemblyState = &ia_ci;
         gp_ci.pViewportState = &vp_state_ci;
         gp_ci.pRasterState = &rs_ci;
