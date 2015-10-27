@@ -347,11 +347,6 @@ static VkBool32 validate_draw_state(layer_data* my_data, GLOBAL_CB_NODE* pCB, Vk
             }
         }
     }
-
-    // If we already got an error, don't stomp on them with further dynamic state checks
-    if (result)
-        return VK_TRUE;
-
     // If Viewport or scissors are dynamic, verify that dynamic count matches PSO count
     VkBool32 dynViewport = isDynamic(pPipe, VK_DYNAMIC_STATE_VIEWPORT);
     VkBool32 dynScissor = isDynamic(pPipe, VK_DYNAMIC_STATE_SCISSOR);
