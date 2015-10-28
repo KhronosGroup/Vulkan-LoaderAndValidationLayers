@@ -1209,6 +1209,7 @@ char *demo_read_spv(const char *filename, size_t *psize)
 
     *psize = size;
 
+    fclose(fp);
     return shader_code;
 }
 
