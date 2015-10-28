@@ -1497,8 +1497,6 @@ static void demo_prepare(struct demo *demo)
     err = vkCreateCommandBuffer(demo->device, &cmd, &demo->draw_cmd);
     assert(!err);
 
-    demo->swapchain.handle = VK_NULL_HANDLE;
-
     demo_prepare_buffers(demo);
     demo_prepare_depth(demo);
     demo_prepare_textures(demo);
@@ -1554,6 +1552,8 @@ LRESULT CALLBACK WndProc(HWND hWnd,
             break;
         }
     case WM_SIZE:
+        demo.width = lParam & 0xffff;
+        demo.height = lParam & 0xffff0000 >> 16;
         demo_resize(&demo);
         break;
     default:
@@ -2244,6 +2244,10 @@ static void demo_resize(struct demo *demo)
 {
     uint32_t i;
 
+    // Don't react to resize until after first initialization.
+    if (!demo->prepared) {
+        return;
+    }
     // In order to properly resize the window, we must re-create the swapchain
     // AND redo the command buffers, etc.
     //
