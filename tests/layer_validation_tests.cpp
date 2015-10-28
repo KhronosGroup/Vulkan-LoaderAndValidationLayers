@@ -5037,7 +5037,7 @@ TEST_F(VkLayerTest, ResolveImageHighSampleCount)
     err = vkCreateImage(m_device->device(), &image_create_info, &srcImage);
     ASSERT_VK_SUCCESS(err);
 
-        image_create_info.imageType = VK_IMAGE_TYPE_1D;
+        image_create_info.imageType = VK_IMAGE_TYPE_2D;
         // Note: Some implementations expect color attachment usage for any multisample surface
         image_create_info.usage = VK_IMAGE_USAGE_TRANSFER_DESTINATION_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
