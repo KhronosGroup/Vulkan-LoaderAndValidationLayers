@@ -1799,7 +1799,7 @@ TEST_F(VkRenderTest, CubeWithVertexFetchAndMVP)
             "#version 140\n"
             "#extension GL_ARB_separate_shader_objects : enable\n"
             "#extension GL_ARB_shading_language_420pack : enable\n"
-            "layout (binding = 0) uniform bufferVals {\n"
+            "layout (std140, binding = 0) uniform bufferVals {\n"
             "    mat4 mvp;\n"
             "} myBufferVals;\n"
             "layout (location = 0) in vec4 pos;\n"
@@ -2292,7 +2292,7 @@ TEST_F(VkRenderTest, TriangleVSUniformBlock)
             "#extension GL_ARB_separate_shader_objects : enable\n"
             "#extension GL_ARB_shading_language_420pack : enable\n"
             "layout (location = 0) out vec4 outColor;\n"
-            "layout (binding = 0) uniform bufferVals {\n"
+            "layout (std140, binding = 0) uniform bufferVals {\n"
             "    vec4 red;\n"
             "    vec4 green;\n"
             "    vec4 blue;\n"
@@ -2389,10 +2389,10 @@ TEST_F(VkRenderTest, TriangleFSUniformBlockBinding)
             "#version 140\n"
             "#extension GL_ARB_separate_shader_objects : enable\n"
             "#extension GL_ARB_shading_language_420pack : enable\n"
-            "layout (binding = 0) uniform redVal   { vec4 color; } myRedVal\n;"
-            "layout (binding = 1) uniform greenVal { vec4 color; } myGreenVal\n;"
-            "layout (binding = 2) uniform blueVal  { vec4 color; } myBlueVal\n;"
-            "layout (binding = 3) uniform whiteVal { vec4 color; } myWhiteVal\n;"
+            "layout (std140, binding = 0) uniform redVal   { vec4 color; } myRedVal\n;"
+            "layout (std140, binding = 1) uniform greenVal { vec4 color; } myGreenVal\n;"
+            "layout (std140, binding = 2) uniform blueVal  { vec4 color; } myBlueVal\n;"
+            "layout (std140, binding = 3) uniform whiteVal { vec4 color; } myWhiteVal\n;"
             "layout (location = 0) out vec4 outColor;\n"
             "void main() {\n"
             "   outColor = myBlueVal.color;\n"
@@ -2409,10 +2409,10 @@ TEST_F(VkRenderTest, TriangleFSUniformBlockBinding)
     // the shader to select which it wants to read from with a binding
 
     // Let's populate the buffers with a single color each:
-    //    layout (binding = 0) uniform bufferVals { vec4 red;   } myRedVal;
-    //    layout (binding = 1) uniform bufferVals { vec4 green; } myGreenVal;
-    //    layout (binding = 2) uniform bufferVals { vec4 blue;  } myBlueVal;
-    //    layout (binding = 3) uniform bufferVals { vec4 white; } myWhiteVal;
+    //    layout (std140, binding = 0) uniform bufferVals { vec4 red;   } myRedVal;
+    //    layout (std140, binding = 1) uniform bufferVals { vec4 green; } myGreenVal;
+    //    layout (std140, binding = 2) uniform bufferVals { vec4 blue;  } myBlueVal;
+    //    layout (std140, binding = 3) uniform bufferVals { vec4 white; } myWhiteVal;
 
     const float redVals[4]   = { 1.0, 0.0, 0.0, 1.0 };
     const float greenVals[4] = { 0.0, 1.0, 0.0, 1.0 };
@@ -2484,10 +2484,10 @@ TEST_F(VkRenderTest, TriangleFSAnonymousUniformBlockBinding)
             "#version 430\n"
             "#extension GL_ARB_separate_shader_objects : enable\n"
             "#extension GL_ARB_shading_language_420pack : enable\n"
-            "layout (binding = 0) uniform redVal   { vec4 red; };"
-            "layout (binding = 1) uniform greenVal { vec4 green; };"
-            "layout (binding = 2) uniform blueVal  { vec4 blue; };"
-            "layout (binding = 3) uniform whiteVal { vec4 white; };"
+            "layout (std140, binding = 0) uniform redVal   { vec4 red; };"
+            "layout (std140, binding = 1) uniform greenVal { vec4 green; };"
+            "layout (std140, binding = 2) uniform blueVal  { vec4 blue; };"
+            "layout (std140, binding = 3) uniform whiteVal { vec4 white; };"
             "layout (location = 0) out vec4 outColor;\n"
             "void main() {\n"
             "   outColor = blue;\n"
@@ -2503,10 +2503,10 @@ TEST_F(VkRenderTest, TriangleFSAnonymousUniformBlockBinding)
     // the shader to select which it wants to read from with a binding
 
     // Let's populate the buffers with a single color each:
-    //    layout (binding = 0) uniform bufferVals { vec4 red;   } myRedVal;
-    //    layout (binding = 1) uniform bufferVals { vec4 green; } myGreenVal;
-    //    layout (binding = 2) uniform bufferVals { vec4 blue;  } myBlueVal;
-    //    layout (binding = 3) uniform bufferVals { vec4 white; } myWhiteVal;
+    //    layout (std140, binding = 0) uniform bufferVals { vec4 red;   } myRedVal;
+    //    layout (std140, binding = 1) uniform bufferVals { vec4 green; } myGreenVal;
+    //    layout (std140, binding = 2) uniform bufferVals { vec4 blue;  } myBlueVal;
+    //    layout (std140, binding = 3) uniform bufferVals { vec4 white; } myWhiteVal;
 
     const float redVals[4]   = { 1.0, 0.0, 0.0, 1.0 };
     const float greenVals[4] = { 0.0, 1.0, 0.0, 1.0 };
@@ -2592,10 +2592,10 @@ TEST_F(VkRenderTest, TriangleFSAnonymousUniformBlockBindingWithStruct)
             "        vec4 member9;\n"
             "    };\n"
             "\n"
-            "layout (binding = 0) uniform redVal   { vec4 red; };"
-            "layout (binding = 1) uniform greenVal { vec4 green; };"
-            "layout (binding = 2) uniform blueVal  { vec4 blue; };"
-            "layout (binding = 3) uniform whiteVal { vec4 white; };"
+            "layout (std140, binding = 0) uniform redVal   { vec4 red; };"
+            "layout (std140, binding = 1) uniform greenVal { vec4 green; };"
+            "layout (std140, binding = 2) uniform blueVal  { vec4 blue; };"
+            "layout (std140, binding = 3) uniform whiteVal { vec4 white; };"
             "layout (location = 0) out vec4 outColor;\n"
             "PS_INPUT MainFs()\n"
             "{\n"
@@ -2621,10 +2621,10 @@ TEST_F(VkRenderTest, TriangleFSAnonymousUniformBlockBindingWithStruct)
     // the shader to select which it wants to read from with a binding
 
     // Let's populate the buffers with a single color each:
-    //    layout (binding = 0) uniform bufferVals { vec4 red;   } myRedVal;
-    //    layout (binding = 1) uniform bufferVals { vec4 green; } myGreenVal;
-    //    layout (binding = 2) uniform bufferVals { vec4 blue;  } myBlueVal;
-    //    layout (binding = 3) uniform bufferVals { vec4 white; } myWhiteVal;
+    //    layout (std140, binding = 0) uniform bufferVals { vec4 red;   } myRedVal;
+    //    layout (std140, binding = 1) uniform bufferVals { vec4 green; } myGreenVal;
+    //    layout (std140, binding = 2) uniform bufferVals { vec4 blue;  } myBlueVal;
+    //    layout (std140, binding = 3) uniform bufferVals { vec4 white; } myWhiteVal;
 
     const float redVals[4]   = { 1.0, 0.0, 0.0, 1.0 };
     const float greenVals[4] = { 0.0, 1.0, 0.0, 1.0 };
@@ -2680,7 +2680,7 @@ TEST_F(VkRenderTest, CubeWithVertexFetchAndMVPAndTexture)
             "#version 140\n"
             "#extension GL_ARB_separate_shader_objects : enable\n"
             "#extension GL_ARB_shading_language_420pack : enable\n"
-            "layout (binding=0) uniform bufferVals {\n"
+            "layout (std140, binding=0) uniform bufferVals {\n"
             "    mat4 mvp;\n"
             "} myBufferVals;\n"
             "layout (location=0) in vec4 pos;\n"
@@ -2831,10 +2831,10 @@ TEST_F(VkRenderTest, TriangleMixedSamplerUniformBlockBinding)
             "layout (binding = 2) uniform sampler2D surface3;\n"
 
 
-            "layout (binding = 4) uniform redVal   { vec4 red; };"
-            "layout (binding = 6) uniform greenVal { vec4 green; };"
-            "layout (binding = 5) uniform blueVal  { vec4 blue; };"
-            "layout (binding = 7) uniform whiteVal { vec4 white; };"
+            "layout (std140, binding = 4) uniform redVal   { vec4 red; };"
+            "layout (std140, binding = 6) uniform greenVal { vec4 green; };"
+            "layout (std140, binding = 5) uniform blueVal  { vec4 blue; };"
+            "layout (std140, binding = 7) uniform whiteVal { vec4 white; };"
             "layout (location = 0) out vec4 outColor;\n"
             "void main() {\n"
             "   outColor = red * vec4(0.00001);\n"
@@ -2941,10 +2941,10 @@ TEST_F(VkRenderTest, TriangleMatchingSamplerUniformBlockBinding)
             "layout (binding = 1) uniform sampler2D surface1;\n"
             "layout (binding = 2) uniform sampler2D surface2;\n"
             "layout (binding = 3) uniform sampler2D surface3;\n"
-            "layout (binding = 4) uniform redVal   { vec4 red; };"
-            "layout (binding = 5) uniform greenVal { vec4 green; };"
-            "layout (binding = 6) uniform blueVal  { vec4 blue; };"
-            "layout (binding = 7) uniform whiteVal { vec4 white; };"
+            "layout (std140, binding = 4) uniform redVal   { vec4 red; };"
+            "layout (std140, binding = 5) uniform greenVal { vec4 green; };"
+            "layout (std140, binding = 6) uniform blueVal  { vec4 blue; };"
+            "layout (std140, binding = 7) uniform whiteVal { vec4 white; };"
             "layout (location = 0) out vec4 outColor;\n"
             "void main() {\n"
             "   outColor = red;// * vec4(0.00001);\n"
@@ -3030,7 +3030,7 @@ TEST_F(VkRenderTest, TriangleUniformBufferLayout)
             "#version 140\n"
             "#extension GL_ARB_separate_shader_objects : enable\n"
             "#extension GL_ARB_shading_language_420pack : enable\n"
-            "layout (binding = 0) uniform mixedBuffer {\n"
+            "layout (std140, binding = 0) uniform mixedBuffer {\n"
             "    vec4 fRed;\n"
             "    vec4 fGreen;\n"
             "    layout(row_major) mat4 worldToProj;\n"
@@ -3100,7 +3100,7 @@ TEST_F(VkRenderTest, TriangleUniformBufferLayout)
             "#version 140\n"
             "#extension GL_ARB_separate_shader_objects : enable\n"
             "#extension GL_ARB_shading_language_420pack : enable\n"
-            "layout (binding = 0) uniform mixedBuffer {\n"
+            "layout (std140, binding = 0) uniform mixedBuffer {\n"
             "    vec4 fRed;\n"
             "    vec4 fGreen;\n"
             "    layout(row_major) mat4 worldToProj;\n"
@@ -3490,7 +3490,7 @@ TEST_F(VkRenderTest, GSUniformBufferLayout)
             "#version 140\n"
             "#extension GL_ARB_separate_shader_objects : enable\n"
             "#extension GL_ARB_shading_language_420pack : enable\n"
-            "layout (binding = 0) uniform mixedBuffer {\n"
+            "layout (std140, binding = 0) uniform mixedBuffer {\n"
             "    vec4 fRed;\n"
             "    vec4 fGreen;\n"
             "    layout(row_major) mat4 worldToProj;\n"
@@ -3569,7 +3569,7 @@ TEST_F(VkRenderTest, GSUniformBufferLayout)
             "layout( location = 0 ) in vec4 inColor[3];\n"
             "layout( location = 0 ) out vec4 color;\n"
 
-            "layout (binding = 0) uniform mixedBuffer {\n"
+            "layout (std140, binding = 0) uniform mixedBuffer {\n"
             "    vec4 fRed;\n"
             "    vec4 fGreen;\n"
             "    layout(row_major) mat4 worldToProj;\n"
@@ -3662,7 +3662,7 @@ TEST_F(VkRenderTest, GSUniformBufferLayout)
             "#version 140\n"
             "#extension GL_ARB_separate_shader_objects : enable\n"
             "#extension GL_ARB_shading_language_420pack : enable\n"
-            "layout (binding = 0) uniform mixedBuffer {\n"
+            "layout (std140, binding = 0) uniform mixedBuffer {\n"
             "    vec4 fRed;\n"
             "    vec4 fGreen;\n"
             "    layout(row_major) mat4 worldToProj;\n"
