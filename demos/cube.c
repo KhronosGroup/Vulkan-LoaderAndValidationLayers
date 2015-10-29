@@ -1894,6 +1894,7 @@ static void demo_resize(struct demo *demo)
         vkDestroyImageView(demo->device, demo->buffers[i].view);
         vkDestroyCommandBuffer(demo->device, demo->buffers[i].cmd);
     }
+    vkDestroyCommandPool(demo->device, demo->cmd_pool);
     free(demo->buffers);
 
 
