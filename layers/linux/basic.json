@@ -4,7 +4,7 @@
         "name": "VK_LAYER_LUNARG_Basic",
         "type": "GLOBAL",
         "library_path": "./libVKLayerBasic.so",
-        "api_version": "0.210.0",
+        "api_version": "0.210.1",
         "implementation_version": "1",
         "description": "LunarG Sample Layer",
         "device_extensions": [
