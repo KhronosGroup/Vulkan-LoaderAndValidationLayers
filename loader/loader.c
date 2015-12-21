@@ -3078,7 +3078,7 @@ VkResult loader_validate_device_extensions(
 
 VKAPI_ATTR VkResult VKAPI_CALL loader_CreateInstance(
         const VkInstanceCreateInfo*     pCreateInfo,
-        const VkAllocationCallbacks*         pAllocator,
+        const VkAllocationCallbacks*    pAllocator,
         VkInstance*                     pInstance)
 {
     struct loader_instance *ptr_instance = *(struct loader_instance **) pInstance;
@@ -3111,14 +3111,27 @@ VKAPI_ATTR VkResult VKAPI_CALL loader_CreateInstance(
         icd = loader_icd_add(ptr_instance, &ptr_instance->icd_libs.list[i]);
         if (icd) {
             icd_create_info.enabledExtensionNameCount = 0;
+            struct loader_extension_list icd_exts;
+
+            loader_log(VK_DBG_REPORT_DEBUG_BIT, 0, "Build ICD instance extension list");
+            // traverse scanned icd list adding non-duplicate extensions to the list
+            loader_init_generic_list(ptr_instance, (struct loader_generic_list *) &icd_exts,
+                                     sizeof(VkExtensionProperties));
+            loader_add_global_extensions(ptr_instance,
+                                         icd->this_icd_lib->EnumerateInstanceExtensionProperties,
+                                         icd->this_icd_lib->lib_name,
+                                         &icd_exts);
+
             for (uint32_t i = 0; i < pCreateInfo->enabledExtensionNameCount; i++) {
                 prop = get_extension_property(pCreateInfo->ppEnabledExtensionNames[i],
-                                              &ptr_instance->ext_list);
+                                              &icd_exts);
                 if (prop) {
                     filtered_extension_names[icd_create_info.enabledExtensionNameCount] = (char *) pCreateInfo->ppEnabledExtensionNames[i];
                     icd_create_info.enabledExtensionNameCount++;
                 }
             }
+
+            loader_destroy_generic_list(ptr_instance, (struct loader_generic_list *) &icd_exts);
 
             res = ptr_instance->icd_libs.list[i].CreateInstance(&icd_create_info,
                                            pAllocator,
