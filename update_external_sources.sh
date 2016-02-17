@@ -21,7 +21,7 @@ function create_glslang () {
    echo "Creating local glslang repository ($BASEDIR/glslang)."
    mkdir -p $BASEDIR/glslang
    cd $BASEDIR/glslang
-   git clone git@gitlab.khronos.org:GLSL/glslang.git .
+   git clone https://github.com/KhronosGroup/glslang.git .
    git checkout $GLSLANG_REVISION
 }
 
@@ -44,8 +44,6 @@ function create_LunarGLASS () {
    tar --gzip -xf llvm-3.4.src.tar.gz
    git checkout -f .  # put back the LunarGLASS versions of some LLVM files
    git checkout $LUNARGLASS_REVISION
-   svn checkout -r $LUNARGLASS_REVISION_R32 --force https://cvs.khronos.org/svn/repos/SPIRV/trunk/LunarGLASS/ .
-   svn revert -R .
 }
 
 function update_LunarGLASS () {
@@ -60,11 +58,6 @@ function update_LunarGLASS () {
    #   rm -rf $BASEDIR/LunarGLASS/Core/LLVM/llvm-3.4/build
    #fi
    #rm -rf gitout
-   if [ ! -d "$BASEDIR/LunarGLASS/.svn" ]; then
-      svn checkout -r $LUNARGLASS_REVISION_R32 --force https://cvs.khronos.org/svn/repos/SPIRV/trunk/LunarGLASS/ .
-   fi
-   svn update -r $LUNARGLASS_REVISION_R32
-   svn revert -R .
 }
 
 function create_spirv-tools () {
@@ -72,7 +65,7 @@ function create_spirv-tools () {
    echo "Creating local spirv-tools repository ($BASEDIR/spirv-tools)."
    mkdir -p $BASEDIR/spirv-tools
    cd $BASEDIR/spirv-tools
-   git clone git@gitlab.khronos.org:spirv/spirv-tools.git .
+   git clone https://github.com/KhronosGroup/SPIRV-Tools.git .
    git checkout $SPIRV_TOOLS_REVISION
 }
 
