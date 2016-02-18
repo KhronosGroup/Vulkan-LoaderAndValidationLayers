@@ -44,8 +44,6 @@ function create_LunarGLASS () {
    tar --gzip -xf llvm-3.4.src.tar.gz
    git checkout -f .  # put back the LunarGLASS versions of some LLVM files
    git checkout $LUNARGLASS_REVISION
-   svn checkout -r $LUNARGLASS_REVISION_R32 --force https://cvs.khronos.org/svn/repos/SPIRV/trunk/LunarGLASS/ .
-   svn revert -R .
 }
 
 function update_LunarGLASS () {
@@ -60,11 +58,6 @@ function update_LunarGLASS () {
    #   rm -rf $BASEDIR/LunarGLASS/Core/LLVM/llvm-3.4/build
    #fi
    #rm -rf gitout
-   if [ ! -d "$BASEDIR/LunarGLASS/.svn" ]; then
-      svn checkout -r $LUNARGLASS_REVISION_R32 --force https://cvs.khronos.org/svn/repos/SPIRV/trunk/LunarGLASS/ .
-   fi
-   svn update -r $LUNARGLASS_REVISION_R32
-   svn revert -R .
 }
 
 function create_spirv-tools () {
