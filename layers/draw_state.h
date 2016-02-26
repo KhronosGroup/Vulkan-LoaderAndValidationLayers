@@ -193,6 +193,8 @@ typedef enum _DRAW_STATE_ERROR {
                                              // violate device limit
     DRAWSTATE_INVALID_STORAGE_BUFFER_OFFSET, // Dynamic Storage Buffer Offsets
                                              // violate device limit
+    DRAWSTATE_INVALID_QUEUE_INDEX,           // Specified queue index exceeds number
+                                             // of queried queue families
 } DRAW_STATE_ERROR;
 
 typedef enum _SHADER_CHECKER_ERROR {
