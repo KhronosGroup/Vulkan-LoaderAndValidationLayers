@@ -17,11 +17,11 @@
 
 rm -rf generated
 mkdir -p generated
-python ../vk-generate.py dispatch-table-ops layer > generated/vk_dispatch_table_helper.h
+python ../vk-generate.py Android dispatch-table-ops layer > generated/vk_dispatch_table_helper.h
 
 python ../vk_helper.py --gen_enum_string_helper ../include/vulkan/vulkan.h --abs_out_dir generated
 python ../vk_helper.py --gen_struct_wrappers ../include/vulkan/vulkan.h --abs_out_dir generated
 
-python ../vk-layer-generate.py object_tracker ../include/vulkan/vulkan.h > generated/object_tracker.cpp
-python ../vk-layer-generate.py threading ../include/vulkan/vulkan.h > generated/threading.cpp
+python ../vk-layer-generate.py Android object_tracker ../include/vulkan/vulkan.h > generated/object_tracker.cpp
+python ../vk-layer-generate.py Android threading ../include/vulkan/vulkan.h > generated/threading.cpp
 

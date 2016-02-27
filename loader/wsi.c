@@ -623,7 +623,7 @@ loader_GetPhysicalDeviceMirPresentationSupportKHR(
  */
 LOADER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL
 vkCreateWaylandSurfaceKHR(VkInstance instance,
-                          const VkMirSurfaceCreateInfoKHR *pCreateInfo,
+                          const VkWaylandSurfaceCreateInfoKHR *pCreateInfo,
                           const VkAllocationCallbacks *pAllocator,
                           VkSurfaceKHR *pSurface) {
     const VkLayerInstanceDispatchTable *disp;
@@ -637,11 +637,11 @@ vkCreateWaylandSurfaceKHR(VkInstance instance,
 
 /*
  * This is the instance chain terminator function
- * for CreateXlibSurfaceKHR
+ * for CreateWaylandSurfaceKHR
  */
 VKAPI_ATTR VkResult VKAPI_CALL
 loader_CreateWaylandSurfaceKHR(VkInstance instance,
-                               const VkMirSurfaceCreateInfoKHR *pCreateInfo,
+                               const VkWaylandSurfaceCreateInfoKHR *pCreateInfo,
                                const VkAllocationCallbacks *pAllocator,
                                VkSurfaceKHR *pSurface) {
     struct loader_instance *ptr_instance = loader_get_instance(instance);
@@ -1021,6 +1021,7 @@ bool wsi_swapchain_instance_gpa(struct loader_instance *ptr_instance,
                     ? (void *)vkGetPhysicalDeviceMirPresentationSupportKHR
                     : NULL;
         return true;
+    }
 #endif // VK_USE_PLATFORM_MIR_KHR
 #ifdef VK_USE_PLATFORM_WAYLAND_KHR
         /*
@@ -1038,6 +1039,7 @@ bool wsi_swapchain_instance_gpa(struct loader_instance *ptr_instance,
                     ? (void *)vkGetPhysicalDeviceWaylandPresentationSupportKHR
                     : NULL;
             return true;
+        }
 #endif // VK_USE_PLATFORM_WAYLAND_KHR
 #ifdef VK_USE_PLATFORM_XCB_KHR
             /*
