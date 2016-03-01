@@ -771,7 +771,7 @@ For example:
     ],
     "device_extensions": [
         {
-            "name": "VK_LUNARG_DEBUG_MARKER",
+            "name": "VK_DEBUG_MARKER_EXT",
             "spec_version": "1",
             "entrypoints": ["vkCmdDbgMarkerBegin", "vkCmdDbgMarkerEnd"]
         }
@@ -937,7 +937,7 @@ For example:
     ],
     "device_extensions": [
         {
-            "name": "VK_LUNARG_DEBUG_MARKER",
+            "name": "VK_DEBUG_MARKER_EXT",
             "spec_version": "1",
             "entrypoints": ["vkCmdDbgMarkerBegin", "vkCmdDbgMarkerEnd"]
         }
