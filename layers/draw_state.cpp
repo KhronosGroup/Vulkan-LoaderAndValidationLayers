@@ -4773,6 +4773,30 @@ static void ResolveRemainingLevelsLayers(layer_data *dev_data, VkImageSubresourc
     }
 }
 
+/* Return the correct layer/level counts if the caller used the special
+ * values VK_REMAINING_MIP_LEVELS or VK_REMAINING_ARRAY_LAYERS.
+ */
+static void ResolveRemainingLevelsLayers(layer_data *dev_data, uint32_t* levels, uint32_t* layers,
+    VkImageSubresourceRange range, VkImage image) {
+    /* expects globalLock to be held by caller */
+
+    if ((range.levelCount != VK_REMAINING_MIP_LEVELS) && (range.layerCount != VK_REMAINING_ARRAY_LAYERS)) {
+        *levels = range.levelCount;
+        *layers = range.layerCount;
+    } else {
+        auto image_node_it = dev_data->imageMap.find(image);
+        if (image_node_it != dev_data->imageMap.end()) {
+            *levels = (range.levelCount == VK_REMAINING_MIP_LEVELS) ?
+                image_node_it->second.createInfo.mipLevels - range.baseMipLevel :
+                range.levelCount;
+
+            *layers = (range.layerCount == VK_REMAINING_ARRAY_LAYERS) ?
+                image_node_it->second.createInfo.arrayLayers - range.baseArrayLayer :
+                range.layerCount;
+        }
+    }
+}
+
 VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkCreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo,
                                                                  const VkAllocationCallbacks *pAllocator, VkImageView *pView) {
     layer_data *dev_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
@@ -6362,6 +6386,8 @@ VkBool32 TransitionImageLayouts(VkCommandBuffer cmdBuffer, uint32_t memBarrierCo
     layer_data *dev_data = get_my_data_ptr(get_dispatch_key(cmdBuffer), layer_data_map);
     GLOBAL_CB_NODE *pCB = getCBNode(dev_data, cmdBuffer);
     VkBool32 skip = VK_FALSE;
+    uint32_t levelCount;
+    uint32_t layerCount;
 
     for (uint32_t i = 0; i < memBarrierCount; ++i) {
         auto mem_barrier = &pImgMemBarriers[i];
@@ -6369,23 +6395,25 @@ VkBool32 TransitionImageLayouts(VkCommandBuffer cmdBuffer, uint32_t memBarrierCo
             continue;
         // TODO: Do not iterate over every possibility - consolidate where
         // possible
-        for (uint32_t j = 0; j < mem_barrier->subresourceRange.levelCount; j++) {
+        ResolveRemainingLevelsLayers(dev_data, &levelCount, &layerCount, mem_barrier->subresourceRange, mem_barrier->image);
+
+        for (uint32_t j = 0; j < levelCount; j++) {
             uint32_t level = mem_barrier->subresourceRange.baseMipLevel + j;
-            for (uint32_t k = 0; k < mem_barrier->subresourceRange.layerCount; k++) {
+            for (uint32_t k = 0; k < layerCount; k++) {
                 uint32_t layer = mem_barrier->subresourceRange.baseArrayLayer + k;
-                VkImageSubresource sub = {mem_barrier->subresourceRange.aspectMask, level, layer};
+                VkImageSubresource sub = { mem_barrier->subresourceRange.aspectMask, level, layer };
                 IMAGE_CMD_BUF_LAYOUT_NODE node;
                 if (!FindLayout(pCB, mem_barrier->image, sub, node)) {
-                    SetLayout(pCB, mem_barrier->image, sub, {mem_barrier->oldLayout, mem_barrier->newLayout});
+                    SetLayout(pCB, mem_barrier->image, sub, { mem_barrier->oldLayout, mem_barrier->newLayout });
                     continue;
                 }
                 if (mem_barrier->oldLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
                     // TODO: Set memory invalid which is in mem_tracker currently
                 } else if (node.layout != mem_barrier->oldLayout) {
                     skip |= log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, (VkDebugReportObjectTypeEXT)0, 0,
-                                    __LINE__, DRAWSTATE_INVALID_IMAGE_LAYOUT, "DS", "You cannot transition the layout from %s "
-                                                                                    "when current layout is %s.",
-                                    string_VkImageLayout(mem_barrier->oldLayout), string_VkImageLayout(node.layout));
+                        __LINE__, DRAWSTATE_INVALID_IMAGE_LAYOUT, "DS", "You cannot transition the layout from %s "
+                        "when current layout is %s.",
+                        string_VkImageLayout(mem_barrier->oldLayout), string_VkImageLayout(node.layout));
                 }
                 SetLayout(pCB, mem_barrier->image, sub, mem_barrier->newLayout);
             }
