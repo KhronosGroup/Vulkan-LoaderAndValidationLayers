@@ -6949,6 +6949,13 @@ VkBool32 FindDependency(const int index, const int dependent, const std::vector<
     // If we have already checked this node we have not found a dependency path so return false.
     if (processed_nodes.count(index))
         return VK_FALSE;
+
+    // TODO: This is a Workaround to prevent DOTA2/RenderSystemTest subscript-out-of-range assertions
+    //       This should be replaced with the actual fix when it is available.
+    if (index >= subpass_to_node.size())
+        return VK_FALSE;
+    //       End Workaround
+
     processed_nodes.insert(index);
     const DAGNode &node = subpass_to_node[index];
     // Look for a dependency path. If one exists return true else recurse on the previous nodes.
