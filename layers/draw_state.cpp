@@ -6950,12 +6950,6 @@ VkBool32 FindDependency(const int index, const int dependent, const std::vector<
     if (processed_nodes.count(index))
         return VK_FALSE;
 
-    // TODO: This is a Workaround to prevent DOTA2/RenderSystemTest subscript-out-of-range assertions
-    //       This should be replaced with the actual fix when it is available.
-    if (index >= subpass_to_node.size())
-        return VK_FALSE;
-    //       End Workaround
-
     processed_nodes.insert(index);
     const DAGNode &node = subpass_to_node[index];
     // Look for a dependency path. If one exists return true else recurse on the previous nodes.
@@ -7099,21 +7093,21 @@ VkBool32 ValidateDependencies(const layer_data *my_data, const VkRenderPassBegin
             uint32_t attachment = subpass.pInputAttachments[j].attachment;
             input_attachment_to_subpass[attachment].push_back(i);
             for (auto overlapping_attachment : overlapping_attachments[attachment]) {
-                input_attachment_to_subpass[attachment].push_back(overlapping_attachment);
+                input_attachment_to_subpass[overlapping_attachment].push_back(i);
             }
         }
         for (uint32_t j = 0; j < subpass.colorAttachmentCount; ++j) {
             uint32_t attachment = subpass.pColorAttachments[j].attachment;
             output_attachment_to_subpass[attachment].push_back(i);
             for (auto overlapping_attachment : overlapping_attachments[attachment]) {
-                output_attachment_to_subpass[attachment].push_back(overlapping_attachment);
+                output_attachment_to_subpass[overlapping_attachment].push_back(i);
             }
         }
         if (subpass.pDepthStencilAttachment && subpass.pDepthStencilAttachment->attachment != VK_ATTACHMENT_UNUSED) {
             uint32_t attachment = subpass.pDepthStencilAttachment->attachment;
             output_attachment_to_subpass[attachment].push_back(i);
             for (auto overlapping_attachment : overlapping_attachments[attachment]) {
-                output_attachment_to_subpass[attachment].push_back(overlapping_attachment);
+                output_attachment_to_subpass[overlapping_attachment].push_back(i);
             }
         }
     }
