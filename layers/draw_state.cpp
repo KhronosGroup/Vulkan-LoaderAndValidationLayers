@@ -231,6 +231,7 @@ static unordered_map<void *, layer_data *> layer_data_map;
 static int globalLockInitialized = 0;
 static loader_platform_thread_mutex globalLock;
 #define MAX_TID 513
+#define MAX_DESCRIPTOR_INDEX 0xFFFFFFFF
 static loader_platform_thread_id g_tidMapping[MAX_TID] = {0};
 static uint32_t g_maxTID = 0;
 
@@ -5123,6 +5124,7 @@ vkCreateDescriptorSetLayout(VkDevice device, const VkDescriptorSetLayoutCreateIn
         if (pCreateInfo->bindingCount)
             pNewNode->bindingToIndexMap.reserve(pCreateInfo->bindingCount);
         uint32_t totalCount = 0;
+        uint32_t emptyBindings = 0;
         for (uint32_t i = 0; i < pCreateInfo->bindingCount; i++) {
             if (!pNewNode->bindingToIndexMap.emplace(pCreateInfo->pBindings[i].binding, i).second) {
                 if (log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT,
@@ -5130,8 +5132,14 @@ vkCreateDescriptorSetLayout(VkDevice device, const VkDescriptorSetLayoutCreateIn
                             DRAWSTATE_INVALID_LAYOUT, "DS", "duplicated binding number in "
                                                             "VkDescriptorSetLayoutBinding"))
                     return VK_ERROR_VALIDATION_FAILED_EXT;
+            } else if (pCreateInfo->bindingCount == 0) {
+                // TODO : Handling empty bindings as a special case and adjusting the index mapping
+                //  below to skip empty bindings. This is not ideal, and would be better to track
+                //  the state of the empty binding & have mapping point to index for that state.
+                pNewNode->bindingToIndexMap[pCreateInfo->pBindings[i].binding] = MAX_DESCRIPTOR_INDEX;
+                emptyBindings++;
             } else {
-                pNewNode->bindingToIndexMap[pCreateInfo->pBindings[i].binding] = i;
+                pNewNode->bindingToIndexMap[pCreateInfo->pBindings[i].binding] = i - emptyBindings;
             }
             totalCount += pCreateInfo->pBindings[i].descriptorCount;
             if (pCreateInfo->pBindings[i].pImmutableSamplers) {
