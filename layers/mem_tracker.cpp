@@ -2361,8 +2361,6 @@ vkCmdCopyQueryPoolResults(VkCommandBuffer commandBuffer, VkQueryPool queryPool, 
     }
     skipCall |= update_cmd_buf_and_mem_references(my_data, commandBuffer, mem, "vkCmdCopyQueryPoolResults");
     // Validate that DST buffer has correct usage flags set
-    skipCall |= validate_buffer_usage_flags(my_data, commandBuffer, dstBuffer, VK_BUFFER_USAGE_TRANSFER_DST_BIT, true,
-                                            "vkCmdCopyQueryPoolResults()", "VK_BUFFER_USAGE_TRANSFER_DST_BIT");
     loader_platform_thread_unlock_mutex(&globalLock);
     if (VK_FALSE == skipCall) {
         my_data->device_dispatch_table->CmdCopyQueryPoolResults(commandBuffer, queryPool, firstQuery, queryCount, dstBuffer,
