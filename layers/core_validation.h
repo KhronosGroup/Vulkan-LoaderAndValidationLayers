@@ -593,6 +593,7 @@ class QUEUE_NODE {
 #endif
     vector<VkCommandBuffer> untrackedCmdBuffers;
     unordered_set<VkCommandBuffer> inFlightCmdBuffers;
+    unordered_map<VkEvent, VkPipelineStageFlags> eventToStageMap;
 };
 
 class QUERY_POOL_NODE : public BASE_NODE {
@@ -891,6 +892,7 @@ typedef struct _GLOBAL_CB_NODE {
     // execution
     std::unordered_set<VkCommandBuffer> secondaryCommandBuffers;
     vector<uint32_t> dynamicOffsets; // one dynamic offset per dynamic descriptor bound to this CB
+    vector<std::function<bool(VkQueue)>> eventUpdates;
 } GLOBAL_CB_NODE;
 
 class SWAPCHAIN_NODE {
