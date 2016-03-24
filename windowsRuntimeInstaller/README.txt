@@ -1,14 +1,17 @@
 This folder contains the files required for building the Windows Vulkan
 Runtime Installer Package.
 
-To build the Installer:
+To build the Vulkan Runtime Installer:
 
     1. Install Nullsoft Install System version 3.0b1 or greater. (Available
        from http://nsis.sourceforge.net/Download.)
 
-    2. Build Vulkan LoaderAndTools as described in ../BUILD.md.
+    2. Install the NSIS AccessControl plug-in. (Available from
+       http://nsis.sourceforge.net/AccessControl_plug-in.)
 
-    3. Edit the InstallerRT.nsi file in this folder and modify the following
+    3. Build Vulkan-LoaderAndValidationLayers as described in ../BUILD.md.
+
+    4. Edit the InstallerRT.nsi file in this folder and modify the following
        lines to match the version of the Windows Vulkan Runtime you wish to
        build:
 
@@ -19,10 +22,14 @@ To build the Installer:
           !define VERSION_BUILDNO
           !define PUBLISHER
 
-    4. Right click on the InstallerRT.nsi file and select "Compile NSIS Script".
-       The Windows Vulkan Runtime Installer package file will be created in
-       this folder. The name of the installer file is
-       VulkanRT-<version>-Installer.exe.
+    5. Edit the CreateInstaller.sh file and replace SIGNFILE with your
+       command and necessary args for signing an executable. If you don't
+       wish to sign the uninstaller, you can comment out that line.
+
+    6. Run the CreateInstaller.sh script from a Cygwin bash command prompt.
+       The Cygwin bash shell must be running as Administrator.  The Windows
+       Vulkan Runtime Installer package file will be created in this folder.
+       The name of the installer file is VulkanRT-<version>-Installer.exe.
 
 
 Some notes on the behavior of the Windows Vulkan Runtime Installer:
@@ -81,20 +88,19 @@ Some notes on the behavior of the Windows Vulkan Runtime Installer:
      C:\Windows\SYSWOW64 on 64-bit Windows systems to set up the
      32-bit loader.
 
-   o The Vulkan Runtime Installer returns the following exit codes:
-         0 - Success
-        10 - Failure
-      If the Installer returns an error code of 10, the Installer
-      will have attempted to uninstall whatever it installed
-      before it detected an error.
+   o The Vulkan Runtime Installer returns an exit code of 0-9
+     to indicate success. All other exit codes indicate failure.
+     If the Installer returns a failure exit code, the Installer
+     will have attempted to uninstall whatever it installed before
+     it detected an error.
 
-   o The Vulkan Runtime Uninstaller returns the following exit codes:
-         0 - Success
-         3 - Success, reboot required
-        10 - Failure
-      If the Uninstaller returns an error code of 10, it will have
-      simply exited when the failure was detected and will
-      not have attempted to do further uninstall work.
+   o The Vulkan Runtime Uninstaller returns an exit code of 0-9
+     to indicate success. An exit code of 3 indicates success, but
+     a reboot is required to complete the uninstall.  All other
+     exit codes indicate failure.  If the Uninstaller returns a
+     failure exit code, it will have simply exited when the failure
+     was detected and will not have attempted to do further uninstall
+     work.
 
    o The ProductVersion of the installer executable (right click on
      the executable, Properties, then the Details tab) can be used

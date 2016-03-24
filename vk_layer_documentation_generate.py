@@ -56,16 +56,16 @@ import platform
 # TODO : Need list of known validation layers to use as default input
 #  Just a couple of flat lists right now, but may need to make this input file
 #  or at least a more dynamic data structure
-layer_inputs = { 'draw_state' : {'header' : 'layers/draw_state.h',
-                                 'source' : 'layers/draw_state.cpp',
+layer_inputs = { 'draw_state' : {'header' : 'layers/core_validation.h',
+                                 'source' : 'layers/core_validation.cpp',
                                  'generated' : False,
                                  'error_enum' : 'DRAW_STATE_ERROR'},
-                 'shader_checker' : {'header' : 'layers/draw_state.h',
-                                 'source' : 'layers/draw_state.cpp',
+                 'shader_checker' : {'header' : 'layers/core_validation.h',
+                                 'source' : 'layers/core_validation.cpp',
                                  'generated' : False,
                                  'error_enum' : 'SHADER_CHECKER_ERROR'},
-                 'mem_tracker' : {'header' : 'layers/mem_tracker.h',
-                                  'source' : 'layers/mem_tracker.cpp',
+                 'mem_tracker' : {'header' : 'layers/core_validation.h',
+                                  'source' : 'layers/core_validation.cpp',
                                   'generated' : False,
                                   'error_enum' : 'MEM_TRACK_ERROR'},
                  'threading' : {'header' : 'layers/threading.h',
@@ -282,8 +282,7 @@ class LayerDoc:
         wsi_s_names = [p.name for p in vulkan.ext_khr_surface.protos]
         wsi_ds_names = [p.name for p in vulkan.ext_khr_device_swapchain.protos]
         dbg_rpt_names = [p.name for p in vulkan.lunarg_debug_report.protos]
-        dbg_mrk_names = [p.name for p in vulkan.lunarg_debug_marker.protos]
-        api_names = core_api_names + wsi_s_names + wsi_ds_names + dbg_rpt_names + dbg_mrk_names
+        api_names = core_api_names + wsi_s_names + wsi_ds_names + dbg_rpt_names
         for ln in self.layer_doc_dict:
             for chk in self.layer_doc_dict[ln]:
                 if chk in ['overview', 'pending']:

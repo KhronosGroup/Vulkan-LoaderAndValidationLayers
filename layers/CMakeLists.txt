@@ -9,7 +9,7 @@ endmacro()
 
 macro(run_vk_layer_generate subcmd output)
 	add_custom_command(OUTPUT ${output}
-		COMMAND ${PYTHON_CMD} ${PROJECT_SOURCE_DIR}/vk-layer-generate.py ${subcmd} ${PROJECT_SOURCE_DIR}/include/vulkan/vulkan.h > ${output}
+		COMMAND ${PYTHON_CMD} ${PROJECT_SOURCE_DIR}/vk-layer-generate.py ${DisplayServer} ${subcmd} ${PROJECT_SOURCE_DIR}/include/vulkan/vulkan.h > ${output}
 		DEPENDS ${PROJECT_SOURCE_DIR}/vk-layer-generate.py ${PROJECT_SOURCE_DIR}/include/vulkan/vulkan.h ${PROJECT_SOURCE_DIR}/vulkan.py
 	)
 endmacro()
@@ -20,14 +20,12 @@ macro(run_vk_layer_xml_generate subcmd output)
 		DEPENDS ${PROJECT_SOURCE_DIR}/vk.xml ${PROJECT_SOURCE_DIR}/generator.py ${PROJECT_SOURCE_DIR}/genvk.py ${PROJECT_SOURCE_DIR}/reg.py
 	)
 endmacro()
-
 set(LAYER_JSON_FILES
-    VkLayer_draw_state
+    VkLayer_core_validation
     VkLayer_image
-    VkLayer_mem_tracker
     VkLayer_object_tracker
     VkLayer_unique_objects
-    VkLayer_param_checker
+    VkLayer_parameter_validation
     VkLayer_swapchain
     VkLayer_threading
     VkLayer_device_limits
@@ -62,7 +60,7 @@ endif()
 if (WIN32)
     macro(add_vk_layer target)
 	add_custom_command(OUTPUT VkLayer_${target}.def
-		COMMAND ${PYTHON_CMD} ${PROJECT_SOURCE_DIR}/vk-generate.py win-def-file VkLayer_${target} layer > VkLayer_${target}.def
+		COMMAND ${PYTHON_CMD} ${PROJECT_SOURCE_DIR}/vk-generate.py ${DisplayServer} win-def-file VkLayer_${target} layer > VkLayer_${target}.def
 		DEPENDS ${PROJECT_SOURCE_DIR}/vk-generate.py ${PROJECT_SOURCE_DIR}/vk.py
 	)
 	add_library(VkLayer_${target} SHARED ${ARGN} VkLayer_${target}.def)
@@ -86,25 +84,14 @@ include_directories(
 	${CMAKE_CURRENT_SOURCE_DIR}/../loader
 	${CMAKE_CURRENT_SOURCE_DIR}/../include/vulkan
 	${CMAKE_CURRENT_BINARY_DIR}
-	${PROJECT_SOURCE_DIR}/../glslang/SPIRV
+	${GLSLANG_SPIRV_INCLUDE_DIR}
 )
 
 if (WIN32)
     set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -D_CRT_SECURE_NO_WARNINGS")
     set (CMAKE_C_FLAGS_RELEASE   "${CMAKE_C_FLAGS_RELEASE} -D_CRT_SECURE_NO_WARNINGS")
-
-    # For VS 2015, which uses compiler version 1900, draw_state.cpp fails with too many objects
-    # without either optimizations enabled, or setting the /bigobj compilation option.  Since
-    # optimizations are enabled in a release build, this only affects the debug build.  For now,
-    # enable /bigobj mode for all debug layer files. An alternative for the future is to split
-    # draw_state.cpp into multiple files, which will also alleviate the compilation error.
-    if (MSVC AND NOT (MSVC_VERSION LESS 1900))
-        set (CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG} -D_CRT_SECURE_NO_WARNINGS /bigobj")
-        set (CMAKE_C_FLAGS_DEBUG     "${CMAKE_C_FLAGS_DEBUG} -D_CRT_SECURE_NO_WARNINGS /bigobj")
-    else()
-        set (CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG} -D_CRT_SECURE_NO_WARNINGS")
-        set (CMAKE_C_FLAGS_DEBUG     "${CMAKE_C_FLAGS_DEBUG} -D_CRT_SECURE_NO_WARNINGS")
-    endif()
+    set (CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG} -D_CRT_SECURE_NO_WARNINGS /bigobj")
+    set (CMAKE_C_FLAGS_DEBUG     "${CMAKE_C_FLAGS_DEBUG} -D_CRT_SECURE_NO_WARNINGS /bigobj")
 endif()
 if (NOT WIN32)
     set (CMAKE_CXX_FLAGS "-std=c++11")
@@ -113,7 +100,7 @@ if (NOT WIN32)
 endif()
 
 add_custom_command(OUTPUT vk_dispatch_table_helper.h
-	COMMAND ${PYTHON_CMD} ${PROJECT_SOURCE_DIR}/vk-generate.py dispatch-table-ops layer > vk_dispatch_table_helper.h
+	COMMAND ${PYTHON_CMD} ${PROJECT_SOURCE_DIR}/vk-generate.py ${DisplayServer} dispatch-table-ops layer > vk_dispatch_table_helper.h
 	DEPENDS ${PROJECT_SOURCE_DIR}/vk-generate.py ${PROJECT_SOURCE_DIR}/vulkan.py)
 
 run_vk_helper(gen_enum_string_helper vk_enum_string_helper.h)
@@ -148,7 +135,7 @@ add_custom_target(generate_vk_layer_helpers DEPENDS
 run_vk_layer_generate(object_tracker object_tracker.cpp)
 run_vk_layer_xml_generate(Threading thread_check.h)
 run_vk_layer_generate(unique_objects unique_objects.cpp)
-run_vk_layer_xml_generate(ParamChecker param_check.h)
+run_vk_layer_xml_generate(ParamChecker parameter_validation.h)
 
 add_library(layer_utils SHARED vk_layer_config.cpp vk_layer_extension_utils.cpp vk_layer_utils.cpp)
 if (WIN32)
@@ -158,14 +145,12 @@ if (WIN32)
 else()
     install(TARGETS layer_utils DESTINATION ${PROJECT_BINARY_DIR}/install_staging)
 endif()
-
-add_vk_layer(draw_state draw_state.cpp vk_layer_debug_marker_table.cpp vk_layer_table.cpp)
-add_vk_layer(device_limits device_limits.cpp vk_layer_debug_marker_table.cpp vk_layer_table.cpp vk_layer_utils.cpp)
-add_vk_layer(mem_tracker mem_tracker.cpp vk_layer_table.cpp)
+add_vk_layer(core_validation core_validation.cpp vk_layer_table.cpp)
+add_vk_layer(device_limits device_limits.cpp vk_layer_table.cpp vk_layer_utils.cpp)
 add_vk_layer(image image.cpp vk_layer_table.cpp)
 add_vk_layer(swapchain swapchain.cpp vk_layer_table.cpp)
 # generated
 add_vk_layer(object_tracker object_tracker.cpp vk_layer_table.cpp)
 add_vk_layer(threading threading.cpp thread_check.h vk_layer_table.cpp)
 add_vk_layer(unique_objects unique_objects.cpp vk_layer_table.cpp vk_safe_struct.cpp)
-add_vk_layer(param_checker param_checker.cpp param_check.h vk_layer_debug_marker_table.cpp vk_layer_table.cpp)
+add_vk_layer(parameter_validation parameter_validation.cpp parameter_validation.h vk_layer_table.cpp)

@@ -877,7 +877,11 @@ class StructWrapperGen:
             if (typedef_fwd_dict[s] not in exclude_struct_list):
                 if (re.match(r'.*Xcb.*', typedef_fwd_dict[s])):
                     sh_funcs.append("#ifdef VK_USE_PLATFORM_XCB_KHR")
+                if (re.match(r'.*Win32.*', typedef_fwd_dict[s])):
+                    sh_funcs.append("#ifdef VK_USE_PLATFORM_WIN32_KHR")
                 sh_funcs.append('string %s(const %s* pStruct, const string prefix);' % (self._get_sh_func_name(s), typedef_fwd_dict[s]))
+                if (re.match(r'.*Win32.*', typedef_fwd_dict[s])):
+                    sh_funcs.append("#endif //VK_USE_PLATFORM_WIN32_KHR")
                 if (re.match(r'.*Xcb.*', typedef_fwd_dict[s])):
                     sh_funcs.append("#endif //VK_USE_PLATFORM_XCB_KHR")
         sh_funcs.append('\n')
@@ -896,6 +900,8 @@ class StructWrapperGen:
             sh_funcs.append('%s' % lineinfo.get())
             if (re.match(r'.*Xcb.*', typedef_fwd_dict[s])):
                 sh_funcs.append("#ifdef VK_USE_PLATFORM_XCB_KHR")
+            if (re.match(r'.*Win32.*', typedef_fwd_dict[s])):
+                sh_funcs.append("#ifdef VK_USE_PLATFORM_WIN32_KHR")
             sh_funcs.append('string %s(const %s* pStruct, const string prefix)\n{' % (self._get_sh_func_name(s), typedef_fwd_dict[s]))
             sh_funcs.append('%s' % lineinfo.get())
             indent = '    '
@@ -975,10 +981,10 @@ class StructWrapperGen:
                         else:
                             sh_funcs.append('%s' % lineinfo.get())
                             addr_char = ''
+                            sh_funcs.append('%sss[%u] << %spStruct->%s[i];' % (indent, index, addr_char, stp_list[index]['name']))
                             if stp_list[index]['type'] in vulkan.core.objects:
                                 sh_funcs.append('%sstp_strs[%u] += " " + prefix + "%s[" + index_ss.str() + "].handle = " + ss[%u].str() + "\\n";' % (indent, index, stp_list[index]['name'], index))
                             else:
-                                sh_funcs.append('%sss[%u] << %spStruct->%s[i];' % (indent, index, addr_char, stp_list[index]['name']))
                                 sh_funcs.append('%sstp_strs[%u] += " " + prefix + "%s[" + index_ss.str() + "] = " + ss[%u].str() + "\\n";' % (indent, index, stp_list[index]['name'], index))
                         sh_funcs.append('%s' % lineinfo.get())
                         sh_funcs.append('%sss[%u].str("");' % (indent, index))
@@ -1057,7 +1063,11 @@ class StructWrapperGen:
                         sh_funcs.append('        ss[%u].str("address");' % (index))
                     elif 'char' in self.struct_dict[s][m]['type'].lower() and self.struct_dict[s][m]['ptr']:
                         sh_funcs.append('%s' % lineinfo.get())
-                        sh_funcs.append('    ss[%u] << pStruct->%s;' % (index, self.struct_dict[s][m]['name']))
+                        sh_funcs.append('    if (pStruct->%s != NULL) {' % self.struct_dict[s][m]['name'])
+                        sh_funcs.append('        ss[%u] << pStruct->%s;' % (index, self.struct_dict[s][m]['name']))
+                        sh_funcs.append('     } else {')
+                        sh_funcs.append('        ss[%u] << "";' % index)
+                        sh_funcs.append('     }')
                     else:
                         sh_funcs.append('%s' % lineinfo.get())
                         (po, pa) = self._get_struct_print_formatted(self.struct_dict[s][m])
@@ -1089,6 +1099,8 @@ class StructWrapperGen:
             sh_funcs.append('%s' % lineinfo.get())
             sh_funcs.append('    final_str = %s;' % final_str)
             sh_funcs.append('    return final_str;\n}')
+            if (re.match(r'.*Win32.*', typedef_fwd_dict[s])):
+                sh_funcs.append("#endif //VK_USE_PLATFORM_WIN32_KHR")
             if (re.match(r'.*Xcb.*', typedef_fwd_dict[s])):
                 sh_funcs.append("#endif //VK_USE_PLATFORM_XCB_KHR")
         # Add function to return a string value for input void*
@@ -1296,7 +1308,11 @@ class StructWrapperGen:
             if (typedef_fwd_dict[s] not in exclude_struct_list):
                 if (re.match(r'.*Xcb.*', typedef_fwd_dict[s])):
                     sh_funcs.append("#ifdef VK_USE_PLATFORM_XCB_KHR")
+                if (re.match(r'.*Win32.*', typedef_fwd_dict[s])):
+                    sh_funcs.append("#ifdef VK_USE_PLATFORM_WIN32_KHR")
                 sh_funcs.append('uint32_t %s(const %s* pStruct);' % (self._get_vh_func_name(s), typedef_fwd_dict[s]))
+                if (re.match(r'.*Win32.*', typedef_fwd_dict[s])):
+                    sh_funcs.append("#endif //VK_USE_PLATFORM_WIN32_KHR")
                 if (re.match(r'.*Xcb.*', typedef_fwd_dict[s])):
                     sh_funcs.append("#endif //VK_USE_PLATFORM_XCB_KHR")
         sh_funcs.append('\n')
@@ -1305,6 +1321,8 @@ class StructWrapperGen:
                 continue
             if (re.match(r'.*Xcb.*', typedef_fwd_dict[s])):
                 sh_funcs.append("#ifdef VK_USE_PLATFORM_XCB_KHR")
+            if (re.match(r'.*Win32.*', typedef_fwd_dict[s])):
+                sh_funcs.append("#ifdef VK_USE_PLATFORM_WIN32_KHR")
             sh_funcs.append('uint32_t %s(const %s* pStruct)\n{' % (self._get_vh_func_name(s), typedef_fwd_dict[s]))
             for m in sorted(self.struct_dict[s]):
                 # TODO : Need to handle arrays of enums like in VkRenderPassCreateInfo struct
@@ -1317,6 +1335,8 @@ class StructWrapperGen:
                     else:
                         sh_funcs.append('    if (!%s((const %s*)&pStruct->%s))\n        return 0;' % (self._get_vh_func_name(self.struct_dict[s][m]['type']), self.struct_dict[s][m]['type'], self.struct_dict[s][m]['name']))
             sh_funcs.append("    return 1;\n}")
+            if (re.match(r'.*Win32.*', typedef_fwd_dict[s])):
+                sh_funcs.append("#endif //VK_USE_PLATFORM_WIN32_KHR")
             if (re.match(r'.*Xcb.*', typedef_fwd_dict[s])):
                 sh_funcs.append("#endif //VK_USE_PLATFORM_XCB_KHR")
 
@@ -1347,7 +1367,11 @@ class StructWrapperGen:
             if (typedef_fwd_dict[s] not in exclude_struct_list):
                 if (re.match(r'.*Xcb.*', typedef_fwd_dict[s])):
                     sh_funcs.append("#ifdef VK_USE_PLATFORM_XCB_KHR")
+                if (re.match(r'.*Win32.*', typedef_fwd_dict[s])):
+                    sh_funcs.append("#ifdef VK_USE_PLATFORM_WIN32_KHR")
                 sh_funcs.append('size_t %s(const %s* pStruct);' % (self._get_size_helper_func_name(s), typedef_fwd_dict[s]))
+                if (re.match(r'.*Win32.*', typedef_fwd_dict[s])):
+                    sh_funcs.append("#endif //VK_USE_PLATFORM_WIN32_KHR")
                 if (re.match(r'.*Xcb.*', typedef_fwd_dict[s])):
                     sh_funcs.append("#endif //VK_USE_PLATFORM_XCB_KHR")
         return "\n".join(sh_funcs)
@@ -2102,8 +2126,6 @@ def main(argv=None):
     input_header = os.path.basename(opts.input_file)
     if 'vulkan.h' == input_header:
         input_header = "vulkan/vulkan.h"
-    if 'vk_lunarg_debug_marker.h' == input_header:
-        input_header = "vulkan/vk_lunarg_debug_marker.h"
 
     prefix = os.path.basename(opts.input_file).strip(".h")
     if prefix == "vulkan":

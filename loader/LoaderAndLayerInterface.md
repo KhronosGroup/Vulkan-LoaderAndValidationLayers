@@ -117,12 +117,12 @@ object they are given.
 Applications are not required to link directly to the loader library, instead
 they can use the appropriate platform specific dynamic symbol lookup on the
 loader library to initialize the application’s own dispatch table. This allows
-an application to fail gracefully if the loader cannot be found and provide the
-fastest mechanism for the application to call Vulkan functions. An application
-will only need to query (via system calls such as dlsym()) the address of
-vkGetInstanceProcAddr from the loader library. Using vkGetInstanceProcAddr the
-application can then discover the address of all instance and global functions
-and extensions, such as vkCreateInstance,
+an application to fail gracefully if the loader cannot be found, and it
+provides the fastest mechanism for the application to call Vulkan functions. An
+application will only need to query (via system calls such as dlsym()) the
+address of vkGetInstanceProcAddr from the loader library. Using
+vkGetInstanceProcAddr the application can then discover the address of all
+instance and global functions and extensions, such as vkCreateInstance,
 vkEnumerateInstanceExtensionProperties and vkEnumerateInstanceLayerProperties
 in a platform independent way.
 
@@ -131,11 +131,11 @@ SDKs, OS package distributions and IHV driver packages. These details are
 beyond the scope of this document. However, the name and versioning of the
 Vulkan loader library is specified so an app can link to the correct Vulkan ABI
 library version. Vulkan versioning is such that ABI backwards compatibility is
-guaranteed for all versions with the same major number (eg 1.0 and 1.1). On
+guaranteed for all versions with the same major number (e.g. 1.0 and 1.1). On
 Windows, the loader library encodes the ABI version in its name such that
 multiple ABI incompatible versions of the loader can peacefully coexist on a
-given system. The vulkan loader library key name is “vulkan-&lt;ABI
-version&gt;”. For example, for Vulkan version 1.X on Windows the library
+given system. The Vulkan loader library file name is “vulkan-&lt;ABI
+version&gt;.dll”. For example, for Vulkan version 1.X on Windows the library
 filename is vulkan-1.dll. And this library file can typically be found in the
 windows/system32 directory.
 
@@ -143,14 +143,14 @@ For Linux, shared libraries are versioned based on a suffix. Thus, the ABI
 number is not encoded in the base of the library filename as on Windows. On
 Linux an application wanting to link to the latest Vulkan ABI version would
 just link to the name vulkan (libvulkan.so).  A specific Vulkan ABI version can
-also be linked to by applications (eg libvulkan.so.1).
+also be linked to by applications (e.g. libvulkan.so.1).
 
 Applications desiring Vulkan functionality beyond what the core API offers may
 use various layers or extensions. A layer cannot add new or modify existing
 Vulkan commands, but may offer extensions that do. A common use of layers is
 for API validation. A developer can use validation layers during application
 development, but during production the layers can be disabled by the
-application. Thus, eliminating the overhead of validating the applications
+application. Thus, eliminating the overhead of validating the application's
 usage of the API. Layers discovered by the loader can be reported to the
 application via vkEnumerateInstanceLayerProperties and
 vkEnumerateDeviceLayerProperties, for instance and device layers respectively.
@@ -183,9 +183,9 @@ An example of using these environment variables to activate the validation
 layer VK\_LAYER\_LUNARG\_param\_checker on Windows or Linux is as follows:
 
 ```
-> $ export VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_param_checker
+> $ export VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_parameter_validation
 
-> $ export VK_DEVICE_LAYERS=VK_LAYER_LUNARG_param_checker
+> $ export VK_DEVICE_LAYERS=VK_LAYER_LUNARG_parameter_validation
 ```
 
 **Note**: Many layers, including all LunarG validation layers are “global”
@@ -214,13 +214,14 @@ vkEnumerateInstanceExtensionProperties. Device extensions can be discovered via
 vkEnumerateDeviceExtensionProperties. The loader discovers and aggregates all
 extensions from layers (both explicit and implicit), ICDs and the loader before
 reporting them to the application in vkEnumerate\*ExtensionProperties. The
-pLayerName parameter in these functions are used to select either a single
-layer or the Vulkan platform implementation. If pLayerName is NULL, extensions
-from Vulkan implementation components (including loader, implicit layers, and
-ICDs) are enumerated. If pLayerName is equal to a discovered layer module name
-then any extensions from that layer (which may be implicit or explicit) are
-enumerated. Duplicate extensions (eg an implicit layer and ICD might report
-support for the same extension) are eliminated by the loader. Extensions must
+pLayerName parameter in these functions is used to select either a single layer
+or the Vulkan platform implementation. If pLayerName is NULL, extensions from
+Vulkan implementation components (including loader, implicit layers, and ICDs)
+are enumerated. If pLayerName is equal to a discovered layer module name then
+any extensions from that layer (which may be implicit or explicit) are
+enumerated. Duplicate extensions (e.g. an implicit layer and ICD might report
+support for the same extension) are eliminated by the loader. For duplicates, the
+ICD version is reported and the layer version is culled. Extensions must
 be enabled (in vkCreateInstance or vkCreateDevice) before they can be used.
 
 Extension command entry points should be queried via vkGetInstanceProcAddr or
@@ -237,7 +238,7 @@ what could happen if the application were to use vkGetDeviceProcAddr for the
 function “vkGetDeviceQueue” and “vkDestroyDevice” but not “vkAllocateMemory”.
 The resulting function pointer (fpGetDeviceQueue) would be the ICD’s entry
 point if the loader and any enabled layers do not need to see that call. Even
-if an enabled layer intercepts the call (eg vkDestroyDevice) the loader
+if an enabled layer intercepts the call (e.g. vkDestroyDevice) the loader
 trampoline code is skipped for function pointers obtained via
 vkGetDeviceProcAddr. This also means that function pointers obtained via
 vkGetDeviceProcAddr will only work with the specific VkDevice it was created
@@ -281,7 +282,7 @@ of an ICD shared library (".dll") file. For example:
     "file_format_version": "1.0.0",
     "ICD": {
         "library_path": "path to ICD library",
-        "api_version": "1.0.3"
+        "api_version": "1.0.5"
     }
   }
   ```
@@ -325,9 +326,9 @@ specified contents:
 
 | Text File Name | Text File Contents |
 |----------------|--------------------|
-|vk\_vendora.json  | "ICD": { "library\_path": "C:\\\\VENDORA\\\\vk\_vendora.dll", "api_version": "1.0.3" } |
-| vendorb\_vk.json |  "ICD": { "library\_path": "vendorb\_vk.dll", "api_version": "1.0.3" } |
-|vendorc\_icd.json  | "ICD": { "library\_path": "vedorc\_icd.dll", "api_version": "1.0.3" }|
+|vk\_vendora.json  | "ICD": { "library\_path": "C:\\\\VENDORA\\\\vk\_vendora.dll", "api_version": "1.0.5" } |
+| vendorb\_vk.json |  "ICD": { "library\_path": "vendorb\_vk.dll", "api_version": "1.0.5" } |
+|vendorc\_icd.json  | "ICD": { "library\_path": "vedorc\_icd.dll", "api_version": "1.0.5" }|
 
 Then the loader will open the three files mentioned in the "Text File Contents"
 column, and then try to load and use the three shared libraries indicated by
@@ -376,6 +377,10 @@ in the following Linux directories:
 
 /usr/share/vulkan/icd.d
 /etc/vulkan/icd.d
+$HOME/.local/share/vulkan/icd.d
+
+Where $HOME is the current home directory of the application's user id; this
+path will be ignored for suid programs.
 
 These directories will contain text information files (a.k.a. "manifest
 files"), that use a JSON format.
@@ -388,7 +393,7 @@ pathname of an ICD shared library (".so") file. For example:
     "file_format_version": "1.0.0",
     "ICD": {
         "library_path": "path to ICD library",
-        "api_version": "1.0.3"
+        "api_version": "1.0.5"
     }
 }
 ```
@@ -425,9 +430,9 @@ the specified contents:
 
 | Text File Name    | Text File Contents     |
 |-------------------|------------------------|
-| vk\_vendora.json | "ICD": { "library\_path": "vendora.so", "api_version": "1.0.3" } |
-| vendorb\_vk.json | "ICD": { "library\_path": "vendorb\_vulkan\_icd.so", "api_version": "1.0.3" } |
-| vendorc\_icd.json | "ICD": { "library\_path": "/usr/lib/VENDORC/icd.so", "api_version": "1.0.3" } |
+| vk\_vendora.json | "ICD": { "library\_path": "vendora.so", "api_version": "1.0.5" } |
+| vendorb\_vk.json | "ICD": { "library\_path": "vendorb\_vulkan\_icd.so", "api_version": "1.0.5" } |
+| vendorc\_icd.json | "ICD": { "library\_path": "/usr/lib/VENDORC/icd.so", "api_version": "1.0.5" } |
 
 then the loader will open the three files mentioned in the "Text File Contents"
 column, and then try to load and use the three shared libraries indicated by
@@ -449,7 +454,7 @@ other words, only the ICDs listed in "VK\_ICD\_FILENAMES" will be used.
 The "VK\_ICD\_FILENAMES" environment variable is a colon-separated list of ICD
 manifest files, containing the following:
 
-- A filename (e.g. "libvkicd.json") in the "/usr/share/vulkan/icd.d" or "/etc/vulkan/icd.d" system directories
+- A filename (e.g. "libvkicd.json") in the "/usr/share/vulkan/icd.d", "/etc/vulkan/icd.d" "$HOME/.local/share/vulkan/icd.d" directories
 
 - A full pathname (e.g. "/my\_build/my\_icd.json")
 
@@ -499,19 +504,21 @@ Linux and Windows:
 
 1) Recommended
 
-- vk\_icdGetInstanceProcAddr exported in the ICD library and it returns valid
-  function pointers for all the global level and instance level Vulkan commands,
-  and also vkGetDeviceProcAddr. Global level commands are those which contain no
-  dispatchable object as the first parameter, such as vkCreateInstance and
-  vkEnumerateInstanceExtensionProperties. The ICD must support querying global
-  level entry points by calling vk\_icdGetInstanceProcAddr with a NULL VkInstance
-  parameter. Instance level commands are those that have either VkInstance, or
-  VkPhysicalDevice as the first parameter dispatchable object. Both core entry
-  points and any instance extension entry points the ICD supports should be
-  available via vk\_icdGetInstanceProcAddr. Future Vulkan instance extensions may
-  define and use new instance level dispatchable objects other than VkInstance
-  and VkPhysicalDevice, in which case, extensions entry points using these newly
-  defined dispatchable oibjects must be queryable via vk\_icdGetInstanceProcAddr.
+- vk\_icdGetInstanceProcAddr is exported by the ICD library and it returns
+  valid function pointers for all the global level and instance level Vulkan
+  commands, and also for vkGetDeviceProcAddr. Global level commands are those
+  which contain no dispatchable object as the first parameter, such as
+  vkCreateInstance and vkEnumerateInstanceExtensionProperties. The ICD must
+  support querying global level entry points by calling
+  vk\_icdGetInstanceProcAddr with a NULL VkInstance parameter. Instance level
+  commands are those that have either VkInstance, or VkPhysicalDevice as the
+  first parameter dispatchable object. Both core entry points and any instance
+  extension entry points the ICD supports should be available via
+  vk\_icdGetInstanceProcAddr. Future Vulkan instance extensions may define and
+  use new instance level dispatchable objects other than VkInstance and
+  VkPhysicalDevice, in which case extension entry points using these newly
+  defined dispatchable objects must be queryable via
+  vk\_icdGetInstanceProcAddr.
 
 - All other Vulkan entry points must either NOT be exported from the ICD
   library or else NOT use the official Vulkan function names if they are
@@ -521,12 +528,14 @@ Linux and Windows:
   application. In other words, the ICD library exported Vulkan symbols must not
   clash with the loader's exported Vulkan symbols.
 
-- Beware of interposing by dynamic OS library loaders if the offical Vulkan names
-are used. On Linux, if offical names are used, the ICD library must be linked with -Bsymbolic.
+- Beware of interposing by dynamic OS library loaders if the official Vulkan
+  names are used. On Linux, if official names are used, the ICD library must be
+  linked with -Bsymbolic.
+
 2) Deprecated
 
 - vkGetInstanceProcAddr exported in the ICD library and returns valid function
-  pointers for all the Vulkan API entrypoints.
+  pointers for all the Vulkan API entry points.
 
 - vkCreateInstance exported in the ICD library;
 
@@ -551,8 +560,8 @@ destruction is handled by the loader as follows:
    VkIcdSurface\* structure.
 
 4. VkIcdSurface\* structures include VkIcdSurfaceWin32, VkIcdSurfaceXcb,
-   VkIcdSurfaceXlib, VkIcdSurfaceMir, and VkIcdSurfaceWayland. The first field in
-   the structure is a  VkIcdSurfaceBase enumerant that indicates westher the
+   VkIcdSurfaceXlib, VkIcdSurfaceMir, and VkIcdSurfaceWayland. The first field
+   in the structure is a VkIcdSurfaceBase enumerant that indicates whether the
    surface object is Win32, Xcb, Xlib, Mir, or Wayland.
 
 As previously covered, the loader requires dispatch tables to be accessible
@@ -570,7 +579,8 @@ dispatchable objects created by ICDs are as follows:
 2. This pointer points to a regular C structure with the first entry being a
    pointer. Note: for any C\++ ICD's that implement VK objects directly as C\++
    classes. The C\++ compiler may put a vtable at offset zero if your class is
-   virtual. In this case use a regular C structure (see below).
+   non-POD due to the use of a virtual function. In this case use a regular C
+   structure (see below).
 
 3. The loader checks for a magic value (ICD\_LOADER\_MAGIC) in all the created
    dispatchable objects, as follows (see include/vulkan/vk\_icd.h):
@@ -600,14 +610,13 @@ Additional Notes:
 
 - The loader will filter out extensions requested in vkCreateInstance and
 vkCreateDevice before calling into the ICD; Filtering will be of extensions
-advertised by entities (eg layers) different from the ICD in question.
-- The loader will not call ICD for vkEnumerate\*LayerProperties() as layer
+advertised by entities (e.g. layers) different from the ICD in question.
+- The loader will not call the ICD for vkEnumerate\*LayerProperties() as layer
 properties are obtained from the layer libraries and layer JSON files.
 - If an ICD library wants to implement a layer it can do so by having the
 appropriate layer JSON manifest file refer to the ICD library file.
 - The loader will not call the ICD for
   vkEnumerate\*ExtensionProperties(pLayerName != NULL).
-- The ICD may or may not implement a dispatch table.
 
 #### Android
 
@@ -694,13 +703,13 @@ extension information as follows
 single number, increasing with backward compatible changes.
 
     - (required for device\_extensions with entry points) extension
-"entrypoints" - array of device extension entrypoints; not used for instance
+"entrypoints" - array of device extension entry points; not used for instance
 extensions
 
 - (sometimes required) "functions" - mapping list of function entry points. If
 multiple layers exist within the same shared library (or if a layer is in the
 same shared library as an ICD), this must be specified to allow each layer to
-have its own vkGet\*ProcAddr entrypoints that can be found by the loader. At
+have its own vkGet\*ProcAddr entry points that can be found by the loader. At
 this time, only the following two functions are required:
 
     - "vkGetInstanceProcAddr" name
@@ -734,7 +743,7 @@ For example:
     "name": "VK_LAYER_LUNARG_OverlayLayer",
     "type": "DEVICE",
     "library_path": "vkOverlayLayer.dll"
-    "api_version" : "1.0.3",
+    "api_version" : "1.0.5",
     "implementation_version" : "2",
     "description" : "LunarG HUD layer",
     "functions": {
@@ -751,9 +760,9 @@ For example:
             "spec_version": "3"
          }
     ],
-    device_extensions": [
+    "device_extensions": [
         {
-            "name": "VK_LUNARG_DEBUG_MARKER",
+            "name": "VK_DEBUG_MARKER_EXT",
             "spec_version": "1",
             "entrypoints": ["vkCmdDbgMarkerBegin", "vkCmdDbgMarkerEnd"]
         }
@@ -810,6 +819,11 @@ The Vulkan loader will scan the files in the following Linux directories:
 /usr/share/vulkan/implicit\_layer.d
 /etc/vulkan/explicit\_layer.d
 /etc/vulkan/implicit\_layer.d
+$HOME/.local/share/vulkan/explicit\_layer.d
+$HOME/.local/share/vulkan/implicit\_layer.d
+
+Where $HOME is the current home directory of the application's user id; this
+path will be ignored for suid programs.
 
 Explicit layers are those which are enabled by an application (e.g. with the
 vkCreateInstance function), or by an environment variable (as mentioned
@@ -847,7 +861,7 @@ file
 - (required) "implementation\_version" – layer version, a single number
 increasing with backward compatible changes.
 
-- (required) "description" – informative decription of the layer.
+- (required) "description" – informative description of the layer.
 
 - (optional) "device\_extensions" or "instance\_extensions" - array of
 extension information as follows
@@ -858,13 +872,13 @@ extension information as follows
 single number, increasing with backward compatible changes.
 
     - (required for device extensions with entry points) extension
-"entrypoints" - array of device extension entrypoints; not used for instance
+"entrypoints" - array of device extension entry points; not used for instance
 extensions
 
 - (sometimes required) "functions" - mapping list of function entry points. If
 multiple layers exist within the same shared library (or if a layer is in the
 same shared library as an ICD), this must be specified to allow each layer to
-have its own vkGet\*ProcAddr entrypoints that can be found by the loader. At
+have its own vkGet\*ProcAddr entry points that can be found by the loader. At
 this time, only the following two functions are required:
     - "vkGetInstanceProcAddr" name
     - "vkGetDeviceProcAddr" name
@@ -895,7 +909,7 @@ For example:
     "name": "VK_LAYER_LUNARG_OverlayLayer",
     "type": "DEVICE",
     "library_path": "vkOverlayLayer.dll"
-    "api_version" : "1.0.3",
+    "api_version" : "1.0.5",
     "implementation_version" : "2",
     "description" : "LunarG HUD layer",
     "functions": {
@@ -912,9 +926,9 @@ For example:
             "spec_version": "3"
          }
     ],
-    device_extensions": [
+    "device_extensions": [
         {
-            "name": "VK_LUNARG_DEBUG_MARKER",
+            "name": "VK_DEBUG_MARKER_EXT",
             "spec_version": "1",
             "entrypoints": ["vkCmdDbgMarkerBegin", "vkCmdDbgMarkerEnd"]
         }
@@ -986,32 +1000,34 @@ CreateDevice. A layer can intercept Vulkan instance commands, device commands
 or both. For a layer to intercept instance commands, it must participate in the
 instance call chain. For a layer to intercept device commands, it must
 participate in the device chain. Layers which participate in intercepting calls
-in both the intance and device chains are called global layers.
+in both the instance and device chains are called global layers.
 
 Normally, when a layer intercepts a given Vulkan command, it will call down the
 instance or device chain as needed. The loader and all layer libraries that
 participate in a call chain cooperate to ensure the correct sequencing of calls
 from one entity to the next. This group effort for call chain sequencing is
-hereinafter referred to as disitributed dispatch. In distributed dispatch,
-since each layer is responsible for properly calling the next entity in the
-device or instance chain, a dispatch mechanism is required for all Vulkan
-commands a layer intercepts. For Vulkan commands that are not intercepted by a
-layer, or if the layer chooses to terminate a given Vulkman command by not
-calling down the chain, then no dispatch mechanism is needed for that
-particular Vulkan command.  Only for those Vulkan commands, which may be a
-subset of all Vulkan commands, that a layer intercepts is a dispatching
-mechanism by the layer needed. The loader is responsible for dispatching all
-core and instance extension Vulkan commands to the first entity in the chain.
+hereinafter referred to as distributed dispatch. In distributed dispatch, since
+each layer is responsible for properly calling the next entity in the device or
+instance chain, a dispatch mechanism is required for all Vulkan commands a
+layer intercepts. For Vulkan commands that are not intercepted by a layer, or
+if the layer chooses to terminate a given Vulkan command by not calling down
+the chain, then no dispatch mechanism is needed for that particular Vulkan
+command.  Only for those Vulkan commands, which may be a subset of all Vulkan
+commands, that a layer intercepts is a dispatching mechanism by the layer
+needed. The loader is responsible for dispatching all core and instance
+extension Vulkan commands to the first entity in the chain.
 
-Instance level Vulkan commands are those that have the disapatchable objects
-VkInstance, or VkPhysicalDevice as the first parameter and alos includes
+Instance level Vulkan commands are those that have the dispatchable objects
+VkInstance, or VkPhysicalDevice as the first parameter and also includes
 vkCreateInstance.
+
 Device level Vulkan commands are those that use VkDevice, VkQueue or
 VkCommandBuffer as the first parameter and also include vkCreateDevice. Future
 extensions may introduce new instance or device level dispatchable objects, so
 the above lists may be extended in the future.
 
-#### Discovery of layer entrypoints
+#### Discovery of layer entry points
+
 For the layer libraries that have been discovered by the loader, their
 intercepting entry points that will participate in a device or instance call
 chain need to be available to the loader or whatever layer is before them in
@@ -1030,13 +1046,12 @@ The name of this function is specified in various ways: 1) the layer manifest
 JSON file in the "functions", "vkGetDeviceProcAddr" node (Linux/Windows); 2) it
 is named "vkGetDeviceProcAddr"; 3) it is "<layerName>GetDeviceProcAddr"
 (Android).
-- A layer's vkGetInstanceProcAddr function (irregardless of it's name) must
-return the local entry points for all instance level Vulkan commands it
-intercepts. At a minimum, this includes vkGetInstanceProcAddr and
-vkCreateInstance.
-- A layer's vkGetDeviceProcAddr function (irregardless of it's name) must
-return the entry points for all device level Vulkan commands it intercepts. At
-a minimum, this includes vkGetDeviceProcAddr and vkCreateDevice.
+- A layer's vkGetInstanceProcAddr function (regardless of its name) must return
+the local entry points for all instance level Vulkan commands it intercepts. At
+a minimum, this includes vkGetInstanceProcAddr and vkCreateInstance.
+- A layer's vkGetDeviceProcAddr function (regardless of its name) must return
+the entry points for all device level Vulkan commands it intercepts. At a
+minimum, this includes vkGetDeviceProcAddr and vkCreateDevice.
 - There are no requirements on the names of the intercepting functions a layer
 implements except those listed above for vkGetInstanceProcAddr and
 vkGetDeviceProcAddr.
@@ -1047,6 +1062,7 @@ instance level commands it intercepts including vkCreateDevice.
 parameter equal to NULL for device level commands it intercepts.
 
 #### Layer intercept requirements
+
 - Layers intercept a Vulkan command by defining a C/C++ function with signature
 identical to the Vulkan API for that command.
 - Other than the two vkGet*ProcAddr, all other functions intercepted by a layer
@@ -1065,6 +1081,7 @@ vkQueueSubmit.  Any additional calls inserted by a layer must be on the same
 chain. They should call down the chain.
 
 #### Distributed dispatching requirements
+
 - For each entry point a layer intercepts, it must keep track of the entry
 point residing in the next entity in the chain it will call down into. In other
 words, the layer must have a list of pointers to functions of the appropriate
@@ -1075,16 +1092,17 @@ for clarity will be referred to as a dispatch table.
 - A layer can use the VkLayerInstanceDispatchTable structure as a instance
 dispatch table (see include/vulkan/vk_layer.h).
 - Layers vkGetInstanceProcAddr function uses the next entity's
-vkGetInstanceProcAddr to call down the chain for unknown (ie non-intercepted)
+vkGetInstanceProcAddr to call down the chain for unknown (i.e. non-intercepted)
 functions.
 - Layers vkGetDeviceProcAddr function uses the next entity's
-vkGetDeviceProcAddr to call down the chain for unknown (ie non-intercepted)
+vkGetDeviceProcAddr to call down the chain for unknown (i.e. non-intercepted)
 functions.
 
 #### Layer dispatch initialization
-- A layer intializes it's instance dispatch table within it's vkCreateInstance
+
+- A layer initializes its instance dispatch table within its vkCreateInstance
 function.
-- A layer intializes it's device dispatch table within it's vkCreateDevice
+- A layer initializes its device dispatch table within its vkCreateDevice
 function.
 - The loader passes a linked list of initialization structures to layers via
 the "pNext" field in the VkInstanceCreateInfo and VkDeviceCreateInfo structures
@@ -1122,34 +1140,164 @@ the VkInstanceCreateInfo/VkDeviceCreateInfo structure.
 Get*ProcAddr function once for each Vulkan command needed in your dispatch
 table
 
-TODO: Example code for CreateInstance.
+#### Example code for CreateInstance
 
-TODO: Example code for CreateDevice.
+```cpp
+VkResult vkCreateInstance(
+        const VkInstanceCreateInfo *pCreateInfo,
+        const VkAllocationCallbacks *pAllocator,
+        VkInstance *pInstance)
+{
+   VkLayerInstanceCreateInfo *chain_info =
+        get_chain_info(pCreateInfo, VK_LAYER_LINK_INFO);
+
+    assert(chain_info->u.pLayerInfo);
+    PFN_vkGetInstanceProcAddr fpGetInstanceProcAddr =
+        chain_info->u.pLayerInfo->pfnNextGetInstanceProcAddr;
+    PFN_vkCreateInstance fpCreateInstance =
+        (PFN_vkCreateInstance)fpGetInstanceProcAddr(NULL, "vkCreateInstance");
+    if (fpCreateInstance == NULL) {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    // Advance the link info for the next element of the chain
+    chain_info->u.pLayerInfo = chain_info->u.pLayerInfo->pNext;
+
+    // Continue call down the chain
+    VkResult result = fpCreateInstance(pCreateInfo, pAllocator, pInstance);
+    if (result != VK_SUCCESS)
+        return result;
+
+    // Allocate new structure to store peristent data
+    layer_data *my_data = new layer_data;
+
+    // Associate this instance with the newly allocated data
+    // layer will store any persistent state it needs for
+    // this instance in the my_data structure
+    layer_data_map[get_dispatch_key(*pInstance)] = my_data;
+
+    // Create layer's dispatch table using GetInstanceProcAddr of
+    // next layer in the chain.
+    my_data->instance_dispatch_table = new VkLayerInstanceDispatchTable;
+    layer_init_instance_dispatch_table(
+        *pInstance, my_data->instance_dispatch_table, fpGetInstanceProcAddr);
+
+    // Keep track of any extensions that were enabled for this
+    // instance. In this case check for VK_EXT_debug_report
+    my_data->report_data = debug_report_create_instance(
+        my_data->instance_dispatch_table, *pInstance,
+        pCreateInfo->enabledExtensionCount,
+        pCreateInfo->ppEnabledExtensionNames);
+
+    // Other layer initialization
+    ...
+
+    return VK_SUCCESS;
+}
+```
+
+#### Example code for CreateDevice
+
+```cpp
+VkResult 
+vkCreateDevice(
+        VkPhysicalDevice gpu,
+        const VkDeviceCreateInfo *pCreateInfo,
+        const VkAllocationCallbacks *pAllocator,
+        VkDevice *pDevice)
+{
+    VkLayerDeviceCreateInfo *chain_info =
+        get_chain_info(pCreateInfo, VK_LAYER_LINK_INFO);
+
+    PFN_vkGetInstanceProcAddr fpGetInstanceProcAddr =
+        chain_info->u.pLayerInfo->pfnNextGetInstanceProcAddr;
+    PFN_vkGetDeviceProcAddr fpGetDeviceProcAddr =
+        chain_info->u.pLayerInfo->pfnNextGetDeviceProcAddr;
+    PFN_vkCreateDevice fpCreateDevice =
+        (PFN_vkCreateDevice)fpGetInstanceProcAddr(NULL, "vkCreateDevice");
+    if (fpCreateDevice == NULL) {
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    // Advance the link info for the next element on the chain
+    chain_info->u.pLayerInfo = chain_info->u.pLayerInfo->pNext;
+
+    VkResult result = fpCreateDevice(gpu, pCreateInfo, pAllocator, pDevice);
+    if (result != VK_SUCCESS) {
+        return result;
+    }
+
+    // Allocate new structure to store peristent data
+    layer_data *my_data = new layer_data;
+
+    // Associate this instance with the newly allocated data
+    // layer will store any persistent state it needs for
+    // this instance in the my_data structure
+    layer_data_map[get_dispatch_key(*pDevice)] = my_data;
+
+    my_device_data->device_dispatch_table = new VkLayerDispatchTable;
+    layer_init_device_dispatch_table(
+        *pDevice, my_device_data->device_dispatch_table, fpGetDeviceProcAddr);
+
+    // Keep track of any extensions that were enabled for this
+    // instance. In this case check for VK_EXT_debug_report
+    my_data->report_data = debug_report_create_instance(
+        my_instance_data->report_data, *pDevice);
+
+    // Other layer initialization
+    ...
+
+    return VK_SUCCESS;
+}
+```
 
 #### Special Considerations
-A layer may want to associate it's own private data with one or more Vulkan objects.
+A layer may want to associate it's own private data with one or more Vulkan
+objects.
 Two common methods to do this are hash maps  and object wrapping. The loader
 supports layers wrapping any Vulkan object including dispatchable objects.
 Layers which wrap objects should ensure they always unwrap objects before
 passing them down the chain. This implies the layer must intercept every Vulkan
 command which uses the object in question. Layers above the object wrapping
-layer will see the wrapped object.
+layer will see the wrapped object. Layers which wrap dispatchable objects must
+ensure that the first field in the wrapping structure is a pointer to a dispatch table
+as defined in vk_layer.h. Specifically, an instance wrapped dispatchable object
+could be as follows:
+```
+struct my_wrapped_instance_obj_ {
+    VkLayerInstanceDispatchTable *disp;
+    // whatever data layer wants to add to this object
+};
+```
+A device wrapped dispatchable object could be as follows:
+```
+struct my_wrapped_instance_obj_ {
+    VkLayerDispatchTable *disp;
+    // whatever data layer wants to add to this object
+};
+```
 
-Alternatively, a layer may want to use a hash map to associate data with a given object.
-The key to the map could be the object. Alternatively, for dispatchable objects
-at a given level (eg device or instance) the may layer may want data associated with the all command for the VkDevice or VkInstance. Since there are multiple
-dispatchable objects for a given VkInstance or VkDevice, the VkDevice or
-VkInstance object is not a great map key. Instead the layer should use the
-dispatch table pointer withbin the VkDevice or VkInstance since that will be
-unique for a given VkInstance or VkDevice.
+Alternatively, a layer may want to use a hash map to associate data with a
+given object. The key to the map could be the object. Alternatively, for
+dispatchable objects at a given level (eg device or instance) the layer may
+want data associated with the VkDevice or VkInstance objects. Since
+there are multiple dispatchable objects for a given VkInstance or VkDevice, the
+VkDevice or VkInstance object is not a great map key. Instead the layer should
+use the dispatch table pointer within the VkDevice or VkInstance since that
+will be unique for a given VkInstance or VkDevice.
 
 Layers which create dispatchable objects take special care. Remember that loader
 trampoline code normally fills in the dispatch table pointer in the newly
 created object. Thus, the layer must fill in the dispatch table pointer if the
-loader trampoline will not do so.  Common cases a layer may create a dispatchable
-object without loader trampoline code is as follows:
+loader trampoline will not do so.  Common cases where a layer (or ICD) may create a
+dispatchable object without loader trampoline code is as follows:
 - object wrapping layers that wrap dispatchable objects
 - layers which add extensions that create dispatchable objects
 - layers which insert extra Vulkan commands in the stream of commands they
 intercept from the application
+- ICDs which add extensions that create dispatchable objects
+
+To fill in the dispatch table pointer in newly created dispatchable object,
+the layer should copy the dispatch pointer, which is always the first entry in the structure, from an existing parent object of the same level (instance versus
+device). For example, if there is a newly created VkCommandBuffer object, then the dispatch pointer from the VkDevice object, which is the parent of the VkCommandBuffer object, should be copied into the newly created object.
 
