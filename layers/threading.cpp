@@ -221,8 +221,9 @@ static inline PFN_vkVoidFunction layer_intercept_instance_proc(const char *name)
         return (PFN_vkVoidFunction)vkCreateDevice;
     if (!strcmp(name, "GetInstanceProcAddr"))
         return (PFN_vkVoidFunction)vkGetInstanceProcAddr;
+    name -= 2;
 
-    return NULL;
+    return layer_intercept_proc(name);
 }
 
 VK_LAYER_EXPORT PFN_vkVoidFunction VKAPI_CALL vkGetDeviceProcAddr(VkDevice device, const char *funcName) {

@@ -530,26 +530,21 @@ class Subcommand(object):
                              "    PFN_vkVoidFunction addr;\n"
                              "    if (!strcmp(\"vkGetDeviceProcAddr\", funcName)) {\n"
                              "        return (PFN_vkVoidFunction) vkGetDeviceProcAddr;\n"
-                             "    }\n\n"
-                             "    addr = layer_intercept_proc(funcName);\n"
+                             "    }\n\n")
+
+            func_body.append('%s' % self.lineinfo.get())
+            for (ext_enable, ext_list) in extensions:
+                for ext_name in ext_list:
+                    func_body.append('    if (!strcmp("%s", funcName))\n'
+                                     '        return reinterpret_cast<PFN_vkVoidFunction>(%s);' % (ext_name, ext_name))
+
+            func_body.append("\n    addr = layer_intercept_proc(funcName);\n"
                              "    if (addr)\n"
                              "        return addr;\n"
                              "    if (device == VK_NULL_HANDLE) {\n"
                              "        return NULL;\n"
-                             "    }\n")
-            if 0 != len(extensions):
-                func_body.append('%s' % self.lineinfo.get())
-                func_body.append('    layer_data *my_device_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);')
-                for (ext_enable, ext_list) in extensions:
-                    extra_space = ""
-                    if 0 != len(ext_enable):
-                        func_body.append('    if (my_device_data->%s) {' % ext_enable)
-                        extra_space = "    "
-                    for ext_name in ext_list:
-                        func_body.append('    %sif (!strcmp("%s", funcName))\n'
-                                         '        %sreturn reinterpret_cast<PFN_vkVoidFunction>(%s);' % (extra_space, ext_name, extra_space, ext_name))
-                    if 0 != len(ext_enable):
-                        func_body.append('    }\n')
+                             "    }\n\n")
+
             func_body.append("\n    if (get_dispatch_table(%s_device_table_map, device)->GetDeviceProcAddr == NULL)\n"
                              "        return NULL;\n"
                              "    return get_dispatch_table(%s_device_table_map, device)->GetDeviceProcAddr(device, funcName);\n"
@@ -564,6 +559,10 @@ class Subcommand(object):
                              "    if (!strcmp(funcName, \"vkCreateDevice\"))\n"
                              "        return (PFN_vkVoidFunction) vkCreateDevice;\n"
                              "    addr = layer_intercept_instance_proc(funcName);\n"
+                             "    if (addr) {\n"
+                             "        return addr;"
+                             "    }\n"
+                             "    addr = vkGetDeviceProcAddr(VK_NULL_HANDLE, funcName);\n"
                              "    if (addr) {\n"
                              "        return addr;"
                              "    }\n"
@@ -1194,6 +1193,13 @@ class ObjectTrackerSubcommand(Subcommand):
             "DestroySwapchainKHR",
             "GetSwapchainImagesKHR"
         ]
+        khr_swapchain_functions= [
+            'CreateSwapchainKHR',
+            'DestroySwapchainKHR',
+            'GetSwapchainImagesKHR',
+            'AcquireNextImageKHR',
+            'QueuePresentKHR'
+        ]
         decl = proto.c_func(prefix="vk", attr="VKAPI")
         param0_name = proto.params[0].name
         using_line = ''
@@ -1273,11 +1279,25 @@ class ObjectTrackerSubcommand(Subcommand):
         funcs = []
         mutex_unlock = False
         funcs.append('%s\n' % self.lineinfo.get())
+
+        khr_swapchain_check = ''
+        if proto.name in khr_swapchain_functions:
+            dispatch_param = proto.params[0].name
+            khr_swapchain_check += '    loader_platform_thread_lock_mutex(&objLock);\n'
+            khr_swapchain_check += '    layer_data *my_device_data = get_my_data_ptr(get_dispatch_key(%s), layer_data_map);\n' % (dispatch_param)
+            khr_swapchain_check += '    if (!my_device_data->wsi_enabled) {\n'
+            khr_swapchain_check += '        loader_platform_thread_unlock_mutex(&objLock);\n'
+            khr_swapchain_check += '        return get_dispatch_table(object_tracker_device_table_map, %s)->%s;\n' % (dispatch_param, proto.c_call())
+            khr_swapchain_check += '    }\n'
+            khr_swapchain_check += '    loader_platform_thread_unlock_mutex(&objLock);\n'
+            khr_swapchain_check += '\n'
+
         if proto.name in explicit_object_tracker_functions:
             funcs.append('%s%s\n'
                      '{\n'
+                     '%s'
                      '    return explicit_%s;\n'
-                     '}' % (qual, decl, proto.c_call()))
+                     '}' % (qual, decl, khr_swapchain_check, proto.c_call()))
             return "".join(funcs)
         # Temporarily prevent  DestroySurface call from being generated until WSI layer support is fleshed out
         elif 'DestroyInstance' in proto.name or 'DestroyDevice' in proto.name:
@@ -1348,10 +1368,11 @@ class ObjectTrackerSubcommand(Subcommand):
                      '{\n'
                      '%s'
                      '%s'
+                     '%s'
                      '    %sget_dispatch_table(object_tracker_%s_table_map, %s)->%s;\n'
                      '%s'
                      '%s'
-                     '}' % (qual, decl, using_line, destroy_line, ret_val, table_type, dispatch_param, proto.c_call(), create_line, stmt))
+                     '}' % (qual, decl, khr_swapchain_check, using_line, destroy_line, ret_val, table_type, dispatch_param, proto.c_call(), create_line, stmt))
             if wsi_name(proto.name):
                 funcs.append('%s' % wsi_endif(proto.name))
         return "\n\n".join(funcs)

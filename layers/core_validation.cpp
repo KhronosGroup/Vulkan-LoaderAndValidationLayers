@@ -10425,6 +10425,8 @@ VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkCreateSwapchainKHR(VkDevice dev
                                                                     VkSwapchainKHR *pSwapchain) {
     layer_data *dev_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
     VkResult result = dev_data->device_dispatch_table->CreateSwapchainKHR(device, pCreateInfo, pAllocator, pSwapchain);
+    if (!dev_data->device_extensions.wsi_enabled)
+        return result;
 
     if (VK_SUCCESS == result) {
         SWAPCHAIN_NODE *psc_node = new SWAPCHAIN_NODE(pCreateInfo);
@@ -10440,6 +10442,11 @@ VK_LAYER_EXPORT VKAPI_ATTR void VKAPI_CALL
 vkDestroySwapchainKHR(VkDevice device, VkSwapchainKHR swapchain, const VkAllocationCallbacks *pAllocator) {
     layer_data *dev_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
     bool skipCall = false;
+
+    if (!dev_data->device_extensions.wsi_enabled) {
+        dev_data->device_dispatch_table->DestroySwapchainKHR(device, swapchain, pAllocator);
+        return;
+    }
 
     loader_platform_thread_lock_mutex(&globalLock);
     auto swapchain_data = dev_data->device_extensions.swapchainMap.find(swapchain);
@@ -10475,6 +10482,8 @@ VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL
 vkGetSwapchainImagesKHR(VkDevice device, VkSwapchainKHR swapchain, uint32_t *pCount, VkImage *pSwapchainImages) {
     layer_data *dev_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
     VkResult result = dev_data->device_dispatch_table->GetSwapchainImagesKHR(device, swapchain, pCount, pSwapchainImages);
+    if (!dev_data->device_extensions.wsi_enabled)
+        return result;
 
     if (result == VK_SUCCESS && pSwapchainImages != NULL) {
         // This should never happen and is checked by param checker.
@@ -10526,6 +10535,10 @@ VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkQueuePresentKHR(VkQueue queue, 
     layer_data *dev_data = get_my_data_ptr(get_dispatch_key(queue), layer_data_map);
     VkResult result = VK_ERROR_VALIDATION_FAILED_EXT;
     bool skip_call = false;
+
+    if (!dev_data->device_extensions.wsi_enabled) {
+        return dev_data->device_dispatch_table->QueuePresentKHR(queue, pPresentInfo);
+    }
 
     if (pPresentInfo) {
         loader_platform_thread_lock_mutex(&globalLock);
@@ -10589,6 +10602,11 @@ VKAPI_ATTR VkResult VKAPI_CALL vkAcquireNextImageKHR(VkDevice device, VkSwapchai
     layer_data *dev_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
     VkResult result = VK_ERROR_VALIDATION_FAILED_EXT;
     bool skipCall = false;
+
+    if (!dev_data->device_extensions.wsi_enabled) {
+        return dev_data->device_dispatch_table->AcquireNextImageKHR(device, swapchain, timeout, semaphore, fence, pImageIndex);
+    }
+
 #if MTMERGESOURCE
     loader_platform_thread_lock_mutex(&globalLock);
     if (dev_data->semaphoreMap.find(semaphore) != dev_data->semaphoreMap.end()) {
@@ -10887,24 +10905,22 @@ VK_LAYER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetDeviceProcAddr(VkD
     if (!strcmp(funcName, "vkCreateEvent"))
         return (PFN_vkVoidFunction)vkCreateEvent;
 
+    if (!strcmp(funcName, "vkCreateSwapchainKHR"))
+        return (PFN_vkVoidFunction)vkCreateSwapchainKHR;
+    if (!strcmp(funcName, "vkDestroySwapchainKHR"))
+        return (PFN_vkVoidFunction)vkDestroySwapchainKHR;
+    if (!strcmp(funcName, "vkGetSwapchainImagesKHR"))
+        return (PFN_vkVoidFunction)vkGetSwapchainImagesKHR;
+    if (!strcmp(funcName, "vkAcquireNextImageKHR"))
+        return (PFN_vkVoidFunction)vkAcquireNextImageKHR;
+    if (!strcmp(funcName, "vkQueuePresentKHR"))
+        return (PFN_vkVoidFunction)vkQueuePresentKHR;
+
     if (dev == NULL)
         return NULL;
 
     layer_data *dev_data;
     dev_data = get_my_data_ptr(get_dispatch_key(dev), layer_data_map);
-
-    if (dev_data->device_extensions.wsi_enabled) {
-        if (!strcmp(funcName, "vkCreateSwapchainKHR"))
-            return (PFN_vkVoidFunction)vkCreateSwapchainKHR;
-        if (!strcmp(funcName, "vkDestroySwapchainKHR"))
-            return (PFN_vkVoidFunction)vkDestroySwapchainKHR;
-        if (!strcmp(funcName, "vkGetSwapchainImagesKHR"))
-            return (PFN_vkVoidFunction)vkGetSwapchainImagesKHR;
-        if (!strcmp(funcName, "vkAcquireNextImageKHR"))
-            return (PFN_vkVoidFunction)vkAcquireNextImageKHR;
-        if (!strcmp(funcName, "vkQueuePresentKHR"))
-            return (PFN_vkVoidFunction)vkQueuePresentKHR;
-    }
 
     VkLayerDispatchTable *pTable = dev_data->device_dispatch_table;
     {
@@ -10937,6 +10953,10 @@ VK_LAYER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr(V
         return (PFN_vkVoidFunction)vkEnumerateDeviceLayerProperties;
     if (!strcmp(funcName, "vkEnumerateDeviceExtensionProperties"))
         return (PFN_vkVoidFunction)vkEnumerateDeviceExtensionProperties;
+
+    PFN_vkVoidFunction addr = vkGetDeviceProcAddr(VK_NULL_HANDLE, funcName);
+    if (addr)
+        return addr;
 
     if (instance == NULL)
         return NULL;

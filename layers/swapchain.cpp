@@ -1962,14 +1962,6 @@ VK_LAYER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetDeviceProcAddr(VkD
     if (!strcmp(funcName, "vkDestroyDevice"))
         return (PFN_vkVoidFunction)vkDestroyDevice;
 
-    if (device == VK_NULL_HANDLE) {
-        return NULL;
-    }
-
-    layer_data *my_data;
-
-    my_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
-    VkLayerDispatchTable *pDisp =  my_data->device_dispatch_table;
     if (!strcmp("vkCreateSwapchainKHR", funcName))
         return reinterpret_cast<PFN_vkVoidFunction>(vkCreateSwapchainKHR);
     if (!strcmp("vkDestroySwapchainKHR", funcName))
@@ -1982,6 +1974,15 @@ VK_LAYER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetDeviceProcAddr(VkD
         return reinterpret_cast<PFN_vkVoidFunction>(vkQueuePresentKHR);
     if (!strcmp("vkGetDeviceQueue", funcName))
         return reinterpret_cast<PFN_vkVoidFunction>(vkGetDeviceQueue);
+
+    if (device == VK_NULL_HANDLE) {
+        return NULL;
+    }
+
+    layer_data *my_data;
+
+    my_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
+    VkLayerDispatchTable *pDisp =  my_data->device_dispatch_table;
 
     if (pDisp->GetDeviceProcAddr == NULL)
         return NULL;
@@ -2010,11 +2011,14 @@ VK_LAYER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr(V
     if (!strcmp(funcName, "vkGetPhysicalDeviceQueueFamilyProperties"))
         return (PFN_vkVoidFunction)vkGetPhysicalDeviceQueueFamilyProperties;
 
+    PFN_vkVoidFunction addr = vkGetDeviceProcAddr(VK_NULL_HANDLE, funcName);
+    if (addr) {
+        return addr;
+    }
+
     if (instance == VK_NULL_HANDLE) {
         return NULL;
     }
-
-    PFN_vkVoidFunction addr;
 
     layer_data *my_data;
     my_data = get_my_data_ptr(get_dispatch_key(instance), layer_data_map);

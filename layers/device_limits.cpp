@@ -771,6 +771,10 @@ VK_LAYER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr(V
     if (!strcmp(funcName, "vkEnumerateInstanceDeviceProperties"))
         return (PFN_vkVoidFunction)vkEnumerateDeviceExtensionProperties;
 
+    PFN_vkVoidFunction addr = vkGetDeviceProcAddr(VK_NULL_HANDLE, funcName);
+    if (addr)
+        return addr;
+
     if (!instance)
         return NULL;
 
