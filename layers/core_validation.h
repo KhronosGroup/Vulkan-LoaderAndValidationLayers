@@ -458,7 +458,7 @@ typedef struct _IMAGE_LAYOUT_NODE {
 
 class IMAGE_CMD_BUF_LAYOUT_NODE {
   public:
-    IMAGE_CMD_BUF_LAYOUT_NODE() {}
+    IMAGE_CMD_BUF_LAYOUT_NODE() : initialLayout(VK_IMAGE_LAYOUT_UNDEFINED) {}
     IMAGE_CMD_BUF_LAYOUT_NODE(VkImageLayout initialLayoutInput, VkImageLayout layoutInput)
         : initialLayout(initialLayoutInput), layout(layoutInput) {}
 
