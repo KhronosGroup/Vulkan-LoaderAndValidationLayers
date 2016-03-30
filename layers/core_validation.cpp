@@ -2866,36 +2866,23 @@ static VkBool32 validate_and_update_drawtime_descriptor_state(
                                                       "VK_WHOLE_SIZE but dynamic offset %#" PRIxLEAST32 ". "
                                                       "combined with offset %#" PRIxLEAST64 " oversteps its buffer (%#" PRIxLEAST64
                                                       ") which has a size of %#" PRIxLEAST64 ".",
-                                                      reinterpret_cast<const uint64_t &>(set_node->set), i,
-                                                      pCB->dynamicOffsets[dynOffsetIndex], pWDS->pBufferInfo[j].offset,
+                                                      reinterpret_cast<const uint64_t &>(set_node->set), i, dynOffset,
+                                                      pWDS->pBufferInfo[j].offset,
                                                       reinterpret_cast<const uint64_t &>(pWDS->pBufferInfo[j].buffer), bufferSize);
                                 }
                             } else if ((dynOffset + pWDS->pBufferInfo[j].offset + pWDS->pBufferInfo[j].range) > bufferSize) {
-                                result |= log_msg(
-                                    dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT,
-                                    VK_DEBUG_REPORT_OBJECT_TYPE_DESCRIPTOR_SET_EXT,
-                                    reinterpret_cast<const uint64_t &>(set_node->set), __LINE__, DRAWSTATE_DYNAMIC_OFFSET_OVERFLOW,
-                                    "DS",
-                                    "VkDescriptorSet (%#" PRIxLEAST64 ") bound as set #%u has dynamic offset %#" PRIxLEAST32 ". "
-                                    "Combined with offset %#" PRIxLEAST64 " and range %#" PRIxLEAST64
-                                    " from its update, this oversteps its buffer "
-                                    "(%#" PRIxLEAST64 ") which has a size of %#" PRIxLEAST64 ".",
-                                    reinterpret_cast<const uint64_t &>(set_node->set), i, pCB->dynamicOffsets[dynOffsetIndex],
-                                    pWDS->pBufferInfo[j].offset, pWDS->pBufferInfo[j].range,
-                                    reinterpret_cast<const uint64_t &>(pWDS->pBufferInfo[j].buffer), bufferSize);
-                            } else if ((dynOffset + pWDS->pBufferInfo[j].offset + pWDS->pBufferInfo[j].range) > bufferSize) {
-                                result |= log_msg(
-                                    dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT,
-                                    VK_DEBUG_REPORT_OBJECT_TYPE_DESCRIPTOR_SET_EXT,
-                                    reinterpret_cast<const uint64_t &>(set_node->set), __LINE__, DRAWSTATE_DYNAMIC_OFFSET_OVERFLOW,
-                                    "DS",
-                                    "VkDescriptorSet (%#" PRIxLEAST64 ") bound as set #%u has dynamic offset %#" PRIxLEAST32 ". "
-                                    "Combined with offset %#" PRIxLEAST64 " and range %#" PRIxLEAST64
-                                    " from its update, this oversteps its buffer "
-                                    "(%#" PRIxLEAST64 ") which has a size of %#" PRIxLEAST64 ".",
-                                    reinterpret_cast<const uint64_t &>(set_node->set), i, pCB->dynamicOffsets[dynOffsetIndex],
-                                    pWDS->pBufferInfo[j].offset, pWDS->pBufferInfo[j].range,
-                                    reinterpret_cast<const uint64_t &>(pWDS->pBufferInfo[j].buffer), bufferSize);
+                                result |= log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT,
+                                                  VK_DEBUG_REPORT_OBJECT_TYPE_DESCRIPTOR_SET_EXT,
+                                                  reinterpret_cast<const uint64_t &>(set_node->set), __LINE__,
+                                                  DRAWSTATE_DYNAMIC_OFFSET_OVERFLOW, "DS",
+                                                  "VkDescriptorSet (%#" PRIxLEAST64
+                                                  ") bound as set #%u has dynamic offset %#" PRIxLEAST32 ". "
+                                                  "Combined with offset %#" PRIxLEAST64 " and range %#" PRIxLEAST64
+                                                  " from its update, this oversteps its buffer "
+                                                  "(%#" PRIxLEAST64 ") which has a size of %#" PRIxLEAST64 ".",
+                                                  reinterpret_cast<const uint64_t &>(set_node->set), i, dynOffset,
+                                                  pWDS->pBufferInfo[j].offset, pWDS->pBufferInfo[j].range,
+                                                  reinterpret_cast<const uint64_t &>(pWDS->pBufferInfo[j].buffer), bufferSize);
                             }
                             dynOffsetIndex++;
                         }
@@ -7501,10 +7488,6 @@ vkCmdBindDescriptorSets(VkCommandBuffer commandBuffer, VkPipelineBindPoint pipel
                                         "is %u. It should exactly match the number of dynamic descriptors.",
                                         setCount, totalDynamicDescriptors, dynamicOffsetCount);
                 }
-                // Save dynamicOffsets bound to this CB
-                for (uint32_t i = 0; i < dynamicOffsetCount; i++) {
-                    pCB->lastBound[pipelineBindPoint].dynamicOffsets.push_back(pDynamicOffsets[i]);
-                }
             }
             //  dynamicOffsetCount must equal the total number of dynamic descriptors in the sets being bound
             if (totalDynamicDescriptors != dynamicOffsetCount) {
@@ -7517,7 +7500,7 @@ vkCmdBindDescriptorSets(VkCommandBuffer commandBuffer, VkPipelineBindPoint pipel
             }
             // Save dynamicOffsets bound to this CB
             for (uint32_t i = 0; i < dynamicOffsetCount; i++) {
-                pCB->dynamicOffsets.emplace_back(pDynamicOffsets[i]);
+                pCB->lastBound[pipelineBindPoint].dynamicOffsets.emplace_back(pDynamicOffsets[i]);
             }
         } else {
             skipCall |= report_error_no_cb_begin(dev_data, commandBuffer, "vkCmdBindDescriptorSets()");
