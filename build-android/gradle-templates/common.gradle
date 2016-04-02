@@ -1,9 +1,5 @@
 apply plugin: 'com.android.model.native'
 
-Properties properties = new Properties()
-properties.load(project.rootProject.file('local.properties').newDataInputStream())
-def ndkDir = properties.getProperty('ndk.dir')
-
 model {
     android {
         compileSdkVersion = 23
@@ -58,7 +54,6 @@ model {
             ndk.with {
                 debuggable = true
             }
-            minifyEnabled = false
         }
     }
     android.productFlavors {
