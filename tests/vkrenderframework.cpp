@@ -47,7 +47,9 @@ VkRenderFramework::VkRenderFramework()
       m_depth_clear_color(1.0), m_stencil_clear_color(0), m_depthStencil(NULL),
       m_CreateDebugReportCallback(VK_NULL_HANDLE),
       m_DestroyDebugReportCallback(VK_NULL_HANDLE),
-      m_globalMsgCallback(VK_NULL_HANDLE), m_devMsgCallback(VK_NULL_HANDLE) {
+      m_globalMsgCallback(VK_NULL_HANDLE), m_devMsgCallback(VK_NULL_HANDLE),
+	  m_device(VK_NULL_HANDLE),
+	  inst(VK_NULL_HANDLE) {
 
     memset(&m_renderPassBeginInfo, 0, sizeof(m_renderPassBeginInfo));
     m_renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
