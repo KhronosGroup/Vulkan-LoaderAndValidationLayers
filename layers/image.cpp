@@ -1325,6 +1325,11 @@ VK_LAYER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr(V
     if (!strcmp(funcName, "vkGetPhysicalDeviceProperties"))
         return (PFN_vkVoidFunction)vkGetPhysicalDeviceProperties;
 
+    PFN_vkVoidFunction addr = vkGetDeviceProcAddr(VK_NULL_HANDLE, funcName);
+    if (addr) {
+        return addr;
+    }
+
     if (instance == NULL) {
         return NULL;
     }

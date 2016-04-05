@@ -3604,12 +3604,6 @@ vkCmdExecuteCommands(VkCommandBuffer commandBuffer, uint32_t commandBufferCount,
 }
 
 VK_LAYER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetDeviceProcAddr(VkDevice device, const char *funcName) {
-    layer_data *data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
-
-    if (validate_string(data->report_data, "vkGetDeviceProcAddr", "funcName", funcName) == VK_TRUE) {
-        return NULL;
-    }
-
     if (!strcmp(funcName, "vkGetDeviceProcAddr"))
         return (PFN_vkVoidFunction)vkGetDeviceProcAddr;
     if (!strcmp(funcName, "vkDestroyDevice"))
@@ -3825,6 +3819,12 @@ VK_LAYER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetDeviceProcAddr(VkD
         return NULL;
     }
 
+    layer_data *data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
+
+    if (validate_string(data->report_data, "vkGetDeviceProcAddr", "funcName", funcName) == VK_TRUE) {
+        return NULL;
+    }
+
     if (get_dispatch_table(pc_device_table_map, device)->GetDeviceProcAddr == NULL)
         return NULL;
     return get_dispatch_table(pc_device_table_map, device)->GetDeviceProcAddr(device, funcName);
@@ -3855,6 +3855,11 @@ VK_LAYER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr(V
         return (PFN_vkVoidFunction)vkEnumerateDeviceLayerProperties;
     if (!strcmp(funcName, "vkEnumerateDeviceExtensionProperties"))
         return (PFN_vkVoidFunction)vkEnumerateDeviceExtensionProperties;
+
+    PFN_vkVoidFunction addr = vkGetDeviceProcAddr(VK_NULL_HANDLE, funcName);
+    if (addr) {
+        return addr;
+    }
 
     if (instance == NULL) {
         return NULL;
