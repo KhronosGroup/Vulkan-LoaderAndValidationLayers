@@ -90,6 +90,11 @@ endif()
 add_executable(vulkaninfo vulkaninfo.c)
 target_link_libraries(vulkaninfo ${LIBRARIES})
 
+if (NOT WIN32)
+    add_executable(const-lies const-lies.cc)
+    target_link_libraries(const-lies ${LIBRARIES})
+endif()
+
 if(UNIX)
     add_executable(tri tri.c ${CMAKE_BINARY_DIR}/demos/tri-vert.spv ${CMAKE_BINARY_DIR}/demos/tri-frag.spv)
 else()
@@ -112,4 +117,3 @@ else()
 endif()
 
 add_subdirectory(smoke)
-
