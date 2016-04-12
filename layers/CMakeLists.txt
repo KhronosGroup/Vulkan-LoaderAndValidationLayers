@@ -149,6 +149,8 @@ add_vk_layer(core_validation core_validation.cpp vk_layer_table.cpp vk_safe_stru
 add_vk_layer(device_limits device_limits.cpp vk_layer_table.cpp)
 add_vk_layer(image image.cpp vk_layer_table.cpp)
 add_vk_layer(swapchain swapchain.cpp vk_layer_table.cpp)
+
+#add_vk_layer(unique_objects unique_objects.cpp vk_layer_table.cpp vk_safe_struct.cpp)
 # generated
 add_vk_layer(object_tracker object_tracker.cpp vk_layer_table.cpp)
 add_vk_layer(threading threading.cpp thread_check.h vk_layer_table.cpp)

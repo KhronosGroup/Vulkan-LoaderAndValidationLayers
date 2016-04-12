@@ -208,7 +208,7 @@ class Subcommand(object):
  * Copyright (c) 2015-2016 The Khronos Group Inc.
  * Copyright (c) 2015-2016 Valve Corporation
  * Copyright (c) 2015-2016 LunarG, Inc.
- * Copyright (c) 2015 Google, Inc.
+ * Copyright (c) 2015-2016 Google, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and/or associated documentation files (the "Materials"), to
@@ -1523,7 +1523,7 @@ class UniqueObjectsSubcommand(Subcommand):
 
     def generate_intercept(self, proto, qual):
         create_func = False
-        destroy_func = False
+        #destroy_func = False
         last_param_index = None #typcially we look at all params for ndos
         pre_call_txt = '' # code prior to calling down chain such as unwrap uses of ndos
         post_call_txt = '' # code following call down chain such to wrap newly created ndos, or destroy local wrap struct
@@ -1534,7 +1534,9 @@ class UniqueObjectsSubcommand(Subcommand):
         # TODO : Special case Create*Pipelines funcs to handle creating multiple unique objects
         explicit_object_tracker_functions = ['GetSwapchainImagesKHR',
                                              'CreateInstance',
+                                             'DestroyInstance',
                                              'CreateDevice',
+                                             'DestroyDevice',
                                              'CreateComputePipelines',
                                              'CreateGraphicsPipelines'
                                              ]
@@ -1555,10 +1557,10 @@ class UniqueObjectsSubcommand(Subcommand):
         if True in [create_txt in proto.name for create_txt in ['Create', 'Allocate']]:
             create_func = True
             last_param_index = -1 # For create funcs don't care if last param is ndo
-        if True in [destroy_txt in proto.name for destroy_txt in ['Destroy', 'Free']]:
-            destroy_obj_type = proto.params[-2].ty
-            if destroy_obj_type in vulkan.object_non_dispatch_list:
-                destroy_func = True
+#        if True in [destroy_txt in proto.name for destroy_txt in ['Destroy', 'Free']]:
+#            destroy_obj_type = proto.params[-2].ty
+#            if destroy_obj_type in vulkan.object_non_dispatch_list:
+#                destroy_func = True
 
         # First thing we need to do is gather uses of non-dispatchable-objects (ndos)
         (struct_uses, local_decls) = get_object_uses(vulkan.object_non_dispatch_list, proto.params[1:last_param_index])
@@ -1567,9 +1569,9 @@ class UniqueObjectsSubcommand(Subcommand):
             pre_call_txt += '// STRUCT USES:%s\n' % sorted(struct_uses)
             if len(local_decls) > 0:
                 pre_call_txt += '//LOCAL DECLS:%s\n' % sorted(local_decls)
-            if destroy_func: # only one object
-                for del_obj in sorted(struct_uses):
-                    pre_call_txt += '%s%s local_%s = %s;\n' % (indent, struct_uses[del_obj], del_obj, del_obj)
+#            if destroy_func: # only one object
+#                for del_obj in sorted(struct_uses):
+#                    pre_call_txt += '%s%s local_%s = %s;\n' % (indent, struct_uses[del_obj], del_obj, del_obj)
             (pre_decl, pre_code, post_code) = self._gen_obj_code(struct_uses, local_decls, '    ', '', 0, set(), True)
             # This is a bit hacky but works for now. Need to decl local versions of top-level structs
             for ld in sorted(local_decls):
@@ -1602,37 +1604,41 @@ class UniqueObjectsSubcommand(Subcommand):
                 local_name = "unique%s" % obj_type[2:]
                 post_call_txt += '%sif (VK_SUCCESS == result) {\n' % (indent)
                 indent += '    '
+                post_call_txt += '%slayer_data *my_%s_data = get_my_data_ptr(get_dispatch_key(%s), layer_data_map);\n' % (indent, dispatch_param, dispatch_param)
                 if obj_name in custom_create_dict:
                     post_call_txt += '%s\n' % (self.lineinfo.get())
                     local_name = '%ss' % (local_name) # add 's' to end for vector of many
-                    post_call_txt += '%sstd::vector<VkUniqueObject*> %s = {};\n' % (indent, local_name)
+                    #post_call_txt += '%sstd::vector<VkUniqueObject*> %s = {};\n' % (indent, local_name)
+                    post_call_txt += '%sVkUniqueObject* %s = my_%s_data->unique_object_pool->allocate_unique_objects(%s);\n' % (indent, local_name, dispatch_param, custom_create_dict[obj_name])
                     post_call_txt += '%sfor (uint32_t i=0; i<%s; ++i) {\n' % (indent, custom_create_dict[obj_name])
                     indent += '    '
-                    post_call_txt += '%s%s.push_back(new VkUniqueObject());\n' % (indent, local_name)
-                    post_call_txt += '%s%s[i]->actualObject = (uint64_t)%s[i];\n' % (indent, local_name, obj_name)
-                    post_call_txt += '%s%s[i] = (%s)%s[i];\n' % (indent, obj_name, obj_type, local_name)
+                    #post_call_txt += '%s%s.push_back(new VkUniqueObject());\n' % (indent, local_name)
+                    #post_call_txt += '%s%s[i]->actualObject = (uint64_t)%s[i];\n' % (indent, local_name, obj_name)
+                    post_call_txt += '%s%s[i].actualObject = (uint64_t)%s[i];\n' % (indent, local_name, obj_name)
+                    post_call_txt += '%s%s[i] = (%s)&%s[i];\n' % (indent, obj_name, obj_type, local_name)
                     indent = indent[4:]
                     post_call_txt += '%s}\n' % (indent)
                 else:
                     post_call_txt += '%s\n' % (self.lineinfo.get())
-                    post_call_txt += '%sVkUniqueObject* %s = new VkUniqueObject();\n' % (indent, local_name)
+                    #post_call_txt += '%sVkUniqueObject* %s = new VkUniqueObject();\n' % (indent, local_name)
+                    post_call_txt += '%sVkUniqueObject* %s = my_%s_data->unique_object_pool->allocate_unique_object();\n' % (indent, local_name, dispatch_param)
                     post_call_txt += '%s%s->actualObject = (uint64_t)*%s;\n' % (indent, local_name, obj_name)
                     post_call_txt += '%s*%s = (%s)%s;\n' % (indent, obj_name, obj_type, local_name)
                 indent = indent[4:]
                 post_call_txt += '%s}\n' % (indent)
-        elif destroy_func:
-            del_obj = proto.params[-2].name
-            if 'count' in del_obj.lower():
-                post_call_txt += '%s\n' % (self.lineinfo.get())
-                post_call_txt += '%sfor (uint32_t i=0; i<%s; ++i) {\n' % (indent, del_obj)
-                del_obj = proto.params[-1].name
-                indent += '    '
-                post_call_txt += '%sdelete (VkUniqueObject*)%s[i];\n' % (indent, del_obj)
-                indent = indent[4:]
-                post_call_txt += '%s}\n' % (indent)
-            else:
-                post_call_txt += '%s\n' % (self.lineinfo.get())
-                post_call_txt = '%sdelete (VkUniqueObject*)local_%s;\n' % (indent, proto.params[-2].name)
+#        elif destroy_func:
+#            del_obj = proto.params[-2].name
+#            if 'count' in del_obj.lower():
+#                post_call_txt += '%s\n' % (self.lineinfo.get())
+#                post_call_txt += '%sfor (uint32_t i=0; i<%s; ++i) {\n' % (indent, del_obj)
+#                del_obj = proto.params[-1].name
+#                indent += '    '
+#                post_call_txt += '%sdelete (VkUniqueObject*)%s[i];\n' % (indent, del_obj)
+#                indent = indent[4:]
+#                post_call_txt += '%s}\n' % (indent)
+#            else:
+#                post_call_txt += '%s\n' % (self.lineinfo.get())
+                #post_call_txt = '%sdelete (VkUniqueObject*)local_%s;\n' % (indent, proto.params[-2].name)
 
         call_sig = proto.c_call()
         # Replace default params with any custom local params
