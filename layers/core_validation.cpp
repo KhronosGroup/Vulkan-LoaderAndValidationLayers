@@ -5162,7 +5162,6 @@ vkQueueSubmit(VkQueue queue, uint32_t submitCount, const VkSubmitInfo *pSubmits,
             const VkSemaphore &semaphore = submit->pWaitSemaphores[i];
             if (dev_data->semaphoreMap[semaphore].signaled) {
                 dev_data->semaphoreMap[semaphore].signaled = 0;
-                dev_data->semaphoreMap[semaphore].in_use.fetch_sub(1);
             } else {
                 skipCall |= log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT,
                                     VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT, 0, __LINE__, DRAWSTATE_QUEUE_FORWARD_PROGRESS,
