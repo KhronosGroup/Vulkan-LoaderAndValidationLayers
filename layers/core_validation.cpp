@@ -4736,10 +4736,6 @@ static bool ValidateCmdBufImageLayouts(VkCommandBuffer cmdBuffer) {
         } else {
             if (cb_image_data.second.initialLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
                 // TODO: Set memory invalid which is in mem_tracker currently
-            } else if (imageLayout == VK_IMAGE_LAYOUT_UNDEFINED || imageLayout == VK_IMAGE_LAYOUT_PREINITIALIZED) {
-                // Filter out the transition from above old layouts:
-                // This case only happens, when the above layouts are "left". Can not happen later,
-                // as a transition back to these layouts is forbidden and is checked at another place.
             } else if (imageLayout != cb_image_data.second.initialLayout) {
                 skip_call |=
                     log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
