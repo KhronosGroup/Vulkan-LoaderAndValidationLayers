@@ -4913,7 +4913,7 @@ VkBool32 ValidateCmdBufImageLayouts(VkCommandBuffer cmdBuffer) {
 			}
 			else if (imageLayout == VK_IMAGE_LAYOUT_UNDEFINED || imageLayout == VK_IMAGE_LAYOUT_PREINITIALIZED) {
 				// Filter out the transition from above old layouts:
-				// This case only happens, when the abouve layouts are "left". Can not happen later,
+				// This case only happens, when the above layouts are "left". Can not happen later,
 				// as a transition back to these layouts is forbidden and is checked at another place.
 			}
 			else if (imageLayout != cb_image_data.second.initialLayout) {
