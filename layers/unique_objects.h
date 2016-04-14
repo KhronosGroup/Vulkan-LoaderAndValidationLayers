@@ -45,10 +45,77 @@
 #include "vk_safe_struct.h"
 #include "vk_layer_utils.h"
 
+// Structure to wrap returned non-dispatchable objects to guarantee they have unique handles
+//  address of struct will be used as the unique handle
+struct VkUniqueObject {
+    uint64_t actualObject;
+};
+
+class UniqueObjectPool {
+  public:
+    UniqueObjectPool() : next_obj(nullptr), last_obj(nullptr), always_unique(true) {
+        unique_object_pools.push_back(new VkUniqueObject[INITIAL_SIZE]);
+        next_obj = unique_object_pools.back();
+        last_obj = next_obj + INITIAL_SIZE;
+    }
+    ~UniqueObjectPool() {
+        for (auto uop : unique_object_pools) {
+            delete[] uop;
+        }
+    }
+    // Return single unique object handle from pool, growing pool as needed
+    VkUniqueObject *allocate_unique_object() {
+        // By default this just returns a handle from the pool
+        if (always_unique) {
+            if (next_obj >= last_obj) {
+                // Grow pool
+                unique_object_pools.push_back(new VkUniqueObject[GROW_SIZE]);
+                next_obj = unique_object_pools.back();
+                last_obj = next_obj + GROW_SIZE;
+            }
+            VkUniqueObject *newObj = next_obj++;
+            return newObj;
+        } else { // we have leeway here to free pools or reallocate handles
+            // TODO : How to handle this case? Do we want this case at all?
+        }
+        return nullptr;
+    }
+    // Return ptr to start of array of consecutive unique object ptrs
+    VkUniqueObject *allocate_unique_objects(size_t num_objects) {
+        // By default this just returns a handle from the pool
+        if (always_unique) {
+            // Just jump to new pool if current pool can't hold all requested objects
+            // TODO : This can be wasteful so should revisit at some point
+            if ((next_obj + num_objects) >= last_obj) {
+                // Grow pool, making sure it's big enough for num_objects
+                size_t new_pool_size = (num_objects > GROW_SIZE) ? num_objects : GROW_SIZE;
+                unique_object_pools.push_back(new VkUniqueObject[new_pool_size]);
+                next_obj = unique_object_pools.back();
+                last_obj = next_obj + new_pool_size;
+            }
+            VkUniqueObject *newObj = next_obj;
+            next_obj += num_objects;
+            return newObj;
+        } else { // we have leeway here to free pools or reallocate handles
+            // TODO : How to handle this case? Do we want this case at all?
+        }
+        return nullptr;
+    }
+
+  private:
+    std::vector<VkUniqueObject *> unique_object_pools;
+    VkUniqueObject *next_obj;
+    VkUniqueObject *last_obj;
+    bool always_unique; // Currently this is always true, may want to add special case(s) for more reuse
+    static const size_t INITIAL_SIZE = 1024;
+    static const size_t GROW_SIZE = 1024;
+};
+
 struct layer_data {
     bool wsi_enabled;
+    UniqueObjectPool *unique_object_pool;
 
-    layer_data() : wsi_enabled(false){};
+    layer_data() : wsi_enabled(false), unique_object_pool(nullptr){};
 };
 
 struct instExts {
@@ -65,11 +132,6 @@ static std::unordered_map<void *, struct instExts> instanceExtMap;
 static std::unordered_map<void *, layer_data *> layer_data_map;
 static device_table_map unique_objects_device_table_map;
 static instance_table_map unique_objects_instance_table_map;
-// Structure to wrap returned non-dispatchable objects to guarantee they have unique handles
-//  address of struct will be used as the unique handle
-struct VkUniqueObject {
-    uint64_t actualObject;
-};
 
 // Handle CreateInstance
 static void createInstanceRegisterExtensions(const VkInstanceCreateInfo *pCreateInfo, VkInstance instance) {
@@ -168,8 +230,18 @@ VkResult explicit_CreateInstance(const VkInstanceCreateInfo *pCreateInfo, const 
     initInstanceTable(*pInstance, fpGetInstanceProcAddr, unique_objects_instance_table_map);
 
     createInstanceRegisterExtensions(pCreateInfo, *pInstance);
+    // Init instance object pool
+    layer_data *my_instance_data = get_my_data_ptr(get_dispatch_key(*pInstance), layer_data_map);
+    my_instance_data->unique_object_pool = new UniqueObjectPool();
 
     return result;
+}
+
+void explicit_DestroyInstance(VkInstance instance, const VkAllocationCallbacks *pAllocator) {
+    layer_data *instance_data = get_my_data_ptr(get_dispatch_key(instance), layer_data_map);
+    get_dispatch_table(unique_objects_instance_table_map, instance)->DestroyInstance(instance, pAllocator);
+    delete instance_data->unique_object_pool;
+    layer_data_map.erase(get_dispatch_key(instance));
 }
 
 // Handle CreateDevice
@@ -213,8 +285,18 @@ VkResult explicit_CreateDevice(VkPhysicalDevice gpu, const VkDeviceCreateInfo *p
     initDeviceTable(*pDevice, fpGetDeviceProcAddr, unique_objects_device_table_map);
 
     createDeviceRegisterExtensions(pCreateInfo, *pDevice);
+    // Init device object pool
+    layer_data *my_device_data = get_my_data_ptr(get_dispatch_key(*pDevice), layer_data_map);
+    my_device_data->unique_object_pool = new UniqueObjectPool();
 
     return result;
+}
+
+void explicit_DestroyDevice(VkDevice device, const VkAllocationCallbacks *pAllocator) {
+    layer_data *dev_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
+    get_dispatch_table(unique_objects_device_table_map, device)->DestroyDevice(device, pAllocator);
+    delete dev_data->unique_object_pool;
+    layer_data_map.erase(get_dispatch_key(device));
 }
 
 VkResult explicit_QueueSubmit(VkQueue queue, uint32_t submitCount, const VkSubmitInfo *pSubmits, VkFence fence) {
