@@ -243,7 +243,8 @@ def main():
             "Xcb",
             "Xlib",
             "Wayland",
-            "Mir"
+            "Mir",
+            "Null"
     }
     subcommands = {
             "dispatch-table-ops": DispatchTableOpsSubcommand,

@@ -44,6 +44,7 @@ def proto_is_global(proto):
         "EnumerateInstanceExtensionProperties",
         "EnumerateDeviceLayerProperties",
         "EnumerateDeviceExtensionProperties",
+        "CreateDisplayPlaneSurfaceKHR",
         "CreateXcbSurfaceKHR",
         "GetPhysicalDeviceXcbPresentationSupportKHR",
         "CreateXlibSurfaceKHR",
@@ -1324,7 +1325,7 @@ class ObjectTrackerSubcommand(Subcommand):
                                    'vkGetPhysicalDeviceSurfaceFormatsKHR',
                                    'vkGetPhysicalDeviceSurfacePresentModesKHR',
                                    'vkCreateAndroidSurfaceKHR'])]
-        elif self.wsi == 'Xcb' or self.wsi == 'Xlib' or self.wsi == 'Wayland' or self.wsi == 'Mir':
+        elif self.wsi == 'Xcb' or self.wsi == 'Xlib' or self.wsi == 'Wayland' or self.wsi == 'Mir' or self.wsi == 'Null':
             instance_extensions=[('msg_callback_get_proc_addr', []),
                                   ('wsi_enabled',
                                   ['vkDestroySurfaceKHR',
@@ -1332,6 +1333,7 @@ class ObjectTrackerSubcommand(Subcommand):
                                    'vkGetPhysicalDeviceSurfaceCapabilitiesKHR',
                                    'vkGetPhysicalDeviceSurfaceFormatsKHR',
                                    'vkGetPhysicalDeviceSurfacePresentModesKHR',
+                                   'vkCreateDisplayPlaneSurfaceKHR',
                                    'vkCreateXcbSurfaceKHR',
                                    'vkGetPhysicalDeviceXcbPresentationSupportKHR',
                                    'vkCreateXlibSurfaceKHR',
@@ -1633,13 +1635,14 @@ class UniqueObjectsSubcommand(Subcommand):
                                    'vkGetPhysicalDeviceSurfaceFormatsKHR',
                                    'vkGetPhysicalDeviceSurfacePresentModesKHR',
                                    'vkCreateAndroidSurfaceKHR'])]
-        elif self.wsi == 'Xcb' or self.wsi == 'Xlib' or self.wsi == 'Wayland' or self.wsi == 'Mir':
+        elif self.wsi == 'Xcb' or self.wsi == 'Xlib' or self.wsi == 'Wayland' or self.wsi == 'Mir' or self.wsi == 'Null':
             instance_extensions=[('wsi_enabled',
                                   ['vkDestroySurfaceKHR',
                                    'vkGetPhysicalDeviceSurfaceSupportKHR',
                                    'vkGetPhysicalDeviceSurfaceCapabilitiesKHR',
                                    'vkGetPhysicalDeviceSurfaceFormatsKHR',
                                    'vkGetPhysicalDeviceSurfacePresentModesKHR',
+                                   'vkCreateDisplayPlaneSurfaceKHR',
                                    'vkCreateXcbSurfaceKHR',
                                    'vkCreateXlibSurfaceKHR',
                                    'vkCreateWaylandSurfaceKHR',
@@ -1662,6 +1665,7 @@ def main():
             "Xlib",
             "Wayland",
             "Mir",
+            "Null"
     }
 
     subcommands = {
