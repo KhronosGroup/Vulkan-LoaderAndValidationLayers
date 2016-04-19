@@ -4975,6 +4975,7 @@ static void trackCommandBuffers(layer_data *my_data, VkQueue queue, uint32_t sub
         if (fence_data == my_data->fenceMap.end()) {
             return;
         }
+
         if (queue_data != my_data->queueMap.end()) {
             prior_fences = queue_data->second.lastFences;
             queue_data->second.lastFences.clear();
@@ -4984,7 +4985,7 @@ static void trackCommandBuffers(layer_data *my_data, VkQueue queue, uint32_t sub
             }
             queue_data->second.untrackedCmdBuffers.clear();
         }
-        fence_data->second.cmdBuffers.clear();
+
         fence_data->second.priorFences = prior_fences;
         fence_data->second.needsSignaled = true;
         fence_data->second.queue = queue;
@@ -5169,15 +5170,15 @@ vkQueueSubmit(VkQueue queue, uint32_t submitCount, const VkSubmitInfo *pSubmits,
         for (uint32_t i = 0; i < submit->waitSemaphoreCount; ++i) {
             const VkSemaphore &semaphore = submit->pWaitSemaphores[i];
             semaphoreList.push_back(semaphore);
+
             if (dev_data->semaphoreMap.find(semaphore) != dev_data->semaphoreMap.end()) {
                 if (dev_data->semaphoreMap[semaphore].signaled) {
                     dev_data->semaphoreMap[semaphore].signaled = false;
                 } else {
-                    skipCall |=
-                        log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_SEMAPHORE_EXT,
-                                reinterpret_cast<const uint64_t &>(semaphore), __LINE__, DRAWSTATE_QUEUE_FORWARD_PROGRESS, "DS",
-                                "Queue %#" PRIx64 " is waiting on semaphore %#" PRIx64 " that has no way to be signaled.",
-                                reinterpret_cast<uint64_t &>(queue), reinterpret_cast<const uint64_t &>(semaphore));
+                    skipCall |= log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT,
+                        VK_DEBUG_REPORT_OBJECT_TYPE_SEMAPHORE_EXT, reinterpret_cast<const uint64_t &>(semaphore), __LINE__, DRAWSTATE_QUEUE_FORWARD_PROGRESS,
+                                        "DS", "Queue %#" PRIx64 " is waiting on semaphore %#" PRIx64 " that has no way to be signaled.",
+                                        reinterpret_cast<uint64_t &>(queue), reinterpret_cast<const uint64_t &>(semaphore));
                 }
                 const VkQueue &other_queue = dev_data->semaphoreMap[semaphore].queue;
                 if (other_queue != VK_NULL_HANDLE && !processed_other_queues.count(other_queue)) {
@@ -5353,6 +5354,7 @@ static void initializeAndTrackMemory(layer_data *dev_data, VkDeviceMemory mem, V
     }
 }
 #endif
+
 // Note: This function assumes that the global lock is held by the calling
 // thread.
 static bool cleanInFlightCmdBuffer(layer_data *my_data, VkCommandBuffer cmdBuffer) {
@@ -5373,26 +5375,57 @@ static bool cleanInFlightCmdBuffer(layer_data *my_data, VkCommandBuffer cmdBuffe
     }
     return skip_call;
 }
-// Remove given cmd_buffer from the global inFlight set.
-//  Also, if given queue is valid, then remove the cmd_buffer from that queues
-//  inFlightCmdBuffer set. Finally, check all other queues and if given cmd_buffer
-//  is still in flight on another queue, add it back into the global set.
-// Note: This function assumes that the global lock is held by the calling
-// thread.
-static inline void removeInFlightCmdBuffer(layer_data *dev_data, VkCommandBuffer cmd_buffer, VkQueue queue) {
-    // Pull it off of global list initially, but if we find it in any other queue list, add it back in
-    dev_data->globalInFlightCmdBuffers.erase(cmd_buffer);
+
+// Remove given cmd_buffer references from the appropriate inFlight sets
+static inline void removeInFlightCmdBuffer(layer_data *dev_data, VkCommandBuffer cmd_buffer, VkQueue queue, const VkFence fence) {
+
     if (dev_data->queueMap.find(queue) != dev_data->queueMap.end()) {
+        bool multipleQueues = false;
+        bool onFenceCBList = false;
+        // Remove CB from this queue's inFlight list
         dev_data->queueMap[queue].inFlightCmdBuffers.erase(cmd_buffer);
-        for (auto q : dev_data->queues) {
-            if ((q != queue) &&
-                (dev_data->queueMap[q].inFlightCmdBuffers.find(cmd_buffer) != dev_data->queueMap[q].inFlightCmdBuffers.end())) {
-                dev_data->globalInFlightCmdBuffers.insert(cmd_buffer);
-                break;
+
+        auto FindFence = [&dev_data](std::vector<VkFence>& queueFences, VkCommandBuffer& cmd_buffer){
+            for (auto cbFence : queueFences) {
+                for (auto cb : dev_data->fenceMap[cbFence].cmdBuffers) {
+                    if (cb == cmd_buffer) {
+                        return true;
+                    }
+                }
             }
+            return false;
+        };
+
+        // If CB is on this fence's cmdBuffer list, safe to remove
+        if (fence != VK_NULL_HANDLE) {
+            std::vector<VkFence>fenceList;
+            fenceList.push_back(fence);
+            if (FindFence(fenceList, cmd_buffer)) {
+                onFenceCBList = true;
+            }
+        }
+        if (!onFenceCBList) {
+            // Determine if cmdbuffer is on another queue
+            for (auto q : dev_data->queues) {
+                if ((q != queue) &&
+                    (dev_data->queueMap[q].inFlightCmdBuffers.find(cmd_buffer) != dev_data->queueMap[q].inFlightCmdBuffers.end())) {
+                    multipleQueues = true;
+                    // If it is on another queue, , is it also on one if its fence's cmdBuffer lists?
+                    if (FindFence(dev_data->queueMap[q].lastFences, cmd_buffer)) {
+                        onFenceCBList = true;
+                        break;
+                    }
+                }
+            }
+        }
+        // If is is not on another queue, or if it was but is protected by a fence on this queue, it is no longer inFlight. Remove
+        // from global inFlight list
+        if (!multipleQueues || onFenceCBList) {
+            dev_data->globalInFlightCmdBuffers.erase(cmd_buffer);
         }
     }
 }
+
 #if MTMERGESOURCE
 static inline bool verifyFenceStatus(VkDevice device, VkFence fence, const char *apiCall) {
     layer_data *my_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
@@ -5420,6 +5453,7 @@ static inline bool verifyFenceStatus(VkDevice device, VkFence fence, const char 
     return skipCall;
 }
 #endif
+
 VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL
 vkWaitForFences(VkDevice device, uint32_t fenceCount, const VkFence *pFences, VkBool32 waitAll, uint64_t timeout) {
     layer_data *dev_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
@@ -5447,10 +5481,14 @@ vkWaitForFences(VkDevice device, uint32_t fenceCount, const VkFence *pFences, Vk
                 VkQueue fence_queue = dev_data->fenceMap[pFences[i]].queue;
                 for (auto cmdBuffer : dev_data->fenceMap[pFences[i]].cmdBuffers) {
                     skip_call |= cleanInFlightCmdBuffer(dev_data, cmdBuffer);
-                    removeInFlightCmdBuffer(dev_data, cmdBuffer, fence_queue);
+                    removeInFlightCmdBuffer(dev_data, cmdBuffer, fence_queue, pFences[i]);
                 }
             }
             decrementResources(dev_data, fenceCount, pFences);
+            // Clean up fence's cmdBuffer map
+            for (uint32_t i = 0; i < fenceCount; ++i) {
+                dev_data->fenceMap[pFences[i]].cmdBuffers.clear();
+            }
         }
         // NOTE : Alternate case not handled here is when some fences have completed. In
         //  this case for app to guarantee which fences completed it will have to call
@@ -5483,7 +5521,7 @@ VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkGetFenceStatus(VkDevice device,
         auto fence_queue = dev_data->fenceMap[fence].queue;
         for (auto cmdBuffer : dev_data->fenceMap[fence].cmdBuffers) {
             skip_call |= cleanInFlightCmdBuffer(dev_data, cmdBuffer);
-            removeInFlightCmdBuffer(dev_data, cmdBuffer, fence_queue);
+            removeInFlightCmdBuffer(dev_data, cmdBuffer, fence_queue, fence);
         }
         decrementResources(dev_data, 1, &fence);
     }
@@ -5513,15 +5551,25 @@ VK_LAYER_EXPORT VKAPI_ATTR void VKAPI_CALL vkGetDeviceQueue(VkDevice device, uin
 
 VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkQueueWaitIdle(VkQueue queue) {
     layer_data *dev_data = get_my_data_ptr(get_dispatch_key(queue), layer_data_map);
-    decrementResources(dev_data, queue);
     bool skip_call = false;
     std::unique_lock<std::mutex> lock(global_lock);
+
     // Iterate over local set since we erase set members as we go in for loop
     auto local_cb_set = dev_data->queueMap[queue].inFlightCmdBuffers;
+    for (auto cmdBuffer : dev_data->queueMap[queue].untrackedCmdBuffers) {
+        local_cb_set.insert(cmdBuffer);
+        for (auto cbSemaphore : dev_data->commandBufferMap[cmdBuffer]->semaphores) {
+            dev_data->queueMap[dev_data->semaphoreMap[cbSemaphore].queue].inFlightCmdBuffers.erase(cmdBuffer);
+        }
+    }
+
+    decrementResources(dev_data, queue);
+    // Iterate over local set since we erase set members as we go in for loop
     for (auto cmdBuffer : local_cb_set) {
         skip_call |= cleanInFlightCmdBuffer(dev_data, cmdBuffer);
-        removeInFlightCmdBuffer(dev_data, cmdBuffer, queue);
+        removeInFlightCmdBuffer(dev_data, cmdBuffer, queue, VK_NULL_HANDLE);
     }
+
     dev_data->queueMap[queue].inFlightCmdBuffers.clear();
     lock.unlock();
     if (skip_call)
