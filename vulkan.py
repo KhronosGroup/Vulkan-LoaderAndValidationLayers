@@ -1244,7 +1244,7 @@ else :
     elif sys.argv[1] == 'Android':
         extensions = [core, ext_khr_surface, ext_khr_device_swapchain, ext_khr_android_surface]
         extensions_all = [core, ext_khr_surface, ext_khr_device_swapchain, ext_khr_android_surface, lunarg_debug_report]
-    elif sys.argv[1] == 'Xcb' or sys.argv[1] == 'Xlib' or sys.argv[1] == 'Wayland' or sys.argv[1] == 'Mir' or sys.argv[1] == 'Null':
+    elif sys.argv[1] == 'Xcb' or sys.argv[1] == 'Xlib' or sys.argv[1] == 'Wayland' or sys.argv[1] == 'Mir' or sys.argv[1] == 'Display':
         extensions = [core, ext_khr_surface, ext_khr_device_swapchain, ext_khr_xcb_surface, ext_khr_xlib_surface, ext_khr_wayland_surface, ext_khr_mir_surface]
         extensions_all = [core, ext_khr_surface, ext_khr_device_swapchain, ext_khr_xcb_surface, ext_khr_xlib_surface, ext_khr_wayland_surface, ext_khr_mir_surface, lunarg_debug_report]
     else:

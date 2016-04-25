@@ -1325,7 +1325,7 @@ class ObjectTrackerSubcommand(Subcommand):
                                    'vkGetPhysicalDeviceSurfaceFormatsKHR',
                                    'vkGetPhysicalDeviceSurfacePresentModesKHR',
                                    'vkCreateAndroidSurfaceKHR'])]
-        elif self.wsi == 'Xcb' or self.wsi == 'Xlib' or self.wsi == 'Wayland' or self.wsi == 'Mir' or self.wsi == 'Null':
+        elif self.wsi == 'Xcb' or self.wsi == 'Xlib' or self.wsi == 'Wayland' or self.wsi == 'Mir' or self.wsi == 'Display':
             instance_extensions=[('msg_callback_get_proc_addr', []),
                                   ('wsi_enabled',
                                   ['vkDestroySurfaceKHR',
@@ -1665,7 +1665,7 @@ def main():
             "Xlib",
             "Wayland",
             "Mir",
-            "Null"
+            "Display"
     }
 
     subcommands = {
