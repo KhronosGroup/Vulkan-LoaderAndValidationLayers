@@ -818,6 +818,24 @@ TEST_F(VkLayerTest, ResetUnsignaledFence) {
     m_errorMonitor->VerifyNotFound();
 }
 
+TEST_F(VkLayerTest, WaitForUnsubmittedFence) {
+    m_errorMonitor->ExpectSuccess();
+
+    ASSERT_NO_FATAL_FAILURE(InitState());
+    VkFence fence;
+    VkFenceCreateInfo fence_create_info{};
+    fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    vkCreateFence(m_device->device(), &fence_create_info, nullptr, &fence);
+    VkFence fences[1] = {fence};
+
+    VkResult result = vkResetFences(m_device->device(), 1, fences);
+    ASSERT_VK_SUCCESS(result);
+    vkWaitForFences(m_device->device(), 1, fences, VK_TRUE, UINT64_MAX);
+    vkDestroyFence(m_device->device(), fence, NULL);
+
+    m_errorMonitor->VerifyNotFound();
+}
+
 /* TODO: Update for changes due to bug-14075 tiling across render passes */
 #if 0
 TEST_F(VkLayerTest, InvalidUsageBits)
