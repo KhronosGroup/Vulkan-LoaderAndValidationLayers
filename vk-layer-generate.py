@@ -1635,7 +1635,7 @@ class UniqueObjectsSubcommand(Subcommand):
                                    'vkGetPhysicalDeviceSurfaceFormatsKHR',
                                    'vkGetPhysicalDeviceSurfacePresentModesKHR',
                                    'vkCreateAndroidSurfaceKHR'])]
-        elif self.wsi == 'Xcb' or self.wsi == 'Xlib' or self.wsi == 'Wayland' or self.wsi == 'Mir' or self.wsi == 'Null':
+        elif self.wsi == 'Xcb' or self.wsi == 'Xlib' or self.wsi == 'Wayland' or self.wsi == 'Mir' or self.wsi == 'Display':
             instance_extensions=[('wsi_enabled',
                                   ['vkDestroySurfaceKHR',
                                    'vkGetPhysicalDeviceSurfaceSupportKHR',
