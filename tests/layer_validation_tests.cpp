@@ -755,6 +755,8 @@ TEST_F(VkLayerTest, EnableWsiBeforeUse) {
     vkGetPhysicalDeviceXcbPresentationSupportKHR(gpu(), 0, xcb_connection,
         visual_id);
     m_errorMonitor->VerifyFound();
+// Set this (for now, until all platforms are supported and tested):
+#define NEED_TO_TEST_THIS_ON_PLATFORM
 #endif // VK_USE_PLATFORM_XCB_KHR
 
 
@@ -782,12 +784,15 @@ TEST_F(VkLayerTest, EnableWsiBeforeUse) {
         "extension was not enabled for this");
     vkGetPhysicalDeviceXlibPresentationSupportKHR(gpu(), 0, dpy, visual);
     m_errorMonitor->VerifyFound();
+// Set this (for now, until all platforms are supported and tested):
+#define NEED_TO_TEST_THIS_ON_PLATFORM
 #endif // VK_USE_PLATFORM_XLIB_KHR
 
 
     // Use the functions from the VK_KHR_surface extension without enabling
     // that extension:
 
+#ifdef NEED_TO_TEST_THIS_ON_PLATFORM
     // Destroy a surface:
     m_errorMonitor->SetDesiredFailureMsg(
         VK_DEBUG_REPORT_ERROR_BIT_EXT,
@@ -839,6 +844,7 @@ TEST_F(VkLayerTest, EnableWsiBeforeUse) {
     pass = (err != VK_SUCCESS);
     ASSERT_TRUE(pass);
     m_errorMonitor->VerifyFound();
+#endif // NEED_TO_TEST_THIS_ON_PLATFORM
 
 
     // Use the functions from the VK_KHR_swapchain extension without enabling
