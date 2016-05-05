@@ -4817,7 +4817,7 @@ static void decrementResources(layer_data *my_data, VkCommandBuffer cmdBuffer) {
     for (auto drawDataElement : pCB->drawData) {
         for (auto buffer : drawDataElement.buffers) {
             auto buffer_data = my_data->bufferMap.find(buffer);
-            if (buffer_data != my_data->bufferMap.end()) {
+            if (buffer_data != my_data->bufferMap.end() && buffer_data->second.in_use.load()) {
                 buffer_data->second.in_use.fetch_sub(1);
             }
         }
@@ -4825,20 +4825,20 @@ static void decrementResources(layer_data *my_data, VkCommandBuffer cmdBuffer) {
     for (uint32_t i = 0; i < VK_PIPELINE_BIND_POINT_RANGE_SIZE; ++i) {
         for (auto set : pCB->lastBound[i].uniqueBoundSets) {
             auto setNode = my_data->setMap.find(set);
-            if (setNode != my_data->setMap.end()) {
+            if (setNode != my_data->setMap.end() && setNode->second->in_use.load()) {
                 setNode->second->in_use.fetch_sub(1);
             }
         }
     }
     for (auto semaphore : pCB->semaphores) {
         auto semaphoreNode = my_data->semaphoreMap.find(semaphore);
-        if (semaphoreNode != my_data->semaphoreMap.end()) {
+        if (semaphoreNode != my_data->semaphoreMap.end() && semaphoreNode->second.in_use.load()) {
             semaphoreNode->second.in_use.fetch_sub(1);
         }
     }
     for (auto event : pCB->events) {
         auto eventNode = my_data->eventMap.find(event);
-        if (eventNode != my_data->eventMap.end()) {
+        if (eventNode != my_data->eventMap.end() && eventNode->second.in_use.load()) {
             eventNode->second.in_use.fetch_sub(1);
         }
     }
@@ -4856,9 +4856,9 @@ static bool decrementResources(layer_data *my_data, uint32_t fenceCount, const V
     std::vector<VkFence> fences;
     for (uint32_t i = 0; i < fenceCount; ++i) {
         auto fence_data = my_data->fenceMap.find(pFences[i]);
-        if (fence_data == my_data->fenceMap.end() || !fence_data->second.needsSignaled)
+        if (fence_data == my_data->fenceMap.end() || !fence_data->second.in_use.load())
             return skip_call;
-        fence_data->second.needsSignaled = false;
+        // Keep the fence in the state as it is.
         if (fence_data->second.in_use.load()) {
             fences.push_back(pFences[i]);
             fence_data->second.in_use.fetch_sub(1);
