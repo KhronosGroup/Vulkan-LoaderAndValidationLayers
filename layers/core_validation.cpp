@@ -9644,6 +9644,10 @@ vkGetSwapchainImagesKHR(VkDevice device, VkSwapchainKHR swapchain, uint32_t *pCo
             image_node.createInfo.mipLevels = 1;
             image_node.createInfo.arrayLayers = swapchain_node->createInfo.imageArrayLayers;
             image_node.createInfo.usage = swapchain_node->createInfo.imageUsage;
+            image_node.createInfo.format = swapchain_node->createInfo.imageFormat;
+            image_node.createInfo.extent.width = swapchain_node->createInfo.imageExtent.width;
+            image_node.createInfo.extent.height = swapchain_node->createInfo.imageExtent.height;
+            image_node.createInfo.sharingMode = swapchain_node->createInfo.imageSharingMode;
             image_node.valid = false;
             image_node.mem = MEMTRACKER_SWAP_CHAIN_IMAGE_KEY;
             swapchain_node->images.push_back(pSwapchainImages[i]);
