@@ -8574,6 +8574,7 @@ VKAPI_ATTR VkResult VKAPI_CALL CreateRenderPass(VkDevice device, const VkRenderP
         }
 
         auto render_pass = new RENDER_PASS_NODE(localRPCI);
+        render_pass->renderPass = *pRenderPass;
         render_pass->hasSelfDependency = has_self_dependency;
         render_pass->subpassToNode = subpass_to_node;
 #if MTMERGESOURCE
