@@ -1589,7 +1589,7 @@ class StructWrapperGen:
                 if is_type(m_type, 'struct') and self._hasSafeStruct(m_type):
                     m_type = self._getSafeStructName(m_type)
                 if self.struct_dict[s][m]['array_size'] != 0 and not self.struct_dict[s][m]['dyn_array']:
-                    ss_decls.append("    %s %s[%s];" % (m_type, self.struct_dict[s][m]['name'], self.struct_dict[s][m]['array_size']))
+                    ss_decls.append("    %s *%s; //array of size %s" % (m_type, self.struct_dict[s][m]['name'], self.struct_dict[s][m]['array_size']))
                 elif self.struct_dict[s][m]['ptr'] and 'safe_' not in m_type and not self._typeHasObject(m_type, vulkan.object_non_dispatch_list):#m_type in ['char', 'float', 'uint32_t', 'void', 'VkPhysicalDeviceFeatures']: # We'll never overwrite char* so it can remain const
                     ss_decls.append("    %s %s;" % (self.struct_dict[s][m]['full_type'], self.struct_dict[s][m]['name']))
                 elif self.struct_dict[s][m]['array']:
