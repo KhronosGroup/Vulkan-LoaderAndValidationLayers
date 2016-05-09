@@ -122,6 +122,9 @@ def main():
   obj_out = os.path.join(THIS_DIR, stl, 'obj')
   lib_out = os.path.join(THIS_DIR, 'jniLibs')
 
+  print('obj_out: %s' % obj_out)
+  print('lib_out: %s' % lib_out)
+
   build_cmd = [
     'bash', ndk_build, '-C', build_dir, jobs_arg(),
     'APP_ABI=' + ' '.join(abis),
