@@ -116,6 +116,7 @@ def main():
 
   print('ndk_dir: %s' % ndk_dir)
   print('ndk_build: %s' % ndk_build)
+  print('platforms: %s' % platforms)
 
   compiler = 'clang'
   stl = 'gnustl_static'
