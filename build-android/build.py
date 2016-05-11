@@ -32,8 +32,9 @@ ALL_ARCHITECTURES = (
   'x86_64',
 )
 
+# According to vk_platform.h, armeabi is not supported for Vulkan
+# so remove it from the abis list.
 ALL_ABIS = (
-  'armeabi',
   'armeabi-v7a',
   'arm64-v8a',
   'mips',
@@ -47,7 +48,7 @@ def jobs_arg():
 
 def arch_to_abis(arch):
   return {
-    'arm': ['armeabi', 'armeabi-v7a'],
+    'arm': ['armeabi-v7a'],
     'arm64': ['arm64-v8a'],
     'mips': ['mips'],
     'mips64': ['mips64'],
@@ -89,10 +90,6 @@ def main():
   abis = []
   for arch in arches:
     abis.extend(arch_to_abis(arch))
-
-  # According to vk_platform.h, armeabi is not supported for Vulkan
-  # so remove it from the abis list.
-  abis.remove('armeabi')
 
   build_cmd = [
     'bash', THIS_DIR + '/android-generate.sh'
