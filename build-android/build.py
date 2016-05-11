@@ -68,6 +68,9 @@ class ArgParser(argparse.ArgumentParser):
       '--arch', choices=ALL_ARCHITECTURES,
       help='Architectures to build. Builds all if not present.')
 
+    self.add_argument('--installdir', dest='installdir', required=True,
+      help='Installation directory. Required.')
+
     # The default for --dist-dir has to be handled after parsing all
     # arguments because the default is derived from --out-dir. This is
     # handled in run().
@@ -86,6 +89,13 @@ def main():
   arches = ALL_ARCHITECTURES
   if args.arch is not None:
     arches = [args.arch]
+
+  # ensure directory exists.
+  if not os.path.isdir(args.installdir):
+    os.makedirs(args.installdir)
+
+  # Make paths absolute, and ensure directories exist.
+  installdir = os.path.abspath(args.installdir)
 
   abis = []
   for arch in arches:
@@ -111,6 +121,7 @@ def main():
   toolchains_root = os.path.join(ndk_dir, 'toolchains')
   build_dir = THIS_DIR
 
+  print('installdir: %s' % installdir)
   print('ndk_dir: %s' % ndk_dir)
   print('ndk_build: %s' % ndk_build)
   print('platforms_root: %s' % platforms_root)
@@ -152,6 +163,12 @@ def main():
   subprocess.check_call(build_cmd)
 
   print('Finished building Vulkan validation layers')
+  print('Packaging Vulkan validation layers')
+  out_package = os.path.join(installdir, 'vulkan_validation_layers.zip')
+  build_cmd = [
+      'bash', 'zip', '-9qr', out_package + '.zip', lib_out
+  ]
+  print('Finished Packaging Vulkan validation layers')
 
 
 if __name__ == '__main__':
