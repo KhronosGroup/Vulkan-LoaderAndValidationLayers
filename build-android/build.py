@@ -164,8 +164,9 @@ def main():
 
   print('Finished building Vulkan validation layers')
   out_package = os.path.join(installdir, 'vulkan_validation_layers.zip')
+  os.chdir(lib_out)
   build_cmd = [
-      'bash', 'zip', '-9qr', out_package + '.zip', lib_out
+      'zip', '-9qr', out_package, "."
   ]
 
   print('Packaging Vulkan validation layers')
