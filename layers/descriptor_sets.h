@@ -41,6 +41,7 @@
 #define NOEXCEPT
 #endif
 
+#include "vk_loader_platform.h"
 #include "core_validation_error_enums.h"
 #include "core_validation_types.h"
 #include "vk_layer_logging.h"
