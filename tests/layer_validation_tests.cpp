@@ -1318,6 +1318,7 @@ TEST_F(VkWsiEnabledLayerTest, TestEnabledWsi) {
     bool pass;
 
     VkSurfaceKHR surface = VK_NULL_HANDLE;
+#if defined(VK_USE_PLATFORM_XCB_KHR)
     VkSwapchainKHR swapchain = VK_NULL_HANDLE;
     VkSwapchainCreateInfoKHR swapchain_create_info = {};
 //    uint32_t swapchain_image_count = 0;
@@ -1330,7 +1331,6 @@ TEST_F(VkWsiEnabledLayerTest, TestEnabledWsi) {
     // Use the create function from one of the VK_KHR_*_surface extension in
     // order to create a surface, testing all known errors in the process,
     // before successfully creating a surface:
-#if defined(VK_USE_PLATFORM_XCB_KHR)
     // First, try to create a surface without a VkXcbSurfaceCreateInfoKHR:
     m_errorMonitor->SetDesiredFailureMsg(
         VK_DEBUG_REPORT_ERROR_BIT_EXT,
