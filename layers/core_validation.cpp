@@ -572,38 +572,30 @@ static bool set_mem_binding(layer_data *dev_data, VkDeviceMemory mem, uint64_t h
                            "MEM", "In %s, attempting to Bind Obj(0x%" PRIxLEAST64 ") to NULL", apiName, handle);
     } else {
         VkDeviceMemory *pMemBinding = get_object_mem_binding(dev_data, handle, type);
-        if (!pMemBinding) {
-            skipCall |=
-                log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, type, handle, __LINE__, MEMTRACK_MISSING_MEM_BINDINGS,
-                        "MEM", "In %s, attempting to update Binding of %s Obj(0x%" PRIxLEAST64 ") that's not in global list",
-                        object_type_to_string(type), apiName, handle);
-        } else {
-            // non-null case so should have real mem obj
-            DEVICE_MEM_INFO *pMemInfo = get_mem_obj_info(dev_data, mem);
-            if (pMemInfo) {
-                DEVICE_MEM_INFO *pPrevBinding = get_mem_obj_info(dev_data, *pMemBinding);
-                if (pPrevBinding != NULL) {
-                    skipCall |=
-                        log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_MEMORY_EXT,
-                                (uint64_t)mem, __LINE__, MEMTRACK_REBIND_OBJECT, "MEM",
-                                "In %s, attempting to bind memory (0x%" PRIxLEAST64 ") to object (0x%" PRIxLEAST64
-                                ") which has already been bound to mem object 0x%" PRIxLEAST64,
-                                apiName, (uint64_t)mem, handle, (uint64_t)pPrevBinding->mem);
-                } else {
-                    pMemInfo->objBindings.insert({handle, type});
-                    // For image objects, make sure default memory state is correctly set
-                    // TODO : What's the best/correct way to handle this?
-                    if (VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT == type) {
-                        auto const image_node = dev_data->imageMap.find(VkImage(handle));
-                        if (image_node != dev_data->imageMap.end()) {
-                            VkImageCreateInfo ici = image_node->second.createInfo;
-                            if (ici.usage & (VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)) {
-                                // TODO::  More memory state transition stuff.
-                            }
+        assert(pMemBinding);
+        DEVICE_MEM_INFO *pMemInfo = get_mem_obj_info(dev_data, mem);
+        if (pMemInfo) {
+            DEVICE_MEM_INFO *pPrevBinding = get_mem_obj_info(dev_data, *pMemBinding);
+            if (pPrevBinding != NULL) {
+                skipCall |= log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT,
+                                    VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_MEMORY_EXT, (uint64_t)mem, __LINE__, MEMTRACK_REBIND_OBJECT,
+                                    "MEM", "In %s, attempting to bind memory (0x%" PRIxLEAST64 ") to object (0x%" PRIxLEAST64
+                                           ") which has already been bound to mem object 0x%" PRIxLEAST64,
+                                    apiName, (uint64_t)mem, handle, (uint64_t)pPrevBinding->mem);
+            } else {
+                pMemInfo->objBindings.insert({handle, type});
+                // For image objects, make sure default memory state is correctly set
+                // TODO : What's the best/correct way to handle this?
+                if (VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT == type) {
+                    auto const image_node = dev_data->imageMap.find(VkImage(handle));
+                    if (image_node != dev_data->imageMap.end()) {
+                        VkImageCreateInfo ici = image_node->second.createInfo;
+                        if (ici.usage & (VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)) {
+                            // TODO::  More memory state transition stuff.
                         }
                     }
-                    *pMemBinding = mem;
                 }
+                *pMemBinding = mem;
             }
         }
     }
@@ -624,18 +616,12 @@ static bool set_sparse_mem_binding(layer_data *dev_data, VkDeviceMemory mem, uin
         skipCall = clear_object_binding(dev_data, handle, type);
     } else {
         VkDeviceMemory *pMemBinding = get_object_mem_binding(dev_data, handle, type);
-        if (!pMemBinding) {
-            skipCall |= log_msg(
-                dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, type, handle, __LINE__, MEMTRACK_MISSING_MEM_BINDINGS, "MEM",
-                "In %s, attempting to update Binding of Obj(0x%" PRIxLEAST64 ") that's not in global list()", apiName, handle);
-        } else {
-            // non-null case so should have real mem obj
-            DEVICE_MEM_INFO *pInfo = get_mem_obj_info(dev_data, mem);
-            if (pInfo) {
-                pInfo->objBindings.insert({handle, type});
-                // Need to set mem binding for this object
-                *pMemBinding = mem;
-            }
+        assert(pMemBinding);
+        DEVICE_MEM_INFO *pInfo = get_mem_obj_info(dev_data, mem);
+        if (pInfo) {
+            pInfo->objBindings.insert({handle, type});
+            // Need to set mem binding for this object
+            *pMemBinding = mem;
         }
     }
     return skipCall;
@@ -4670,8 +4656,7 @@ static bool validateMemRange(layer_data *my_data, VkDeviceMemory mem, VkDeviceSi
     bool skipCall = false;
 
     if (size == 0) {
-        // TODO: a size of 0 is not listed as an invalid use in the spec, should it be?
-        skipCall = log_msg(my_data->report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_MEMORY_EXT,
+        skipCall = log_msg(my_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_MEMORY_EXT,
                            (uint64_t)mem, __LINE__, MEMTRACK_INVALID_MAP, "MEM",
                            "VkMapMemory: Attempting to map memory range of size zero");
     }
@@ -4690,14 +4675,14 @@ static bool validateMemRange(layer_data *my_data, VkDeviceMemory mem, VkDeviceSi
             if (offset >= mem_element->second.allocInfo.allocationSize) {
                 skipCall = log_msg(my_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT,
                                    VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_MEMORY_EXT, (uint64_t)mem, __LINE__, MEMTRACK_INVALID_MAP,
-                                   "MEM", "Mapping Memory from 0x%" PRIx64 " to 0x%" PRIx64 " with total array size 0x%" PRIx64, offset,
+                                   "MEM", "Mapping Memory from 0x%" PRIx64 " to 0x%" PRIx64 " with size of VK_WHOLE_SIZE oversteps total array size 0x%" PRIx64, offset,
                                    mem_element->second.allocInfo.allocationSize, mem_element->second.allocInfo.allocationSize);
             }
         } else {
             if ((offset + size) > mem_element->second.allocInfo.allocationSize) {
                 skipCall = log_msg(my_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT,
                                    VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_MEMORY_EXT, (uint64_t)mem, __LINE__, MEMTRACK_INVALID_MAP,
-                                   "MEM", "Mapping Memory from 0x%" PRIx64 " to 0x%" PRIx64 " with total array size 0x%" PRIx64, offset,
+                                   "MEM", "Mapping Memory from 0x%" PRIx64 " to 0x%" PRIx64 " oversteps total array size 0x%" PRIx64, offset,
                                    size + offset, mem_element->second.allocInfo.allocationSize);
             }
         }
@@ -9417,18 +9402,20 @@ MapMemory(VkDevice device, VkDeviceMemory mem, VkDeviceSize offset, VkDeviceSize
         }
     }
     skip_call |= validateMemRange(dev_data, mem, offset, size);
-    storeMemRanges(dev_data, mem, offset, size);
 #endif
     skip_call |= ValidateMapImageLayouts(device, mem);
     lock.unlock();
 
     if (!skip_call) {
         result = dev_data->device_dispatch_table->MapMemory(device, mem, offset, size, flags, ppData);
+        if (VK_SUCCESS == result) {
 #if MTMERGESOURCE
-        lock.lock();
-        initializeAndTrackMemory(dev_data, mem, size, ppData);
-        lock.unlock();
+            lock.lock();
+            storeMemRanges(dev_data, mem, offset, size);
+            initializeAndTrackMemory(dev_data, mem, size, ppData);
+            lock.unlock();
 #endif
+        }
     }
     return result;
 }
