@@ -1917,7 +1917,7 @@ static void demo_cleanup(struct demo *demo) {
     }
     free(demo->atom_wm_delete_window);
 #elif defined(VK_USE_PLATFORM_XCB_KHR)
-    xcb_destroy_window(demo->connection, demo->window);
+    xcb_destroy_window(demo->connection, demo->xcb_window);
     xcb_disconnect(demo->connection);
     free(demo->atom_wm_delete_window);
 #endif
@@ -2425,7 +2425,7 @@ static void demo_init_vk(struct demo *demo) {
                 demo->extension_names[demo->enabled_extension_count++] =
                     VK_KHR_WIN32_SURFACE_EXTENSION_NAME;
             }
-#elif defined(VK_USE_PLATFORM_XLIB_KHR) | defined(VK_USE_PLATFORM_XCB_KHR)
+#elif defined(VK_USE_PLATFORM_XLIB_KHR)
             if (!strcmp(VK_KHR_XLIB_SURFACE_EXTENSION_NAME,
                         instance_extensions[i].extensionName)) {
                 platformSurfaceExtFound = 1;
@@ -2433,7 +2433,7 @@ static void demo_init_vk(struct demo *demo) {
                 demo->extension_names[demo->enabled_extension_count++] =
                     VK_KHR_XLIB_SURFACE_EXTENSION_NAME;
             }
-
+#elif defined(VK_USE_PLATFORM_XCB_KHR)
             if (!strcmp(VK_KHR_XCB_SURFACE_EXTENSION_NAME,
                         instance_extensions[i].extensionName)) {
                 platformSurfaceExtFound = 1;
