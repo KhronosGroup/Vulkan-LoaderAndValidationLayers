@@ -260,6 +260,7 @@ bool cvdescriptorset::DescriptorSetLayout::VerifyUpdateConsistency(uint32_t curr
 }
 
 cvdescriptorset::DescriptorSet::DescriptorSet(const VkDescriptorSet set, const DescriptorSetLayout *layout,
+                                              const debug_report_data *debug_report_data,
                                               const std::unordered_map<VkBuffer, BUFFER_NODE> *buffer_map,
                                               const std::unordered_map<VkDeviceMemory, DEVICE_MEM_INFO> *memory_map,
                                               const std::unordered_map<VkBufferView, VkBufferViewCreateInfo> *buffer_view_map,
@@ -268,9 +269,9 @@ cvdescriptorset::DescriptorSet::DescriptorSet(const VkDescriptorSet set, const D
                                               const std::unordered_map<VkImage, IMAGE_NODE> *image_map,
                                               const std::unordered_map<VkImage, VkSwapchainKHR> *image_to_swapchain_map,
                                               const std::unordered_map<VkSwapchainKHR, SWAPCHAIN_NODE *> *swapchain_map)
-    : some_update_(false), set_(set), p_layout_(layout), buffer_map_(buffer_map), memory_map_(memory_map),
-      buffer_view_map_(buffer_view_map), sampler_map_(sampler_map), image_view_map_(image_view_map), image_map_(image_map),
-      image_to_swapchain_map_(image_to_swapchain_map), swapchain_map_(swapchain_map) {
+    : some_update_(false), set_(set), p_layout_(layout), report_data_(debug_report_data), buffer_map_(buffer_map),
+      memory_map_(memory_map), buffer_view_map_(buffer_view_map), sampler_map_(sampler_map), image_view_map_(image_view_map),
+      image_map_(image_map), image_to_swapchain_map_(image_to_swapchain_map), swapchain_map_(swapchain_map) {
     // Foreach binding, create default descriptors of given type
     for (uint32_t i = 0; i < p_layout_->GetBindingCount(); ++i) {
         auto type = p_layout_->GetTypeFromIndex(i);
@@ -320,6 +321,15 @@ cvdescriptorset::DescriptorSet::DescriptorSet(const VkDescriptorSet set, const D
         default:
             assert(0); // Bad descriptor type specified
             break;
+        }
+    }
+}
+cvdescriptorset::DescriptorSet::~DescriptorSet() {
+    InvalidateBoundCmdBuffers();
+    // Remove link to any cmd buffers
+    for (auto cb : bound_cmd_buffers_) {
+        for (uint32_t i=0; i<VK_PIPELINE_BIND_POINT_RANGE_SIZE; ++i) {
+            cb->lastBound[i].uniqueBoundSets.erase(this);
         }
     }
 }
@@ -451,11 +461,25 @@ uint32_t cvdescriptorset::DescriptorSet::GetAllStorageUpdates(std::unordered_set
     p_layout_->FillBindingSet(&binding_set);
     return GetStorageUpdates(binding_set, buffer_set, image_set);
 }
+// Set is being deleted or updates so invalidate all bound cmd buffers
+void cvdescriptorset::DescriptorSet::InvalidateBoundCmdBuffers() {
+    for (auto cb_node : bound_cmd_buffers_) {
+        cb_node->state = CB_INVALID;
+    }
+}
 // Perform write update in given update struct
 //  If an error occurs, return false and fill in details in error_msg string
 bool cvdescriptorset::DescriptorSet::WriteUpdate(debug_report_data *report_data, const VkWriteDescriptorSet *update,
                                                  std::string *error_msg) {
     auto num_updates = 0;
+    // Verify idle ds
+    if (in_use.load()) {
+        std::stringstream error_str;
+        error_str << "Cannot call vkUpdateDescriptorSets() to perform write update on descriptor set " << set_
+                  << " that is in use by a command buffer.";
+        *error_msg = error_str.str();
+        return false;
+    }
     // Verify dst binding exists
     if (!p_layout_->HasBinding(update->dstBinding)) {
         std::stringstream error_str;
@@ -505,12 +529,21 @@ bool cvdescriptorset::DescriptorSet::WriteUpdate(debug_report_data *report_data,
     if (num_updates != 0) {
         some_update_ = true;
     }
+    InvalidateBoundCmdBuffers();
     return true;
 }
 // Copy update
 bool cvdescriptorset::DescriptorSet::CopyUpdate(debug_report_data *report_data, const VkCopyDescriptorSet *update,
                                                 const DescriptorSet *src_set, std::string *error) {
     auto num_updates = 0;
+    // Verify idle ds
+    if (in_use.load()) {
+        std::stringstream error_str;
+        error_str << "Cannot call vkUpdateDescriptorSets() to perform copy update on descriptor set " << set_
+                  << " that is in use by a command buffer.";
+        *error = error_str.str();
+        return false;
+    }
     if (!p_layout_->HasBinding(update->dstBinding)) {
         std::stringstream error_str;
         error_str << "DescriptorSet " << set_ << " does not have copy update dest binding of " << update->dstBinding << ".";
@@ -574,6 +607,7 @@ bool cvdescriptorset::DescriptorSet::CopyUpdate(debug_report_data *report_data, 
     if (num_updates != 0) {
         some_update_ = true;
     }
+    InvalidateBoundCmdBuffers();
     return true;
 }
 cvdescriptorset::SamplerDescriptor::SamplerDescriptor(
