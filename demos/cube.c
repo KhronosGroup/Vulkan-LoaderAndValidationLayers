@@ -30,6 +30,7 @@
 #include <signal.h>
 #ifdef __linux__
 #include <X11/Xutil.h>
+#include <unistd.h>
 #endif
 
 #ifdef _WIN32
@@ -778,6 +779,10 @@ static void demo_draw(struct demo *demo) {
     } else {
         assert(!err);
     }
+
+static unsigned frameCount = 0;
+printf("frame %u\n", ++frameCount);
+usleep(500000);
 
     err = vkQueueWaitIdle(demo->queue);
     assert(err == VK_SUCCESS);
@@ -2982,7 +2987,11 @@ static void demo_init(struct demo *demo, int argc, char **argv) {
     demo->width = 500;
     demo->height = 500;
 
+#ifdef OLD_CODE
     demo->spin_angle = 0.01f;
+#else  // OLD_CODE
+    demo->spin_angle = 2.f;
+#endif // OLD_CODE
     demo->spin_increment = 0.01f;
     demo->pause = false;
 
