@@ -782,7 +782,12 @@ static void demo_draw(struct demo *demo) {
 
 static unsigned frameCount = 0;
 printf("frame %u\n", ++frameCount);
+#ifdef __linux__
 usleep(500000);
+#endif
+#ifdef _WIN32
+Sleep(500);
+#endif
 
     err = vkQueueWaitIdle(demo->queue);
     assert(err == VK_SUCCESS);
