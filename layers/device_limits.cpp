@@ -45,6 +45,10 @@
 #include "vk_layer_extension_utils.h"
 #include "vk_layer_utils.h"
 
+// we support v0 and v1
+constexpr uint32_t k_max_interface_version = 1;
+static uint32_t g_interface_version = 0;
+
 namespace device_limits {
 
 // This struct will be stored in a map hashed by the dispatchable object
@@ -867,4 +871,40 @@ VK_LAYER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetDeviceProcAddr(VkD
 
 VK_LAYER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr(VkInstance instance, const char *funcName) {
     return device_limits::GetInstanceProcAddr(instance, funcName);
+}
+
+// loader-layer interface v1
+
+VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL
+vk_layerNegotiateLoaderLayerInterfaceVersion(uint32_t* pSupportedVersion) {
+    g_interface_version = *pSupportedVersion;
+    if (g_interface_version > k_max_interface_version) {
+        g_interface_version = k_max_interface_version;
+        *pSupportedVersion = g_interface_version;
+    }
+
+    return VK_SUCCESS;
+}
+
+VK_LAYER_EXPORT VKAPI_ATTR uint32_t VKAPI_CALL
+vk_layerGetLayerNames(const char* const** pppLayerNames) {
+    static const char* const layer_names[] = {
+        device_limits::global_layer.layerName
+    };
+
+    if (pppLayerNames)
+        *pppLayerNames = layer_names;
+
+    return ARRAY_SIZE(layer_names);
+}
+
+VK_LAYER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL
+vk_layerGetLayerProcAddr(const char* pLayerName, const char* pName) {
+    assert(!strcmp(pLayerName, device_limits::global_layer.layerName));
+
+    // only vkGetInstanceProcAddr is queryable in v1
+    if (!strcmp(pName, "vkGetInstanceProcAddr"))
+        return reinterpret_cast<PFN_vkVoidFunction>(device_limits::GetInstanceProcAddr);
+
+    return nullptr;
 }
