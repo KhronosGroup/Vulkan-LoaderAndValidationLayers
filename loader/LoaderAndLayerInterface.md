@@ -1293,6 +1293,66 @@ vkGetDeviceProcAddr. Layers do not need to implement commands that are not going
 All layers within a library must support [`vk_layer.h`][].
 [`vk_layer.h`]: ../include/vulkan/vk_layer.h
 
+###### Layer Library Interface Version 1
+
+A layer library supporting interface version 1 must define and export these
+introspection functions:
+
+ - `vk_layerNegotiateLoaderLayerInterfaceVersion` negotiates the interface
+   version used between the loader and the layer library
+
+   ```
+   VkResult
+   vk_layerNegotiateLoaderLayerInterfaceVersion(uint32_t* pSupportedVersion);
+   ```
+
+   `pSupportedVersion` is filled by the loader with its preferred interface
+   version.  If the layer library supports that version or an older (lower)
+   version, `VK_SUCCESS` is returned and `pSupportedVersion` is set to the
+   interface version supported by the layer library.  The loader has the
+   choice to use the interface version returned from the layer library or to
+   neglect the layer library.
+
+   Otherwise, `VK_ERROR_LAYER_NOT_PRESENT` is returned.
+
+   `vk_layerNegotiateLoaderLayerInterfaceVersion` is always called and only
+   called before any other function, unless the layer library also supports
+   interface version 0.  When interface version 0 is supported, the loader may
+   assume version 0 without calling this function first.
+
+ - `vk_layerGetLayerNames` returns the layer names of layers in the layer
+   library
+
+   ```
+   uint32_t
+   vk_layerGetLayerNames(const char* const** pppLayerNames);
+   ```
+
+   The number of layers in the layer libraries is returned.  When
+   `pppLayerNames` is non-`NULL`, it is set to an array of `const char*`,
+   pointing to the layer names of the layers.
+
+ - `vk_layerGetLayerProcAddr` returns a function pointer to the specified
+   command of a layer
+
+   ```
+   PFN_vkVoidFunction
+   vk_layerGetLayerProcAddr(const char* pLayerName, const char* pName);
+   ```
+
+   `pLayerName` is always a valid layer name.  A valid function pointer should
+   be returned when `pName` is `vkGetInstanceProcAddr.  Otherwise, `NULL` is
+   returned.
+
+   To allow mixing version 0 and version 1 layers, the layer's
+   `vkGetInstanceProcAddr` must ignore `instance` when `vkCreateDevice` is
+   queried.
+
+All contained layers must support [`vk_layer.h`][].  They should not export
+any command except for `vkGetInstanceProcAddr` and `vkGetDeviceProcAddr`.
+Because of potential name conflicts, the exported names are specified by the
+manifest files.
+
 #### Layer intercept requirements
 
 - Layers intercept a Vulkan command by defining a C/C++ function with signature
