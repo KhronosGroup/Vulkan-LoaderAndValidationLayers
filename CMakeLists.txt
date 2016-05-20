@@ -22,7 +22,6 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     #         Mir support is stubbed in but unimplemented and untested.
     option(BUILD_WSI_XCB_SUPPORT "Build XCB WSI support" ON)
     option(BUILD_WSI_XLIB_SUPPORT "Build Xlib WSI support" ON)
-    option(BUILD_WSI_DISPLAY_SUPPORT "Build DisplayPlane surface WSI support" ON)
     option(BUILD_WSI_WAYLAND_SUPPORT "Build Wayland WSI support" OFF)
     option(BUILD_WSI_MIR_SUPPORT "Build Mir WSI support" OFF)
 
@@ -44,10 +43,6 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     if (BUILD_WSI_MIR_SUPPORT)
         add_definitions(-DVK_USE_PLATFORM_MIR_KHR)
         set(DisplayServer Mir)
-    endif()
-
-    if (BUILD_WSI_DISPLAY_SUPPORT)
-        set(DisplayServer Display)
     endif()
 else()
     message(FATAL_ERROR "Unsupported Platform!")

@@ -31,6 +31,7 @@
 import sys
 import os
 import re
+import pdb
 
 import vulkan
 import vk_helper
@@ -1149,6 +1150,7 @@ class ObjectTrackerSubcommand(Subcommand):
                                    'AcquireNextImageKHR' : ['fence', 'semaphore' ],
                                    'UpdateDescriptorSets' : ['pTexelBufferView'],
                                    'CreateSwapchainKHR' : ['oldSwapchain'],
+                                   'CreateDisplayModeKHR': ['pMode'],
                                   }
         param_count = 'NONE' # keep track of arrays passed directly into API functions
         for p in proto.params:
@@ -1215,7 +1217,7 @@ class ObjectTrackerSubcommand(Subcommand):
                      '}' % (qual, decl, proto.c_call()))
             return "".join(funcs)
         # Temporarily prevent  DestroySurface call from being generated until WSI layer support is fleshed out
-        elif 'DestroyInstance' in proto.name or 'DestroyDevice' in proto.name:
+        elif 'DestroyInstance' in proto.name or 'DestroyDevice' in proto.name or 'CreateDisplayModeKHR' in proto.name:
             return ""
         else:
             if create_func:
@@ -1305,36 +1307,27 @@ class ObjectTrackerSubcommand(Subcommand):
         extensions=[('wsi_enabled',
                      ['vkCreateSwapchainKHR',
                       'vkDestroySwapchainKHR', 'vkGetSwapchainImagesKHR',
-                      'vkAcquireNextImageKHR', 'vkQueuePresentKHR'])]
+                      'vkAcquireNextImageKHR', 'vkQueuePresentKHR',
+                      'vkDestroySurfaceKHR',
+                      'vkGetPhysicalDeviceSurfaceSupportKHR',
+                      'vkGetPhysicalDeviceSurfaceCapabilitiesKHR',
+                      'vkGetPhysicalDeviceSurfaceFormatsKHR',
+                      'vkGetPhysicalDeviceSurfacePresentModesKHR',
+                      'vkCreateDisplayPlaneSurfaceKHR',
+                      ])]
         if self.wsi == 'Win32':
             instance_extensions=[('msg_callback_get_proc_addr', []),
                                   ('wsi_enabled',
-                                  ['vkDestroySurfaceKHR',
-                                   'vkGetPhysicalDeviceSurfaceSupportKHR',
-                                   'vkGetPhysicalDeviceSurfaceCapabilitiesKHR',
-                                   'vkGetPhysicalDeviceSurfaceFormatsKHR',
-                                   'vkGetPhysicalDeviceSurfacePresentModesKHR',
-                                   'vkCreateWin32SurfaceKHR',
+                                  ['vkCreateWin32SurfaceKHR',
                                    'vkGetPhysicalDeviceWin32PresentationSupportKHR'])]
         elif self.wsi == 'Android':
             instance_extensions=[('msg_callback_get_proc_addr', []),
                                   ('wsi_enabled',
-                                  ['vkDestroySurfaceKHR',
-                                   'vkGetPhysicalDeviceSurfaceSupportKHR',
-                                   'vkGetPhysicalDeviceSurfaceCapabilitiesKHR',
-                                   'vkGetPhysicalDeviceSurfaceFormatsKHR',
-                                   'vkGetPhysicalDeviceSurfacePresentModesKHR',
-                                   'vkCreateAndroidSurfaceKHR'])]
-        elif self.wsi == 'Xcb' or self.wsi == 'Xlib' or self.wsi == 'Wayland' or self.wsi == 'Mir' or self.wsi == 'Display':
+                                  ['vkCreateAndroidSurfaceKHR'])]
+        elif self.wsi == 'Xcb' or self.wsi == 'Xlib' or self.wsi == 'Wayland' or self.wsi == 'Mir':
             instance_extensions=[('msg_callback_get_proc_addr', []),
                                   ('wsi_enabled',
-                                  ['vkDestroySurfaceKHR',
-                                   'vkGetPhysicalDeviceSurfaceSupportKHR',
-                                   'vkGetPhysicalDeviceSurfaceCapabilitiesKHR',
-                                   'vkGetPhysicalDeviceSurfaceFormatsKHR',
-                                   'vkGetPhysicalDeviceSurfacePresentModesKHR',
-                                   'vkCreateDisplayPlaneSurfaceKHR',
-                                   'vkCreateXcbSurfaceKHR',
+                                  ['vkCreateXcbSurfaceKHR',
                                    'vkGetPhysicalDeviceXcbPresentationSupportKHR',
                                    'vkCreateXlibSurfaceKHR',
                                    'vkGetPhysicalDeviceXlibPresentationSupportKHR',
@@ -1617,33 +1610,23 @@ class UniqueObjectsSubcommand(Subcommand):
         extensions=[('wsi_enabled',
                      ['vkCreateSwapchainKHR',
                       'vkDestroySwapchainKHR', 'vkGetSwapchainImagesKHR',
-                      'vkAcquireNextImageKHR', 'vkQueuePresentKHR'])]
+                      'vkAcquireNextImageKHR', 'vkQueuePresentKHR',
+                      'vkDestroySurfaceKHR',
+                      'vkGetPhysicalDeviceSurfaceSupportKHR',
+                      'vkGetPhysicalDeviceSurfaceCapabilitiesKHR',
+                      'vkGetPhysicalDeviceSurfaceFormatsKHR',
+                      'vkGetPhysicalDeviceSurfacePresentModesKHR',
+                      'vkCreateDisplayPlaneSurfaceKHR',
+                    ])]
         if self.wsi == 'Win32':
             instance_extensions=[('wsi_enabled',
-                                  ['vkDestroySurfaceKHR',
-                                   'vkGetPhysicalDeviceSurfaceSupportKHR',
-                                   'vkGetPhysicalDeviceSurfaceCapabilitiesKHR',
-                                   'vkGetPhysicalDeviceSurfaceFormatsKHR',
-                                   'vkGetPhysicalDeviceSurfacePresentModesKHR',
-                                   'vkCreateWin32SurfaceKHR'
-                                   ])]
+                                  ['vkCreateWin32SurfaceKHR'])]
         elif self.wsi == 'Android':
             instance_extensions=[('wsi_enabled',
-                                  ['vkDestroySurfaceKHR',
-                                   'vkGetPhysicalDeviceSurfaceSupportKHR',
-                                   'vkGetPhysicalDeviceSurfaceCapabilitiesKHR',
-                                   'vkGetPhysicalDeviceSurfaceFormatsKHR',
-                                   'vkGetPhysicalDeviceSurfacePresentModesKHR',
-                                   'vkCreateAndroidSurfaceKHR'])]
-        elif self.wsi == 'Xcb' or self.wsi == 'Xlib' or self.wsi == 'Wayland' or self.wsi == 'Mir' or self.wsi == 'Display':
+                                  ['vkCreateAndroidSurfaceKHR'])]
+        elif self.wsi == 'Xcb' or self.wsi == 'Xlib' or self.wsi == 'Wayland' or self.wsi == 'Mir':
             instance_extensions=[('wsi_enabled',
-                                  ['vkDestroySurfaceKHR',
-                                   'vkGetPhysicalDeviceSurfaceSupportKHR',
-                                   'vkGetPhysicalDeviceSurfaceCapabilitiesKHR',
-                                   'vkGetPhysicalDeviceSurfaceFormatsKHR',
-                                   'vkGetPhysicalDeviceSurfacePresentModesKHR',
-                                   'vkCreateDisplayPlaneSurfaceKHR',
-                                   'vkCreateXcbSurfaceKHR',
+                                  ['vkCreateXcbSurfaceKHR',
                                    'vkCreateXlibSurfaceKHR',
                                    'vkCreateWaylandSurfaceKHR',
                                    'vkCreateMirSurfaceKHR'
@@ -1665,7 +1648,6 @@ def main():
             "Xlib",
             "Wayland",
             "Mir",
-            "Display"
     }
 
     subcommands = {
