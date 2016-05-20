@@ -267,6 +267,8 @@ static inline void loader_init_device_extension_dispatch_table(
         (PFN_vkGetSwapchainImagesKHR)gpa(dev, "vkGetSwapchainImagesKHR");
     table->QueuePresentKHR =
         (PFN_vkQueuePresentKHR)gpa(dev, "vkQueuePresentKHR");
+    table->CreateSharedSwapchainsKHR = 
+        (PFN_vkCreateSharedSwapchainsKHR)gpa(dev, "vkCreateSharedSwapchainsKHR");
 }
 
 static inline void *
@@ -518,6 +520,18 @@ loader_lookup_device_dispatch_table(const VkLayerDispatchTable *table,
         return (void *)table->CmdEndRenderPass;
     if (!strcmp(name, "CmdExecuteCommands"))
         return (void *)table->CmdExecuteCommands;
+    if (!strcmp(name, "CreateSwapchainKHR"))
+        return (void *)table->CreateSwapchainKHR;
+    if (!strcmp(name, "DestroySwapchainKHR"))
+        return (void *)table->DestroySwapchainKHR;
+    if (!strcmp(name, "AcquireNextImageKHR"))
+        return (void *)table->AcquireNextImageKHR;
+    if (!strcmp(name, "GetSwapchainImagesKHR"))
+        return (void *)table->GetSwapchainImagesKHR;
+    if (!strcmp(name, "QueuePresentKHR"))
+        return (void *)table->QueuePresentKHR;
+    if (!strcmp(name, "CreateSharedSwapchainsKHR"))
+        return (void *)table->CreateSharedSwapchainsKHR;
 
     return NULL;
 }

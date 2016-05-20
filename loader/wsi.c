@@ -81,6 +81,8 @@ static const VkExtensionProperties wsi_android_surface_extension_info = {
 void wsi_create_instance(struct loader_instance *ptr_instance,
                          const VkInstanceCreateInfo *pCreateInfo) {
     ptr_instance->wsi_surface_enabled = false;
+    ptr_instance->wsi_swapchain_enabled = false;
+    ptr_instance->wsi_display_swapchain_enabled = false;
 
 #ifdef VK_USE_PLATFORM_WIN32_KHR
     ptr_instance->wsi_win32_surface_enabled = false;
@@ -107,6 +109,16 @@ void wsi_create_instance(struct loader_instance *ptr_instance,
         if (strcmp(pCreateInfo->ppEnabledExtensionNames[i],
                    VK_KHR_SURFACE_EXTENSION_NAME) == 0) {
             ptr_instance->wsi_surface_enabled = true;
+            continue;
+        }
+        if (strcmp(pCreateInfo->ppEnabledExtensionNames[i],
+                   VK_KHR_SWAPCHAIN_EXTENSION_NAME) == 0) {
+            ptr_instance->wsi_swapchain_enabled = true;
+            continue;
+        }
+        if (strcmp(pCreateInfo->ppEnabledExtensionNames[i],
+                   VK_KHR_DISPLAY_SWAPCHAIN_EXTENSION_NAME) == 0) {
+            ptr_instance->wsi_display_swapchain_enabled = true;
             continue;
         }
 #ifdef VK_USE_PLATFORM_WIN32_KHR
@@ -444,6 +456,30 @@ vkCreateSwapchainKHR(VkDevice device,
 }
 
 /*
+ * This is the instance chain terminator function
+ * for CreateSwapchainKHR
+ */
+VKAPI_ATTR VkResult VKAPI_CALL
+terminator_CreateSwapchainKHR(VkDevice device,
+                     const VkSwapchainCreateInfoKHR *pCreateInfo,
+                     const VkAllocationCallbacks *pAllocator,
+                     VkSwapchainKHR *pSwapchain) {
+    struct loader_device *ldevice;
+    struct loader_icd *icd = loader_get_icd_and_device(device, &ldevice);
+    struct loader_instance *ptr_instance = (struct loader_instance *) icd->this_instance;
+
+    if (!ptr_instance->wsi_swapchain_enabled) {
+        loader_log(ptr_instance, VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
+                "VK_KHR_swapchain extension not enabled.   "
+                "vkCreateSwapchainKHR not executed!\n");
+        return VK_SUCCESS;
+    }
+
+    return icd->CreateSwapchainKHR(
+            device, pCreateInfo, pAllocator, pSwapchain);
+}
+
+/*
  * This is the trampoline entrypoint
  * for DestroySwapchainKHR
  */
@@ -453,6 +489,28 @@ vkDestroySwapchainKHR(VkDevice device, VkSwapchainKHR swapchain,
     const VkLayerDispatchTable *disp;
     disp = loader_get_dispatch(device);
     disp->DestroySwapchainKHR(device, swapchain, pAllocator);
+}
+
+/*
+ * This is the instance chain terminator function
+ * for DestroySwapchainKHR
+ */
+VKAPI_ATTR void VKAPI_CALL
+terminator_DestroySwapchainKHR(VkDevice device, VkSwapchainKHR swapchain,
+                      const VkAllocationCallbacks *pAllocator) {
+    struct loader_device *ldevice;
+    struct loader_icd *icd = loader_get_icd_and_device(device, &ldevice);
+    struct loader_instance *ptr_instance = (struct loader_instance *) icd->this_instance;
+
+    if (!ptr_instance->wsi_swapchain_enabled) {
+        loader_log(ptr_instance, VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
+                "VK_KHR_swapchain extension not enabled.   "
+                "vkDestroySwapchainKHR not executed!\n");
+        return;
+    }
+
+    icd->DestroySwapchainKHR(
+            device, swapchain, pAllocator);
 }
 
 /*
@@ -471,6 +529,29 @@ vkGetSwapchainImagesKHR(VkDevice device, VkSwapchainKHR swapchain,
 }
 
 /*
+ * This is the instance chain terminator function
+ * for GetSwapchainImagesKHR
+ */
+VKAPI_ATTR VkResult VKAPI_CALL
+terminator_GetSwapchainImagesKHR(VkDevice device, VkSwapchainKHR swapchain,
+                        uint32_t *pSwapchainImageCount,
+                        VkImage *pSwapchainImages) {
+    struct loader_device *ldevice;
+    struct loader_icd *icd = loader_get_icd_and_device(device, &ldevice);
+    struct loader_instance *ptr_instance = (struct loader_instance *) icd->this_instance;
+
+    if (!ptr_instance->wsi_swapchain_enabled) {
+        loader_log(ptr_instance, VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
+                "VK_KHR_swapchain extension not enabled.   "
+                "vkGetSwapchainImagesKHR not executed!\n");
+        return VK_SUCCESS;
+    }
+
+    return icd->GetSwapchainImagesKHR(
+            device, swapchain, pSwapchainImageCount, pSwapchainImages);
+}
+
+/*
  * This is the trampoline entrypoint
  * for AcquireNextImageKHR
  */
@@ -483,6 +564,29 @@ vkAcquireNextImageKHR(VkDevice device, VkSwapchainKHR swapchain,
     VkResult res = disp->AcquireNextImageKHR(device, swapchain, timeout,
                                              semaphore, fence, pImageIndex);
     return res;
+}
+
+/*
+ * This is the instance chain terminator function
+ * for AcquireNextImageKHR
+ */
+VKAPI_ATTR VkResult VKAPI_CALL
+terminator_AcquireNextImageKHR(VkDevice device, VkSwapchainKHR swapchain,
+                      uint64_t timeout, VkSemaphore semaphore, VkFence fence,
+                      uint32_t *pImageIndex) {
+    struct loader_device *ldevice;
+    struct loader_icd *icd = loader_get_icd_and_device(device, &ldevice);
+    struct loader_instance *ptr_instance = (struct loader_instance *) icd->this_instance;
+
+    if (!ptr_instance->wsi_swapchain_enabled) {
+        loader_log(ptr_instance, VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
+                "VK_KHR_swapchain extension not enabled.   "
+                "vkAcquireNextImageKHR not executed!\n");
+        return VK_SUCCESS;
+    }
+
+    return icd->AcquireNextImageKHR(
+            device, swapchain, timeout, semaphore, fence, pImageIndex);
 }
 
 /*
@@ -1389,6 +1493,37 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_CreateDisplayPlaneSurfaceKHR(
     *pSurface = (VkSurfaceKHR)pIcdSurface;
 
     return VK_SUCCESS;
+}
+
+LOADER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL
+vkCreateSharedSwapchainsKHR(VkDevice device,
+    uint32_t swapchainCount, const VkSwapchainCreateInfoKHR* pCreateInfos,
+    const VkAllocationCallbacks* pAllocator, VkSwapchainKHR* pSwapchains) {
+    const VkLayerDispatchTable *disp;
+    disp = loader_get_dispatch(device);
+    VkResult res;
+
+    res = disp->CreateSharedSwapchainsKHR(device, swapchainCount, pCreateInfos, pAllocator, pSwapchains);
+    return res;
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL terminator_CreateSharedSwapchainKHR(
+    VkDevice device, uint32_t swapchainCount,
+    const VkSwapchainCreateInfoKHR* pCreateInfos, 
+    const VkAllocationCallbacks* pAllocator, VkSwapchainKHR* pSwapchains) {
+    struct loader_device *ldevice;
+    struct loader_icd *icd = loader_get_icd_and_device(device, &ldevice);
+    struct loader_instance *ptr_instance = (struct loader_instance *) icd->this_instance;
+
+    if (!ptr_instance->wsi_display_swapchain_enabled) {
+        loader_log(ptr_instance, VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
+                "VK_KHR_display_swapchain extension not enabled.   "
+                "vkCreateSharedSwapchainsKHR not executed!\n");
+        return VK_SUCCESS;
+    }
+
+    return icd->CreateSharedSwapchainsKHR(
+            device, swapchainCount, pCreateInfos, pAllocator, pSwapchains);
 }
 
 bool wsi_swapchain_instance_gpa(struct loader_instance *ptr_instance,
