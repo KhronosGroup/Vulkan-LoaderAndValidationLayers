@@ -234,6 +234,12 @@ struct loader_icd {
     PFN_vkGetDisplayPlaneCapabilitiesKHR GetDisplayPlaneCapabilitiesKHR;
     PFN_vkCreateDisplayPlaneSurfaceKHR CreateDisplayPlaneSurfaceKHR;
     PFN_vkDestroySurfaceKHR DestroySurfaceKHR;
+    PFN_vkCreateSwapchainKHR CreateSwapchainKHR;
+    PFN_vkDestroySwapchainKHR DestroySwapchainKHR;
+    PFN_vkGetSwapchainImagesKHR GetSwapchainImagesKHR;
+    PFN_vkAcquireNextImageKHR AcquireNextImageKHR;
+    PFN_vkQueuePresentKHR QueuePresentKHR;
+    PFN_vkCreateSharedSwapchainsKHR CreateSharedSwapchainsKHR;
     struct loader_icd *next;
 };
 
@@ -275,6 +281,8 @@ struct loader_instance {
     VkAllocationCallbacks alloc_callbacks;
 
     bool wsi_surface_enabled;
+    bool wsi_swapchain_enabled;
+    bool wsi_display_swapchain_enabled;
 #ifdef VK_USE_PLATFORM_WIN32_KHR
     bool wsi_win32_surface_enabled;
 #endif
