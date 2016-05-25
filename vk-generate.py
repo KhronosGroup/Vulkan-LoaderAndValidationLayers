@@ -5,24 +5,17 @@
 # Copyright (c) 2015-2016 LunarG, Inc.
 # Copyright (c) 2015-2016 Google Inc.
 #
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and/or associated documentation files (the "Materials"), to
-# deal in the Materials without restriction, including without limitation the
-# rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
-# sell copies of the Materials, and to permit persons to whom the Materials
-# are furnished to do so, subject to the following conditions:
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# The above copyright notice(s) and this permission notice shall be included
-# in all copies or substantial portions of the Materials.
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
-# THE MATERIALS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-#
-# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-# DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-# OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE MATERIALS OR THE
-# USE OR OTHER DEALINGS IN THE MATERIALS
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Author: Chia-I Wu <olv@lunarg.com>
 # Author: Courtney Goeltzenleuchter <courtney@LunarG.com>
@@ -42,9 +35,14 @@ class Subcommand(object):
         self.argv = argv
         self.headers = vulkan.headers
         self.protos = vulkan.protos
+        self.outfile = None
 
     def run(self):
-        print(self.generate())
+        if self.outfile:
+            with open(self.outfile, "w") as outfile:
+                outfile.write(self.generate())
+        else:
+            print(self.generate())
 
     def generate(self):
         copyright = self.generate_copyright()
@@ -72,24 +70,17 @@ class Subcommand(object):
  * Copyright (c) 2015-2016 Valve Corporation
  * Copyright (c) 2015-2016 LunarG, Inc.
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and/or associated documentation files (the "Materials"), to
- * deal in the Materials without restriction, including without limitation the
- * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
- * sell copies of the Materials, and to permit persons to whom the Materials are
- * furnished to do so, subject to the following conditions:
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * The above copyright notice(s) and this permission notice shall be included in
- * all copies or substantial portions of the Materials.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * THE MATERIALS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
- *
- * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
- * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
- * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE MATERIALS OR THE
- * USE OR OTHER DEALINGS IN THE MATERIALS.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * Author: Courtney Goeltzenleuchter <courtney@LunarG.com>
  */"""
@@ -105,11 +96,19 @@ class Subcommand(object):
 
 class DispatchTableOpsSubcommand(Subcommand):
     def run(self):
-        if len(self.argv) != 1:
+        if len(self.argv) < 1:
             print("DispatchTableOpsSubcommand: <prefix> unspecified")
             return
 
         self.prefix = self.argv[0]
+
+        if len(self.argv) > 2:
+            print("DispatchTableOpsSubcommand: <prefix> [outfile]")
+            return
+
+        if len(self.argv) == 2:
+            self.outfile = self.argv[1]
+
         super(DispatchTableOpsSubcommand, self).run()
 
     def generate_header(self):
@@ -181,8 +180,8 @@ class WinDefFileSubcommand(Subcommand):
                 ]
         }
 
-        if len(self.argv) != 2 or self.argv[1] not in library_exports:
-            print("WinDefFileSubcommand: <library-name> {%s}" %
+        if len(self.argv) < 2 or len(self.argv) > 3 or self.argv[1] not in library_exports:
+            print("WinDefFileSubcommand: <library-name> {%s} [outfile]" %
                     "|".join(library_exports.keys()))
             return
 
@@ -192,7 +191,10 @@ class WinDefFileSubcommand(Subcommand):
         else:
             self.exports = library_exports[self.argv[1]]
 
-        super().run()
+        if len(self.argv) == 3:
+            self.outfile = self.argv[2]
+
+        super(WinDefFileSubcommand, self).run()
 
     def generate_copyright(self):
         return """; THIS FILE IS GENERATED.  DO NOT EDIT.
@@ -204,24 +206,17 @@ class WinDefFileSubcommand(Subcommand):
 ; Copyright (c) 2015-2016 Valve Corporation
 ; Copyright (c) 2015-2016 LunarG, Inc.
 ;
-; Permission is hereby granted, free of charge, to any person obtaining a copy
-; of this software and/or associated documentation files (the "Materials"), to
-; deal in the Materials without restriction, including without limitation the
-; rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
-; sell copies of the Materials, and to permit persons to whom the Materials are
-; furnished to do so, subject to the following conditions:
+; Licensed under the Apache License, Version 2.0 (the "License");
+; you may not use this file except in compliance with the License.
+; You may obtain a copy of the License at
 ;
-; The above copyright notice(s) and this permission notice shall be included in
-; all copies or substantial portions of the Materials.
+;     http://www.apache.org/licenses/LICENSE-2.0
 ;
-; THE MATERIALS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-;
-; IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-; DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-; OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE MATERIALS OR THE
-; USE OR OTHER DEALINGS IN THE MATERIALS.
+; Unless required by applicable law or agreed to in writing, software
+; distributed under the License is distributed on an "AS IS" BASIS,
+; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+; See the License for the specific language governing permissions and
+; limitations under the License.
 ;
 ;  Author: Courtney Goeltzenleuchter <courtney@LunarG.com>
 ;;;;  End Copyright Notice ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;"""

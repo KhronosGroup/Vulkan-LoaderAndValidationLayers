@@ -1,7 +1,6 @@
 # Vulkan Ecosystem Components
-*Version 1.0, January 25, 2016*
 
-This project provides Khronos offical ICD loader and validation layers for Vulkan developers on Windows and Linux.
+This project provides Khronos official ICD loader and validation layers for Vulkan developers on Windows and Linux.
 
 ## Introduction
 
@@ -19,6 +18,11 @@ The following components are available in this repository:
 - [*Validation Layers*](layers/)
 - Demos and tests for the loader and validation layers
 
+## Contributing
+
+If you intend to contribute, the preferred work flow is for you to develop your contribution
+in a fork of this repo in your GitHub account and then submit a pull request.
+Please see the [CONTRIBUTING](CONTRIBUTING.md) file in this respository for more details
 
 ## How to Build and Run
 
@@ -32,9 +36,9 @@ Architecture and interface information for the loader is in
 [loader/LoaderAndLayerInterface.md](loader/LoaderAndLayerInterface.md).
 
 ## License
-This work is released as open source under a MIT-style license from Khronos including a Khronos copyright.
+This work is released as open source under a Apache-style license from Khronos including a Khronos copyright.
 
-See LICENSE.txt for a full list of licenses used in this repository.
+See COPYRIGHT.txt for a full list of licenses used in this repository.
 
 ## Acknowledgements
 While this project has been developed primarily by LunarG, Inc; there are many other

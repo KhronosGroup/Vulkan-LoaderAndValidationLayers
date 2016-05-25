@@ -30,3 +30,9 @@ libs/Win32/Debug/*
 build
 build32
 dbuild
+external
+*.config
+*.creator
+*.creator.user
+*.files
+*.includes

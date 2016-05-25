@@ -1,25 +1,18 @@
 #!/usr/bin/env python
 #
-# Copyright (c) 2013-2015 The Khronos Group Inc.
+# Copyright (c) 2013-2016 The Khronos Group Inc.
 #
-# Permission is hereby granted, free of charge, to any person obtaining a
-# copy of this software and/or associated documentation files (the
-# "Materials"), to deal in the Materials without restriction, including
-# without limitation the rights to use, copy, modify, merge, publish,
-# distribute, sublicense, and/or sell copies of the Materials, and to
-# permit persons to whom the Materials are furnished to do so, subject to
-# the following conditions:
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# The above copyright notice and this permission notice shall be included
-# in all copies or substantial portions of the Materials.
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
-# THE MATERIALS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-# CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-# MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 import sys, time, pdb, string, cProfile
 from reg import *
@@ -45,6 +38,7 @@ validate= False
 errFilename = None
 diagFilename = 'diag.txt'
 regFilename = 'vk.xml'
+outDir = '.'
 
 if __name__ == '__main__':
     i = 1
@@ -73,6 +67,10 @@ if __name__ == '__main__':
         elif (arg == '-validate'):
             write('Enabling group validation (-validate)', file=sys.stderr)
             validate = True
+        elif (arg == '-outdir'):
+            outDir = sys.argv[i]
+            i = i+1
+            write('Using output directory ', outDir, file=sys.stderr)
         elif (arg[0:1] == '-'):
             write('Unrecognized argument:', arg, file=sys.stderr)
             exit(1)
@@ -124,26 +122,19 @@ noVersions      = noExtensions = None
 # Copyright text prefixing all headers (list of strings).
 prefixStrings = [
     '/*',
-    '** Copyright (c) 2015 The Khronos Group Inc.',
+    '** Copyright (c) 2015-2016 The Khronos Group Inc.',
     '**',
-    '** Permission is hereby granted, free of charge, to any person obtaining a',
-    '** copy of this software and/or associated documentation files (the',
-    '** "Materials"), to deal in the Materials without restriction, including',
-    '** without limitation the rights to use, copy, modify, merge, publish,',
-    '** distribute, sublicense, and/or sell copies of the Materials, and to',
-    '** permit persons to whom the Materials are furnished to do so, subject to',
-    '** the following conditions:',
+    '** Licensed under the Apache License, Version 2.0 (the "License");',
+    '** you may not use this file except in compliance with the License.',
+    '** You may obtain a copy of the License at',
     '**',
-    '** The above copyright notice and this permission notice shall be included',
-    '** in all copies or substantial portions of the Materials.',
+    '**     http://www.apache.org/licenses/LICENSE-2.0',
     '**',
-    '** THE MATERIALS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,',
-    '** EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF',
-    '** MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.',
-    '** IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY',
-    '** CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,',
-    '** TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE',
-    '** MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.',
+    '** Unless required by applicable law or agreed to in writing, software',
+    '** distributed under the License is distributed on an "AS IS" BASIS,',
+    '** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.',
+    '** See the License for the specific language governing permissions and',
+    '** limitations under the License.',
     '*/',
     ''
 ]
@@ -163,7 +154,8 @@ protectFeature = protect
 protectProto = protect
 
 buildList = [
-    # Vulkan 1.0 - core API + extensions. To generate just the core API,
+    # Vulkan 1.0 - header for core API + extensions.
+    # To generate just the core API,
     # change to 'defaultExtensions = None' below.
     [ COutputGenerator,
       CGeneratorOptions(
@@ -186,10 +178,13 @@ buildList = [
         apientryp         = 'VKAPI_PTR *',
         alignFuncParam    = 48)
     ],
-    # Vulkan 1.0 draft - core API include files for spec
+    # Vulkan 1.0 draft - API include files for spec and ref pages
     # Overwrites include subdirectories in spec source tree
     # The generated include files do not include the calling convention
     # macros (apientry etc.), unlike the header files.
+    # Because the 1.0 core branch includes ref pages for extensions,
+    # all the extension interfaces need to be generated, even though
+    # none are used by the core spec itself.
     [ DocOutputGenerator,
       DocGeneratorOptions(
         filename          = 'vulkan-docs',
@@ -197,9 +192,14 @@ buildList = [
         profile           = None,
         versions          = allVersions,
         emitversions      = allVersions,
-        defaultExtensions = 'vulkan',
-        addExtensions     = None,
-        removeExtensions  = None,
+        defaultExtensions = None,
+        addExtensions     =
+            makeREstring([
+                'VK_KHR_sampler_mirror_clamp_to_edge',
+            ]),
+        removeExtensions  =
+            makeREstring([
+            ]),
         prefixText        = prefixStrings + vkPrefixStrings,
         apicall           = '',
         apientry          = '',
@@ -209,7 +209,6 @@ buildList = [
         expandEnumerants  = False)
     ],
     # Vulkan 1.0 draft - API names to validate man/api spec includes & links
-    #    filename          = 'vkapi.py',
     [ PyOutputGenerator,
       DocGeneratorOptions(
         filename          = '../../doc/specs/vulkan/vkapi.py',
@@ -218,11 +217,16 @@ buildList = [
         versions          = allVersions,
         emitversions      = allVersions,
         defaultExtensions = None,
-        addExtensions     = None,
-        removeExtensions  = None)
+        addExtensions     =
+            makeREstring([
+                'VK_KHR_sampler_mirror_clamp_to_edge',
+            ]),
+        removeExtensions  =
+            makeREstring([
+            ]))
     ],
-    # Vulkan 1.0 draft - core API include files for spec
-    # Overwrites include subdirectories in spec source tree
+    # Vulkan 1.0 draft - core API validity files for spec
+    # Overwrites validity subdirectories in spec source tree
     [ ValidityOutputGenerator,
       DocGeneratorOptions(
         filename          = 'validity',
@@ -231,12 +235,17 @@ buildList = [
         versions          = allVersions,
         emitversions      = allVersions,
         defaultExtensions = None,
-        addExtensions     = None,
-        removeExtensions  = None,
+        addExtensions     =
+            makeREstring([
+                'VK_KHR_sampler_mirror_clamp_to_edge',
+            ]),
+        removeExtensions  =
+            makeREstring([
+            ]),
         genDirectory      = '../../doc/specs/vulkan')
     ],
-    # Vulkan 1.0 draft - core API include files for spec
-    # Overwrites include subdirectories in spec source tree
+    # Vulkan 1.0 draft - core API host sync table files for spec
+    # Overwrites subdirectory in spec source tree
     [ HostSynchronizationOutputGenerator,
       DocGeneratorOptions(
         filename          = 'hostsynctable',
@@ -245,8 +254,13 @@ buildList = [
         versions          = allVersions,
         emitversions      = allVersions,
         defaultExtensions = None,
-        addExtensions     = None,
-        removeExtensions  = None,
+        addExtensions     =
+            makeREstring([
+                'VK_KHR_sampler_mirror_clamp_to_edge',
+            ]),
+        removeExtensions  =
+            makeREstring([
+            ]),
         genDirectory      = '../../doc/specs/vulkan')
     ],
     # Vulkan 1.0 draft - thread checking layer
@@ -266,10 +280,11 @@ buildList = [
         protectFeature    = False,
         protectProto      = True,
         protectProtoStr   = 'VK_PROTOTYPES',
-        apicall           = '',
+        apicall           = 'VKAPI_ATTR ',
         apientry          = 'VKAPI_CALL ',
         apientryp         = 'VKAPI_PTR *',
-        alignFuncParam    = 48)
+        alignFuncParam    = 48,
+        genDirectory      = outDir)
     ],
     [ ParamCheckerOutputGenerator,
       ParamCheckerGeneratorOptions(
@@ -290,7 +305,8 @@ buildList = [
         apicall           = 'VKAPI_ATTR ',
         apientry          = 'VKAPI_CALL ',
         apientryp         = 'VKAPI_PTR *',
-        alignFuncParam    = 48)
+        alignFuncParam    = 48,
+        genDirectory      = outDir)
     ],
     None
 ]
@@ -301,6 +317,11 @@ if (errFilename):
 else:
     errWarn = sys.stderr
 diag = open(diagFilename, 'w')
+
+# check that output directory exists
+if (not os.path.isdir(outDir)):
+    write('Output directory does not exist: ', outDir)
+    raise
 
 def genHeaders():
     # Loop over targets, building each

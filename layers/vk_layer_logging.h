@@ -2,24 +2,17 @@
  * Copyright (c) 2015-2016 Valve Corporation
  * Copyright (c) 2015-2016 LunarG, Inc.
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and/or associated documentation files (the "Materials"), to
- * deal in the Materials without restriction, including without limitation the
- * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
- * sell copies of the Materials, and to permit persons to whom the Materials
- * are furnished to do so, subject to the following conditions:
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * The above copyright notice(s) and this permission notice shall be included
- * in all copies or substantial portions of the Materials.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * THE MATERIALS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
- *
- * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
- * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
- * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE MATERIALS OR THE
- * USE OR OTHER DEALINGS IN THE MATERIALS
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * Author: Courtney Goeltzenleuchter <courtney@LunarG.com>
  * Author: Tobin Ehlis <tobin@lunarg.com>
@@ -29,15 +22,16 @@
 #ifndef LAYER_LOGGING_H
 #define LAYER_LOGGING_H
 
-#include <stdio.h>
-#include <stdarg.h>
-#include <stdbool.h>
-#include <unordered_map>
-#include <inttypes.h>
-#include "vk_loader_platform.h"
-#include "vulkan/vk_layer.h"
+#include "vk_layer_config.h"
 #include "vk_layer_data.h"
 #include "vk_layer_table.h"
+#include "vk_loader_platform.h"
+#include "vulkan/vk_layer.h"
+#include <cinttypes>
+#include <stdarg.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <unordered_map>
 
 typedef struct _debug_report_data {
     VkLayerDbgFunctionNode *g_pDbgFunctionHead;
@@ -49,10 +43,10 @@ template debug_report_data *get_my_data_ptr<debug_report_data>(void *data_key,
                                                                std::unordered_map<void *, debug_report_data *> &data_map);
 
 // Utility function to handle reporting
-static inline VkBool32 debug_report_log_msg(debug_report_data *debug_data, VkFlags msgFlags, VkDebugReportObjectTypeEXT objectType,
-                                            uint64_t srcObject, size_t location, int32_t msgCode, const char *pLayerPrefix,
-                                            const char *pMsg) {
-    VkBool32 bail = false;
+static inline bool debug_report_log_msg(const debug_report_data *debug_data, VkFlags msgFlags, VkDebugReportObjectTypeEXT objectType,
+                                        uint64_t srcObject, size_t location, int32_t msgCode, const char *pLayerPrefix,
+                                        const char *pMsg) {
+    bool bail = false;
     VkLayerDbgFunctionNode *pTrav = debug_data->g_pDbgFunctionHead;
     while (pTrav) {
         if (pTrav->msgFlags & msgFlags) {
@@ -198,12 +192,93 @@ static inline PFN_vkVoidFunction debug_report_get_instance_proc_addr(debug_repor
     return NULL;
 }
 
+// This utility (called at vkCreateInstance() time), looks at a pNext chain.
+// It counts any VkDebugReportCallbackCreateInfoEXT structs that it finds.  It
+// then allocates an array that can hold that many structs, as well as that
+// many VkDebugReportCallbackEXT handles.  It then copies each
+// VkDebugReportCallbackCreateInfoEXT, and initializes each handle.
+static VkResult layer_copy_tmp_callbacks(const void *pChain, uint32_t *num_callbacks, VkDebugReportCallbackCreateInfoEXT **infos,
+                                         VkDebugReportCallbackEXT **callbacks) {
+    uint32_t n = *num_callbacks = 0;
+
+    const void *pNext = pChain;
+    while (pNext) {
+        // 1st, count the number VkDebugReportCallbackCreateInfoEXT:
+        if (((VkDebugReportCallbackCreateInfoEXT *)pNext)->sType == VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT) {
+            n++;
+        }
+        pNext = (void *)((VkDebugReportCallbackCreateInfoEXT *)pNext)->pNext;
+    }
+    if (n == 0) {
+        return VK_SUCCESS;
+    }
+
+    // 2nd, allocate memory for each VkDebugReportCallbackCreateInfoEXT:
+    VkDebugReportCallbackCreateInfoEXT *pInfos = *infos =
+        ((VkDebugReportCallbackCreateInfoEXT *)malloc(n * sizeof(VkDebugReportCallbackCreateInfoEXT)));
+    if (!pInfos) {
+        return VK_ERROR_OUT_OF_HOST_MEMORY;
+    }
+    // 3rd, allocate memory for a unique handle for each callback:
+    VkDebugReportCallbackEXT *pCallbacks = *callbacks = ((VkDebugReportCallbackEXT *)malloc(n * sizeof(VkDebugReportCallbackEXT)));
+    if (!pCallbacks) {
+        free(pInfos);
+        return VK_ERROR_OUT_OF_HOST_MEMORY;
+    }
+    // 4th, copy each VkDebugReportCallbackCreateInfoEXT for use by
+    // vkDestroyInstance, and assign a unique handle to each callback (just
+    // use the address of the copied VkDebugReportCallbackCreateInfoEXT):
+    pNext = pChain;
+    while (pNext) {
+        if (((VkInstanceCreateInfo *)pNext)->sType == VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT) {
+            memcpy(pInfos, pNext, sizeof(VkDebugReportCallbackCreateInfoEXT));
+            *pCallbacks++ = (VkDebugReportCallbackEXT)pInfos++;
+        }
+        pNext = (void *)((VkInstanceCreateInfo *)pNext)->pNext;
+    }
+
+    *num_callbacks = n;
+    return VK_SUCCESS;
+}
+
+// This utility frees the arrays allocated by layer_copy_tmp_callbacks()
+static void layer_free_tmp_callbacks(VkDebugReportCallbackCreateInfoEXT *infos, VkDebugReportCallbackEXT *callbacks) {
+    free(infos);
+    free(callbacks);
+}
+
+// This utility enables all of the VkDebugReportCallbackCreateInfoEXT structs
+// that were copied by layer_copy_tmp_callbacks()
+static VkResult layer_enable_tmp_callbacks(debug_report_data *debug_data, uint32_t num_callbacks,
+                                           VkDebugReportCallbackCreateInfoEXT *infos, VkDebugReportCallbackEXT *callbacks) {
+    VkResult rtn = VK_SUCCESS;
+    for (uint32_t i = 0; i < num_callbacks; i++) {
+        rtn = layer_create_msg_callback(debug_data, &infos[i], NULL, &callbacks[i]);
+        if (rtn != VK_SUCCESS) {
+            for (uint32_t j = 0; j < i; j++) {
+                layer_destroy_msg_callback(debug_data, callbacks[j], NULL);
+            }
+            return rtn;
+        }
+    }
+    return rtn;
+}
+
+// This utility disables all of the VkDebugReportCallbackCreateInfoEXT structs
+// that were copied by layer_copy_tmp_callbacks()
+static void layer_disable_tmp_callbacks(debug_report_data *debug_data, uint32_t num_callbacks,
+                                        VkDebugReportCallbackEXT *callbacks) {
+    for (uint32_t i = 0; i < num_callbacks; i++) {
+        layer_destroy_msg_callback(debug_data, callbacks[i], NULL);
+    }
+}
+
 /*
  * Checks if the message will get logged.
  * Allows layer to defer collecting & formating data if the
  * message will be discarded.
  */
-static inline VkBool32 will_log_msg(debug_report_data *debug_data, VkFlags msgFlags) {
+static inline bool will_log_msg(debug_report_data *debug_data, VkFlags msgFlags) {
     if (!debug_data || !(debug_data->active_flags & msgFlags)) {
         /* message is not wanted */
         return false;
@@ -212,30 +287,51 @@ static inline VkBool32 will_log_msg(debug_report_data *debug_data, VkFlags msgFl
     return true;
 }
 
+#ifdef WIN32
+static inline int vasprintf(char **strp, char const *fmt, va_list ap) {
+    *strp = nullptr;
+    int size = _vscprintf(fmt, ap);
+    if (size >= 0) {
+        *strp = (char *)malloc(size+1);
+        if (!*strp) {
+            return -1;
+        }
+        _vsnprintf(*strp, size+1, fmt, ap);
+    }
+    return size;
+}
+#endif
+
 /*
  * Output log message via DEBUG_REPORT
  * Takes format and variable arg list so that output string
  * is only computed if a message needs to be logged
  */
 #ifndef WIN32
-static inline VkBool32 log_msg(debug_report_data *debug_data, VkFlags msgFlags, VkDebugReportObjectTypeEXT objectType,
-                               uint64_t srcObject, size_t location, int32_t msgCode, const char *pLayerPrefix, const char *format,
-                               ...) __attribute__((format(printf, 8, 9)));
+static inline bool log_msg(const debug_report_data *debug_data, VkFlags msgFlags, VkDebugReportObjectTypeEXT objectType,
+                           uint64_t srcObject, size_t location, int32_t msgCode, const char *pLayerPrefix, const char *format, ...)
+    __attribute__((format(printf, 8, 9)));
 #endif
-static inline VkBool32 log_msg(debug_report_data *debug_data, VkFlags msgFlags, VkDebugReportObjectTypeEXT objectType,
-                               uint64_t srcObject, size_t location, int32_t msgCode, const char *pLayerPrefix, const char *format,
-                               ...) {
+static inline bool log_msg(const debug_report_data *debug_data, VkFlags msgFlags, VkDebugReportObjectTypeEXT objectType,
+                           uint64_t srcObject, size_t location, int32_t msgCode, const char *pLayerPrefix, const char *format,
+                           ...) {
     if (!debug_data || !(debug_data->active_flags & msgFlags)) {
         /* message is not wanted */
         return false;
     }
 
-    char str[1024];
     va_list argptr;
     va_start(argptr, format);
-    vsnprintf(str, 1024, format, argptr);
+    char *str;
+    if (-1 == vasprintf(&str, format, argptr)) {
+        /* on failure, glibc vasprintf leaves str undefined */
+        str = nullptr;
+    }
     va_end(argptr);
-    return debug_report_log_msg(debug_data, msgFlags, objectType, srcObject, location, msgCode, pLayerPrefix, str);
+    bool result = debug_report_log_msg(debug_data, msgFlags, objectType, srcObject, location, msgCode, pLayerPrefix,
+                                       str ? str : "Allocation failure");
+    free(str);
+    return result;
 }
 
 static inline VKAPI_ATTR VkBool32 VKAPI_CALL log_callback(VkFlags msgFlags, VkDebugReportObjectTypeEXT objType, uint64_t srcObject,
@@ -245,7 +341,7 @@ static inline VKAPI_ATTR VkBool32 VKAPI_CALL log_callback(VkFlags msgFlags, VkDe
 
     print_msg_flags(msgFlags, msg_flags);
 
-    fprintf((FILE *)pUserData, "%s(%s): object: %#" PRIx64 " type: %d location: %lu msgCode: %d: %s\n", pLayerPrefix, msg_flags,
+    fprintf((FILE *)pUserData, "%s(%s): object: 0x%" PRIx64 " type: %d location: %lu msgCode: %d: %s\n", pLayerPrefix, msg_flags,
             srcObject, objType, (unsigned long)location, msgCode, pMsg);
     fflush((FILE *)pUserData);
 

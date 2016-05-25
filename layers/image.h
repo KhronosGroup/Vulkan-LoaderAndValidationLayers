@@ -2,24 +2,17 @@
  * Copyright (c) 2015-2016 Valve Corporation
  * Copyright (c) 2015-2016 LunarG, Inc.
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and/or associated documentation files (the "Materials"), to
- * deal in the Materials without restriction, including without limitation the
- * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
- * sell copies of the Materials, and to permit persons to whom the Materials
- * are furnished to do so, subject to the following conditions:
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * The above copyright notice(s) and this permission notice shall be included
- * in all copies or substantial portions of the Materials.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * THE MATERIALS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
- *
- * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
- * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
- * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE MATERIALS OR THE
- * USE OR OTHER DEALINGS IN THE MATERIALS
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License. 
  *
  * Author: Mark Lobodzinski <mark@lunarg.com>
  * Author: Mike Stroyan <mike@LunarG.com>
@@ -33,7 +26,7 @@
 #include "vk_layer_logging.h"
 
 // Image ERROR codes
-typedef enum _IMAGE_ERROR {
+enum IMAGE_ERROR {
     IMAGE_NONE,                             // Used for INFO & other non-error messages
     IMAGE_FORMAT_UNSUPPORTED,               // Request to create Image or RenderPass with a format that is not supported
     IMAGE_RENDERPASS_INVALID_ATTACHMENT,    // Invalid image layouts and/or load/storeOps for an attachment when creating RenderPass
@@ -49,10 +42,11 @@ typedef enum _IMAGE_ERROR {
     IMAGE_INVALID_FILTER,                   // Operation specifies an invalid filter setting
     IMAGE_INVALID_IMAGE_RESOURCE,           // Image resource/subresource called with invalid setting
     IMAGE_INVALID_FORMAT_LIMITS_VIOLATION,  // Device limits for this format have been exceeded
-    IMAGE_INVALID_LAYOUT,                   // Operation specifies an invalid layout.
-} IMAGE_ERROR;
+    IMAGE_INVALID_LAYOUT,                   // Operation specifies an invalid layout
+    IMAGE_INVALID_EXTENTS,                  // Operation specifies invalid image extents
+};
 
-typedef struct _IMAGE_STATE {
+struct IMAGE_STATE {
     uint32_t mipLevels;
     uint32_t arraySize;
     VkFormat format;
@@ -60,13 +54,13 @@ typedef struct _IMAGE_STATE {
     VkImageType imageType;
     VkExtent3D extent;
     VkImageCreateFlags flags;
-    _IMAGE_STATE()
+    IMAGE_STATE()
         : mipLevels(0), arraySize(0), format(VK_FORMAT_UNDEFINED), samples(VK_SAMPLE_COUNT_1_BIT),
           imageType(VK_IMAGE_TYPE_RANGE_SIZE), extent{}, flags(0){};
-    _IMAGE_STATE(const VkImageCreateInfo *pCreateInfo)
+    IMAGE_STATE(const VkImageCreateInfo *pCreateInfo)
         : mipLevels(pCreateInfo->mipLevels), arraySize(pCreateInfo->arrayLayers), format(pCreateInfo->format),
           samples(pCreateInfo->samples), imageType(pCreateInfo->imageType), extent(pCreateInfo->extent),
           flags(pCreateInfo->flags){};
-} IMAGE_STATE;
+};
 
 #endif // IMAGE_H
