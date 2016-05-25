@@ -17,6 +17,11 @@ LOCAL_PATH := $(abspath $(call my-dir))
 SRC_DIR := $(LOCAL_PATH)/../../
 LAYER_DIR := $(LOCAL_PATH)/../generated
 
+# specific for NDK build
+SHADERC_DIR := $(SRC_DIR)../shaderc
+GLSLANG_DIR := $(SHADERC_DIR)/glslang
+SPIRV_TOOLS_DIR := $(SHADERC_DIR)/spirv-tools
+
 include $(CLEAR_VARS)
 LOCAL_MODULE := layer_utils
 LOCAL_SRC_FILES += $(LAYER_DIR)/common/vk_layer_config.cpp
@@ -38,8 +43,8 @@ LOCAL_C_INCLUDES += $(SRC_DIR)/include \
                     $(SRC_DIR)/layers \
                     $(LAYER_DIR)/include \
                     $(SRC_DIR)/loader \
-                    $(SRC_DIR)/external/glslang \
-                    $(SRC_DIR)/external/spirv-tools/include
+                    $(GLSLANG_DIR) \
+                    $(SPIRV_TOOLS_DIR)/include
 LOCAL_STATIC_LIBRARIES += layer_utils SPIRV-Tools-prebuilt
 LOCAL_CPPFLAGS += -DVK_USE_PLATFORM_ANDROID_KHR
 LOCAL_LDLIBS    := -llog
@@ -139,7 +144,7 @@ include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := SPIRV-Tools-prebuilt
-LOCAL_SRC_FILES := $(SRC_DIR)/external/shaderc/android_test/obj/local/$(TARGET_ARCH_ABI)/libSPIRV-Tools.a
+LOCAL_SRC_FILES := $(SHADERC_DIR)/shaderc/android_test/obj/local/$(TARGET_ARCH_ABI)/libSPIRV-Tools.a
 include $(PREBUILT_STATIC_LIBRARY)
 
 $(call import-module,third_party/googletest)
