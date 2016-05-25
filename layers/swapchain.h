@@ -3,24 +3,17 @@
  * Copyright (c) 2015-2016 LunarG, Inc.
  * Copyright (C) 2015-2016 Google Inc.
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and/or associated documentation files (the "Materials"), to
- * deal in the Materials without restriction, including without limitation the
- * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
- * sell copies of the Materials, and to permit persons to whom the Materials
- * are furnished to do so, subject to the following conditions:
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * The above copyright notice(s) and this permission notice shall be included
- * in all copies or substantial portions of the Materials.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * THE MATERIALS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
- *
- * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
- * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
- * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE MATERIALS OR THE
- * USE OR OTHER DEALINGS IN THE MATERIALS
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * Author: Ian Elliott <ian@lunarg.com>
  * Author: Ian Elliott <ianelliott@google.com>
@@ -38,7 +31,7 @@
 using namespace std;
 
 // Swapchain ERROR codes
-typedef enum _SWAPCHAIN_ERROR {
+enum SWAPCHAIN_ERROR {
     SWAPCHAIN_INVALID_HANDLE,             // Handle used that isn't currently valid
     SWAPCHAIN_NULL_POINTER,               // Pointer set to NULL, instead of being a valid pointer
     SWAPCHAIN_EXT_NOT_ENABLED_BUT_USED,   // Did not enable WSI extension, but called WSI function
@@ -64,10 +57,11 @@ typedef enum _SWAPCHAIN_ERROR {
     SWAPCHAIN_CREATE_SWAP_DIFF_SURFACE, // Called vkCreateSwapchainKHR() with pCreateInfo->oldSwapchain that has a different surface
                                         // than pCreateInfo->surface
     SWAPCHAIN_DESTROY_SWAP_DIFF_DEVICE, // Called vkDestroySwapchainKHR() with a different VkDevice than vkCreateSwapchainKHR()
-    SWAPCHAIN_APP_OWNS_TOO_MANY_IMAGES, // vkAcquireNextImageKHR() asked for more images than are available
+    SWAPCHAIN_APP_ACQUIRES_TOO_MANY_IMAGES, // vkAcquireNextImageKHR() asked for more images than are available
     SWAPCHAIN_INDEX_TOO_LARGE,          // Index is too large for swapchain
-    SWAPCHAIN_INDEX_NOT_IN_USE,         // vkQueuePresentKHR() given index that is not owned by app
+    SWAPCHAIN_INDEX_NOT_IN_USE,         // vkQueuePresentKHR() given index that is not acquired by app
     SWAPCHAIN_BAD_BOOL,                 // VkBool32 that doesn't have value of VK_TRUE or VK_FALSE (e.g. is a non-zero form of true)
+    SWAPCHAIN_PRIOR_COUNT,              // Query must be called first to get value of pCount, then called second time
     SWAPCHAIN_INVALID_COUNT,            // Second time a query called, the pCount value didn't match first time
     SWAPCHAIN_WRONG_STYPE,              // The sType for a struct has the wrong value
     SWAPCHAIN_WRONG_NEXT,               // The pNext for a struct is not NULL
@@ -80,7 +74,7 @@ typedef enum _SWAPCHAIN_ERROR {
     SWAPCHAIN_SURFACE_NOT_SUPPORTED_WITH_QUEUE, // A surface is not supported by a given queueFamilyIndex, as seen by
                                                 // vkGetPhysicalDeviceSurfaceSupportKHR()
     SWAPCHAIN_NO_SYNC_FOR_ACQUIRE,      // vkAcquireNextImageKHR should be called with a valid semaphore and/or fence
-} SWAPCHAIN_ERROR;
+};
 
 // The following is for logging error messages:
 #define LAYER_NAME (char *) "Swapchain"
@@ -98,6 +92,12 @@ typedef enum _SWAPCHAIN_ERROR {
                                                              "value (%d) that is greater than the value (%d) that "                \
                                                              "was returned when %s was NULL.",                                     \
                         __FUNCTION__, (obj2), (obj), (val), (val2), (obj2))                                                        \
+              : VK_FALSE
+#define LOG_ERROR_ZERO_PRIOR_COUNT(objType, type, obj, obj2)                                                                       \
+    (my_data) ? log_msg(my_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, (objType), (uint64_t)(obj), 0,                        \
+                        SWAPCHAIN_PRIOR_COUNT, LAYER_NAME, "%s() called with non-NULL %s; but no prior "                           \
+                        "positive value has been seen for %s.",                                                                    \
+                        __FUNCTION__, (obj), (obj2))                                                                               \
               : VK_FALSE
 #define LOG_ERROR_WRONG_STYPE(objType, type, obj, val)                                                                             \
     (my_data) ? log_msg(my_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, (objType), (uint64_t)(obj), 0, SWAPCHAIN_WRONG_STYPE, \
@@ -138,25 +138,16 @@ typedef enum _SWAPCHAIN_ERROR {
 // info that is used for validating the WSI extensions.
 
 // Forward declarations:
-struct _SwpInstance;
-struct _SwpSurface;
-struct _SwpPhysicalDevice;
-struct _SwpDevice;
-struct _SwpSwapchain;
-struct _SwpImage;
-struct _SwpQueue;
-
-typedef _SwpInstance SwpInstance;
-typedef _SwpSurface SwpSurface;
-;
-typedef _SwpPhysicalDevice SwpPhysicalDevice;
-typedef _SwpDevice SwpDevice;
-typedef _SwpSwapchain SwpSwapchain;
-typedef _SwpImage SwpImage;
-typedef _SwpQueue SwpQueue;
+struct SwpInstance;
+struct SwpSurface;
+struct SwpPhysicalDevice;
+struct SwpDevice;
+struct SwpSwapchain;
+struct SwpImage;
+struct SwpQueue;
 
 // Create one of these for each VkInstance:
-struct _SwpInstance {
+struct SwpInstance {
     // The actual handle for this VkInstance:
     VkInstance instance;
 
@@ -198,7 +189,7 @@ struct _SwpInstance {
 };
 
 // Create one of these for each VkSurfaceKHR:
-struct _SwpSurface {
+struct SwpSurface {
     // The actual handle for this VkSurfaceKHR:
     VkSurfaceKHR surface;
 
@@ -224,7 +215,7 @@ struct _SwpSurface {
 };
 
 // Create one of these for each VkPhysicalDevice within a VkInstance:
-struct _SwpPhysicalDevice {
+struct SwpPhysicalDevice {
     // The actual handle for this VkPhysicalDevice:
     VkPhysicalDevice physicalDevice;
 
@@ -263,7 +254,7 @@ struct _SwpPhysicalDevice {
 };
 
 // Create one of these for each VkDevice within a VkInstance:
-struct _SwpDevice {
+struct SwpDevice {
     // The actual handle for this VkDevice:
     VkDevice device;
 
@@ -282,20 +273,20 @@ struct _SwpDevice {
 };
 
 // Create one of these for each VkImage within a VkSwapchainKHR:
-struct _SwpImage {
+struct SwpImage {
     // The actual handle for this VkImage:
     VkImage image;
 
     // Corresponding VkSwapchainKHR (and info) to this VkImage:
     SwpSwapchain *pSwapchain;
 
-    // true if application got this image from vkAcquireNextImageKHR(), and
-    // hasn't yet called vkQueuePresentKHR() for it; otherwise false:
-    bool ownedByApp;
+    // true if application acquired this image from vkAcquireNextImageKHR(),
+    // and hasn't yet called vkQueuePresentKHR() for it; otherwise false:
+    bool acquiredByApp;
 };
 
 // Create one of these for each VkSwapchainKHR within a VkDevice:
-struct _SwpSwapchain {
+struct SwpSwapchain {
     // The actual handle for this VkSwapchainKHR:
     VkSwapchainKHR swapchain;
 
@@ -315,7 +306,7 @@ struct _SwpSwapchain {
 };
 
 // Create one of these for each VkQueue within a VkDevice:
-struct _SwpQueue {
+struct SwpQueue {
     // The actual handle for this VkQueue:
     VkQueue queue;
 
@@ -327,10 +318,19 @@ struct _SwpQueue {
 };
 
 struct layer_data {
+    VkInstance instance;
+
     debug_report_data *report_data;
     std::vector<VkDebugReportCallbackEXT> logging_callback;
     VkLayerDispatchTable *device_dispatch_table;
     VkLayerInstanceDispatchTable *instance_dispatch_table;
+
+    // The following are for keeping track of the temporary callbacks that can
+    // be used in vkCreateInstance and vkDestroyInstance:
+    uint32_t num_tmp_callbacks;
+    VkDebugReportCallbackCreateInfoEXT *tmp_dbg_create_infos;
+    VkDebugReportCallbackEXT *tmp_callbacks;
+
     // NOTE: The following are for keeping track of info that is used for
     // validating the WSI extensions.
     std::unordered_map<void *, SwpInstance> instanceMap;
@@ -340,7 +340,9 @@ struct layer_data {
     std::unordered_map<VkSwapchainKHR, SwpSwapchain> swapchainMap;
     std::unordered_map<void *, SwpQueue> queueMap;
 
-    layer_data() : report_data(nullptr), device_dispatch_table(nullptr), instance_dispatch_table(nullptr){};
+    layer_data()
+        : report_data(nullptr), device_dispatch_table(nullptr), instance_dispatch_table(nullptr), num_tmp_callbacks(0),
+          tmp_dbg_create_infos(nullptr), tmp_callbacks(nullptr){};
 };
 
 #endif // SWAPCHAIN_H

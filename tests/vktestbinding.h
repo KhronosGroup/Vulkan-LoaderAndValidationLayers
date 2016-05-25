@@ -3,24 +3,17 @@
  * Copyright (c) 2015-2016 Valve Corporation
  * Copyright (c) 2015-2016 LunarG, Inc.
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and/or associated documentation files (the "Materials"), to
- * deal in the Materials without restriction, including without limitation the
- * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
- * sell copies of the Materials, and to permit persons to whom the Materials are
- * furnished to do so, subject to the following conditions:
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * The above copyright notice(s) and this permission notice shall be included in
- * all copies or substantial portions of the Materials.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * THE MATERIALS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
- *
- * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
- * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
- * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE MATERIALS OR THE
- * USE OR OTHER DEALINGS IN THE MATERIALS.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * Author: Courtney Goeltzenleuchter <courtney@LunarG.com>
  * Author: Cody Northrop <cody@lunarg.com>
@@ -124,6 +117,7 @@ class PhysicalDevice : public internal::Handle<VkPhysicalDevice> {
     VkPhysicalDeviceProperties properties() const;
     VkPhysicalDeviceMemoryProperties memory_properties() const;
     std::vector<VkQueueFamilyProperties> queue_properties() const;
+    VkPhysicalDeviceFeatures features() const;
 
     bool set_memory_type(const uint32_t type_bits, VkMemoryAllocateInfo *info,
                          const VkMemoryPropertyFlags properties,
@@ -494,14 +488,13 @@ class Image : public internal::NonDispHandle<VkImage> {
     }
 
     static VkImageCreateInfo create_info();
-    static VkImageAspectFlagBits image_aspect(VkImageAspectFlags flags);
-    static VkImageSubresource subresource(VkImageAspectFlagBits aspect,
+    static VkImageSubresource subresource(VkImageAspectFlags aspect,
                                           uint32_t mip_level,
                                           uint32_t array_layer);
     static VkImageSubresource subresource(const VkImageSubresourceRange &range,
                                           uint32_t mip_level,
                                           uint32_t array_layer);
-    static VkImageSubresourceLayers subresource(VkImageAspectFlagBits aspect,
+    static VkImageSubresourceLayers subresource(VkImageAspectFlags aspect,
                                                 uint32_t mip_level,
                                                 uint32_t array_layer,
                                                 uint32_t array_size);
@@ -775,10 +768,13 @@ inline VkImageCreateInfo Image::create_info() {
     return info;
 }
 
-inline VkImageSubresource Image::subresource(VkImageAspectFlagBits aspect,
+inline VkImageSubresource Image::subresource(VkImageAspectFlags aspect,
                                              uint32_t mip_level,
                                              uint32_t array_layer) {
     VkImageSubresource subres = {};
+    if (aspect == 0) {
+        assert(!"Invalid VkImageAspectFlags");
+    }
     subres.aspectMask = aspect;
     subres.mipLevel = mip_level;
     subres.arrayLayer = array_layer;
@@ -788,16 +784,26 @@ inline VkImageSubresource Image::subresource(VkImageAspectFlagBits aspect,
 inline VkImageSubresource
 Image::subresource(const VkImageSubresourceRange &range, uint32_t mip_level,
                    uint32_t array_layer) {
-    return subresource(image_aspect(range.aspectMask),
+    return subresource(range.aspectMask,
                        range.baseMipLevel + mip_level,
                        range.baseArrayLayer + array_layer);
 }
 
-inline VkImageSubresourceLayers Image::subresource(VkImageAspectFlagBits aspect,
+inline VkImageSubresourceLayers Image::subresource(VkImageAspectFlags aspect,
                                                    uint32_t mip_level,
                                                    uint32_t array_layer,
                                                    uint32_t array_size) {
     VkImageSubresourceLayers subres = {};
+    switch (aspect) {
+    case VK_IMAGE_ASPECT_COLOR_BIT:
+    case VK_IMAGE_ASPECT_DEPTH_BIT:
+    case VK_IMAGE_ASPECT_STENCIL_BIT:
+    case VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT:
+        /* valid */
+        break;
+    default:
+        assert(!"Invalid VkImageAspectFlags");
+    }
     subres.aspectMask = aspect;
     subres.mipLevel = mip_level;
     subres.baseArrayLayer = array_layer;
@@ -805,30 +811,10 @@ inline VkImageSubresourceLayers Image::subresource(VkImageAspectFlagBits aspect,
     return subres;
 }
 
-inline VkImageAspectFlagBits Image::image_aspect(VkImageAspectFlags flags) {
-    /*
-     * This will map VkImageAspectFlags into a single VkImageAspect.
-     * If there is more than one bit defined we'll get an assertion.
-     */
-    switch (flags) {
-    case VK_IMAGE_ASPECT_COLOR_BIT:
-        return VK_IMAGE_ASPECT_COLOR_BIT;
-    case VK_IMAGE_ASPECT_DEPTH_BIT:
-        return VK_IMAGE_ASPECT_DEPTH_BIT;
-    case VK_IMAGE_ASPECT_STENCIL_BIT:
-        return VK_IMAGE_ASPECT_STENCIL_BIT;
-    case VK_IMAGE_ASPECT_METADATA_BIT:
-        return VK_IMAGE_ASPECT_METADATA_BIT;
-    default:
-        assert(!"Invalid VkImageAspect");
-    }
-    return VK_IMAGE_ASPECT_COLOR_BIT;
-}
-
 inline VkImageSubresourceLayers
 Image::subresource(const VkImageSubresourceRange &range, uint32_t mip_level,
                    uint32_t array_layer, uint32_t array_size) {
-    return subresource(image_aspect(range.aspectMask),
+    return subresource(range.aspectMask,
                        range.baseMipLevel + mip_level,
                        range.baseArrayLayer + array_layer, array_size);
 }
@@ -838,6 +824,9 @@ Image::subresource_range(VkImageAspectFlags aspect_mask,
                          uint32_t base_mip_level, uint32_t mip_levels,
                          uint32_t base_array_layer, uint32_t num_layers) {
     VkImageSubresourceRange range = {};
+    if (aspect_mask == 0) {
+        assert(!"Invalid VkImageAspectFlags");
+    }
     range.aspectMask = aspect_mask;
     range.baseMipLevel = base_mip_level;
     range.levelCount = mip_levels;

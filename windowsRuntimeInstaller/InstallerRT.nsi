@@ -4,24 +4,17 @@
 # Copyright (c) 2015-2016 Valve Corporation
 # Copyright (c) 2015-2016 LunarG, Inc.
 #
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and/or associated documentation files (the "Materials"), to
-# deal in the Materials without restriction, including without limitation the
-# rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
-# sell copies of the Materials, and to permit persons to whom the Materials are
-# furnished to do so, subject to the following conditions:
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# The above copyright notice(s) and this permission notice shall be included in
-# all copies or substantial portions of the Materials.
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
-# THE MATERIALS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-#
-# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-# DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-# OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE MATERIALS OR THE
-# USE OR OTHER DEALINGS IN THE MATERIALS.
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Author: David Pinedo <david@LunarG.com>
 # Author: Mark Young <mark@LunarG.com>
@@ -30,15 +23,15 @@
 
 # Version information
 # Set VERSION_BUILDNO to:
-#    x.pre.z for prereleases
+#    x.devbuild.z for development builds
 #    x for releases
 #
 !define PRODUCTNAME "VulkanRT"
 !define VERSION_ABI_MAJOR "1"
 !define VERSION_API_MAJOR "1"
 !define VERSION_MINOR "0"
-!define VERSION_PATCH "1"
-!define VERSION_BUILDNO "0.pre.1"
+!define VERSION_PATCH "12"
+!define VERSION_BUILDNO "0.devbuild.1"
 !define PUBLISHER "YourCompany, Inc."
 #!define VERSION_BUILDNO "0"
 !define PRODUCTVERSION "${VERSION_API_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}.${VERSION_BUILDNO}"
@@ -231,11 +224,23 @@ VIProductVersion "${PRODUCTVERSION}"
 VIAddVersionKey  "ProductName" "Vulkan Runtime"
 VIAddVersionKey  "FileVersion" "${PRODUCTVERSION}"
 VIAddVersionKey  "ProductVersion" "${PRODUCTVERSION}"
-VIAddVersionKey  "FileDescription" "Vulkan Runtime Installer"
 VIAddVersionKey  "LegalCopyright" ""
+
+!ifdef UNINSTALLER
+    VIAddVersionKey  "FileDescription" "Vulkan Runtime Uninstaller"
+!else
+    VIAddVersionKey  "FileDescription" "Vulkan Runtime Installer"
+!endif
 
 # Start default section
 Section
+
+    # Turn on logging
+    LogSet on
+
+    # Remove contents of temp dir
+    SetOutPath "$TEMP\VulkanRT"
+    RmDir /R "$TEMP\VulkanRT"
 
     # If running on a 64-bit OS machine, disable registry re-direct since we're running as a 32-bit executable.
     ${If} ${RunningX64}
@@ -292,7 +297,7 @@ Section
     AccessControl::GrantOnFile  $INSTDIR "Everyone" "ReadAttributes"
     File ${ICOFILE}
     File VULKANRT_LICENSE.RTF
-    File LICENSE.txt
+    File /oname=LICENSE.txt ..\COPYRIGHT.txt
     File ConfigLayersAndVulkanDLL.ps1
     StrCpy $1 15
     Call CheckForError
@@ -378,14 +383,10 @@ Section
     ${StrRep} $0 ${VERSION_BUILDNO} "." "-"
     StrCpy $FileVersion ${VERSION_ABI_MAJOR}-${VERSION_API_MAJOR}-${VERSION_MINOR}-${VERSION_PATCH}-$0
 
-    # Remove vulkaninfo from Start Menu
+    # Complete remove the Vulkan Start Menu. Prior version of the Vulkan RT
+    # created Start Menu items, we don't do that anymore.
     SetShellVarContext all
-    Delete "$SMPROGRAMS\Vulkan\vulkaninfo32.lnk"
-    Delete "$SMPROGRAMS\Vulkan\vulkaninfo.lnk"
-    ClearErrors
-
-    # Create Vulkan in the Start Menu
-    CreateDirectory "$SMPROGRAMS\Vulkan"
+    RmDir /R "$SMPROGRAMS\Vulkan"
     ClearErrors
 
     # If running on a 64-bit OS machine
@@ -459,50 +460,23 @@ Section
     # by the uninstaller when it needs to be run again during uninstall.
     Delete ConfigLayersAndVulkanDLL.ps1
 
-    # Add vulkaninfo to Start Menu
-    SetShellVarContext all
-    IfFileExists $WINDIR\System32\vulkaninfo.exe 0 +2
-        CreateShortCut "$SMPROGRAMS\Vulkan\vulkaninfo.lnk" "$WINDIR\System32\vulkaninfo.exe"
-    IfFileExists $WINDIR\SysWow64\vulkaninfo.exe 0 +2
-        CreateShortCut "$SMPROGRAMS\Vulkan\vulkaninfo32.lnk" "$WINDIR\SysWow64\vulkaninfo.exe"
-
-    # Possibly install MSVC 2013 redistributables
-    ClearErrors
-    ${If} ${RunningX64}
-        ReadRegDword $1 HKLM "SOFTWARE\WOW6432Node\Microsoft\DevDiv\vc\Servicing\12.0\RuntimeMinimum" "Install"
-        ${If} ${Errors}
-           StrCpy $1 0
-           ClearErrors
-        ${Endif}
-    ${Else}
-       StrCpy $1 1
-    ${Endif}
-    ReadRegDword $2 HKLM "SOFTWARE\Microsoft\DevDiv\vc\Servicing\12.0\RuntimeMinimum" "Install"
-    ${If} ${Errors}
-       StrCpy $2 0
-       ClearErrors
-    ${Endif}
-    IntOp $3 $1 + $2
-    ${If} $3 <= 1
-        # If either x86 or x64 redistributables are not present, install redistributables.
-        # We install both resdistributables because we have found that the x86 redist
-        # will uninstall the x64 redist if the x64 redistrib is an old version. Amazing, isn't it?
-        SetOutPath "$TEMP\VulkanRT"
-        ${If} ${RunningX64}
-            File vcredist_x64.exe
-            ExecWait '"$TEMP\VulkanRT\vcredist_x64.exe"  /quiet /norestart'
-        ${Endif}
-        File vcredist_x86.exe
-        ExecWait '"$TEMP\VulkanRT\vcredist_x86.exe"  /quiet /norestart'
-    ${Endif}
-    StrCpy $1 65
-    Call CheckForError
+    # Finish logging and move log file to TEMP dir
+    LogSet off
+    Rename "$INSTDIR\install.log" "$TEMP\VulkanRT\Install.log"
 
 SectionEnd
 
 # Uninstaller section start
 !ifdef UNINSTALLER
 Section "uninstall"
+
+    # Remove contents of temp dir
+    SetOutPath "$TEMP\VulkanRT"
+    RmDir /R "$TEMP\VulkanRT"
+
+    # Turn on logging
+    StrCpy $INSTDIR $TEMP\VulkanRT
+    LogSet on
 
     # If running on a 64-bit OS machine, disable registry re-direct since we're running as a 32-bit executable.
     ${If} ${RunningX64}
@@ -513,7 +487,6 @@ Section "uninstall"
     ${Endif}
 
     # Look up the install dir and remove files from that directory.
-    # We do this so that the uninstaller can be run from any directory.
     ReadRegStr $0 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCTNAME}${PRODUCTVERSION}" "InstallDir"
     StrCpy $IDir $0
 
@@ -604,27 +577,6 @@ Section "uninstall"
     # If Ref Count is zero, uninstall everything
     ${If} $IC <= 0
 
-        # Delete vulkaninfo from start menu.
-        SetShellVarContext all
-        Delete "$SMPROGRAMS\Vulkan\vulkaninfo.lnk"
-
-        # If running on a 64-bit OS machine
-        ${If} ${RunningX64}
-            Delete "$SMPROGRAMS\Vulkan\vulkaninfo32.lnk"
-        ${EndIf}
-
-        # Possibly add vulkaninfo to Start Menu
-        SetShellVarContext all
-        IfFileExists $WINDIR\System32\vulkaninfo.exe 0 +2
-            CreateShortCut "$SMPROGRAMS\Vulkan\vulkaninfo.lnk" "$WINDIR\System32\vulkaninfo.exe"
-        IfFileExists $WINDIR\SysWow64\vulkaninfo.exe 0 +2
-            CreateShortCut "$SMPROGRAMS\Vulkan\vulkaninfo32.lnk" "$WINDIR\SysWow64\vulkaninfo.exe"
-
-        # Possibly delete vulkan Start Menu
-        StrCpy $0 "$SMPROGRAMS\Vulkan"
-        Call un.DeleteDirIfEmpty
-        ClearErrors
-
         # Remove files in install dir
         Delete /REBOOTOK "$IDir\VULKANRT_LICENSE.rtf"
         Delete /REBOOTOK "$IDir\LICENSE.txt"
@@ -669,9 +621,9 @@ Section "uninstall"
     StrCpy $1 80
     Call un.CheckForError
 
-    # Remove temp dir
-    SetOutPath "$TEMP"
-    RmDir /R "$TEMP\VulkanRT"
+    # Finish logging and move log file to TEMP dir
+    LogSet off
+    Rename "$INSTDIR\install.log" "$INSTDIR\Uninstall.log"
 
 SectionEnd
 !endif
@@ -713,6 +665,10 @@ Function CheckForError
         # IHV's using this install may want no message box.
         MessageBox MB_OK|MB_ICONSTOP "${errorMessage1}${errorMessage2}Errorcode: $1$\r$\n" /SD IDOK
 
+        # Finish logging and move log file to TEMP dir
+        LogSet off
+        Rename "$INSTDIR\install.log" "$TEMP\VulkanRT\install.log"
+
         # Copy the uninstaller to a temp folder of our own creation so we can completely
         # delete the old contents.
         SetOutPath "$TEMP\VulkanRT"
@@ -741,6 +697,11 @@ Function un.CheckForError
 
         # Set an error message to output
         SetErrorLevel $1
+
+        # Finish logging and move log file to TEMP dir
+        LogSet off
+        Delete "$TEMP\VulkanRT\Uninstall.log"
+        Rename "$INSTDIR\install.log" "$TEMP\VulkanRT\Uninstall.log"
 
         Quit
     ${EndIf}

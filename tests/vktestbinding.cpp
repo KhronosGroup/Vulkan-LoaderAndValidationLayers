@@ -3,24 +3,17 @@
  * Copyright (c) 2015-2016 Valve Corporation
  * Copyright (c) 2015-2016 LunarG, Inc.
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and/or associated documentation files (the "Materials"), to
- * deal in the Materials without restriction, including without limitation the
- * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
- * sell copies of the Materials, and to permit persons to whom the Materials are
- * furnished to do so, subject to the following conditions:
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * The above copyright notice(s) and this permission notice shall be included in
- * all copies or substantial portions of the Materials.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * THE MATERIALS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
- *
- * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
- * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
- * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE MATERIALS OR THE
- * USE OR OTHER DEALINGS IN THE MATERIALS.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * Author: Courtney Goeltzenleuchter <courtney@LunarG.com>
  * Author: Tony Barbour <tony@LunarG.com>
@@ -119,6 +112,12 @@ VkPhysicalDeviceMemoryProperties PhysicalDevice::memory_properties() const {
     vkGetPhysicalDeviceMemoryProperties(handle(), &info);
 
     return info;
+}
+
+VkPhysicalDeviceFeatures PhysicalDevice::features() const {
+    VkPhysicalDeviceFeatures features;
+    vkGetPhysicalDeviceFeatures(handle(), &features);
+    return features;
 }
 
 /*
@@ -289,7 +288,7 @@ void Device::init(std::vector<const char *> &layers,
         qi.queueFamilyIndex = i;
         qi.queueCount = queue_props[i].queueCount;
 
-        queue_priorities.emplace_back(qi.queueCount, 0.0);
+        queue_priorities.emplace_back(qi.queueCount, 0.0f);
 
         qi.pQueuePriorities = queue_priorities[i].data();
         if (queue_props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
@@ -307,6 +306,10 @@ void Device::init(std::vector<const char *> &layers,
     dev_info.ppEnabledLayerNames = layers.data();
     dev_info.enabledExtensionCount = extensions.size();
     dev_info.ppEnabledExtensionNames = extensions.data();
+
+    // request all supportable features enabled
+    auto features = phy().features();
+    dev_info.pEnabledFeatures = &features;
 
     init(dev_info);
 }
@@ -546,14 +549,18 @@ void Image::init(const Device &dev, const VkImageCreateInfo &info,
                  VkMemoryPropertyFlags mem_props) {
     init_no_mem(dev, info);
 
-    internal_mem_.init(
-        dev, get_resource_alloc_info(dev, memory_requirements(), mem_props));
-    bind_memory(internal_mem_, 0);
+    if (initialized()) {
+        internal_mem_.init(
+                    dev, get_resource_alloc_info(dev, memory_requirements(), mem_props));
+        bind_memory(internal_mem_, 0);
+    }
 }
 
 void Image::init_no_mem(const Device &dev, const VkImageCreateInfo &info) {
     NON_DISPATCHABLE_HANDLE_INIT(vkCreateImage, dev, &info);
-    init_info(dev, info);
+    if (initialized()) {
+        init_info(dev, info);
+    }
 }
 
 void Image::init_info(const Device &dev, const VkImageCreateInfo &info) {
@@ -598,7 +605,7 @@ VkSubresourceLayout
 Image::subresource_layout(const VkImageSubresourceLayers &subrescopy) const {
     VkSubresourceLayout data;
     VkImageSubresource subres =
-        subresource(image_aspect(subrescopy.aspectMask), subrescopy.mipLevel,
+        subresource(subrescopy.aspectMask, subrescopy.mipLevel,
                     subrescopy.baseArrayLayer);
     size_t size = sizeof(data);
     vkGetImageSubresourceLayout(device(), handle(), &subres, &data);

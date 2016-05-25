@@ -2,24 +2,17 @@
 # Copyright (c) 2015-2016 Valve Corporation
 # Copyright (c) 2015-2016 LunarG, Inc.
 #
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and/or associated documentation files (the "Materials"), to
-# deal in the Materials without restriction, including without limitation the
-# rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
-# sell copies of the Materials, and to permit persons to whom the Materials are
-# furnished to do so, subject to the following conditions:
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# The above copyright notice(s) and this permission notice shall be included in
-# all copies or substantial portions of the Materials.
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
-# THE MATERIALS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-#
-# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-# DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-# OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE MATERIALS OR THE
-# USE OR OTHER DEALINGS IN THE MATERIALS.
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Author: David Pinedo <david@LunarG.com>
 # Author: Mark Young <mark@LunarG.com>
@@ -45,6 +38,14 @@ Param(
  [string]$majorabi,
  [int]$ossize
 )
+
+# Start logging
+$log=$Env:Temp+"\VulkanRT"
+New-Item -ItemType Directory -Force -Path $log | Out-Null
+$logascii=$log+"\ConfigLayersAndVulkanDLL.log"
+$log=$log+"\ConfigLayersAndVulkanDLL16.log"
+echo "ConfigLayersAndVulkanDLL.ps1 $majorabi $ossize" >$log
+(Get-Date).ToString() >>$log
 
 $vulkandll = "vulkan-"+$majorabi+".dll"
 $windrive  = $env:SYSTEMDRIVE
@@ -78,14 +79,16 @@ function notNumeric ($x) {
 # We first create an array, with one array element for each vulkan-*dll in
 # C:\Windows\System32 (and C:\Windows\SysWOW64 on 64-bit systems), with each element
 # containing:
-#    <major>=<minor>=<patch>=<buildno>=<prerelease>=<prebuildno>=
+#    <major>=<minor>=<patch>=<buildno>=<prebuildno>=<prerelease>=
 #     filename
 #    @<major>@<minor>@<patch>@<buildno>@<prerelease>@<prebuildno>@
 # [Note that the above three lines are one element in the array.]
 # The build identifiers separated by "=" are suitable for sorting, i.e.
 # expanded to 10 digits with leading 0s. If <prerelease> or <prebuildno> are
 # not specified, "zzzzzzzzzz" is substituted for them, so that they sort
-# to a position after those that do specify them.
+# to a position after those that do specify them. Note that <prerelease>
+# is "less significant" in the sort than <prebuildno>, and that <prerelease> is
+# always treated as an alpha string, even though it may contain numeric characters.
 # The build identifiers separated by "@" are the original values extracted
 # from the file name. They are used later to find the path to the SDK
 # install directory for the given filename.
@@ -93,6 +96,8 @@ function notNumeric ($x) {
 
 function UpdateVulkanSysFolder([string]$dir, [int]$writeSdkName)
 {
+   echo "UpdateVulkanSysFolder $dir $writeSdkName" >>$log
+
    # Push the current path on the stack and go to $dir
    Push-Location -Path $dir
 
@@ -100,9 +105,10 @@ function UpdateVulkanSysFolder([string]$dir, [int]$writeSdkName)
    # First Initialize the list to empty
    $script:VulkanDllList = @()
 
-   # Find all DLL objects in this directory
+   # Find all vulkan dll files in this directory
    dir -name vulkan-$majorabi-*.dll |
    ForEach-Object {
+       echo "File $_" >>$log
        if ($_ -match "=" -or
            $_ -match "@" -or
            $_ -match " " -or
@@ -112,8 +118,18 @@ function UpdateVulkanSysFolder([string]$dir, [int]$writeSdkName)
            # If a file name contains "=", "@", or " ", or it contains less then 5 dashes or more than
            # 7 dashes, it wasn't installed by the Vulkan Run Time.
            # Note that we need to use return inside of ForEach-Object is to continue with iteration.
+           echo "Rejected $_ - bad format" >>$log
            return
        }
+
+       # If the corresponding vulkaninfo is not present, it wasn't installed by the Vulkan Run Time
+       $vulkaninfo=$_ -replace ".dll",".exe"
+       $vulkaninfo=$vulkaninfo -replace "vulkan","vulkaninfo"
+       if (-not (Test-Path $vulkaninfo)) {
+           echo "Rejected $_ - vulkaninfo not present" >>$log
+           return
+       }
+
        $major=$_.Split('-')[2]
        $majorOrig=$major
        $minor=$_.Split('-')[3]
@@ -155,25 +171,42 @@ function UpdateVulkanSysFolder([string]$dir, [int]$writeSdkName)
               $prebuildno="z"*10
           }
        }
+       echo "Version $majorOrig $minorOrig $patchOrig $buildnoOrig $prereleaseOrig $prebuildnoOrig" >>$log
 
        # Make sure fields that are supposed to be numbers are numbers
-       if (notNumeric($major)) {return}
-       if (notNumeric($minor)) {return}
-       if (notNumeric($patch)) {return}
-       if (notNumeric($buildno)) {return}
+       if (notNumeric($major)) {
+           echo "Rejected $_ - bad major" >>$log
+           return
+       }
+       if (notNumeric($minor)) {
+           echo "Rejected $_ - bad minor" >>$log
+           return
+       }
+       if (notNumeric($patch)) {
+           echo "Rejected $_ - bad patch" >>$log
+           return
+       }
+       if (notNumeric($buildno)) {
+           echo "Rejected $_ - bad buildno" >>$log
+           return
+       }
        if (notNumeric($prebuildno)) {
-           if ($prebuildno -ne "z"*10) {return}
+           if ($prebuildno -ne "z"*10) {
+               echo "Rejected $_ - bad prebuildno" >>$log
+               return
+           }
        }
 
        $major = $major.padleft(10,'0')
        $minor = $minor.padleft(10,'0')
        $patch = $patch.padleft(10,'0')
        $buildno = $buildno.padleft(10,'0')
-       $prerelease = $prerelease.padleft(10,'0')
+       $prerelease = $prerelease.padright(10,'z')
        $prebuildno = $prebuildno.padleft(10,'0')
 
        # Add a new element to the $VulkanDllList array
-       $script:VulkanDllList+="$major=$minor=$patch=$buildno=$prerelease=$prebuildno= $_ @$majorOrig@$minorOrig@$patchOrig@$buildnoOrig@$prereleaseOrig@$prebuildnoOrig@"
+       echo "Adding $_ to Vulkan dll list " >>$log
+       $script:VulkanDllList+="$major=$minor=$patch=$buildno=$prebuildno=$prerelease= $_ @$majorOrig@$minorOrig@$patchOrig@$buildnoOrig@$prereleaseOrig@$prebuildnoOrig@"
    }
 
     # If $VulkanDllList contains at least one element, there's at least one vulkan*.dll file.
@@ -188,12 +221,14 @@ function UpdateVulkanSysFolder([string]$dir, [int]$writeSdkName)
         # The most recent vulkanDLL is the second word in the last element of the
         # sorted $VulkanDllList. Copy it to $vulkandll.
         $mrVulkanDll=$script:VulkanDllList[-1].Split(' ')[1]
+        echo "copy $mrVulkanDll $vulkandll" >>$log
         copy $mrVulkanDll $vulkandll
 
         # Copy the most recent version of vulkaninfo-<abimajor>-*.exe to vulkaninfo.exe.
         # We create the source file name for the copy from $mrVulkanDll.
         $mrVulkaninfo=$mrVulkanDll -replace ".dll",".exe"
         $mrVulkaninfo=$mrVulkaninfo -replace "vulkan","vulkaninfo"
+        echo "copy $mrVulkaninfo vulkaninfo.exe" >>$log
         copy $mrVulkaninfo vulkaninfo.exe
 
         # Create the name used in the registry for the SDK associated with $mrVulkanDll.
@@ -211,6 +246,7 @@ function UpdateVulkanSysFolder([string]$dir, [int]$writeSdkName)
         if ($prebuildno -ne "") {
             $sdktempname=$sdktempname + "." + $prebuildno
         }
+        echo "sdkname = $sdktempname" >>$log
     }
 
     # Return to our previous folder
@@ -227,14 +263,17 @@ function UpdateVulkanSysFolder([string]$dir, [int]$writeSdkName)
 # We only care about SYSWOW64 if we're targeting a 64-bit OS
 if ($ossize -eq 64) {
     # Update the SYSWOW64 Vulkan DLLS/EXEs
+    echo "Calling UpdateVulkanSysFolder $winfolder\SYSWOW64 0" >>$log
     UpdateVulkanSysFolder $winfolder\SYSWOW64 0
 }
 
 # Update the SYSTEM32 Vulkan DLLS/EXEs
+echo "Calling UpdateVulkanSysFolder $winfolder\SYSTEM32 1" >>$log
 UpdateVulkanSysFolder $winfolder\SYSTEM32 1
 
 # Create an array of vulkan sdk install dirs
 
+echo "Creating array of of Vulkan SDK Install dirs" >>$log
 $mrVulkanDllInstallDir=""
 $VulkanSdkDirs=@()
 Get-ChildItem -Path Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall |
@@ -245,9 +284,11 @@ Get-ChildItem -Path Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\Curr
            $tmp=Get-ItemProperty -Path Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$regkey -Name UninstallString
            $tmp=$tmp -replace "\\Uninstall.exe.*",""
            $tmp=$tmp -replace ".*=.",""
+           echo "Adding $tmp to VulkanSDKDirs" >>$log
            $VulkanSdkDirs+=$tmp
            if ($regkey -eq $script:sdkname) {
                # Save away the sdk install dir for the the most recent vulkandll
+               echo "Setting mrVulkanDllInstallDir to $tmp" >>$log
                $mrVulkanDllInstallDir=$tmp
            }
        }
@@ -257,7 +298,9 @@ Get-ChildItem -Path Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\Curr
 # Search list of sdk install dirs for an sdk compatible with $script:sdkname.
 # We go backwards through VulkanDllList to generate SDK names, because we want the most recent SDK.
 if ($mrVulkanDllInstallDir -eq "") {
+    echo "Searching VulkanDllList" >>$log
     ForEach ($idx in ($script:VulkanDllList.Length-1)..0) {
+        $tmp=$script:VulkanDllList[$idx]
         $vulkanDllMajor=$script:VulkanDllList[$idx].Split('@')[1]
         $vulkanDllMinor=$script:VulkanDllList[$idx].Split('@')[2]
         $vulkanDllPatch=$script:VulkanDllList[$idx].Split('@')[3]
@@ -271,6 +314,7 @@ if ($mrVulkanDllInstallDir -eq "") {
         if ($vulkanDllPrebuildno) {
             $regEntry=$regEntry+"."+$vulkanDllPrebuildno
         }
+        echo "Comparing $regEntry" >>$log
         $rval=Get-ItemProperty -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$regEntry -ErrorAction SilentlyContinue
         $instDir=$rval
         $instDir=$instDir -replace "\\Uninstall.exe.*",""
@@ -282,6 +326,7 @@ if ($mrVulkanDllInstallDir -eq "") {
             $reMinor=$rval.Split('.')[1]
             $rePatch=$rval.Split('.')[2]
             if ($reMajor+$reMinor+$rePatch -eq $vulkanDllMajor+$vulkanDllMinor+$vulkanDllPatch) {
+                echo "Setting mrVulkanDllInstallDir to $instDir" >>$log
                 $mrVulkanDllInstallDir=$instDir
                 break
             }
@@ -300,20 +345,22 @@ if ($mrVulkanDllInstallDir -eq "") {
 $VulkanSdkDirs+="C:\VulkanSDK\0.9.3"
 $VulkanSdkDirs+="$windrive\VulkanSDK\0.9.3"
 
-# Remove layer registry entries associated with all installed Vulkan SDKs.
+# Remove layer registry values associated with all installed Vulkan SDKs.
 # Note that we remove only those entries created by Vulkan SDKs. If other
 # layers were installed that are not from an SDK, we don't mess with them.
 
+echo "Removing old layer registry values from HKLM\SOFTWARE\Khronos\Vulkan\ExplicitLayers" >>$log
 Get-Item -Path Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Khronos\Vulkan\ExplicitLayers | Select-Object -ExpandProperty Property |
    ForEach-Object {
        $regval=$_
        ForEach ($sdkdir in $VulkanSdkDirs) {
           if ($regval -like "$sdkdir\*.json") {
               Remove-ItemProperty -ErrorAction SilentlyContinue -Path HKLM:\SOFTWARE\Khronos\Vulkan\ExplicitLayers -name $regval
+              echo "Removed registry value $regval" >>$log
           }
        }
    }
-# Remove 32-bit layer registry entries if we're targeting a 64-bit OS
+# Remove 32-bit layer registry value if we're targeting a 64-bit OS
 if ($ossize -eq 64) {
    Get-Item -Path Registry::HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Khronos\Vulkan\ExplicitLayers | Select-Object -ExpandProperty Property |
       ForEach-Object {
@@ -321,48 +368,74 @@ if ($ossize -eq 64) {
           ForEach ($sdkdir in $VulkanSdkDirs) {
              if ($regval -like "$sdkdir\*.json") {
                  Remove-ItemProperty -ErrorAction SilentlyContinue -Path HKLM:\SOFTWARE\WOW6432Node\Khronos\Vulkan\ExplicitLayers -name $regval
+                 echo "Removed WOW6432Node registry value $regval" >>$log
              }
           }
       }
 }
 
 
-# Create layer registry entries associated with Vulkan SDK from which $mrVulkanDll is from
+# Create layer registry values associated with Vulkan SDK from which $mrVulkanDll is from
 
+echo "Creating new layer registry values" >>$log
 if ($mrVulkanDllInstallDir -ne "") {
+
+    # Create registry keys if they don't exist
+    if (-not (Test-Path -Path HKLM:\SOFTWARE\Khronos\Vulkan\ExplicitLayers)) {
+        echo "Creating new registry key HKLM\SOFTWARE\Khronos\Vulkan\ExplicitLayers" >>$log
+        New-Item -Force -ErrorAction SilentlyContinue -Path HKLM:\SOFTWARE\Khronos\Vulkan\ExplicitLayers | out-null
+    }
+    if ($ossize -eq 64) {
+        if (-not (Test-Path -Path HKLM:\SOFTWARE\WOW6432Node\Khronos\Vulkan\ExplicitLayers)) {
+            echo "Creating new registry key HKLM\SOFTWARE\WOW6432Node\Khronos\Vulkan\ExplicitLayers" >>$log
+            New-Item -Force -ErrorAction SilentlyContinue -Path HKLM:\SOFTWARE\WOW6432Node\Khronos\Vulkan\ExplicitLayers | out-null
+       }
+    }
+
+
     if ($ossize -eq 64) {
     
-        # Create registry entires in normal registry location for 64-bit items on a 64-bit OS
-        New-Item -Force -ErrorAction SilentlyContinue -Path HKLM:\SOFTWARE\Khronos\Vulkan\ExplicitLayers | out-null
+        # Create registry values in normal registry location for 64-bit items on a 64-bit OS
         Get-ChildItem $mrVulkanDllInstallDir\Bin -Filter VkLayer*json |
            ForEach-Object {
+               echo "Creating registry value $mrVulkanDllInstallDir\Bin\$_" >>$log
                New-ItemProperty -Path HKLM:\SOFTWARE\Khronos\Vulkan\ExplicitLayers -Name $mrVulkanDllInstallDir\Bin\$_ -PropertyType DWord -Value 0 | out-null
            }
 
-        # Create registry entires for the WOW6432Node registry location for 32-bit items on a 64-bit OS
-        New-Item -Force -ErrorAction SilentlyContinue -Path HKLM:\SOFTWARE\WOW6432Node\Khronos\Vulkan\ExplicitLayers | out-null
+        # Create registry values for the WOW6432Node registry location for 32-bit items on a 64-bit OS
         Get-ChildItem $mrVulkanDllInstallDir\Bin32 -Filter VkLayer*json |
            ForEach-Object {
+               echo "Creating WOW6432Node registry value $mrVulkanDllInstallDir\Bin32\$_" >>$log
                New-ItemProperty -Path HKLM:\SOFTWARE\WOW6432Node\Khronos\Vulkan\ExplicitLayers -Name $mrVulkanDllInstallDir\Bin32\$_ -PropertyType DWord -Value 0 | out-null
            }
            
     } else {
     
-        # Create registry entires in normal registry location for 32-bit items on a 32-bit OS
-        New-Item -Force -ErrorAction SilentlyContinue -Path HKLM:\SOFTWARE\Khronos\Vulkan\ExplicitLayers | out-null
+        # Create registry values in normal registry location for 32-bit items on a 32-bit OS
         Get-ChildItem $mrVulkanDllInstallDir\Bin32 -Filter VkLayer*json |
            ForEach-Object {
+               echo "Creating registry value $mrVulkanDllInstallDir\Bin\$_" >>$log
                New-ItemProperty -Path HKLM:\SOFTWARE\Khronos\Vulkan\ExplicitLayers -Name $mrVulkanDllInstallDir\Bin32\$_ -PropertyType DWord -Value 0 | out-null
            }
     
     }
 }
 
+# Final log output
+echo "ConfigLayersAndVulkanDLL.ps1 completed" >>$log
+(Get-Date).ToString() >>$log
+
+# Convert logfile to ascii
+cat $log | out-File -encoding ascii -filepath $logascii
+remove-item $log
+
+
+
 # SIG # Begin signature block
 # MIIcZgYJKoZIhvcNAQcCoIIcVzCCHFMCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUdeZMvyfevbCm2d9Sn02g0L39
-# 6EKggheVMIIFHjCCBAagAwIBAgIQDmYEpPtQ2iBY4vC2AGq6uzANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUQ4I+TKoMwtXHArekRd5/bX04
+# sreggheVMIIFHjCCBAagAwIBAgIQDmYEpPtQ2iBY4vC2AGq6uzANBgkqhkiG9w0B
 # AQsFADByMQswCQYDVQQGEwJVUzEVMBMGA1UEChMMRGlnaUNlcnQgSW5jMRkwFwYD
 # VQQLExB3d3cuZGlnaWNlcnQuY29tMTEwLwYDVQQDEyhEaWdpQ2VydCBTSEEyIEFz
 # c3VyZWQgSUQgQ29kZSBTaWduaW5nIENBMB4XDTE1MDQzMDAwMDAwMFoXDTE2MDcw
@@ -493,22 +566,22 @@ if ($mrVulkanDllInstallDir -ne "") {
 # QTIgQXNzdXJlZCBJRCBDb2RlIFNpZ25pbmcgQ0ECEA5mBKT7UNogWOLwtgBqursw
 # CQYFKw4DAhoFAKB4MBgGCisGAQQBgjcCAQwxCjAIoAKAAKECgAAwGQYJKoZIhvcN
 # AQkDMQwGCisGAQQBgjcCAQQwHAYKKwYBBAGCNwIBCzEOMAwGCisGAQQBgjcCARUw
-# IwYJKoZIhvcNAQkEMRYEFCQBfl/Xm3/R6yW/EO6kbSmkdowDMA0GCSqGSIb3DQEB
-# AQUABIIBADCbC3HqswOLfqwjX9+TM0hW9sG02WMHPbz0fFBTH5J/tck4wZECl9ct
-# DK0pUzHoJBY9EuBnH9OD46MiVCIYwYHQ9w/xiaypUNRbfXYEwSVL9EXCIcYkkqAN
-# pSpDrQJu0TzmGyvN1fSvYj/qahvIVKz/cxbzzQbYl4NqNXRfiD26Pa5JOdNABP8g
-# WL5Ruk/MPvMJE0dIW3em40hoanGKQhP0xgQ/BGJygumYrZsigENfhQkRVngH/aUP
-# f5k78VKL3DFoCMmneIxAfIwspTC37izb/AjlqDNUbqEmfBBIsbLgu6teZVIyPBI/
-# nktk5kwOOhzuyeQxLAcn0z+8ToF5frKhggIPMIICCwYJKoZIhvcNAQkGMYIB/DCC
+# IwYJKoZIhvcNAQkEMRYEFAoOC46C6ArmxtlmLsUTidSbkN3rMA0GCSqGSIb3DQEB
+# AQUABIIBADXG8YUKEPQHyMUpBvGWwb5VeZ8oWPyiSSE649GXu5tHDn+N2lhDPngR
+# Cksh4FpF56hP4RgTzH/Nmxf2D4kZUzPCrs2Il1S+U0ZoFpoAwrN8dbnvw2Wvf7ns
+# LZHXKG9eIaMYx6r/nn+VV8qvL/25fZ8oNyIFCYy4FYRLmla5g1+Vmtg6anHj89c+
+# EMSIwR8BR5UlAagfhfKJQHYMz4xkdqMrR6ZDsMHvYjbOg3MILrrdgomH2R5JKAHK
+# IaD3EqM+Tgu8LH1MMt/hIf4RS/lgqT12qM88J64dyhquaM1BUzw5dnwb+h3aAF2O
+# ZJ4IhONECJbJf8wVT8rTUA+6uUm/Y6ihggIPMIICCwYJKoZIhvcNAQkGMYIB/DCC
 # AfgCAQEwdjBiMQswCQYDVQQGEwJVUzEVMBMGA1UEChMMRGlnaUNlcnQgSW5jMRkw
 # FwYDVQQLExB3d3cuZGlnaWNlcnQuY29tMSEwHwYDVQQDExhEaWdpQ2VydCBBc3N1
 # cmVkIElEIENBLTECEAMBmgI6/1ixa9bV6uYX8GYwCQYFKw4DAhoFAKBdMBgGCSqG
-# SIb3DQEJAzELBgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTE2MDMyMjIwMjM0
-# N1owIwYJKoZIhvcNAQkEMRYEFM6NeSjPd00j7j25copMrjENL7GXMA0GCSqGSIb3
-# DQEBAQUABIIBAHJbUlt2mxIX5hbiigRw3kIoug57G5sDYWQK8rcTjHUif6PAdEqj
-# 5c1UhxQHJxEasddUAqbEtCsG8qiz1lq76KKiwaWxffSRQ2JwjYEvnYQ2TK9rtnMs
-# zeYnQajrIUP44z7ysqoikB0bEgup0QVDScm4SSa1SmqQzHMsUX5rCygsM3PlpF5K
-# dH2u3eSK4zDhGiye6/SQkcddvsI2lLFRcxQIyfUD4+W9oFdXuYkKhNBGPLUlOH9V
-# DEDQG9zH6CAzvla/r1iYnX8RZ4rz7yacdrMBq5g92HAEcuXFTBQfaeAZSGQBhNSn
-# p1rVWgLb0T3a/5zlOtZvp+bLyDRbms+w8BY=
+# SIb3DQEJAzELBgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTE2MDQwNzIxNTM0
+# OFowIwYJKoZIhvcNAQkEMRYEFERKj5qmhGjIIeKV/myZFhJ/EUO7MA0GCSqGSIb3
+# DQEBAQUABIIBAJYQytkxzpn/UVwVJ0tsompGzVKSEgjuqAiI2jA0LiQwWM9iBHpG
+# 8ijDH6Dh+Fqa1JSsynyFixF26SuHeDoY/LX14HhRPDEkBa70qt9h9gc/73f9AzUy
+# eSbxwRhlF/UAyk0E3fbK1of431HxfvcdhnvCIDW8orfiG5v7gS0Mub4C70TlMXTp
+# b6XT1orYqnih9j4EVCYWZwv+EsOADRHW7o1RvIC2gI2dzmAkMSEjehk3we6u8KXI
+# xkggPOXy5O8TFgFdjvKU6XaoTTCklKWFIQIRG9r5m//Qj3jwzwN/03gLPphi6zze
+# 8fAJmClDyH+kHivSSfFnFUB7elvajTvasQE=
 # SIG # End signature block
