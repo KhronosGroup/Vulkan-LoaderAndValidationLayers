@@ -252,6 +252,14 @@ typedef enum VkLayerDbgAction_ {
 } VkLayerDbgAction;
 
 // ------------------------------------------------------------------------------------------------
+// Layer Library Interface Functions
+
+// added by v1
+typedef VkResult (VKAPI_PTR *PFN_vk_layerNegotiateLoaderLayerInterfaceVersion)(uint32_t* pSupportedVersion);
+typedef uint32_t (VKAPI_PTR *PFN_vk_layerGetLayerNames)(const char* const** pppLayerNames);
+typedef PFN_vkVoidFunction (VKAPI_PTR *PFN_vk_layerGetLayerProcAddr)(const char* pLayerName, const char* pName);
+
+// ------------------------------------------------------------------------------------------------
 // CreateInstance and CreateDevice support structures
 
 /* Sub type of structure for instance and device loader ext of CreateInfo.

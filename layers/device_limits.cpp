@@ -45,6 +45,10 @@
 #include "vk_layer_extension_utils.h"
 #include "vk_layer_utils.h"
 
+// we support v0 and v1
+constexpr uint32_t k_max_interface_version = 1;
+static uint32_t g_interface_version = 0;
+
 namespace device_limits {
 
 // This struct will be stored in a map hashed by the dispatchable object
@@ -670,6 +674,24 @@ DebugReportMessageEXT(VkInstance instance, VkDebugReportFlagsEXT flags, VkDebugR
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
+EnumerateInstanceLayerProperties(uint32_t *pCount, VkLayerProperties *pProperties) {
+    return util_GetLayerProperties(1, &global_layer, pCount, pProperties);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+EnumerateDeviceLayerProperties(VkPhysicalDevice physicalDevice, uint32_t *pCount, VkLayerProperties *pProperties) {
+    return util_GetLayerProperties(1, &global_layer, pCount, pProperties);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+EnumerateInstanceExtensionProperties(const char *pLayerName, uint32_t *pCount, VkExtensionProperties *pProperties) {
+    if (pLayerName && !strcmp(pLayerName, global_layer.layerName))
+        return util_GetExtensionProperties(1, instance_extensions, pCount, pProperties);
+
+    return VK_ERROR_LAYER_NOT_PRESENT;
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
 EnumerateDeviceExtensionProperties(VkPhysicalDevice physicalDevice,
                                    const char *pLayerName, uint32_t *pCount,
                                    VkExtensionProperties *pProperties) {
@@ -750,13 +772,11 @@ intercept_core_instance_command(const char *name) {
         { "vkGetPhysicalDeviceQueueFamilyProperties", reinterpret_cast<PFN_vkVoidFunction>(GetPhysicalDeviceQueueFamilyProperties) },
         { "vkGetPhysicalDeviceMemoryProperties", reinterpret_cast<PFN_vkVoidFunction>(GetPhysicalDeviceMemoryProperties) },
         { "vkGetPhysicalDeviceSparseImageFormatProperties", reinterpret_cast<PFN_vkVoidFunction>(GetPhysicalDeviceSparseImageFormatProperties) },
+        { "vkEnumerateInstanceLayerProperties", reinterpret_cast<PFN_vkVoidFunction>(EnumerateInstanceLayerProperties) },
+        { "vkEnumerateDeviceLayerProperties", reinterpret_cast<PFN_vkVoidFunction>(EnumerateDeviceLayerProperties) },
+        { "vkEnumerateInstanceExtensionProperties", reinterpret_cast<PFN_vkVoidFunction>(EnumerateInstanceExtensionProperties) },
         { "vkEnumerateDeviceExtensionProperties", reinterpret_cast<PFN_vkVoidFunction>(EnumerateDeviceExtensionProperties) },
     };
-
-    // we should never be queried for these commands
-    assert(strcmp(name, "vkEnumerateInstanceLayerProperties") &&
-           strcmp(name, "vkEnumerateInstanceExtensionProperties") &&
-           strcmp(name, "vkEnumerateDeviceLayerProperties"));
 
     for (size_t i = 0; i < ARRAY_SIZE(core_instance_commands); i++) {
         if (!strcmp(core_instance_commands[i].name, name))
@@ -820,21 +840,22 @@ vkDebugReportMessageEXT(VkInstance instance, VkDebugReportFlagsEXT flags, VkDebu
     device_limits::DebugReportMessageEXT(instance, flags, objType, object, location, msgCode, pLayerPrefix, pMsg);
 }
 
-// loader-layer interface v0
+// loader-layer interface v0, just wrappers since there is only a layer
 
 VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL
 vkEnumerateInstanceLayerProperties(uint32_t *pCount, VkLayerProperties *pProperties) {
-    return util_GetLayerProperties(1, &device_limits::global_layer, pCount, pProperties);
+    return device_limits::EnumerateInstanceLayerProperties(pCount, pProperties);
 }
 
 VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL
 vkEnumerateDeviceLayerProperties(VkPhysicalDevice physicalDevice, uint32_t *pCount, VkLayerProperties *pProperties) {
-    return util_GetLayerProperties(1, &device_limits::global_layer, pCount, pProperties);
+    // the layer command handles VK_NULL_HANDLE just fine
+    return device_limits::EnumerateDeviceLayerProperties(VK_NULL_HANDLE, pCount, pProperties);
 }
 
 VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL
 vkEnumerateInstanceExtensionProperties(const char *pLayerName, uint32_t *pCount, VkExtensionProperties *pProperties) {
-    return util_GetExtensionProperties(1, device_limits::instance_extensions, pCount, pProperties);
+    return device_limits::EnumerateInstanceExtensionProperties(pLayerName, pCount, pProperties);
 }
 
 VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateDeviceExtensionProperties(VkPhysicalDevice physicalDevice,
@@ -849,14 +870,41 @@ VK_LAYER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetDeviceProcAddr(VkD
 }
 
 VK_LAYER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr(VkInstance instance, const char *funcName) {
-    if (!strcmp(funcName, "vkEnumerateInstanceLayerProperties"))
-        return reinterpret_cast<PFN_vkVoidFunction>(vkEnumerateInstanceLayerProperties);
-    if (!strcmp(funcName, "vkEnumerateDeviceLayerProperties"))
-        return reinterpret_cast<PFN_vkVoidFunction>(vkEnumerateDeviceLayerProperties);
-    if (!strcmp(funcName, "vkEnumerateInstanceExtensionProperties"))
-        return reinterpret_cast<PFN_vkVoidFunction>(vkEnumerateInstanceExtensionProperties);
-    if (!strcmp(funcName, "vkGetInstanceProcAddr"))
-        return reinterpret_cast<PFN_vkVoidFunction>(vkGetInstanceProcAddr);
-
     return device_limits::GetInstanceProcAddr(instance, funcName);
+}
+
+// loader-layer interface v1
+
+VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL
+vk_layerNegotiateLoaderLayerInterfaceVersion(uint32_t* pSupportedVersion) {
+    g_interface_version = *pSupportedVersion;
+    if (g_interface_version > k_max_interface_version) {
+        g_interface_version = k_max_interface_version;
+        *pSupportedVersion = g_interface_version;
+    }
+
+    return VK_SUCCESS;
+}
+
+VK_LAYER_EXPORT VKAPI_ATTR uint32_t VKAPI_CALL
+vk_layerGetLayerNames(const char* const** pppLayerNames) {
+    static const char* const layer_names[] = {
+        device_limits::global_layer.layerName
+    };
+
+    if (pppLayerNames)
+        *pppLayerNames = layer_names;
+
+    return ARRAY_SIZE(layer_names);
+}
+
+VK_LAYER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL
+vk_layerGetLayerProcAddr(const char* pLayerName, const char* pName) {
+    assert(!strcmp(pLayerName, device_limits::global_layer.layerName));
+
+    // only vkGetInstanceProcAddr is queryable in v1
+    if (!strcmp(pName, "vkGetInstanceProcAddr"))
+        return reinterpret_cast<PFN_vkVoidFunction>(device_limits::GetInstanceProcAddr);
+
+    return nullptr;
 }
