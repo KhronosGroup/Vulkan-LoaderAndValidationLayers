@@ -101,6 +101,12 @@ def main():
   for arch in arches:
     abis.extend(arch_to_abis(arch))
 
+  shaderc_dir = THIS_DIR + '/../../shaderc/shaderc/android_test'
+  print('shaderc_dir = %s' % shaderc_dir)
+  print('Building shader toolchain...')
+  subprocess.check_call(['ndk-build', 'THIRD_PARTY_PATH=../..', '-j30'], cwd=shaderc_dir)
+  print('Finished shader toolchain build')
+
   build_cmd = [
     'bash', THIS_DIR + '/android-generate.sh'
   ]
