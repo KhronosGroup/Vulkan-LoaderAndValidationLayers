@@ -103,8 +103,13 @@ def main():
 
   shaderc_dir = THIS_DIR + '/../../shaderc/shaderc/android_test'
   print('shaderc_dir = %s' % shaderc_dir)
+  if not os.path.isdir(shaderc_dir):
+    print('shaderc_dir does not exist!')
+  else:
+    print('shaderc_dir exists!')
+
   print('Building shader toolchain...')
-  subprocess.check_call(['ndk-build', 'THIRD_PARTY_PATH=../..', '-j30'], cwd=shaderc_dir)
+  subprocess.check_call(['ndk-build', 'V=1', 'THIRD_PARTY_PATH=../..', '-j30'], cwd=shaderc_dir)
   print('Finished shader toolchain build')
 
   build_cmd = [
