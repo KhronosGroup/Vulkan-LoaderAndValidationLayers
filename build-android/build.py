@@ -21,6 +21,8 @@ import os
 import subprocess
 import sys
 
+from subprocess import PIPE, STDOUT
+
 THIS_DIR = os.path.realpath(os.path.dirname(__file__))
 
 ALL_ARCHITECTURES = (
@@ -109,7 +111,9 @@ def main():
     print('shaderc_dir exists!')
 
   print('Building shader toolchain...')
-  subprocess.check_call(['ndk-build', 'V=1', 'THIRD_PARTY_PATH=../..', '-j30'], cwd=shaderc_dir)
+  p = subprocess.Popen(['ndk-build', 'V=1', 'THIRD_PARTY_PATH=../..', '-j30'], stdin=PIPE, stdout=PIPE, stderr=STDOUT, cwd=shaderc_dir)
+  output = p.stdout.read()
+  print output
   print('Finished shader toolchain build')
 
   build_cmd = [
