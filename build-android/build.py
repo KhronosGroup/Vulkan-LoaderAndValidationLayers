@@ -134,7 +134,7 @@ def main():
 
   print('Building shader toolchain...')
   build_cmd = [
-    'bash', ndk_build, '-C', build_dir, jobs_arg(),
+    'bash', ndk_build, '-C', shaderc_dir, jobs_arg(),
     'APP_ABI=' + ' '.join(abis),
     # Use the prebuilt platforms and toolchains.
     'NDK_PLATFORMS_ROOT=' + platforms_root,
@@ -157,7 +157,7 @@ def main():
     '_NDK_TESTING_ALL_=yes'
   ]
 
-  subprocess.check_call(build_cmd, cwd=shaderc_dir)
+  subprocess.check_call(build_cmd)
   print('Finished shader toolchain build')
 
   build_cmd = [
