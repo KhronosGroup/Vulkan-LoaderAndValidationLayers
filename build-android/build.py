@@ -146,11 +146,11 @@ def main():
     # typical ndk-build layout with a jni/{Android,Application}.mk.
     'NDK_PROJECT_PATH=null',
     'NDK_TOOLCHAIN_VERSION=' + compiler,
-    'APP_BUILD_SCRIPT=' + os.path.join(build_dir, 'jni', 'Android.mk'),
+    'APP_BUILD_SCRIPT=' + os.path.join(shaderc_dir, 'jni', 'Android.mk'),
     'APP_STL=' + stl,
-    'NDK_APPLICATION_MK=' + os.path.join(build_dir, 'jni', 'Application.mk'),
-    'NDK_OUT=' + obj_out,
-    'NDK_LIBS_OUT=' + lib_out,
+    'NDK_APPLICATION_MK=' + os.path.join(shaderc_dir, 'jni', 'Application.mk'),
+    'NDK_OUT=' + os.path.join(shaderc_dir, 'obj'),
+    'NDK_LIBS_OUT=' + os.path.join(shaderc_dir, 'jniLibs'),
     'THIRD_PARTY_PATH=../..',
 
     # Put armeabi-v7a-hard in its own directory.
