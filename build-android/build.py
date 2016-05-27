@@ -105,23 +105,6 @@ def main():
 
   shaderc_dir = THIS_DIR + '/../../shaderc/shaderc/android_test'
   print('shaderc_dir = %s' % shaderc_dir)
-  if not os.path.isdir(shaderc_dir):
-    print('shaderc_dir does not exist!')
-  else:
-    print('shaderc_dir exists!')
-
-  print('Building shader toolchain...')
-  p = subprocess.Popen(['ndk-build', 'V=1', 'THIRD_PARTY_PATH=../..', '-j30'], stdin=PIPE, stdout=PIPE, stderr=STDOUT, cwd=shaderc_dir)
-  output = p.stdout.read()
-  print output
-  print('Finished shader toolchain build')
-
-  build_cmd = [
-    'bash', THIS_DIR + '/android-generate.sh'
-  ]
-  print('Generating generated layers...')
-  subprocess.check_call(build_cmd)
-  print('Generation finished')
 
   if os.path.isdir('/buildbot/android-ndk'):
     ndk_dir = '/buildbot/android-ndk'
@@ -148,6 +131,42 @@ def main():
 
   print('obj_out: %s' % obj_out)
   print('lib_out: %s' % lib_out)
+
+  print('Building shader toolchain...')
+  build_cmd = [
+    'bash', ndk_build, '-C', build_dir, jobs_arg(),
+    'APP_ABI=' + ' '.join(abis),
+    # Use the prebuilt platforms and toolchains.
+    'NDK_PLATFORMS_ROOT=' + platforms_root,
+    'NDK_TOOLCHAINS_ROOT=' + toolchains_root,
+    'GNUSTL_PREFIX=',
+
+    # Tell ndk-build where all of our makefiles are and where outputs
+    # should go. The defaults in ndk-build are only valid if we have a
+    # typical ndk-build layout with a jni/{Android,Application}.mk.
+    'NDK_PROJECT_PATH=null',
+    'NDK_TOOLCHAIN_VERSION=' + compiler,
+    'APP_BUILD_SCRIPT=' + os.path.join(build_dir, 'jni', 'Android.mk'),
+    'APP_STL=' + stl,
+    'NDK_APPLICATION_MK=' + os.path.join(build_dir, 'jni', 'Application.mk'),
+    'NDK_OUT=' + obj_out,
+    'NDK_LIBS_OUT=' + lib_out,
+    'THIRD_PARTY_PATH=../..',
+
+    # Put armeabi-v7a-hard in its own directory.
+    '_NDK_TESTING_ALL_=yes'
+  ]
+
+  subprocess.check_call(build_cmd, cwd=shaderc_dir)
+  print('Finished shader toolchain build')
+
+  build_cmd = [
+    'bash', THIS_DIR + '/android-generate.sh'
+  ]
+  print('Generating generated layers...')
+  subprocess.check_call(build_cmd)
+  print('Generation finished')
+
 
   build_cmd = [
     'bash', ndk_build, '-C', build_dir, jobs_arg(),
