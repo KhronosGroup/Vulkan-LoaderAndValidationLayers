@@ -161,7 +161,8 @@ class Descriptor {
 // Shared helper functions - These are useful because the shared sampler image descriptor type
 //  performs common functions with both sampler and image descriptors so they can share their common functions
 bool ValidateSampler(const VkSampler, const std::unordered_map<VkSampler, std::unique_ptr<SAMPLER_NODE>> *);
-bool ValidateImageUpdate(const VkImageView, const VkImageLayout, const std::unordered_map<VkImageView, VkImageViewCreateInfo> *,
+bool ValidateImageUpdate(VkImageView, VkImageLayout, VkDescriptorType,
+                         const std::unordered_map<VkImageView, VkImageViewCreateInfo> *,
                          const std::unordered_map<VkImage, IMAGE_NODE> *, const std::unordered_map<VkImage, VkSwapchainKHR> *,
                          const std::unordered_map<VkSwapchainKHR, SWAPCHAIN_NODE *> *, std::string *);
 
@@ -347,7 +348,9 @@ class DescriptorSet : public BASE_NODE {
 
   private:
     bool VerifyWriteUpdateContents(const VkWriteDescriptorSet *, const uint32_t, std::string *) const;
-    bool VerifyCopyUpdateContents(const VkCopyDescriptorSet *, const DescriptorSet *, const uint32_t, std::string *) const;
+    bool VerifyCopyUpdateContents(const VkCopyDescriptorSet *, const DescriptorSet *, VkDescriptorType, uint32_t,
+                                  std::string *) const;
+    bool ValidateBufferUpdate(VkBuffer, VkDescriptorType, std::string *) const;
     // Private helper to set all bound cmd buffers to INVALID state
     void InvalidateBoundCmdBuffers();
     bool some_update_; // has any part of the set ever been updated?
