@@ -1427,75 +1427,117 @@ static void collect_interface_by_descriptor_slot(debug_report_data *report_data,
     }
 }
 
+/* Walks two sorted sequences (typically maps) together. Pairs of entries are
+ * compared via the `compare` function, which should return negative if a < b,
+ * positive if a > b, zero otherwise.
+ * The function `unmatched_a` will be called for each entry in the first sequence
+ * which does not have a corresponding entry in the second.
+ * The function `unmatched_b` will be called for each entry in the second
+ * sequence which does not have a corresponding entry in the first.
+ * The function `matched` will be called for each pair of matched entries.
+ */
+template<typename AIterator, typename BIterator>
+void match_sorted(AIterator a_begin, AIterator a_end,
+                  BIterator b_begin, BIterator b_end,
+                  std::function<int (AIterator, BIterator)> compare,   // b - a
+                  std::function<void (AIterator)> unmatched_a,
+                  std::function<void (BIterator)> unmatched_b,
+                  std::function<void (AIterator, BIterator)> matched)
+{
+    auto it_a = a_begin;
+    auto it_b = b_begin;
+
+    while (it_a != a_end && it_b != b_end) {
+        auto cmp = compare(it_a, it_b);
+        if (cmp > 0) {
+            unmatched_a(it_a++);
+        }
+        else if (cmp < 0) {
+            unmatched_b(it_b++);
+        }
+        else {
+            matched(it_a++, it_b++);
+        }
+    }
+
+    while (it_a != a_end) {
+        unmatched_a(it_a++);
+    }
+
+    while (it_b != b_end) {
+        unmatched_b(it_b++);
+    }
+}
+
 static bool validate_interface_between_stages(debug_report_data *report_data, shader_module const *producer,
                                               spirv_inst_iter producer_entrypoint, shader_stage_attributes const *producer_stage,
                                               shader_module const *consumer, spirv_inst_iter consumer_entrypoint,
                                               shader_stage_attributes const *consumer_stage) {
-    std::map<location_t, interface_var> outputs;
-    std::map<location_t, interface_var> inputs;
+    typedef std::map<location_t, interface_var> var_map;
+    var_map outputs;
+    var_map inputs;
 
     bool pass = true;
 
     collect_interface_by_location(producer, producer_entrypoint, spv::StorageClassOutput, outputs, producer_stage->arrayed_output);
     collect_interface_by_location(consumer, consumer_entrypoint, spv::StorageClassInput, inputs, consumer_stage->arrayed_input);
 
-    auto a_it = outputs.begin();
-    auto b_it = inputs.begin();
-
-    /* maps sorted by key (location); walk them together to find mismatches */
-    while ((outputs.size() > 0 && a_it != outputs.end()) || (inputs.size() && b_it != inputs.end())) {
-        bool a_at_end = outputs.size() == 0 || a_it == outputs.end();
-        bool b_at_end = inputs.size() == 0 || b_it == inputs.end();
-        auto a_first = a_at_end ? std::make_pair(0u, 0u) : a_it->first;
-        auto b_first = b_at_end ? std::make_pair(0u, 0u) : b_it->first;
-
-        if (b_at_end || ((!a_at_end) && (a_first < b_first))) {
+    std::function<int(var_map::iterator, var_map::iterator)> compare =
+        [](var_map::iterator a, var_map::iterator b) {
+          if (a->first < b->first) return -1;
+          if (b->first < a->first) return 1;
+          return 0;
+        };
+    std::function<void(var_map::iterator)> unmatched_output =
+        [=,&pass](var_map::iterator a) {
             if (log_msg(report_data, VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT, VkDebugReportObjectTypeEXT(0), 0,
                         __LINE__, SHADER_CHECKER_OUTPUT_NOT_CONSUMED, "SC",
-                        "%s writes to output location %u.%u which is not consumed by %s", producer_stage->name, a_first.first,
-                        a_first.second, consumer_stage->name)) {
+                        "%s writes to output location %u.%u which is not consumed by %s", producer_stage->name, a->first.first,
+                        a->first.second, consumer_stage->name)) {
                 pass = false;
             }
-            a_it++;
-        } else if (a_at_end || a_first > b_first) {
+        };
+    std::function<void(var_map::iterator)> unmatched_input =
+        [=,&pass](var_map::iterator b) {
             if (log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VkDebugReportObjectTypeEXT(0), 0,
                         __LINE__, SHADER_CHECKER_INPUT_NOT_PRODUCED, "SC",
-                        "%s consumes input location %u.%u which is not written by %s", consumer_stage->name, b_first.first, b_first.second,
+                        "%s consumes input location %u.%u which is not written by %s", consumer_stage->name, b->first.first, b->first.second,
                         producer_stage->name)) {
                 pass = false;
             }
-            b_it++;
-        } else {
+        };
+    std::function<void(var_map::iterator, var_map::iterator)> matched =
+        [=, &pass](var_map::iterator a, var_map::iterator b) {
             // subtleties of arrayed interfaces:
             // - if is_patch, then the member is not arrayed, even though the interface may be.
             // - if is_block_member, then the extra array level of an arrayed interface is not
             //   expressed in the member type -- it's expressed in the block type.
-            if (!types_match(producer, consumer, a_it->second.type_id, b_it->second.type_id,
-                             producer_stage->arrayed_output && !a_it->second.is_patch && !a_it->second.is_block_member,
-                             consumer_stage->arrayed_input && !b_it->second.is_patch && !b_it->second.is_block_member,
+            if (!types_match(producer, consumer, a->second.type_id, b->second.type_id,
+                             producer_stage->arrayed_output && !a->second.is_patch && !a->second.is_block_member,
+                             consumer_stage->arrayed_input && !b->second.is_patch && !b->second.is_block_member,
                              true)) {
                 if (log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VkDebugReportObjectTypeEXT(0), 0,
                             __LINE__, SHADER_CHECKER_INTERFACE_TYPE_MISMATCH, "SC", "Type mismatch on location %u.%u: '%s' vs '%s'",
-                            a_first.first, a_first.second,
-                            describe_type(producer, a_it->second.type_id).c_str(),
-                            describe_type(consumer, b_it->second.type_id).c_str())) {
+                            a->first.first, a->first.second,
+                            describe_type(producer, a->second.type_id).c_str(),
+                            describe_type(consumer, b->second.type_id).c_str())) {
                     pass = false;
                 }
             }
-            if (a_it->second.is_patch != b_it->second.is_patch) {
+            if (a->second.is_patch != b->second.is_patch) {
                 if (log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_EXT, /*dev*/ 0,
                             __LINE__, SHADER_CHECKER_INTERFACE_TYPE_MISMATCH, "SC",
                             "Decoration mismatch on location %u.%u: is per-%s in %s stage but "
-                            "per-%s in %s stage", a_first.first, a_first.second,
-                            a_it->second.is_patch ? "patch" : "vertex", producer_stage->name,
-                            b_it->second.is_patch ? "patch" : "vertex", consumer_stage->name)) {
+                            "per-%s in %s stage", a->first.first, a->first.second,
+                            a->second.is_patch ? "patch" : "vertex", producer_stage->name,
+                            b->second.is_patch ? "patch" : "vertex", consumer_stage->name)) {
                     pass = false;
                 }
             }
-            a_it++;
-            b_it++;
-        }
-    }
+        };
+
+    match_sorted(outputs.begin(), outputs.end(), inputs.begin(), inputs.end(),
+                 compare, unmatched_output, unmatched_input, matched);
 
     return pass;
 }
@@ -1615,13 +1657,16 @@ static bool validate_vi_consistency(debug_report_data *report_data, VkPipelineVe
 
 static bool validate_vi_against_vs_inputs(debug_report_data *report_data, VkPipelineVertexInputStateCreateInfo const *vi,
                                           shader_module const *vs, spirv_inst_iter entrypoint) {
-    std::map<location_t, interface_var> inputs;
+    typedef std::map<uint32_t, VkVertexInputAttributeDescription const *> attrib_map;
+    typedef std::map<location_t, interface_var> input_map;
+
+    input_map inputs;
     bool pass = true;
 
     collect_interface_by_location(vs, entrypoint, spv::StorageClassInput, inputs, false);
 
     /* Build index by location */
-    std::map<uint32_t, VkVertexInputAttributeDescription const *> attribs;
+    attrib_map attribs;
     if (vi) {
         for (unsigned i = 0; i < vi->vertexAttributeDescriptionCount; i++) {
             auto num_locations = get_locations_consumed_by_format(vi->pVertexAttributeDescriptions[i].format);
@@ -1631,56 +1676,59 @@ static bool validate_vi_against_vs_inputs(debug_report_data *report_data, VkPipe
         }
     }
 
-    auto it_a = attribs.begin();
-    auto it_b = inputs.begin();
-
-    while ((attribs.size() > 0 && it_a != attribs.end()) || (inputs.size() > 0 && it_b != inputs.end())) {
-        bool a_at_end = attribs.size() == 0 || it_a == attribs.end();
-        bool b_at_end = inputs.size() == 0 || it_b == inputs.end();
-        auto a_first = a_at_end ? 0 : it_a->first;
-        auto b_first = b_at_end ? 0 : it_b->first.first;
-        if (!a_at_end && (b_at_end || a_first < b_first)) {
-            if (log_msg(report_data, VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT, VkDebugReportObjectTypeEXT(0), 0,
-                        __LINE__, SHADER_CHECKER_OUTPUT_NOT_CONSUMED, "SC",
-                        "Vertex attribute at location %d not consumed by VS", a_first)) {
-                pass = false;
-            }
-            it_a++;
-        } else if (!b_at_end && (a_at_end || b_first < a_first)) {
-            if (log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_EXT, /*dev*/ 0,
-                        __LINE__, SHADER_CHECKER_INPUT_NOT_PRODUCED, "SC", "VS consumes input at location %d but not provided",
-                        b_first)) {
-                pass = false;
-            }
-            it_b++;
-        } else {
-            unsigned attrib_type = get_format_type(it_a->second->format);
-            unsigned input_type = get_fundamental_type(vs, it_b->second.type_id);
-
-            /* type checking */
-            if (attrib_type != FORMAT_TYPE_UNDEFINED && input_type != FORMAT_TYPE_UNDEFINED && attrib_type != input_type) {
-                if (log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VkDebugReportObjectTypeEXT(0), 0,
-                            __LINE__, SHADER_CHECKER_INTERFACE_TYPE_MISMATCH, "SC",
-                            "Attribute type of `%s` at location %d does not match VS input type of `%s`",
-                            string_VkFormat(it_a->second->format), a_first,
-                            describe_type(vs, it_b->second.type_id).c_str())) {
+    std::function<int(attrib_map::iterator, input_map::iterator)> compare =
+            [](attrib_map::iterator a, input_map::iterator b) { return b->first.first - a->first; };
+    std::function<void(attrib_map::iterator)> unmatched_attrib =
+            [=,&pass](attrib_map::iterator a) {
+                if (log_msg(report_data, VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT, VkDebugReportObjectTypeEXT(0), 0,
+                            __LINE__, SHADER_CHECKER_OUTPUT_NOT_CONSUMED, "SC",
+                            "Vertex attribute at location %d not consumed by VS", a->first)) {
                     pass = false;
                 }
-            }
+            };
+    std::function<void(input_map::iterator)> unmatched_input =
+            [=,&pass](input_map::iterator b) {
+                if (log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_EXT, /*dev*/ 0,
+                            __LINE__, SHADER_CHECKER_INPUT_NOT_PRODUCED, "SC", "VS consumes input at location %d but not provided",
+                            b->first.first)) {
+                    pass = false;
+                }
+            };
+    std::function<void(attrib_map::iterator, input_map::iterator)> matched =
+            [=,&pass](attrib_map::iterator a,
+                      input_map::iterator b) {
+                auto attrib_type = get_format_type(a->second->format);
+                auto input_type = get_fundamental_type(vs, b->second.type_id);
 
-            /* OK! */
-            it_a++;
-            it_b++;
-        }
-    }
+                /* type checking */
+                if (attrib_type != FORMAT_TYPE_UNDEFINED && input_type != FORMAT_TYPE_UNDEFINED && attrib_type != input_type) {
+                    if (log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VkDebugReportObjectTypeEXT(0), 0,
+                                __LINE__, SHADER_CHECKER_INTERFACE_TYPE_MISMATCH, "SC",
+                                "Attribute type of `%s` at location %d does not match VS input type of `%s`",
+                                string_VkFormat(a->second->format), a->first,
+                                describe_type(vs, b->second.type_id).c_str())) {
+                        pass = false;
+                    }
+                }
+            };
+
+    match_sorted(attribs.begin(), attribs.end(), inputs.begin(), inputs.end(),
+                 compare, unmatched_attrib, unmatched_input, matched);
 
     return pass;
 }
 
 static bool validate_fs_outputs_against_render_pass(debug_report_data *report_data, shader_module const *fs,
                                                     spirv_inst_iter entrypoint, RENDER_PASS_NODE const *rp, uint32_t subpass) {
-    std::map<location_t, interface_var> outputs;
-    std::map<uint32_t, VkFormat> color_attachments;
+    const std::vector<VkFormat> &color_formats = rp->subpassColorFormats[subpass];
+
+    typedef std::map<location_t, interface_var> output_map;
+    typedef std::map<uint32_t, VkFormat> attachment_map;
+
+    output_map outputs;
+    collect_interface_by_location(fs, entrypoint, spv::StorageClassOutput, outputs, false);
+
+    attachment_map color_attachments;
     for (auto i = 0u; i < rp->subpassColorFormats[subpass].size(); i++) {
         if (rp->subpassColorFormats[subpass][i] != VK_FORMAT_UNDEFINED) {
             color_attachments[i] = rp->subpassColorFormats[subpass][i];
@@ -1689,52 +1737,42 @@ static bool validate_fs_outputs_against_render_pass(debug_report_data *report_da
 
     bool pass = true;
 
-    /* TODO: dual source blend index (spv::DecIndex, zero if not provided) */
-
-    collect_interface_by_location(fs, entrypoint, spv::StorageClassOutput, outputs, false);
-
-    auto it_a = outputs.begin();
-    auto it_b = color_attachments.begin();
-
-    /* Walk attachment list and outputs together */
-
-    while ((outputs.size() > 0 && it_a != outputs.end()) || (color_attachments.size() > 0 && it_b != color_attachments.end())) {
-        bool a_at_end = outputs.size() == 0 || it_a == outputs.end();
-        bool b_at_end = color_attachments.size() == 0 || it_b == color_attachments.end();
-
-        if (!a_at_end && (b_at_end || it_a->first.first < it_b->first)) {
-            if (log_msg(report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT, VkDebugReportObjectTypeEXT(0), 0,
-                        __LINE__, SHADER_CHECKER_OUTPUT_NOT_CONSUMED, "SC",
-                        "FS writes to output location %d with no matching attachment", it_a->first.first)) {
-                pass = false;
-            }
-            it_a++;
-        } else if (!b_at_end && (a_at_end || it_a->first.first > it_b->first)) {
-            if (log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VkDebugReportObjectTypeEXT(0), 0,
-                        __LINE__, SHADER_CHECKER_INPUT_NOT_PRODUCED, "SC", "Attachment %d not written by FS", it_b->first)) {
-                pass = false;
-            }
-            it_b++;
-        } else {
-            unsigned output_type = get_fundamental_type(fs, it_a->second.type_id);
-            unsigned att_type = get_format_type(it_b->second);
-
-            /* type checking */
-            if (att_type != FORMAT_TYPE_UNDEFINED && output_type != FORMAT_TYPE_UNDEFINED && att_type != output_type) {
-                if (log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VkDebugReportObjectTypeEXT(0), 0,
-                            __LINE__, SHADER_CHECKER_INTERFACE_TYPE_MISMATCH, "SC",
-                            "Attachment %d of type `%s` does not match FS output type of `%s`", it_b->first,
-                            string_VkFormat(it_b->second),
-                            describe_type(fs, it_a->second.type_id).c_str())) {
+    std::function<int(output_map::iterator, attachment_map::iterator)> compare =
+            [](output_map::iterator a, attachment_map::iterator b) { return b->first - a->first.first; };
+    std::function<void(output_map::iterator)> unmatched_output =
+            [=,&pass](output_map::iterator a) {
+                if (log_msg(report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT, VkDebugReportObjectTypeEXT(0), 0,
+                            __LINE__, SHADER_CHECKER_OUTPUT_NOT_CONSUMED, "SC",
+                            "FS writes to output location %d with no matching attachment", a->first.first)) {
                     pass = false;
                 }
-            }
+            };
+    std::function<void(attachment_map::iterator)> unmatched_attachment =
+            [=,&pass](attachment_map::iterator b) {
+                if (log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VkDebugReportObjectTypeEXT(0), 0,
+                            __LINE__, SHADER_CHECKER_INPUT_NOT_PRODUCED, "SC", "Attachment %d not written by FS", b->first)) {
+                    pass = false;
+                }
+            };
+    std::function<void(output_map::iterator, attachment_map::iterator)> matched =
+            [=,&pass](output_map::iterator a, attachment_map::iterator b) {
+                unsigned output_type = get_fundamental_type(fs, a->second.type_id);
+                unsigned att_type = get_format_type(b->second);
 
-            /* OK! */
-            it_a++;
-            it_b++;
-        }
-    }
+                /* type checking */
+                if (att_type != FORMAT_TYPE_UNDEFINED && output_type != FORMAT_TYPE_UNDEFINED && att_type != output_type) {
+                    if (log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VkDebugReportObjectTypeEXT(0), 0,
+                                __LINE__, SHADER_CHECKER_INTERFACE_TYPE_MISMATCH, "SC",
+                                "Attachment %d of type `%s` does not match FS output type of `%s`", b->first,
+                                string_VkFormat(b->second),
+                                describe_type(fs, a->second.type_id).c_str())) {
+                        pass = false;
+                    }
+                }
+            };
+
+    match_sorted(outputs.begin(), outputs.end(), color_attachments.begin(), color_attachments.end(),
+                 compare, unmatched_output, unmatched_attachment, matched);
 
     return pass;
 }
