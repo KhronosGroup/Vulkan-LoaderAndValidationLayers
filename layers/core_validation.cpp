@@ -9528,12 +9528,6 @@ VKAPI_ATTR VkResult VKAPI_CALL SetEvent(VkDevice device, VkEvent event) {
     if (event_node != dev_data->eventMap.end()) {
         event_node->second.needsSignaled = false;
         event_node->second.stageMask = VK_PIPELINE_STAGE_HOST_BIT;
-        if (event_node->second.write_in_use) {
-            skip_call |= log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_EVENT_EXT,
-                                 reinterpret_cast<const uint64_t &>(event), __LINE__, DRAWSTATE_QUEUE_FORWARD_PROGRESS, "DS",
-                                 "Cannot call vkSetEvent() on event 0x%" PRIxLEAST64 " that is already in use by a command buffer.",
-                                 reinterpret_cast<const uint64_t &>(event));
-        }
     }
     lock.unlock();
     // Host setting event is visible to all queues immediately so update stageMask for any queue that's seen this event
