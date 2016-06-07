@@ -946,8 +946,9 @@ GetPhysicalDeviceDisplayPropertiesKHR(VkPhysicalDevice physicalDevice, uint32_t 
 
     if (!skipCall) {
         result = my_data->instance_dispatch_table->GetPhysicalDeviceDisplayPropertiesKHR(physicalDevice, pPropertyCount, pProperties);
+        return result;
     }
-    return result;
+    return VK_ERROR_VALIDATION_FAILED_EXT;
 }
 
 static uint32_t gDisplayPlanePropertyCount = 0;
@@ -979,13 +980,17 @@ GetPhysicalDeviceDisplayPlanePropertiesKHR(VkPhysicalDevice physicalDevice, uint
     if (!skipCall) {
         result = my_data->instance_dispatch_table->GetPhysicalDeviceDisplayPlanePropertiesKHR(physicalDevice, pPropertyCount, pProperties);
 
-        if (!gDisplayPlanePropertyCountInit)
+        lock.lock();
+        if (!pPhysicalDevice->gotDisplayPlanePropertyCount)
         {
-            gDisplayPlanePropertyCount = *pPropertyCount;
-            gDisplayPlanePropertyCountInit = true;
+            pPhysicalDevice->displayPlanePropertyCount = *pPropertyCount;
+            pPhysicalDevice->gotDisplayPlanePropertyCount = true;
         }
+        lock.unlock();
+
+        return result;
     }
-    return result;
+    return VK_ERROR_VALIDATION_FAILED_EXT;
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL 
@@ -1032,8 +1037,10 @@ GetDisplayPlaneSupportedDisplaysKHR(VkPhysicalDevice physicalDevice, uint32_t pl
 
     if (!skipCall) {
         result = my_data->instance_dispatch_table->GetDisplayPlaneSupportedDisplaysKHR(physicalDevice, planeIndex, pDisplayCount, pDisplays);
+
+        return result;
     }
-    return result;
+    return VK_ERROR_VALIDATION_FAILED_EXT;
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL 
@@ -1062,8 +1069,9 @@ GetDisplayModePropertiesKHR(VkPhysicalDevice physicalDevice, VkDisplayKHR displa
 
     if (!skipCall) {
         result = my_data->instance_dispatch_table->GetDisplayModePropertiesKHR(physicalDevice, display, pPropertyCount, pProperties);
+        return result;
     }
-    return result;
+    return VK_ERROR_VALIDATION_FAILED_EXT;
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL 
@@ -1092,8 +1100,10 @@ CreateDisplayModeKHR(VkPhysicalDevice physicalDevice, VkDisplayKHR display, cons
 
     if (!skipCall) {
         result = my_data->instance_dispatch_table->CreateDisplayModeKHR(physicalDevice, display, pCreateInfo, pAllocator, pMode);
+        return result;
     }
-    return result;
+    
+    return VK_ERROR_VALIDATION_FAILED_EXT;
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL 
@@ -1140,8 +1150,10 @@ GetDisplayPlaneCapabilitiesKHR(VkPhysicalDevice physicalDevice, VkDisplayModeKHR
 
     if (!skipCall) {
         result = my_data->instance_dispatch_table->GetDisplayPlaneCapabilitiesKHR(physicalDevice, mode, planeIndex, pCapabilities);
+        return result;
     }
-    return result;
+
+    return VK_ERROR_VALIDATION_FAILED_EXT;
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
@@ -1193,7 +1205,6 @@ CreateDisplayPlaneSurfaceKHR(VkInstance instance, const VkDisplaySurfaceCreateIn
         lock.unlock();
         return result;
     }
-    lock.unlock();
     return VK_ERROR_VALIDATION_FAILED_EXT;
 }
 

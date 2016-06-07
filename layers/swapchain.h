@@ -257,6 +257,10 @@ struct SwpPhysicalDevice {
     // Count and VkPresentModeKHR's returned by vkGetPhysicalDeviceSurfacePresentModesKHR():
     uint32_t presentModeCount;
     VkPresentModeKHR *pPresentModes;
+
+    // Count returned by vkGetPhysicalDeviceDisplayPlanePropertiesKHR():
+    uint32_t displayPlanePropertyCount;
+    bool gotDisplayPlanePropertyCount;
 };
 
 // Create one of these for each VkDevice within a VkInstance:
