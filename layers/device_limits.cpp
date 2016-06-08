@@ -165,22 +165,6 @@ EnumeratePhysicalDevices(VkInstance instance, uint32_t *pPhysicalDeviceCount, Vk
         if (NULL == pPhysicalDevices) {
             my_data->instanceState->vkEnumeratePhysicalDevicesState = QUERY_COUNT;
         } else {
-            if (UNCALLED == my_data->instanceState->vkEnumeratePhysicalDevicesState) {
-                // Flag error here, shouldn't be calling this without having queried count
-                skipCall |=
-                    log_msg(my_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_INSTANCE_EXT, 0,
-                            __LINE__, DEVLIMITS_MUST_QUERY_COUNT, "DL",
-                            "Invalid call sequence to vkEnumeratePhysicalDevices() w/ non-NULL pPhysicalDevices. You should first "
-                            "call vkEnumeratePhysicalDevices() w/ NULL pPhysicalDevices to query pPhysicalDeviceCount.");
-            } // TODO : Could also flag a warning if re-calling this function in QUERY_DETAILS state
-            else if (my_data->instanceState->physicalDevicesCount != *pPhysicalDeviceCount) {
-                // TODO: Having actual count match count from app is not a requirement, so this can be a warning
-                skipCall |= log_msg(my_data->report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT,
-                                    VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, 0, __LINE__, DEVLIMITS_COUNT_MISMATCH, "DL",
-                                    "Call to vkEnumeratePhysicalDevices() w/ pPhysicalDeviceCount value %u, but actual count "
-                                    "supported by this instance is %u.",
-                                    *pPhysicalDeviceCount, my_data->instanceState->physicalDevicesCount);
-            }
             my_data->instanceState->vkEnumeratePhysicalDevicesState = QUERY_DETAILS;
         }
         if (skipCall)
