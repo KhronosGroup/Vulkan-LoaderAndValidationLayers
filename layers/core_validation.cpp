@@ -5138,6 +5138,20 @@ VKAPI_ATTR void VKAPI_CALL DestroyImage(VkDevice device, VkImage image, const Vk
     }
 }
 
+static bool validate_memory_types(const layer_data *dev_data, const DEVICE_MEM_INFO *mem_info, const uint32_t memory_type_bits,
+                                  const char *funcName) {
+    bool skip_call = false;
+    if (((1 << mem_info->allocInfo.memoryTypeIndex) & memory_type_bits) == 0) {
+        skip_call = log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_MEMORY_EXT,
+                            reinterpret_cast<const uint64_t &>(mem_info->mem), __LINE__, MEMTRACK_INVALID_MEM_TYPE, "MT",
+                            "%s(): MemoryRequirements->memoryTypeBits (%d) for this object type are not compatible with the memory "
+                            "type (%d) of this memory object 0x%" PRIx64 ".",
+                            funcName, memory_type_bits, mem_info->allocInfo.memoryTypeIndex,
+                            reinterpret_cast<const uint64_t &>(mem_info->mem));
+    }
+    return skip_call;
+}
+
 VKAPI_ATTR VkResult VKAPI_CALL
 BindBufferMemory(VkDevice device, VkBuffer buffer, VkDeviceMemory mem, VkDeviceSize memoryOffset) {
     layer_data *dev_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
@@ -5159,6 +5173,7 @@ BindBufferMemory(VkDevice device, VkBuffer buffer, VkDeviceMemory mem, VkDeviceS
             const MEMORY_RANGE range =
                 insert_memory_ranges(buffer_handle, mem, memoryOffset, memRequirements, mem_info->bufferRanges);
             skipCall |= validate_memory_range(dev_data, mem_info->imageRanges, range, VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_EXT);
+            skipCall |= validate_memory_types(dev_data, mem_info, memRequirements.memoryTypeBits, "BindBufferMemory");
         }
 
         // Validate memory requirements alignment
@@ -9521,6 +9536,7 @@ VKAPI_ATTR VkResult VKAPI_CALL BindImageMemory(VkDevice device, VkImage image, V
             const MEMORY_RANGE range =
                 insert_memory_ranges(image_handle, mem, memoryOffset, memRequirements, mem_info->imageRanges);
             skipCall |= validate_memory_range(dev_data, mem_info->bufferRanges, range, VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT);
+            skipCall |= validate_memory_types(dev_data, mem_info, memRequirements.memoryTypeBits, "vkBindImageMemory");
         }
 
         print_mem_list(dev_data);
