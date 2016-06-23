@@ -3221,44 +3221,50 @@ TEST_F(VkLayerTest, UnusedPreserveAttachment) {
     }
 }
 
-TEST_F(VkLayerTest, AttachmentUsageMismatch) {
-    TEST_DESCRIPTION("Create a framebuffer where a subpass uses a color image "
-                     "in the depthStencil attachment point");
+TEST_F(VkLayerTest, FramebufferCreateErrors) {
+    TEST_DESCRIPTION("Hit errors when attempting to create a framebuffer :\n"
+                     " 1. Mismatch between fb & renderPass attachmentCount\n"
+                     " 2. Use a color image as depthStencil attachment\n"
+                     " 3. Mismatch fb & renderPass attachment formats\n"
+                     " 4. Mismatch fb & renderPass attachment #samples\n"
+                     " 5. FB attachment w/ non-1 mip-levels\n");
 
     ASSERT_NO_FATAL_FAILURE(InitState());
     ASSERT_NO_FATAL_FAILURE(InitRenderTarget());
 
     m_errorMonitor->SetDesiredFailureMsg(
         VK_DEBUG_REPORT_ERROR_BIT_EXT,
-        "conflicts with the image's IMAGE_USAGE flags");
+        "vkCreateFramebuffer(): VkFramebufferCreateInfo attachmentCount of 2 "
+        "does not match attachmentCount of 1 of ");
 
-    // Create a renderPass with a depth-stencil attachment created with
-    // IMAGE_USAGE_COLOR_ATTACHMENT
+    // Create a renderPass with a single color attachment
     VkAttachmentReference attach = {};
     attach.layout = VK_IMAGE_LAYOUT_GENERAL;
     VkSubpassDescription subpass = {};
-    // Add our color attachment to pDepthStencilAttachment
-    subpass.pDepthStencilAttachment = &attach;
+    subpass.pColorAttachments = &attach;
     VkRenderPassCreateInfo rpci = {};
     rpci.subpassCount = 1;
     rpci.pSubpasses = &subpass;
     rpci.attachmentCount = 1;
     VkAttachmentDescription attach_desc = {};
-    attach_desc.format = VK_FORMAT_UNDEFINED;
+    attach_desc.format = VK_FORMAT_B8G8R8A8_UNORM;
+    attach_desc.samples = VK_SAMPLE_COUNT_1_BIT;
     rpci.pAttachments = &attach_desc;
     rpci.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
     VkRenderPass rp;
     VkResult err = vkCreateRenderPass(m_device->device(), &rpci, NULL, &rp);
     ASSERT_VK_SUCCESS(err);
 
-    VkImageView imageView =
-        m_renderTargets[0]->targetView(VK_FORMAT_B8G8R8A8_UNORM);
+    VkImageView ivs[2];
+    ivs[0] = m_renderTargets[0]->targetView(VK_FORMAT_B8G8R8A8_UNORM);
+    ivs[1] = m_renderTargets[0]->targetView(VK_FORMAT_B8G8R8A8_UNORM);
     VkFramebufferCreateInfo fb_info = {};
     fb_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
     fb_info.pNext = NULL;
     fb_info.renderPass = rp;
-    fb_info.attachmentCount = 1;
-    fb_info.pAttachments = &imageView;
+    // Set mis-matching attachmentCount
+    fb_info.attachmentCount = 2;
+    fb_info.pAttachments = ivs;
     fb_info.width = 100;
     fb_info.height = 100;
     fb_info.layers = 1;
@@ -3267,10 +3273,113 @@ TEST_F(VkLayerTest, AttachmentUsageMismatch) {
     err = vkCreateFramebuffer(device(), &fb_info, NULL, &fb);
 
     m_errorMonitor->VerifyFound();
-
     if (err == VK_SUCCESS) {
         vkDestroyFramebuffer(m_device->device(), fb, NULL);
     }
+    vkDestroyRenderPass(m_device->device(), rp, NULL);
+
+    // Create a renderPass with a depth-stencil attachment created with
+    // IMAGE_USAGE_COLOR_ATTACHMENT
+    // Add our color attachment to pDepthStencilAttachment
+    subpass.pDepthStencilAttachment = &attach;
+    subpass.pColorAttachments = NULL;
+    VkRenderPass rp_ds;
+    err = vkCreateRenderPass(m_device->device(), &rpci, NULL, &rp_ds);
+    ASSERT_VK_SUCCESS(err);
+    // Set correct attachment count, but attachment as COLOR usage bit set
+    fb_info.attachmentCount = 1;
+    fb_info.renderPass = rp_ds;
+
+    m_errorMonitor->SetDesiredFailureMsg(
+        VK_DEBUG_REPORT_ERROR_BIT_EXT,
+        " conflicts with the image's IMAGE_USAGE flags ");
+    err = vkCreateFramebuffer(device(), &fb_info, NULL, &fb);
+
+    m_errorMonitor->VerifyFound();
+    if (err == VK_SUCCESS) {
+        vkDestroyFramebuffer(m_device->device(), fb, NULL);
+    }
+    vkDestroyRenderPass(m_device->device(), rp_ds, NULL);
+
+    // Create new renderpass with alternate attachment format from fb
+    attach_desc.format = VK_FORMAT_R8G8B8A8_UNORM;
+    subpass.pDepthStencilAttachment = NULL;
+    subpass.pColorAttachments = &attach;
+    err = vkCreateRenderPass(m_device->device(), &rpci, NULL, &rp);
+    ASSERT_VK_SUCCESS(err);
+
+    // Cause error due to mis-matched formats between rp & fb
+    //  rp attachment 0 now has RGBA8 but corresponding fb attach is BGRA8
+    fb_info.renderPass = rp;
+    m_errorMonitor->SetDesiredFailureMsg(
+        VK_DEBUG_REPORT_ERROR_BIT_EXT,
+        " has format of VK_FORMAT_B8G8R8A8_UNORM that does not match ");
+    err = vkCreateFramebuffer(device(), &fb_info, NULL, &fb);
+
+    m_errorMonitor->VerifyFound();
+    if (err == VK_SUCCESS) {
+        vkDestroyFramebuffer(m_device->device(), fb, NULL);
+    }
+    vkDestroyRenderPass(m_device->device(), rp, NULL);
+
+    // Create new renderpass with alternate sample count from fb
+    attach_desc.format = VK_FORMAT_B8G8R8A8_UNORM;
+    attach_desc.samples = VK_SAMPLE_COUNT_2_BIT;
+    err = vkCreateRenderPass(m_device->device(), &rpci, NULL, &rp);
+    ASSERT_VK_SUCCESS(err);
+
+    // Cause error due to mis-matched sample count between rp & fb
+    fb_info.renderPass = rp;
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT,
+                                         " has VK_SAMPLE_COUNT_1_BIT samples "
+                                         "that do not match the "
+                                         "VK_SAMPLE_COUNT_2_BIT ");
+    err = vkCreateFramebuffer(device(), &fb_info, NULL, &fb);
+
+    m_errorMonitor->VerifyFound();
+    if (err == VK_SUCCESS) {
+        vkDestroyFramebuffer(m_device->device(), fb, NULL);
+    }
+
+    vkDestroyRenderPass(m_device->device(), rp, NULL);
+
+    // Create a custom imageView with non-1 mip levels
+    VkImageObj image(m_device);
+    image.init(128, 128, VK_FORMAT_B8G8R8A8_UNORM,
+               VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_TILING_OPTIMAL, 0);
+    ASSERT_TRUE(image.initialized());
+
+    VkImageView view;
+    VkImageViewCreateInfo ivci = {};
+    ivci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    ivci.image = image.handle();
+    ivci.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    ivci.format = VK_FORMAT_B8G8R8A8_UNORM;
+    ivci.subresourceRange.layerCount = 1;
+    ivci.subresourceRange.baseMipLevel = 0;
+    // Set level count 2 (only 1 is allowed for FB attachment)
+    ivci.subresourceRange.levelCount = 2;
+    ivci.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    err = vkCreateImageView(m_device->device(), &ivci, NULL, &view);
+    ASSERT_VK_SUCCESS(err);
+    // Re-create renderpass to have matching sample count
+    attach_desc.samples = VK_SAMPLE_COUNT_1_BIT;
+    err = vkCreateRenderPass(m_device->device(), &rpci, NULL, &rp);
+    ASSERT_VK_SUCCESS(err);
+
+    // Cause error due to mis-matched sample count between rp & fb
+    fb_info.renderPass = rp;
+    fb_info.pAttachments = &view;
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT,
+                                         " has mip levelCount of 2 but only ");
+    err = vkCreateFramebuffer(device(), &fb_info, NULL, &fb);
+
+    m_errorMonitor->VerifyFound();
+    if (err == VK_SUCCESS) {
+        vkDestroyFramebuffer(m_device->device(), fb, NULL);
+    }
+
+    vkDestroyImageView(m_device->device(), view, NULL);
     vkDestroyRenderPass(m_device->device(), rp, NULL);
 }
 

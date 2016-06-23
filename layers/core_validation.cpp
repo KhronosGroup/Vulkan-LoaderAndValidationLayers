@@ -142,7 +142,7 @@ struct layer_data {
     unordered_map<VkQueryPool, QUERY_POOL_NODE> queryPoolMap;
     unordered_map<VkSemaphore, SEMAPHORE_NODE> semaphoreMap;
     unordered_map<VkCommandBuffer, GLOBAL_CB_NODE *> commandBufferMap;
-    unordered_map<VkFramebuffer, FRAMEBUFFER_NODE> frameBufferMap;
+    unordered_map<VkFramebuffer, unique_ptr<FRAMEBUFFER_NODE>> frameBufferMap;
     unordered_map<VkImage, vector<ImageSubresourcePair>> imageSubresourceMap;
     unordered_map<ImageSubresourcePair, IMAGE_LAYOUT_NODE> imageLayoutMap;
     unordered_map<VkRenderPass, RENDER_PASS_NODE *> renderPassMap;
@@ -2053,12 +2053,12 @@ static RENDER_PASS_NODE *getRenderPass(layer_data const *my_data, VkRenderPass r
     return it->second;
 }
 
-static FRAMEBUFFER_NODE *getFramebuffer(layer_data *my_data, VkFramebuffer framebuffer) {
+static FRAMEBUFFER_NODE *getFramebuffer(const layer_data *my_data, VkFramebuffer framebuffer) {
     auto it = my_data->frameBufferMap.find(framebuffer);
     if (it == my_data->frameBufferMap.end()) {
         return nullptr;
     }
-    return &it->second;
+    return it->second.get();
 }
 
 cvdescriptorset::DescriptorSetLayout const *getDescriptorSetLayout(layer_data const *my_data, VkDescriptorSetLayout dsLayout) {
@@ -5496,7 +5496,7 @@ DestroyFramebuffer(VkDevice device, VkFramebuffer framebuffer, const VkAllocatio
     std::unique_lock<std::mutex> lock(global_lock);
     auto fbNode = dev_data->frameBufferMap.find(framebuffer);
     if (fbNode != dev_data->frameBufferMap.end()) {
-        for (auto cb : fbNode->second.referencingCmdBuffers) {
+        for (auto cb : fbNode->second->referencingCmdBuffers) {
             auto cbNode = dev_data->commandBufferMap.find(cb);
             if (cbNode != dev_data->commandBufferMap.end()) {
                 // Set CB as invalid and record destroyed framebuffer
@@ -5504,7 +5504,6 @@ DestroyFramebuffer(VkDevice device, VkFramebuffer framebuffer, const VkAllocatio
                 cbNode->second->destroyedFramebuffers.insert(framebuffer);
             }
         }
-        delete [] fbNode->second.createInfo.pAttachments;
         dev_data->frameBufferMap.erase(fbNode);
     }
     lock.unlock();
@@ -8229,11 +8228,91 @@ static bool MatchUsage(layer_data *dev_data, uint32_t count, const VkAttachmentR
     return skip_call;
 }
 
-static bool ValidateAttachmentImageUsage(layer_data *dev_data, const VkFramebufferCreateInfo *pCreateInfo) {
+// Validate VkFramebufferCreateInfo which includes:
+// 1. attachmentCount equals renderPass attachmentCount
+// 2. corresponding framebuffer and renderpass attachments have matching formats
+// 3. corresponding framebuffer and renderpass attachments have matching sample counts
+// 4. fb attachments only have a single mip level
+// 5. fb attachment dimensions are each at least as large as the fb
+// 6. fb attachments use idenity swizzle
+// 7. fb attachments used by renderPass for color/input/ds have correct usage bit set
+static bool ValidateFramebufferCreateInfo(layer_data *dev_data, const VkFramebufferCreateInfo *pCreateInfo) {
     bool skip_call = false;
 
     const VkRenderPassCreateInfo *rpci = getRenderPass(dev_data, pCreateInfo->renderPass)->pCreateInfo;
     if (rpci != nullptr) {
+        if (rpci->attachmentCount != pCreateInfo->attachmentCount) {
+            skip_call |= log_msg(
+                dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_RENDER_PASS_EXT,
+                reinterpret_cast<const uint64_t &>(pCreateInfo->renderPass), __LINE__, DRAWSTATE_RENDERPASS_INCOMPATIBLE, "DS",
+                "vkCreateFramebuffer(): VkFramebufferCreateInfo attachmentCount of %u does not match attachmentCount of %u of "
+                "renderPass (0x%" PRIxLEAST64 ") being used to create Framebuffer.",
+                pCreateInfo->attachmentCount, rpci->attachmentCount, reinterpret_cast<const uint64_t &>(pCreateInfo->renderPass));
+        } else {
+            // attachmentCounts match, so make sure corresponding attachment details line up
+            const VkImageView *image_views = pCreateInfo->pAttachments;
+            for (uint32_t i = 0; i < pCreateInfo->attachmentCount; ++i) {
+                VkImageViewCreateInfo *ivci = getImageViewData(dev_data, image_views[i]);
+                if (ivci->format != rpci->pAttachments[i].format) {
+                    skip_call |= log_msg(
+                        dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_RENDER_PASS_EXT,
+                        reinterpret_cast<const uint64_t &>(pCreateInfo->renderPass), __LINE__, DRAWSTATE_RENDERPASS_INCOMPATIBLE,
+                        "DS", "vkCreateFramebuffer(): VkFramebufferCreateInfo attachment #%u has format of %s that does not match "
+                              "the format of "
+                              "%s used by the corresponding attachment for renderPass (0x%" PRIxLEAST64 ").",
+                        i, string_VkFormat(ivci->format), string_VkFormat(rpci->pAttachments[i].format),
+                        reinterpret_cast<const uint64_t &>(pCreateInfo->renderPass));
+                }
+                const VkImageCreateInfo *ici = &getImageNode(dev_data, ivci->image)->createInfo;
+                if (ici->samples != rpci->pAttachments[i].samples) {
+                    skip_call |= log_msg(
+                        dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_RENDER_PASS_EXT,
+                        reinterpret_cast<const uint64_t &>(pCreateInfo->renderPass), __LINE__, DRAWSTATE_RENDERPASS_INCOMPATIBLE,
+                        "DS", "vkCreateFramebuffer(): VkFramebufferCreateInfo attachment #%u has %s samples that do not match "
+                              "the %s samples used by the corresponding attachment for renderPass (0x%" PRIxLEAST64 ").",
+                        i, string_VkSampleCountFlagBits(ici->samples), string_VkSampleCountFlagBits(rpci->pAttachments[i].samples),
+                        reinterpret_cast<const uint64_t &>(pCreateInfo->renderPass));
+                }
+                // Verify that view only has a single mip level
+                if (ivci->subresourceRange.levelCount != 1) {
+                    skip_call |= log_msg(
+                        dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_RENDER_PASS_EXT,
+                        reinterpret_cast<const uint64_t &>(pCreateInfo->renderPass), __LINE__, DRAWSTATE_INVALID_FRAMEBUFFER_CREATE_INFO,
+                        "DS", "vkCreateFramebuffer(): VkFramebufferCreateInfo attachment #%u has mip levelCount of %u "
+                              "but only a single mip level (levelCount ==  1) is allowed when creating a Framebuffer.",
+                        i, ivci->subresourceRange.levelCount);
+                }
+                const uint32_t mip_level = ivci->subresourceRange.baseMipLevel;
+                uint32_t mip_width = (ici->extent.width >> mip_level);
+                uint32_t mip_height = (ici->extent.height >> mip_level);
+                if ((ivci->subresourceRange.layerCount < pCreateInfo->layers) || (mip_width < pCreateInfo->width) ||
+                    (mip_height < pCreateInfo->height)) {
+                    skip_call |=
+                        log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_RENDER_PASS_EXT,
+                                reinterpret_cast<const uint64_t &>(pCreateInfo->renderPass), __LINE__,
+                                DRAWSTATE_INVALID_FRAMEBUFFER_CREATE_INFO, "DS",
+                                "vkCreateFramebuffer(): VkFramebufferCreateInfo attachment #%u mip level %u has dimensions smaller "
+                                "than the corresponding "
+                                "framebuffer dimensions. Attachment dimensions must be at least as large. Here are the respective "
+                                "dimensions for "
+                                "attachment #%u, framebuffer:\n"
+                                "width: %u, %u\n"
+                                "height: %u, %u\n"
+                                "layerCount: %u, %u\n",
+                                i, ivci->subresourceRange.baseMipLevel, i, mip_width, pCreateInfo->width, mip_height,
+                                pCreateInfo->height, ivci->subresourceRange.layerCount, pCreateInfo->layers);
+                }
+#if 0 // Enabling 1 new check/test at a time
+                if (((ivci->components.r != VK_COMPONENT_SWIZZLE_IDENTITY) && (ivci->components.r != VK_COMPONENT_SWIZZLE_R)) ||
+                    ((ivci->components.g != VK_COMPONENT_SWIZZLE_IDENTITY) && (ivci->components.g != VK_COMPONENT_SWIZZLE_G)) ||
+                    ((ivci->components.b != VK_COMPONENT_SWIZZLE_IDENTITY) && (ivci->components.b != VK_COMPONENT_SWIZZLE_B)) ||
+                    ((ivci->components.a != VK_COMPONENT_SWIZZLE_IDENTITY) && (ivci->components.a != VK_COMPONENT_SWIZZLE_A))) {
+                    // TODO
+                }
+#endif
+            }
+        }
+        // Verify correct attachment usage flags
         for (uint32_t subpass = 0; subpass < rpci->subpassCount; subpass++) {
             // Verify input attachments:
             skip_call |= MatchUsage(dev_data, rpci->pSubpasses[subpass].inputAttachmentCount,
@@ -8247,47 +8326,64 @@ static bool ValidateAttachmentImageUsage(layer_data *dev_data, const VkFramebuff
                                         VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
             }
         }
+    } else {
+        skip_call |=
+            log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_RENDER_PASS_EXT,
+                    reinterpret_cast<const uint64_t &>(pCreateInfo->renderPass), __LINE__, DRAWSTATE_INVALID_RENDERPASS, "DS",
+                    "vkCreateFramebuffer(): Attempt to create framebuffer with invalid renderPass (0x%" PRIxLEAST64 ").",
+                    reinterpret_cast<const uint64_t &>(pCreateInfo->renderPass));
     }
     return skip_call;
+}
+
+// Validate VkFramebufferCreateInfo state prior to calling down chain to create Framebuffer object
+//  Return true if an error is encountered and callback returns true to skip call down chain
+//   false indicates that call down chain should proceed
+static bool PreCallValidateCreateFramebuffer(layer_data *dev_data, const VkFramebufferCreateInfo *pCreateInfo) {
+    // TODO : Verify that renderPass FB is created with is compatible with FB
+    bool skip_call = false;
+    skip_call |= ValidateFramebufferCreateInfo(dev_data, pCreateInfo);
+    return skip_call;
+}
+
+// CreateFramebuffer state has been validated and call down chain completed so record new framebuffer object
+static void PostCallRecordCreateFramebuffer(layer_data *dev_data, const VkFramebufferCreateInfo *pCreateInfo, VkFramebuffer fb) {
+    // Shadow create info and store in map
+    dev_data->frameBufferMap.insert(
+        std::make_pair(fb, unique_ptr<FRAMEBUFFER_NODE>(new FRAMEBUFFER_NODE(
+                                          pCreateInfo, dev_data->renderPassMap[pCreateInfo->renderPass]->pCreateInfo))));
+    auto & fbNode = dev_data->frameBufferMap[fb];
+    for (uint32_t i = 0; i < pCreateInfo->attachmentCount; ++i) {
+        VkImageView view = pCreateInfo->pAttachments[i];
+        auto view_data = getImageViewData(dev_data, view);
+        if (!view_data) {
+            continue;
+        }
+        MT_FB_ATTACHMENT_INFO fb_info;
+        get_mem_binding_from_object(dev_data, (uint64_t)(view_data->image), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT,
+                                    &fb_info.mem);
+        fb_info.image = view_data->image;
+        fbNode->attachments.push_back(fb_info);
+    }
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL CreateFramebuffer(VkDevice device, const VkFramebufferCreateInfo *pCreateInfo,
                                                  const VkAllocationCallbacks *pAllocator,
                                                  VkFramebuffer *pFramebuffer) {
-    bool skip_call = false;
-    VkResult result = VK_ERROR_VALIDATION_FAILED_EXT;
-    // TODO : Verify that renderPass FB is created with is compatible with FB
     layer_data *dev_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
+    std::unique_lock<std::mutex> lock(global_lock);
+    bool skip_call = PreCallValidateCreateFramebuffer(dev_data, pCreateInfo);
+    lock.unlock();
 
-    skip_call |= ValidateAttachmentImageUsage(dev_data, pCreateInfo);
-    if (skip_call == false) {
-        result = dev_data->device_dispatch_table->CreateFramebuffer(device, pCreateInfo, pAllocator, pFramebuffer);
-    }
+    if (skip_call)
+        return VK_ERROR_VALIDATION_FAILED_EXT;
+
+    VkResult result = dev_data->device_dispatch_table->CreateFramebuffer(device, pCreateInfo, pAllocator, pFramebuffer);
+
     if (VK_SUCCESS == result) {
-        // Shadow create info and store in map
-        std::lock_guard<std::mutex> lock(global_lock);
-
-        auto & fbNode = dev_data->frameBufferMap[*pFramebuffer];
-        fbNode.createInfo = *pCreateInfo;
-        if (pCreateInfo->pAttachments) {
-            auto attachments = new VkImageView[pCreateInfo->attachmentCount];
-            memcpy(attachments,
-                   pCreateInfo->pAttachments,
-                   pCreateInfo->attachmentCount * sizeof(VkImageView));
-            fbNode.createInfo.pAttachments = attachments;
-        }
-        for (uint32_t i = 0; i < pCreateInfo->attachmentCount; ++i) {
-            VkImageView view = pCreateInfo->pAttachments[i];
-            auto view_data = getImageViewData(dev_data, view);
-            if (!view_data) {
-                continue;
-            }
-            MT_FB_ATTACHMENT_INFO fb_info;
-            get_mem_binding_from_object(dev_data, (uint64_t)(view_data->image), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT,
-                                        &fb_info.mem);
-            fb_info.image = view_data->image;
-            fbNode.attachments.push_back(fb_info);
-        }
+        lock.lock();
+        PostCallRecordCreateFramebuffer(dev_data, pCreateInfo, *pFramebuffer);
+        lock.unlock();
     }
     return result;
 }
@@ -8389,7 +8485,7 @@ bool isRegionOverlapping(VkImageSubresourceRange range1, VkImageSubresourceRange
 static bool ValidateDependencies(const layer_data *my_data, FRAMEBUFFER_NODE const * framebuffer,
                                  RENDER_PASS_NODE const * renderPass) {
     bool skip_call = false;
-    const VkFramebufferCreateInfo *pFramebufferInfo = &framebuffer->createInfo;
+    const safe_VkFramebufferCreateInfo *pFramebufferInfo = &framebuffer->createInfo;
     const VkRenderPassCreateInfo *pCreateInfo = renderPass->pCreateInfo;
     auto const & subpass_to_node = renderPass->subpassToNode;
     std::vector<std::vector<uint32_t>> output_attachment_to_subpass(pCreateInfo->attachmentCount);
@@ -8875,7 +8971,7 @@ static void deleteRenderPasses(layer_data *my_data) {
 static bool VerifyFramebufferAndRenderPassLayouts(layer_data *dev_data, GLOBAL_CB_NODE *pCB, const VkRenderPassBeginInfo *pRenderPassBegin) {
     bool skip_call = false;
     const VkRenderPassCreateInfo *pRenderPassInfo = dev_data->renderPassMap[pRenderPassBegin->renderPass]->pCreateInfo;
-    const VkFramebufferCreateInfo framebufferInfo = dev_data->frameBufferMap[pRenderPassBegin->framebuffer].createInfo;
+    const safe_VkFramebufferCreateInfo framebufferInfo = dev_data->frameBufferMap[pRenderPassBegin->framebuffer]->createInfo;
     if (pRenderPassInfo->attachmentCount != framebufferInfo.attachmentCount) {
         skip_call |= log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, (VkDebugReportObjectTypeEXT)0, 0, __LINE__,
                              DRAWSTATE_INVALID_RENDERPASS, "DS", "You cannot start a render pass using a framebuffer "
@@ -8925,7 +9021,7 @@ static void TransitionSubpassLayouts(layer_data *dev_data, GLOBAL_CB_NODE *pCB, 
     if (!framebuffer)
         return;
 
-    const VkFramebufferCreateInfo &framebufferInfo = framebuffer->createInfo;
+    const safe_VkFramebufferCreateInfo &framebufferInfo = framebuffer->createInfo;
     const VkSubpassDescription &subpass = renderPass->pCreateInfo->pSubpasses[subpass_index];
     for (uint32_t j = 0; j < subpass.inputAttachmentCount; ++j) {
         const VkImageView &image_view = framebufferInfo.pAttachments[subpass.pInputAttachments[j].attachment];
@@ -8969,7 +9065,7 @@ static void TransitionFinalSubpassLayouts(layer_data *dev_data, GLOBAL_CB_NODE *
 
 static bool VerifyRenderAreaBounds(const layer_data *my_data, const VkRenderPassBeginInfo *pRenderPassBegin) {
     bool skip_call = false;
-    const VkFramebufferCreateInfo *pFramebufferInfo = &my_data->frameBufferMap.at(pRenderPassBegin->framebuffer).createInfo;
+    const safe_VkFramebufferCreateInfo *pFramebufferInfo = &getFramebuffer(my_data, pRenderPassBegin->framebuffer)->createInfo;
     if (pRenderPassBegin->renderArea.offset.x < 0 ||
         (pRenderPassBegin->renderArea.offset.x + pRenderPassBegin->renderArea.extent.width) > pFramebufferInfo->width ||
         pRenderPassBegin->renderArea.offset.y < 0 ||
@@ -9900,6 +9996,7 @@ GetSwapchainImagesKHR(VkDevice device, VkSwapchainKHR swapchain, uint32_t *pCoun
             image_ci.arrayLayers = swapchain_node->createInfo.imageArrayLayers;
             image_ci.usage = swapchain_node->createInfo.imageUsage;
             image_ci.format = swapchain_node->createInfo.imageFormat;
+            image_ci.samples = VK_SAMPLE_COUNT_1_BIT;
             image_ci.extent.width = swapchain_node->createInfo.imageExtent.width;
             image_ci.extent.height = swapchain_node->createInfo.imageExtent.height;
             image_ci.sharingMode = swapchain_node->createInfo.imageSharingMode;
