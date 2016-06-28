@@ -1098,7 +1098,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vkGetPhysicalDeviceWaylandPresentationSupportKHR(
 {
     wrapped_phys_dev_obj *phys_dev;
     auto vk_phys_dev = unwrap_phys_dev(physicalDevice, &phys_dev);
-    VkBool32 result = inst->layer_disp.GetPhysicalDeviceWaylandPresentationSupportKHR(vk_phys_dev, queueFamilyIndex, display);
+    VkBool32 result = phys_dev->inst->layer_disp.GetPhysicalDeviceWaylandPresentationSupportKHR(vk_phys_dev, queueFamilyIndex, display);
     return result;
 }
 #endif  // VK_USE_PLATFORM_WAYLAND_KHR
@@ -1119,7 +1119,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vkGetPhysicalDeviceMirPresentationSupportKHR(VkPh
 {
     wrapped_phys_dev_obj *phys_dev;
     auto vk_phys_dev = unwrap_phys_dev(physicalDevice, &phys_dev);
-    VkBool32 result = inst->layer_disp.GetPhysicalDeviceMirPresentationSupportKHR(vk_phys_dev, queueFamilyIndex, connection);
+    VkBool32 result = phys_dev->inst->layer_disp.GetPhysicalDeviceMirPresentationSupportKHR(vk_phys_dev, queueFamilyIndex, connection);
     return result;
 }
 #endif  // VK_USE_PLATFORM_MIR_KHR
