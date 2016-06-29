@@ -105,6 +105,8 @@ struct shader_module;
 // TODO : Split this into separate structs for instance and device level data?
 struct layer_data {
     VkInstance instance;
+    unique_ptr<INSTANCE_STATE> instance_state;
+
 
     debug_report_data *report_data;
     std::vector<VkDebugReportCallbackEXT> logging_callback;
@@ -112,7 +114,9 @@ struct layer_data {
     VkLayerInstanceDispatchTable *instance_dispatch_table;
 
     devExts device_extensions;
-    unordered_set<VkQueue> queues;  // all queues under given device
+    unordered_set<VkQueue> queues;  // All queues under given device
+    // Vector indices correspond to queueFamilyIndex
+    vector<unique_ptr<VkQueueFamilyProperties>> queue_family_properties;
     // Global set of all cmdBuffers that are inFlight on this device
     unordered_set<VkCommandBuffer> globalInFlightCmdBuffers;
     // Layer specific data
@@ -145,10 +149,13 @@ struct layer_data {
     // Device specific data
     PHYS_DEV_PROPERTIES_NODE phys_dev_properties;
     VkPhysicalDeviceMemoryProperties phys_dev_mem_props;
+    VkPhysicalDeviceFeatures physical_device_features;
+    unique_ptr<PHYSICAL_DEVICE_STATE> physical_device_state;
 
     layer_data()
-        : report_data(nullptr), device_dispatch_table(nullptr), instance_dispatch_table(nullptr), device_extensions(),
-          device(VK_NULL_HANDLE), phys_dev_properties{}, phys_dev_mem_props{} {};
+        : instance_state(nullptr), report_data(nullptr), device_dispatch_table(nullptr), instance_dispatch_table(nullptr),
+          device_extensions(), device(VK_NULL_HANDLE), phys_dev_properties{}, phys_dev_mem_props{},
+          physical_device_state(nullptr){};
 };
 
 // TODO : Do we need to guard access to layer_data_map w/ lock?
@@ -3939,7 +3946,7 @@ CreateInstance(const VkInstanceCreateInfo *pCreateInfo, const VkAllocationCallba
                                      pCreateInfo->ppEnabledExtensionNames);
 
     init_core_validation(instance_data, pAllocator);
-
+    instance_data->instance_state = unique_ptr<INSTANCE_STATE>(new INSTANCE_STATE());
     ValidateLayerOrdering(*pCreateInfo);
 
     return result;
@@ -3989,9 +3996,88 @@ static void createDeviceRegisterExtensions(const VkDeviceCreateInfo *pCreateInfo
     }
 }
 
+// Verify that queue family has been properly requested
+bool ValidateRequestedQueueFamilyProperties(layer_data *dev_data, const VkDeviceCreateInfo *create_info) {
+    bool skip_call = false;
+    // First check is app has actually requested queueFamilyProperties
+    if (!dev_data->physical_device_state) {
+        skip_call |= log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT,
+                             0, __LINE__, DEVLIMITS_MUST_QUERY_COUNT, "DL",
+                             "Invalid call to vkCreateDevice() w/o first calling vkEnumeratePhysicalDevices().");
+    } else if (QUERY_DETAILS != dev_data->physical_device_state->vkGetPhysicalDeviceQueueFamilyPropertiesState) {
+        // TODO: This is not called out as an invalid use in the spec so make more informative recommendation.
+        skip_call |= log_msg(dev_data->report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT,
+                             VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, 0, __LINE__, DEVLIMITS_INVALID_QUEUE_CREATE_REQUEST,
+                             "DL", "Call to vkCreateDevice() w/o first calling vkGetPhysicalDeviceQueueFamilyProperties().");
+    } else {
+        // Check that the requested queue properties are valid
+        for (uint32_t i = 0; i < create_info->queueCreateInfoCount; i++) {
+            uint32_t requestedIndex = create_info->pQueueCreateInfos[i].queueFamilyIndex;
+            if (dev_data->queue_family_properties.size() <=
+                requestedIndex) { // requested index is out of bounds for this physical device
+                skip_call |= log_msg(
+                    dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, 0,
+                    __LINE__, DEVLIMITS_INVALID_QUEUE_CREATE_REQUEST, "DL",
+                    "Invalid queue create request in vkCreateDevice(). Invalid queueFamilyIndex %u requested.", requestedIndex);
+            } else if (create_info->pQueueCreateInfos[i].queueCount >
+                       dev_data->queue_family_properties[requestedIndex]->queueCount) {
+                skip_call |=
+                    log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT,
+                            0, __LINE__, DEVLIMITS_INVALID_QUEUE_CREATE_REQUEST, "DL",
+                            "Invalid queue create request in vkCreateDevice(). QueueFamilyIndex %u only has %u queues, but "
+                            "requested queueCount is %u.",
+                            requestedIndex, dev_data->queue_family_properties[requestedIndex]->queueCount,
+                            create_info->pQueueCreateInfos[i].queueCount);
+            }
+        }
+    }
+    return skip_call;
+}
+
+// Verify that features have been queried and that they are available
+static bool ValidateRequestedFeatures(layer_data *dev_data, const VkPhysicalDeviceFeatures *requested_features) {
+    bool skip_call = false;
+
+    VkBool32 *actual = (VkBool32 *)&(dev_data->physical_device_features);
+    VkBool32 *requested = (VkBool32 *)requested_features;
+    // TODO : This is a nice, compact way to loop through struct, but a bad way to report issues
+    //  Need to provide the struct member name with the issue. To do that seems like we'll
+    //  have to loop through each struct member which should be done w/ codegen to keep in synch.
+    uint32_t errors = 0;
+    uint32_t total_bools = sizeof(VkPhysicalDeviceFeatures) / sizeof(VkBool32);
+    for (uint32_t i = 0; i < total_bools; i++) {
+        if (requested[i] > actual[i]) {
+            // TODO: Add index to struct member name helper to be able to include a feature name
+            skip_call |= log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT,
+                VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, 0, __LINE__, DEVLIMITS_INVALID_FEATURE_REQUESTED,
+                "DL", "While calling vkCreateDevice(), requesting feature #%u in VkPhysicalDeviceFeatures struct, "
+                "which is not available on this device.",
+                i);
+            errors++;
+        }
+    }
+    if (errors && (UNCALLED == dev_data->physical_device_state->vkGetPhysicalDeviceFeaturesState)) {
+        // If user didn't request features, notify them that they should
+        // TODO: Verify this against the spec. I believe this is an invalid use of the API and should return an error
+        skip_call |= log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT,
+                             VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, 0, __LINE__, DEVLIMITS_INVALID_FEATURE_REQUESTED,
+                             "DL", "You requested features that are unavailable on this device. You should first query feature "
+                                   "availability by calling vkGetPhysicalDeviceFeatures().");
+    }
+    return skip_call;
+}
+
 VKAPI_ATTR VkResult VKAPI_CALL CreateDevice(VkPhysicalDevice gpu, const VkDeviceCreateInfo *pCreateInfo,
                                             const VkAllocationCallbacks *pAllocator, VkDevice *pDevice) {
     layer_data *my_instance_data = get_my_data_ptr(get_dispatch_key(gpu), layer_data_map);
+    bool skip_call = false;
+
+    // Check that any requested features are available
+    if (pCreateInfo->pEnabledFeatures) {
+        skip_call |= ValidateRequestedFeatures(my_instance_data, pCreateInfo->pEnabledFeatures);
+    }
+    skip_call |= ValidateRequestedQueueFamilyProperties(my_instance_data, pCreateInfo);
+
     VkLayerDeviceCreateInfo *chain_info = get_chain_info(pCreateInfo, VK_LAYER_LINK_INFO);
 
     assert(chain_info->u.pLayerInfo);
@@ -10127,6 +10213,114 @@ VKAPI_ATTR VkResult VKAPI_CALL AcquireNextImageKHR(VkDevice device, VkSwapchainK
     return result;
 }
 
+VKAPI_ATTR VkResult VKAPI_CALL EnumeratePhysicalDevices(VkInstance instance, uint32_t *pPhysicalDeviceCount,
+                                                        VkPhysicalDevice *pPhysicalDevices) {
+    bool skipCall = false;
+    layer_data *my_data = get_my_data_ptr(get_dispatch_key(instance), layer_data_map);
+    if (my_data->instance_state) {
+        // For this instance, flag when vkEnumeratePhysicalDevices goes to QUERY_COUNT and then QUERY_DETAILS
+        if (NULL == pPhysicalDevices) {
+            my_data->instance_state->vkEnumeratePhysicalDevicesState = QUERY_COUNT;
+        } else {
+            if (UNCALLED == my_data->instance_state->vkEnumeratePhysicalDevicesState) {
+                // Flag warning here. You can call this without having queried the count, but it may not be
+                // robust on platforms with multiple physical devices.
+                skipCall |= log_msg(my_data->report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_INSTANCE_EXT,
+                                    0, __LINE__, DEVLIMITS_MISSING_QUERY_COUNT, "DL",
+                                    "Call sequence has vkEnumeratePhysicalDevices() w/ non-NULL pPhysicalDevices. You should first "
+                                    "call vkEnumeratePhysicalDevices() w/ NULL pPhysicalDevices to query pPhysicalDeviceCount.");
+            } // TODO : Could also flag a warning if re-calling this function in QUERY_DETAILS state
+            else if (my_data->instance_state->physical_devices_count != *pPhysicalDeviceCount) {
+                // Having actual count match count from app is not a requirement, so this can be a warning
+                skipCall |= log_msg(my_data->report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT,
+                                    VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, 0, __LINE__, DEVLIMITS_COUNT_MISMATCH, "DL",
+                                    "Call to vkEnumeratePhysicalDevices() w/ pPhysicalDeviceCount value %u, but actual count "
+                                    "supported by this instance is %u.",
+                                    *pPhysicalDeviceCount, my_data->instance_state->physical_devices_count);
+            }
+            my_data->instance_state->vkEnumeratePhysicalDevicesState = QUERY_DETAILS;
+        }
+        if (skipCall) {
+            return VK_ERROR_VALIDATION_FAILED_EXT;
+        }
+        VkResult result =
+            my_data->instance_dispatch_table->EnumeratePhysicalDevices(instance, pPhysicalDeviceCount, pPhysicalDevices);
+        if (NULL == pPhysicalDevices) {
+            my_data->instance_state->physical_devices_count = *pPhysicalDeviceCount;
+        } else { // Save physical devices
+            for (uint32_t i = 0; i < *pPhysicalDeviceCount; i++) {
+                layer_data *phy_dev_data = get_my_data_ptr(get_dispatch_key(pPhysicalDevices[i]), layer_data_map);
+                phy_dev_data->physical_device_state = unique_ptr<PHYSICAL_DEVICE_STATE>(new PHYSICAL_DEVICE_STATE());
+                // Init actual features for each physical device
+                my_data->instance_dispatch_table->GetPhysicalDeviceFeatures(pPhysicalDevices[i],
+                                                                            &phy_dev_data->physical_device_features);
+            }
+        }
+        return result;
+    } else {
+        log_msg(my_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_INSTANCE_EXT, 0, __LINE__,
+                DEVLIMITS_INVALID_INSTANCE, "DL", "Invalid instance (0x%" PRIxLEAST64 ") passed into vkEnumeratePhysicalDevices().",
+                (uint64_t)instance);
+    }
+    return VK_ERROR_VALIDATION_FAILED_EXT;
+}
+
+VKAPI_ATTR void VKAPI_CALL
+GetPhysicalDeviceQueueFamilyProperties(VkPhysicalDevice physicalDevice, uint32_t *pCount,
+    VkQueueFamilyProperties *pQueueFamilyProperties) {
+    bool skip_call = false;
+    layer_data *phy_dev_data = get_my_data_ptr(get_dispatch_key(physicalDevice), layer_data_map);
+    if (phy_dev_data->physical_device_state) {
+        if (NULL == pQueueFamilyProperties) {
+            phy_dev_data->physical_device_state->vkGetPhysicalDeviceQueueFamilyPropertiesState = QUERY_COUNT;
+        }
+        else {
+            // Verify that for each physical device, this function is called first with NULL pQueueFamilyProperties ptr in order to
+            // get count
+            if (UNCALLED == phy_dev_data->physical_device_state->vkGetPhysicalDeviceQueueFamilyPropertiesState) {
+                skip_call |= log_msg(phy_dev_data->report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT,
+                    VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, 0, __LINE__, DEVLIMITS_MISSING_QUERY_COUNT, "DL",
+                    "Call sequence has vkGetPhysicalDeviceQueueFamilyProperties() w/ non-NULL "
+                    "pQueueFamilyProperties. You should first call vkGetPhysicalDeviceQueueFamilyProperties() w/ "
+                    "NULL pQueueFamilyProperties to query pCount.");
+            }
+            // Then verify that pCount that is passed in on second call matches what was returned
+            if (phy_dev_data->physical_device_state->queueFamilyPropertiesCount != *pCount) {
+
+                // TODO: this is not a requirement of the Valid Usage section for vkGetPhysicalDeviceQueueFamilyProperties, so
+                // provide as warning
+                skip_call |= log_msg(phy_dev_data->report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT,
+                    VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, 0, __LINE__, DEVLIMITS_COUNT_MISMATCH, "DL",
+                    "Call to vkGetPhysicalDeviceQueueFamilyProperties() w/ pCount value %u, but actual count "
+                    "supported by this physicalDevice is %u.",
+                    *pCount, phy_dev_data->physical_device_state->queueFamilyPropertiesCount);
+            }
+            phy_dev_data->physical_device_state->vkGetPhysicalDeviceQueueFamilyPropertiesState = QUERY_DETAILS;
+        }
+        if (skip_call) {
+            return;
+        }
+        phy_dev_data->instance_dispatch_table->GetPhysicalDeviceQueueFamilyProperties(physicalDevice, pCount,
+            pQueueFamilyProperties);
+        if (NULL == pQueueFamilyProperties) {
+            phy_dev_data->physical_device_state->queueFamilyPropertiesCount = *pCount;
+        }
+        else { // Save queue family properties
+            phy_dev_data->queue_family_properties.reserve(*pCount);
+            for (uint32_t i = 0; i < *pCount; i++) {
+                phy_dev_data->queue_family_properties.emplace_back(new VkQueueFamilyProperties(pQueueFamilyProperties[i]));
+            }
+        }
+        return;
+    }
+    else {
+        log_msg(phy_dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, 0,
+            __LINE__, DEVLIMITS_INVALID_PHYSICAL_DEVICE, "DL",
+            "Invalid physicalDevice (0x%" PRIxLEAST64 ") passed into vkGetPhysicalDeviceQueueFamilyProperties().",
+            (uint64_t)physicalDevice);
+    }
+}
+
 VKAPI_ATTR VkResult VKAPI_CALL
 CreateDebugReportCallbackEXT(VkInstance instance, const VkDebugReportCallbackCreateInfoEXT *pCreateInfo,
                              const VkAllocationCallbacks *pAllocator, VkDebugReportCallbackEXT *pMsgCallback) {
@@ -10253,6 +10447,8 @@ intercept_core_instance_command(const char *name) {
         { "vkGetDeviceProcAddr", reinterpret_cast<PFN_vkVoidFunction>(GetDeviceProcAddr) },
         { "vkCreateInstance", reinterpret_cast<PFN_vkVoidFunction>(CreateInstance) },
         { "vkCreateDevice", reinterpret_cast<PFN_vkVoidFunction>(CreateDevice) },
+        { "vkEnumeratePhysicalDevices", reinterpret_cast<PFN_vkVoidFunction>(EnumeratePhysicalDevices) },
+        { "vkGetPhysicalDeviceQueueFamilyProperties", reinterpret_cast<PFN_vkVoidFunction>(GetPhysicalDeviceQueueFamilyProperties) },
         { "vkDestroyInstance", reinterpret_cast<PFN_vkVoidFunction>(DestroyInstance) },
         { "vkEnumerateInstanceLayerProperties", reinterpret_cast<PFN_vkVoidFunction>(EnumerateInstanceLayerProperties) },
         { "vkEnumerateDeviceLayerProperties", reinterpret_cast<PFN_vkVoidFunction>(EnumerateDeviceLayerProperties) },
