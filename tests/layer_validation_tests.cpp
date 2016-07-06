@@ -3283,7 +3283,7 @@ TEST_F(VkLayerTest, LeakAnObject) {
 
     m_errorMonitor->SetDesiredFailureMsg(
         VK_DEBUG_REPORT_ERROR_BIT_EXT,
-        "OBJ ERROR : VK_DEBUG_REPORT_OBJECT_TYPE_FENCE_EXT object");
+        "has not been destroyed.");
 
     ASSERT_NO_FATAL_FAILURE(InitState());
 
@@ -3454,7 +3454,7 @@ TEST_F(VkLayerTest, InvalidDescriptorPoolConsistency) {
 
 TEST_F(VkLayerTest, CreateUnknownObject) {
     m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT,
-        "Invalid VkImage Object ");
+        "Invalid Image Object ");
 
     TEST_DESCRIPTION(
         "Pass an invalid image object handle into a Vulkan API call.");
@@ -3478,7 +3478,7 @@ TEST_F(VkLayerTest, PipelineNotBound) {
         "Pass in an invalid pipeline object handle into a Vulkan API call.");
 
     m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT,
-                                         "Invalid VkPipeline Object ");
+                                         "Invalid Pipeline Object ");
 
     ASSERT_NO_FATAL_FAILURE(InitState());
     ASSERT_NO_FATAL_FAILURE(InitRenderTarget());
@@ -3633,7 +3633,7 @@ TEST_F(VkLayerTest, BindInvalidMemory) {
     bool pass;
 
     m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT,
-                                         "Invalid VkDeviceMemory Object ");
+                                         "Invalid Device Memory Object ");
 
     ASSERT_NO_FATAL_FAILURE(InitState());
 
@@ -3700,7 +3700,7 @@ TEST_F(VkLayerTest, BindMemoryToDestroyedObject) {
     bool pass;
 
     m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT,
-                                         "Invalid VkImage Object ");
+                                         "Invalid Image Object ");
 
     ASSERT_NO_FATAL_FAILURE(InitState());
 
@@ -6238,7 +6238,7 @@ TEST_F(VkLayerTest, InvalidDescriptorPool) {
     // Attempt to clear Descriptor Pool with bad object.
     // ObjectTracker should catch this.
     m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT,
-                                         "Invalid VkDescriptorPool Object 0xbaad6001");
+                                         "Invalid Descriptor Pool Object 0xbaad6001");
     uint64_t fake_pool_handle = 0xbaad6001;
     VkDescriptorPool bad_pool = reinterpret_cast<VkDescriptorPool &>(fake_pool_handle);
     vkResetDescriptorPool(device(), bad_pool, 0);
@@ -6255,7 +6255,7 @@ TEST_F(VkLayerTest, InvalidDescriptorSet) {
     VkDescriptorSet bad_set = reinterpret_cast<VkDescriptorSet &>(fake_set_handle);
     VkResult err;
     m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT,
-                                         "Invalid VkDescriptorSet Object 0xbaad6001");
+                                         "Invalid Descriptor Set Object 0xbaad6001");
 
     ASSERT_NO_FATAL_FAILURE(InitState());
 
@@ -6299,7 +6299,7 @@ TEST_F(VkLayerTest, InvalidDescriptorSetLayout) {
     uint64_t fake_layout_handle = 0xbaad6001;
     VkDescriptorSetLayout bad_layout = reinterpret_cast<VkDescriptorSetLayout &>(fake_layout_handle);
     m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT,
-                                         "Invalid VkDescriptorSetLayout Object 0xbaad6001");
+                                         "Invalid Descriptor Set Layout Object 0xbaad6001");
 
     VkPipelineLayout pipeline_layout;
     VkPipelineLayoutCreateInfo plci = {};
@@ -6936,7 +6936,7 @@ TEST_F(VkLayerTest, InvalidPipeline) {
     uint64_t fake_pipeline_handle = 0xbaad6001;
     VkPipeline bad_pipeline = reinterpret_cast<VkPipeline &>(fake_pipeline_handle);
     m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT,
-                                         "Invalid VkPipeline Object 0xbaad6001");
+                                         "Invalid Pipeline Object 0xbaad6001");
     ASSERT_NO_FATAL_FAILURE(InitState());
     BeginCommandBuffer();
     vkCmdBindPipeline(m_commandBuffer->GetBufferHandle(),
@@ -8006,7 +8006,7 @@ TEST_F(VkLayerTest, DescriptorSetCompatibility) {
     // verify_set_layout_compatibility fail cases:
     // 1. invalid VkPipelineLayout (layout) passed into vkCmdBindDescriptorSets
     m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT,
-                                         "Invalid VkPipelineLayout Object ");
+                                         "Invalid Pipeline Layout Object ");
     vkCmdBindDescriptorSets(m_commandBuffer->GetBufferHandle(),
                             VK_PIPELINE_BIND_POINT_GRAPHICS,
                             (VkPipelineLayout)((size_t)0xbaadb1be), 0, 1,
