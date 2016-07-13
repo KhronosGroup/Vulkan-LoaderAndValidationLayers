@@ -6543,6 +6543,123 @@ TEST_F(VkLayerTest, InvalidCmdBufferImageDestroyed) {
     vkFreeMemory(m_device->device(), image_mem, nullptr);
 }
 
+TEST_F(VkLayerTest, InvalidCmdBufferEventDestroyed) {
+    TEST_DESCRIPTION("Attempt to draw with a command buffer that is invalid "
+                     "due to an event dependency being destroyed.");
+    ASSERT_NO_FATAL_FAILURE(InitState());
+
+    VkEvent event;
+    VkEventCreateInfo evci = {};
+    evci.sType = VK_STRUCTURE_TYPE_EVENT_CREATE_INFO;
+    VkResult result = vkCreateEvent(m_device->device(), &evci, NULL, &event);
+    ASSERT_VK_SUCCESS(result);
+
+    m_commandBuffer->BeginCommandBuffer();
+    vkCmdSetEvent(m_commandBuffer->GetBufferHandle(), event,
+                  VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+    m_commandBuffer->EndCommandBuffer();
+
+    m_errorMonitor->SetDesiredFailureMsg(
+        VK_DEBUG_REPORT_ERROR_BIT_EXT, " that is invalid because bound event ");
+    // Destroy event dependency prior to submit to cause ERROR
+    vkDestroyEvent(m_device->device(), event, NULL);
+
+    VkSubmitInfo submit_info = {};
+    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submit_info.commandBufferCount = 1;
+    submit_info.pCommandBuffers = &m_commandBuffer->handle();
+    vkQueueSubmit(m_device->m_queue, 1, &submit_info, VK_NULL_HANDLE);
+
+    m_errorMonitor->VerifyFound();
+}
+
+TEST_F(VkLayerTest, InvalidCmdBufferQueryPoolDestroyed) {
+    TEST_DESCRIPTION("Attempt to draw with a command buffer that is invalid "
+                     "due to a query pool dependency being destroyed.");
+    ASSERT_NO_FATAL_FAILURE(InitState());
+
+    VkQueryPool query_pool;
+    VkQueryPoolCreateInfo qpci{};
+    qpci.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+    qpci.queryType = VK_QUERY_TYPE_TIMESTAMP;
+    qpci.queryCount = 1;
+    VkResult result =
+        vkCreateQueryPool(m_device->device(), &qpci, nullptr, &query_pool);
+    ASSERT_VK_SUCCESS(result);
+
+    m_commandBuffer->BeginCommandBuffer();
+    vkCmdResetQueryPool(m_commandBuffer->GetBufferHandle(), query_pool, 0, 1);
+    m_commandBuffer->EndCommandBuffer();
+
+    m_errorMonitor->SetDesiredFailureMsg(
+        VK_DEBUG_REPORT_ERROR_BIT_EXT,
+        " that is invalid because bound query pool ");
+    // Destroy query pool dependency prior to submit to cause ERROR
+    vkDestroyQueryPool(m_device->device(), query_pool, NULL);
+
+    VkSubmitInfo submit_info = {};
+    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submit_info.commandBufferCount = 1;
+    submit_info.pCommandBuffers = &m_commandBuffer->handle();
+    vkQueueSubmit(m_device->m_queue, 1, &submit_info, VK_NULL_HANDLE);
+
+    m_errorMonitor->VerifyFound();
+}
+
+TEST_F(VkLayerTest, InvalidCmdBufferPipelineDestroyed) {
+    TEST_DESCRIPTION("Attempt to draw with a command buffer that is invalid "
+                     "due to a pipeline dependency being destroyed.");
+    ASSERT_NO_FATAL_FAILURE(InitState());
+    // Using a compute pipeline b/c it's simpler to create
+    char const *csSource =
+        "#version 450\n"
+        "\n"
+        "layout(local_size_x=1) in;\n"
+        "layout(set=0, binding=0) buffer block { vec4 x; };\n"
+        "void main(){\n"
+        "   // x is not used.\n"
+        "}\n";
+
+    VkShaderObj cs(m_device, csSource, VK_SHADER_STAGE_COMPUTE_BIT, this);
+
+    VkDescriptorSetObj descriptorSet(m_device);
+    descriptorSet.CreateVKDescriptorSet(m_commandBuffer);
+
+    VkComputePipelineCreateInfo cpci = {
+        VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+        nullptr,
+        0,
+        {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0,
+         VK_SHADER_STAGE_COMPUTE_BIT, cs.handle(), "main", nullptr},
+        descriptorSet.GetPipelineLayout(),
+        VK_NULL_HANDLE,
+        -1};
+
+    VkPipeline pipe;
+    VkResult result = vkCreateComputePipelines(
+        m_device->device(), VK_NULL_HANDLE, 1, &cpci, nullptr, &pipe);
+    ASSERT_VK_SUCCESS(result);
+
+    m_commandBuffer->BeginCommandBuffer();
+    vkCmdBindPipeline(m_commandBuffer->GetBufferHandle(),
+                      VK_PIPELINE_BIND_POINT_COMPUTE, pipe);
+    m_commandBuffer->EndCommandBuffer();
+    // Now destroy pipeline in order to cause error when submitting
+    vkDestroyPipeline(m_device->device(), pipe, nullptr);
+
+    m_errorMonitor->SetDesiredFailureMsg(
+        VK_DEBUG_REPORT_ERROR_BIT_EXT,
+        " that is invalid because bound pipeline ");
+
+    VkSubmitInfo submit_info = {};
+    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submit_info.commandBufferCount = 1;
+    submit_info.pCommandBuffers = &m_commandBuffer->handle();
+    vkQueueSubmit(m_device->m_queue, 1, &submit_info, VK_NULL_HANDLE);
+
+    m_errorMonitor->VerifyFound();
+}
+
 TEST_F(VkLayerTest, InvalidPipeline) {
     // Attempt to bind an invalid Pipeline to a valid Command Buffer
     // ObjectTracker should catch this.
