@@ -1831,6 +1831,7 @@ static bool validate_fs_outputs_against_render_pass(debug_report_data *report_da
 
     auto it_a = outputs.begin();
     auto it_b = color_attachments.begin();
+    bool used = false;
 
     /* Walk attachment list and outputs together */
 
@@ -1846,11 +1847,12 @@ static bool validate_fs_outputs_against_render_pass(debug_report_data *report_da
             }
             it_a++;
         } else if (!b_at_end && (a_at_end || it_a->first.first > it_b->first)) {
-            if (log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VkDebugReportObjectTypeEXT(0), 0,
+            if (!used && log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VkDebugReportObjectTypeEXT(0), 0,
                         __LINE__, SHADER_CHECKER_INPUT_NOT_PRODUCED, "SC", "Attachment %d not written by FS", it_b->first)) {
                 pass = false;
             }
             it_b++;
+            used = false;
         } else {
             unsigned output_type = get_fundamental_type(fs, it_a->second.type_id);
             unsigned att_type = get_format_type(it_b->second);
@@ -1868,7 +1870,7 @@ static bool validate_fs_outputs_against_render_pass(debug_report_data *report_da
 
             /* OK! */
             it_a++;
-            it_b++;
+            used = true;
         }
     }
 
