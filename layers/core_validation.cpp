@@ -3589,23 +3589,17 @@ static void deletePools(layer_data *my_data) {
 static void clearDescriptorPool(layer_data *my_data, const VkDevice device, const VkDescriptorPool pool,
                                 VkDescriptorPoolResetFlags flags) {
     DESCRIPTOR_POOL_NODE *pPool = getPoolNode(my_data, pool);
-    if (!pPool) {
-        log_msg(my_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_DESCRIPTOR_POOL_EXT,
-                (uint64_t)pool, __LINE__, DRAWSTATE_INVALID_POOL, "DS",
-                "Unable to find pool node for pool 0x%" PRIxLEAST64 " specified in vkResetDescriptorPool() call", (uint64_t)pool);
-    } else {
-        // TODO: validate flags
-        // For every set off of this pool, clear it, remove from setMap, and free cvdescriptorset::DescriptorSet
-        for (auto ds : pPool->sets) {
-            freeDescriptorSet(my_data, ds);
-        }
-        pPool->sets.clear();
-        // Reset available count for each type and available sets for this pool
-        for (uint32_t i = 0; i < pPool->availableDescriptorTypeCount.size(); ++i) {
-            pPool->availableDescriptorTypeCount[i] = pPool->maxDescriptorTypeCount[i];
-        }
-        pPool->availableSets = pPool->maxSets;
+    // TODO: validate flags
+    // For every set off of this pool, clear it, remove from setMap, and free cvdescriptorset::DescriptorSet
+    for (auto ds : pPool->sets) {
+        freeDescriptorSet(my_data, ds);
     }
+    pPool->sets.clear();
+    // Reset available count for each type and available sets for this pool
+    for (uint32_t i = 0; i < pPool->availableDescriptorTypeCount.size(); ++i) {
+        pPool->availableDescriptorTypeCount[i] = pPool->maxDescriptorTypeCount[i];
+    }
+    pPool->availableSets = pPool->maxSets;
 }
 
 // For given CB object, fetch associated CB Node from map
@@ -5058,7 +5052,7 @@ DestroySemaphore(VkDevice device, VkSemaphore semaphore, const VkAllocationCallb
     if (item != dev_data->semaphoreMap.end()) {
         if (item->second.in_use.load()) {
             log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_SEMAPHORE_EXT,
-                    reinterpret_cast<uint64_t &>(semaphore), __LINE__, DRAWSTATE_INVALID_SEMAPHORE, "DS",
+                    reinterpret_cast<uint64_t &>(semaphore), __LINE__, DRAWSTATE_OBJECT_INUSE, "DS",
                     "Cannot delete semaphore 0x%" PRIx64 " which is in use.", reinterpret_cast<uint64_t &>(semaphore));
         }
         dev_data->semaphoreMap.erase(semaphore);
@@ -5076,7 +5070,7 @@ VKAPI_ATTR void VKAPI_CALL DestroyEvent(VkDevice device, VkEvent event, const Vk
         if (event_node->in_use.load()) {
             skip_call |= log_msg(
                 dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_DESCRIPTOR_SET_EXT,
-                reinterpret_cast<uint64_t &>(event), __LINE__, DRAWSTATE_INVALID_EVENT, "DS",
+                reinterpret_cast<uint64_t &>(event), __LINE__, DRAWSTATE_OBJECT_INUSE, "DS",
                 "Cannot delete event 0x%" PRIx64 " which is in use by a command buffer.", reinterpret_cast<uint64_t &>(event));
         }
         // Any bound cmd buffers are now invalid
@@ -8398,74 +8392,68 @@ VKAPI_ATTR void VKAPI_CALL CmdPushConstants(VkCommandBuffer commandBuffer, VkPip
 
     // Check if push constant update is within any of the ranges with the same stage flags specified in pipeline layout.
     auto pipeline_layout = getPipelineLayout(dev_data, layout);
-    if (!pipeline_layout) {
-        skip_call |= log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, (VkDebugReportObjectTypeEXT)0, 0, __LINE__,
-                             DRAWSTATE_PUSH_CONSTANTS_ERROR, "DS", "vkCmdPushConstants() Pipeline Layout 0x%" PRIx64 " not found.",
-                             (uint64_t)layout);
+    // Coalesce adjacent/overlapping pipeline ranges before checking to see if incoming range is
+    // contained in the pipeline ranges.
+    // Build a {start, end} span list for ranges with matching stage flags.
+    const auto &ranges = pipeline_layout->push_constant_ranges;
+    struct span {
+        uint32_t start;
+        uint32_t end;
+    };
+    std::vector<span> spans;
+    spans.reserve(ranges.size());
+    for (const auto &iter : ranges) {
+        if (iter.stageFlags == stageFlags) {
+            spans.push_back({iter.offset, iter.offset + iter.size});
+        }
+    }
+    if (spans.size() == 0) {
+        // There were no ranges that matched the stageFlags.
+        skip_call |=
+            log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, (VkDebugReportObjectTypeEXT)0, 0, __LINE__,
+                    DRAWSTATE_PUSH_CONSTANTS_ERROR, "DS", "vkCmdPushConstants() stageFlags = 0x%" PRIx32 " do not match "
+                                                          "the stageFlags in any of the ranges in pipeline layout 0x%" PRIx64 ".",
+                    (uint32_t)stageFlags, (uint64_t)layout);
     } else {
-        // Coalesce adjacent/overlapping pipeline ranges before checking to see if incoming range is
-        // contained in the pipeline ranges.
-        // Build a {start, end} span list for ranges with matching stage flags.
-        const auto &ranges = pipeline_layout->push_constant_ranges;
-        struct span {
-            uint32_t start;
-            uint32_t end;
-        };
-        std::vector<span> spans;
-        spans.reserve(ranges.size());
-        for (const auto &iter : ranges) {
-            if (iter.stageFlags == stageFlags) {
-                spans.push_back({iter.offset, iter.offset + iter.size});
+        // Sort span list by start value.
+        struct comparer {
+            bool operator()(struct span i, struct span j) { return i.start < j.start; }
+        } my_comparer;
+        std::sort(spans.begin(), spans.end(), my_comparer);
+
+        // Examine two spans at a time.
+        std::vector<span>::iterator current = spans.begin();
+        std::vector<span>::iterator next = current + 1;
+        while (next != spans.end()) {
+            if (current->end < next->start) {
+                // There is a gap; cannot coalesce. Move to the next two spans.
+                ++current;
+                ++next;
+            } else {
+                // Coalesce the two spans.  The start of the next span
+                // is within the current span, so pick the larger of
+                // the end values to extend the current span.
+                // Then delete the next span and set next to the span after it.
+                current->end = max(current->end, next->end);
+                next = spans.erase(next);
             }
         }
-        if (spans.size() == 0) {
-            // There were no ranges that matched the stageFlags.
-            skip_call |= log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, (VkDebugReportObjectTypeEXT)0, 0, __LINE__,
-                                 DRAWSTATE_PUSH_CONSTANTS_ERROR, "DS",
-                                 "vkCmdPushConstants() stageFlags = 0x%" PRIx32 " do not match "
-                                 "the stageFlags in any of the ranges in pipeline layout 0x%" PRIx64 ".",
-                                 (uint32_t)stageFlags, (uint64_t)layout);
-        } else {
-            // Sort span list by start value.
-            struct comparer {
-                bool operator()(struct span i, struct span j) { return i.start < j.start; }
-            } my_comparer;
-            std::sort(spans.begin(), spans.end(), my_comparer);
 
-            // Examine two spans at a time.
-            std::vector<span>::iterator current = spans.begin();
-            std::vector<span>::iterator next = current + 1;
-            while (next != spans.end()) {
-                if (current->end < next->start) {
-                    // There is a gap; cannot coalesce. Move to the next two spans.
-                    ++current;
-                    ++next;
-                } else {
-                    // Coalesce the two spans.  The start of the next span
-                    // is within the current span, so pick the larger of
-                    // the end values to extend the current span.
-                    // Then delete the next span and set next to the span after it.
-                    current->end = max(current->end, next->end);
-                    next = spans.erase(next);
-                }
+        // Now we can check if the incoming range is within any of the spans.
+        bool contained_in_a_range = false;
+        for (uint32_t i = 0; i < spans.size(); ++i) {
+            if ((offset >= spans[i].start) && ((uint64_t)offset + (uint64_t)size <= (uint64_t)spans[i].end)) {
+                contained_in_a_range = true;
+                break;
             }
-
-            // Now we can check if the incoming range is within any of the spans.
-            bool contained_in_a_range = false;
-            for (uint32_t i = 0; i < spans.size(); ++i) {
-                if ((offset >= spans[i].start) && ((uint64_t)offset + (uint64_t)size <= (uint64_t)spans[i].end)) {
-                    contained_in_a_range = true;
-                    break;
-                }
-            }
-            if (!contained_in_a_range) {
-                skip_call |= log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, (VkDebugReportObjectTypeEXT)0, 0,
-                                     __LINE__, DRAWSTATE_PUSH_CONSTANTS_ERROR, "DS",
-                                     "vkCmdPushConstants() Push constant range [%d, %d) "
-                                     "with stageFlags = 0x%" PRIx32 " "
-                                     "not within flag-matching ranges in pipeline layout 0x%" PRIx64 ".",
-                                     offset, offset + size, (uint32_t)stageFlags, (uint64_t)layout);
-            }
+        }
+        if (!contained_in_a_range) {
+            skip_call |=
+                log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, (VkDebugReportObjectTypeEXT)0, 0, __LINE__,
+                        DRAWSTATE_PUSH_CONSTANTS_ERROR, "DS", "vkCmdPushConstants() Push constant range [%d, %d) "
+                                                              "with stageFlags = 0x%" PRIx32 " "
+                                                              "not within flag-matching ranges in pipeline layout 0x%" PRIx64 ".",
+                        offset, offset + size, (uint32_t)stageFlags, (uint64_t)layout);
         }
     }
     lock.unlock();
