@@ -9609,8 +9609,10 @@ VKAPI_ATTR void VKAPI_CALL CmdEndRenderPass(VkCommandBuffer commandBuffer) {
         skip_call |= validatePrimaryCommandBuffer(dev_data, pCB, "vkCmdEndRenderPass");
         skip_call |= addCmd(dev_data, pCB, CMD_ENDRENDERPASS, "vkCmdEndRenderPass()");
         TransitionFinalSubpassLayouts(dev_data, pCB, &pCB->activeRenderPassBeginInfo);
+        // Reset renderPass state for this CB
         pCB->activeRenderPass = nullptr;
         pCB->activeSubpass = 0;
+        pCB->activeSubpassContents = VK_SUBPASS_CONTENTS_INLINE;
         pCB->activeFramebuffer = VK_NULL_HANDLE;
     }
     lock.unlock();
