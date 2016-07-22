@@ -185,8 +185,8 @@ class VkCommandBufferObj : public vk_testing::CommandBuffer {
     void DrawIndexed(uint32_t indexCount, uint32_t instanceCount,
                      uint32_t firstIndex, int32_t vertexOffset,
                      uint32_t firstInstance);
-    void QueueCommandBuffer();
-    void QueueCommandBuffer(VkFence fence);
+    void QueueCommandBuffer(bool checkSuccess = true);
+    void QueueCommandBuffer(VkFence fence, bool checkSuccess = true);
     void SetViewport(uint32_t firstViewport, uint32_t viewportCount,
                      const VkViewport *pViewports);
     void SetScissor(uint32_t firstScissor, uint32_t scissorCount,
@@ -200,7 +200,7 @@ class VkCommandBufferObj : public vk_testing::CommandBuffer {
     void SetStencilWriteMask(VkStencilFaceFlags faceMask, uint32_t writeMask);
     void SetStencilReference(VkStencilFaceFlags faceMask, uint32_t reference);
     void UpdateBuffer(VkBuffer buffer, VkDeviceSize dstOffset,
-                      VkDeviceSize dataSize, const uint32_t *pData);
+                      VkDeviceSize dataSize, const void *pData);
     void CopyImage(VkImage srcImage, VkImageLayout srcImageLayout,
                    VkImage dstImage, VkImageLayout dstImageLayout,
                    uint32_t regionCount, const VkImageCopy *pRegions);
@@ -215,9 +215,15 @@ class VkCommandBufferObj : public vk_testing::CommandBuffer {
 
 class VkConstantBufferObj : public vk_testing::Buffer {
   public:
-    VkConstantBufferObj(VkDeviceObj *device);
+    VkConstantBufferObj(VkDeviceObj *device,
+                        VkBufferUsageFlags usage =
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT);
     VkConstantBufferObj(VkDeviceObj *device, int constantCount,
-                        int constantSize, const void *data);
+                        int constantSize, const void *data,
+                        VkBufferUsageFlags usage =
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT);
     ~VkConstantBufferObj();
     void BufferMemoryBarrier(
         VkFlags srcAccessMask = VK_ACCESS_HOST_WRITE_BIT |
@@ -311,9 +317,9 @@ class VkImageObj : public vk_testing::Image {
         return m_targetView.handle();
     }
 
-    void SetLayout(VkCommandBufferObj *cmd_buf, VkImageAspectFlagBits aspect,
+    void SetLayout(VkCommandBufferObj *cmd_buf, VkImageAspectFlags aspect,
                    VkImageLayout image_layout);
-    void SetLayout(VkImageAspectFlagBits aspect, VkImageLayout image_layout);
+    void SetLayout(VkImageAspectFlags aspect, VkImageLayout image_layout);
 
     VkImageLayout layout() const { return m_descriptorImageInfo.imageLayout; }
     uint32_t width() const { return extent().width; }
@@ -343,7 +349,7 @@ class VkDepthStencilObj : public VkImageObj {
   public:
     VkDepthStencilObj(VkDeviceObj *device);
     void Init(VkDeviceObj *device, int32_t width, int32_t height,
-                       VkFormat format);
+                       VkFormat format, VkImageUsageFlags usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
     bool Initialized();
     VkImageView *BindInfo();
 
@@ -411,9 +417,9 @@ class VkPipelineObj : public vk_testing::Pipeline {
     VkPipelineObj(VkDeviceObj *device);
     void AddShader(VkShaderObj *shaderObj);
     void AddVertexInputAttribs(VkVertexInputAttributeDescription *vi_attrib,
-                               int count);
+                               uint32_t count);
     void AddVertexInputBindings(VkVertexInputBindingDescription *vi_binding,
-                                int count);
+                                uint32_t count);
     void AddColorAttachment(uint32_t binding,
                             const VkPipelineColorBlendAttachmentState *att);
     void MakeDynamic(VkDynamicState state);
@@ -453,5 +459,4 @@ class VkPipelineObj : public vk_testing::Pipeline {
     vector<VkPipelineColorBlendAttachmentState> m_colorAttachments;
     int m_vertexBufferCount;
 };
-
 #endif // VKRENDERFRAMEWORK_H

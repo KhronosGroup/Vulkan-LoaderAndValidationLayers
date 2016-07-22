@@ -25,6 +25,15 @@ function update_glslang () {
    cd $BASEDIR/glslang
    git fetch --all
    git checkout $GLSLANG_REVISION
+   # Revert glslang a5c33d6ffb34ccede5b233bc724c907166b6e479
+   # See https://github.com/KhronosGroup/Vulkan-LoaderAndValidationLayers/issues/681
+   git diff-index --quiet HEAD | true
+   rc=${PIPESTATUS[0]}
+   if (( $rc == 0 ))
+   then
+      echo "applying patch to revert glslang a5c33d"
+      git apply $BUILDDIR/glslang_revert_a5c33d.patch.txt
+   fi
 }
 
 function create_spirv-tools () {
@@ -34,6 +43,9 @@ function create_spirv-tools () {
    cd $BASEDIR/spirv-tools
    git clone https://github.com/KhronosGroup/SPIRV-Tools.git .
    git checkout $SPIRV_TOOLS_REVISION
+   mkdir -p $BASEDIR/spirv-tools/external/spirv-headers
+   cd $BASEDIR/spirv-tools/external/spirv-headers
+   git clone https://github.com/KhronosGroup/SPIRV-Headers .
 }
 
 function update_spirv-tools () {
@@ -41,6 +53,15 @@ function update_spirv-tools () {
    cd $BASEDIR/spirv-tools
    git fetch --all
    git checkout $SPIRV_TOOLS_REVISION
+   if [ ! -d "$BASEDIR/spirv-tools/external/spirv-headers" -o ! -d "$BASEDIR/spirv-tools/external/spirv-headers/.git" ]; then
+      mkdir -p $BASEDIR/spirv-tools/external/spirv-headers
+      cd $BASEDIR/spirv-tools/external/spirv-headers
+      git clone https://github.com/KhronosGroup/SPIRV-Headers .
+   else
+      cd $BASEDIR/spirv-tools/external/spirv-headers
+      git fetch --all
+      git pull
+   fi
 }
 
 function build_glslang () {
@@ -48,7 +69,6 @@ function build_glslang () {
    cd $BASEDIR/glslang
    mkdir -p build
    cd build
-   cmake -D CMAKE_BUILD_TYPE=Release ..
    cmake -D CMAKE_BUILD_TYPE=Release ..
    make
    make install

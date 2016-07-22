@@ -28,11 +28,7 @@ set(LAYER_JSON_FILES
     VkLayer_parameter_validation
     VkLayer_swapchain
     VkLayer_threading
-    VkLayer_device_limits
     )
-
-set(VK_LAYER_RPATH /usr/lib/x86_64-linux-gnu/vulkan/layer:/usr/lib/i386-linux-gnu/vulkan/layer)
-set(CMAKE_INSTALL_RPATH ${VK_LAYER_RPATH})
 
 if (WIN32)
     if (NOT (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_CURRENT_BINARY_DIR))
@@ -156,7 +152,6 @@ else()
 endif()
 
 add_vk_layer(core_validation core_validation.cpp vk_layer_table.cpp vk_safe_struct.cpp descriptor_sets.cpp)
-add_vk_layer(device_limits device_limits.cpp vk_layer_table.cpp)
 add_vk_layer(image image.cpp vk_layer_table.cpp)
 add_vk_layer(swapchain swapchain.cpp vk_layer_table.cpp)
 # generated

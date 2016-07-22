@@ -136,12 +136,6 @@ static inline char *loader_platform_dirname(char *path) {
     return dirname(path);
 }
 
-// Environment variables
-
-static inline char *loader_getenv(const char *name) { return getenv(name); }
-
-static inline void loader_free_getenv(const char *val) {}
-
 // Dynamic Loading of libraries:
 typedef void *loader_platform_dl_handle;
 static inline loader_platform_dl_handle
@@ -322,29 +316,6 @@ static char *loader_platform_basename(char *pathname) {
     return current;
 }
 
-// Environment variables
-
-static inline char *loader_getenv(const char *name) {
-    char *retVal;
-    DWORD valSize;
-
-    valSize = GetEnvironmentVariableA(name, NULL, 0);
-
-    // valSize DOES include the null terminator, so for any set variable
-    // will always be at least 1. If it's 0, the variable wasn't set.
-    if (valSize == 0)
-        return NULL;
-
-    // TODO; FIXME This should be using any app defined memory allocation
-    retVal = (char *)malloc(valSize);
-
-    GetEnvironmentVariableA(name, retVal, valSize);
-
-    return retVal;
-}
-
-static inline void loader_free_getenv(const char *val) { free((void *)val); }
-
 // Dynamic Loading:
 typedef HMODULE loader_platform_dl_handle;
 static loader_platform_dl_handle
@@ -352,8 +323,8 @@ loader_platform_open_library(const char *libPath) {
     return LoadLibrary(libPath);
 }
 static char *loader_platform_open_library_error(const char *libPath) {
-    static char errorMsg[120];
-    snprintf(errorMsg, 119, "Failed to open dynamic library \"%s\"", libPath);
+    static char errorMsg[164];
+    snprintf(errorMsg, 163, "Failed to open dynamic library \"%s\"", libPath);
     return errorMsg;
 }
 static void loader_platform_close_library(loader_platform_dl_handle library) {

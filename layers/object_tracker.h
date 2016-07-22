@@ -28,6 +28,8 @@
 #include "vk_layer_table.h"
 #include "vk_layer_utils.h"
 
+namespace object_tracker {
+
 // Object Tracker ERROR codes
 enum OBJECT_TRACK_ERROR {
     OBJTRACK_NONE,                     // Used for INFO & other non-error messages
@@ -69,6 +71,8 @@ typedef uint64_t (*OBJ_TRACK_GET_OBJECT_COUNT)(VkDevice);
 typedef uint64_t (*OBJ_TRACK_GET_OBJECTS_OF_TYPE_COUNT)(VkDevice, VkDebugReportObjectTypeEXT);
 
 struct layer_data {
+    VkInstance instance;
+
     debug_report_data *report_data;
     // TODO: put instance data here
     std::vector<VkDebugReportCallbackEXT> logging_callback;
@@ -85,11 +89,17 @@ struct layer_data {
           tmp_dbg_create_infos(nullptr), tmp_callbacks(nullptr){};
 };
 
-struct instExts {
+struct instance_extension_enables {
     bool wsi_enabled;
+    bool xlib_enabled;
+    bool xcb_enabled;
+    bool wayland_enabled;
+    bool mir_enabled;
+    bool android_enabled;
+    bool win32_enabled;
 };
 
-static std::unordered_map<void *, struct instExts> instanceExtMap;
+static std::unordered_map<void *, struct instance_extension_enables> instanceExtMap;
 static std::unordered_map<void *, layer_data *> layer_data_map;
 static device_table_map object_tracker_device_table_map;
 static instance_table_map object_tracker_instance_table_map;
@@ -107,21 +117,13 @@ static uint64_t numObjs[NUM_OBJECT_TYPES] = {0};
 static uint64_t numTotalObjs = 0;
 std::vector<VkQueueFamilyProperties> queue_family_properties;
 
-template layer_data *get_my_data_ptr<layer_data>(void *data_key, std::unordered_map<void *, layer_data *> &data_map);
-
 //
 // Internal Object Tracker Functions
 //
 
 static void createDeviceRegisterExtensions(const VkDeviceCreateInfo *pCreateInfo, VkDevice device) {
     layer_data *my_device_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
-    VkLayerDispatchTable *pDisp = get_dispatch_table(object_tracker_device_table_map, device);
-    PFN_vkGetDeviceProcAddr gpa = pDisp->GetDeviceProcAddr;
-    pDisp->CreateSwapchainKHR = (PFN_vkCreateSwapchainKHR)gpa(device, "vkCreateSwapchainKHR");
-    pDisp->DestroySwapchainKHR = (PFN_vkDestroySwapchainKHR)gpa(device, "vkDestroySwapchainKHR");
-    pDisp->GetSwapchainImagesKHR = (PFN_vkGetSwapchainImagesKHR)gpa(device, "vkGetSwapchainImagesKHR");
-    pDisp->AcquireNextImageKHR = (PFN_vkAcquireNextImageKHR)gpa(device, "vkAcquireNextImageKHR");
-    pDisp->QueuePresentKHR = (PFN_vkQueuePresentKHR)gpa(device, "vkQueuePresentKHR");
+
     my_device_data->wsi_enabled = false;
     for (uint32_t i = 0; i < pCreateInfo->enabledExtensionCount; i++) {
         if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_KHR_SWAPCHAIN_EXTENSION_NAME) == 0)
@@ -133,54 +135,46 @@ static void createDeviceRegisterExtensions(const VkDeviceCreateInfo *pCreateInfo
 }
 
 static void createInstanceRegisterExtensions(const VkInstanceCreateInfo *pCreateInfo, VkInstance instance) {
-    uint32_t i;
     VkLayerInstanceDispatchTable *pDisp = get_dispatch_table(object_tracker_instance_table_map, instance);
-    PFN_vkGetInstanceProcAddr gpa = pDisp->GetInstanceProcAddr;
 
-    pDisp->DestroySurfaceKHR = (PFN_vkDestroySurfaceKHR)gpa(instance, "vkDestroySurfaceKHR");
-    pDisp->GetPhysicalDeviceSurfaceSupportKHR =
-        (PFN_vkGetPhysicalDeviceSurfaceSupportKHR)gpa(instance, "vkGetPhysicalDeviceSurfaceSupportKHR");
-    pDisp->GetPhysicalDeviceSurfaceCapabilitiesKHR =
-        (PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR)gpa(instance, "vkGetPhysicalDeviceSurfaceCapabilitiesKHR");
-    pDisp->GetPhysicalDeviceSurfaceFormatsKHR =
-        (PFN_vkGetPhysicalDeviceSurfaceFormatsKHR)gpa(instance, "vkGetPhysicalDeviceSurfaceFormatsKHR");
-    pDisp->GetPhysicalDeviceSurfacePresentModesKHR =
-        (PFN_vkGetPhysicalDeviceSurfacePresentModesKHR)gpa(instance, "vkGetPhysicalDeviceSurfacePresentModesKHR");
+    instanceExtMap[pDisp] = {};
 
-#if VK_USE_PLATFORM_WIN32_KHR
-    pDisp->CreateWin32SurfaceKHR = (PFN_vkCreateWin32SurfaceKHR)gpa(instance, "vkCreateWin32SurfaceKHR");
-    pDisp->GetPhysicalDeviceWin32PresentationSupportKHR =
-        (PFN_vkGetPhysicalDeviceWin32PresentationSupportKHR)gpa(instance, "vkGetPhysicalDeviceWin32PresentationSupportKHR");
-#endif // VK_USE_PLATFORM_WIN32_KHR
-#ifdef VK_USE_PLATFORM_XCB_KHR
-    pDisp->CreateXcbSurfaceKHR = (PFN_vkCreateXcbSurfaceKHR)gpa(instance, "vkCreateXcbSurfaceKHR");
-    pDisp->GetPhysicalDeviceXcbPresentationSupportKHR =
-        (PFN_vkGetPhysicalDeviceXcbPresentationSupportKHR)gpa(instance, "vkGetPhysicalDeviceXcbPresentationSupportKHR");
-#endif // VK_USE_PLATFORM_XCB_KHR
-#ifdef VK_USE_PLATFORM_XLIB_KHR
-    pDisp->CreateXlibSurfaceKHR = (PFN_vkCreateXlibSurfaceKHR)gpa(instance, "vkCreateXlibSurfaceKHR");
-    pDisp->GetPhysicalDeviceXlibPresentationSupportKHR =
-        (PFN_vkGetPhysicalDeviceXlibPresentationSupportKHR)gpa(instance, "vkGetPhysicalDeviceXlibPresentationSupportKHR");
-#endif // VK_USE_PLATFORM_XLIB_KHR
-#ifdef VK_USE_PLATFORM_MIR_KHR
-    pDisp->CreateMirSurfaceKHR = (PFN_vkCreateMirSurfaceKHR)gpa(instance, "vkCreateMirSurfaceKHR");
-    pDisp->GetPhysicalDeviceMirPresentationSupportKHR =
-        (PFN_vkGetPhysicalDeviceMirPresentationSupportKHR)gpa(instance, "vkGetPhysicalDeviceMirPresentationSupportKHR");
-#endif // VK_USE_PLATFORM_MIR_KHR
-#ifdef VK_USE_PLATFORM_WAYLAND_KHR
-    pDisp->CreateWaylandSurfaceKHR = (PFN_vkCreateWaylandSurfaceKHR)gpa(instance, "vkCreateWaylandSurfaceKHR");
-    pDisp->GetPhysicalDeviceWaylandPresentationSupportKHR =
-        (PFN_vkGetPhysicalDeviceWaylandPresentationSupportKHR)gpa(instance, "vkGetPhysicalDeviceWaylandPresentationSupportKHR");
-#endif //  VK_USE_PLATFORM_WAYLAND_KHR
-#ifdef VK_USE_PLATFORM_ANDROID_KHR
-    pDisp->CreateAndroidSurfaceKHR = (PFN_vkCreateAndroidSurfaceKHR)gpa(instance, "vkCreateAndroidSurfaceKHR");
-#endif // VK_USE_PLATFORM_ANDROID_KHR
-
-    instanceExtMap[pDisp].wsi_enabled = false;
-    for (i = 0; i < pCreateInfo->enabledExtensionCount; i++) {
-        if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_KHR_SURFACE_EXTENSION_NAME) == 0)
+    for (uint32_t i = 0; i < pCreateInfo->enabledExtensionCount; i++) {
+        if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_KHR_SURFACE_EXTENSION_NAME) == 0) {
             instanceExtMap[pDisp].wsi_enabled = true;
+        }
+#ifdef VK_USE_PLATFORM_XLIB_KHR
+        if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_KHR_XLIB_SURFACE_EXTENSION_NAME) == 0) {
+            instanceExtMap[pDisp].xlib_enabled = true;
+        }
+#endif
+#ifdef VK_USE_PLATFORM_XCB_KHR
+        if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_KHR_XCB_SURFACE_EXTENSION_NAME) == 0) {
+            instanceExtMap[pDisp].xcb_enabled = true;
+        }
+#endif
+#ifdef VK_USE_PLATFORM_WAYLAND_KHR
+        if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME) == 0) {
+            instanceExtMap[pDisp].wayland_enabled = true;
+        }
+#endif
+#ifdef VK_USE_PLATFORM_MIR_KHR
+        if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_KHR_MIR_SURFACE_EXTENSION_NAME) == 0) {
+            instanceExtMap[pDisp].mir_enabled = true;
+        }
+#endif
+#ifdef VK_USE_PLATFORM_ANDROID_KHR
+        if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_KHR_ANDROID_SURFACE_EXTENSION_NAME) == 0) {
+            instanceExtMap[pDisp].android_enabled = true;
+        }
+#endif
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+        if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_KHR_WIN32_SURFACE_EXTENSION_NAME) == 0) {
+            instanceExtMap[pDisp].win32_enabled = true;
+        }
+#endif
     }
+
 }
 
 // Indicate device or instance dispatch table type
@@ -235,9 +229,12 @@ static void create_instance(VkInstance dispatchable_object, VkInstance object, V
 static void create_device(VkDevice dispatchable_object, VkDevice object, VkDebugReportObjectTypeEXT objType);
 static void create_device(VkPhysicalDevice dispatchable_object, VkDevice object, VkDebugReportObjectTypeEXT objType);
 static void create_queue(VkDevice dispatchable_object, VkQueue vkObj, VkDebugReportObjectTypeEXT objType);
+static void create_display_khr(VkPhysicalDevice dispatchable_object, VkDisplayKHR vkObj, VkDebugReportObjectTypeEXT objType);
+static void create_display_mode_khr(VkPhysicalDevice dispatchable_object, VkDisplayModeKHR vkObj, VkDebugReportObjectTypeEXT objType);
 static bool validate_image(VkQueue dispatchable_object, VkImage object, VkDebugReportObjectTypeEXT objType, bool null_allowed);
 static bool validate_instance(VkInstance dispatchable_object, VkInstance object, VkDebugReportObjectTypeEXT objType,
                                   bool null_allowed);
+static bool validate_physical_device(VkPhysicalDevice dispatchable_object, VkPhysicalDevice object, VkDebugReportObjectTypeEXT objType, bool null_allowed);
 static bool validate_device(VkDevice dispatchable_object, VkDevice object, VkDebugReportObjectTypeEXT objType,
                                 bool null_allowed);
 static bool validate_descriptor_pool(VkDevice dispatchable_object, VkDescriptorPool object, VkDebugReportObjectTypeEXT objType,
@@ -258,6 +255,10 @@ static bool validate_shader_module(VkDevice dispatchable_object, VkShaderModule 
 static bool validate_pipeline_layout(VkDevice dispatchable_object, VkPipelineLayout object, VkDebugReportObjectTypeEXT objType,
                                          bool null_allowed);
 static bool validate_pipeline(VkDevice dispatchable_object, VkPipeline object, VkDebugReportObjectTypeEXT objType,
+                                  bool null_allowed);
+static bool validate_display_khr(VkPhysicalDevice dispatchable_object, VkDisplayKHR object, VkDebugReportObjectTypeEXT objType,
+                                  bool null_allowed);
+static bool validate_display_mode_khr(VkInstance dispatchable_object, VkDisplayModeKHR object, VkDebugReportObjectTypeEXT objType,
                                   bool null_allowed);
 static void destroy_command_pool(VkDevice dispatchable_object, VkCommandPool object);
 static void destroy_descriptor_pool(VkDevice dispatchable_object, VkDescriptorPool object);
@@ -617,6 +618,7 @@ VkResult explicit_CreateInstance(const VkInstanceCreateInfo *pCreateInfo, const 
     }
 
     layer_data *my_data = get_my_data_ptr(get_dispatch_key(*pInstance), layer_data_map);
+    my_data->instance = *pInstance;
     initInstanceTable(*pInstance, fpGetInstanceProcAddr, object_tracker_instance_table_map);
     VkLayerInstanceDispatchTable *pInstanceTable = get_dispatch_table(object_tracker_instance_table_map, *pInstance);
 
@@ -650,12 +652,13 @@ void explicit_GetPhysicalDeviceQueueFamilyProperties(VkPhysicalDevice gpu, uint3
 VkResult explicit_CreateDevice(VkPhysicalDevice gpu, const VkDeviceCreateInfo *pCreateInfo, const VkAllocationCallbacks *pAllocator,
                                VkDevice *pDevice) {
     std::lock_guard<std::mutex> lock(global_lock);
+    layer_data *my_instance_data = get_my_data_ptr(get_dispatch_key(gpu), layer_data_map);
     VkLayerDeviceCreateInfo *chain_info = get_chain_info(pCreateInfo, VK_LAYER_LINK_INFO);
 
     assert(chain_info->u.pLayerInfo);
     PFN_vkGetInstanceProcAddr fpGetInstanceProcAddr = chain_info->u.pLayerInfo->pfnNextGetInstanceProcAddr;
     PFN_vkGetDeviceProcAddr fpGetDeviceProcAddr = chain_info->u.pLayerInfo->pfnNextGetDeviceProcAddr;
-    PFN_vkCreateDevice fpCreateDevice = (PFN_vkCreateDevice)fpGetInstanceProcAddr(NULL, "vkCreateDevice");
+    PFN_vkCreateDevice fpCreateDevice = (PFN_vkCreateDevice)fpGetInstanceProcAddr(my_instance_data->instance, "vkCreateDevice");
     if (fpCreateDevice == NULL) {
         return VK_ERROR_INITIALIZATION_FAILED;
     }
@@ -668,7 +671,6 @@ VkResult explicit_CreateDevice(VkPhysicalDevice gpu, const VkDeviceCreateInfo *p
         return result;
     }
 
-    layer_data *my_instance_data = get_my_data_ptr(get_dispatch_key(gpu), layer_data_map);
     layer_data *my_device_data = get_my_data_ptr(get_dispatch_key(*pDevice), layer_data_map);
     my_device_data->report_data = layer_debug_report_create_device(my_instance_data->report_data, *pDevice);
 
@@ -970,6 +972,55 @@ VkResult explicit_GetSwapchainImagesKHR(VkDevice device, VkSwapchainKHR swapchai
     return result;
 }
 
+#ifndef __ANDROID__
+VkResult explicit_GetPhysicalDeviceDisplayPropertiesKHR(VkPhysicalDevice physicalDevice, uint32_t* pPropertyCount, VkDisplayPropertiesKHR* pProperties)
+{
+    bool skipCall = false;
+    {
+        std::lock_guard<std::mutex> lock(global_lock);
+        if (physicalDevice) {
+            skipCall |= validate_physical_device(physicalDevice, physicalDevice, VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, false);
+        }
+    }
+    if (skipCall)
+        return VK_ERROR_VALIDATION_FAILED_EXT;
+    VkResult result = get_dispatch_table(object_tracker_instance_table_map, physicalDevice)->GetPhysicalDeviceDisplayPropertiesKHR(physicalDevice, pPropertyCount, pProperties);
+        if (VK_SUCCESS == result && pProperties) {
+            std::lock_guard<std::mutex> lock(global_lock);
+            for (uint32_t idx0=0; idx0<*pPropertyCount; ++idx0) {
+                if (pProperties[idx0].display) {
+                    create_display_khr(physicalDevice, pProperties[idx0].display, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT);
+                }
+            }
+        }
+    return result;
+}
+
+VkResult explicit_GetDisplayModePropertiesKHR(VkPhysicalDevice physicalDevice, VkDisplayKHR display, uint32_t* pPropertyCount, VkDisplayModePropertiesKHR* pProperties)
+{
+    bool skipCall = false;
+    {
+        std::lock_guard<std::mutex> lock(global_lock);
+        skipCall |= validate_display_khr(physicalDevice, display, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, false);
+        if (physicalDevice) {
+            skipCall |= validate_physical_device(physicalDevice, physicalDevice, VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, false);
+        }
+    }
+    if (skipCall)
+        return VK_ERROR_VALIDATION_FAILED_EXT;
+    VkResult result = get_dispatch_table(object_tracker_instance_table_map, physicalDevice)->GetDisplayModePropertiesKHR(physicalDevice, display, pPropertyCount, pProperties);
+    if (VK_SUCCESS == result && pProperties) {
+        std::lock_guard<std::mutex> lock(global_lock);
+        for (uint32_t idx0=0; idx0<*pPropertyCount; ++idx0) {
+            if (pProperties[idx0].displayMode) {
+                create_display_mode_khr(physicalDevice, pProperties[idx0].displayMode, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT);
+            }
+        }
+    }
+    return result;
+}
+#endif
+
 // TODO: Add special case to codegen to cover validating all the pipelines instead of just the first
 VkResult explicit_CreateGraphicsPipelines(VkDevice device, VkPipelineCache pipelineCache, uint32_t createInfoCount,
                                           const VkGraphicsPipelineCreateInfo *pCreateInfos, const VkAllocationCallbacks *pAllocator,
@@ -1059,3 +1110,5 @@ VkResult explicit_CreateComputePipelines(VkDevice device, VkPipelineCache pipeli
     lock.unlock();
     return result;
 }
+
+} // namespace object_tracker
