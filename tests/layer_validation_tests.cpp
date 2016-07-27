@@ -9263,6 +9263,169 @@ TEST_F(VkLayerTest, PSOLineWidthInvalid) {
     vkDestroyPipeline(m_device->device(), pipeline, NULL);
 }
 
+TEST_F(VkLayerTest, PSOPolygonModeInvalid) {
+    VkResult err;
+
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT,
+        "vkCreateGraphicsPipelines: "
+        "pCreateInfos[0].pRasterizationState->polygonMode == "
+        "VK_POLYGON_MODE_POINT is not supported when device does not support "
+        "fillModeNonSolid.");
+
+    // The sacrificial device object
+    std::vector<const char *> device_layer_names;
+    std::vector<const char *> device_extension_names;
+    device_layer_names.push_back("VK_LAYER_GOOGLE_threading");
+    device_layer_names.push_back("VK_LAYER_LUNARG_parameter_validation");
+    device_layer_names.push_back("VK_LAYER_LUNARG_object_tracker");
+    device_layer_names.push_back("VK_LAYER_LUNARG_core_validation");
+    device_layer_names.push_back("VK_LAYER_LUNARG_image");
+    device_layer_names.push_back("VK_LAYER_GOOGLE_unique_objects");
+    auto features = m_device->phy().features();
+    // Artificially disable support for non-solid fill modes
+    features.fillModeNonSolid=0;
+    VkDeviceObj *testDevice = new VkDeviceObj(1, m_device->phy().handle(),
+                                              device_layer_names,
+                                              device_extension_names,
+                                              features);
+
+    // Create a renderPass with a single attachment that uses loadOp CLEAR
+    VkAttachmentReference attach = {};
+    attach.layout = VK_IMAGE_LAYOUT_GENERAL;
+    VkSubpassDescription subpass = {};
+    subpass.inputAttachmentCount = 1;
+    subpass.pInputAttachments = &attach;
+    VkRenderPassCreateInfo rpci = {};
+    rpci.subpassCount = 1;
+    rpci.pSubpasses = &subpass;
+    rpci.attachmentCount = 1;
+    VkAttachmentDescription attach_desc = {};
+    attach_desc.format = VK_FORMAT_UNDEFINED;
+    attach_desc.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    rpci.pAttachments = &attach_desc;
+    rpci.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    VkRenderPass testRenderPass;
+    vkCreateRenderPass(testDevice->device(), &rpci, NULL, &testRenderPass);
+
+    VkPipelineLayoutCreateInfo pipeline_layout_ci = {};
+    pipeline_layout_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipeline_layout_ci.setLayoutCount = 0;
+    pipeline_layout_ci.pSetLayouts = NULL;
+
+    VkPipelineLayout pipeline_layout;
+    err = vkCreatePipelineLayout(testDevice->device(), &pipeline_layout_ci, NULL,
+                                 &pipeline_layout);
+    ASSERT_VK_SUCCESS(err);
+
+    VkPipelineViewportStateCreateInfo vp_state_ci = {};
+    vp_state_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    vp_state_ci.scissorCount = 1;
+    vp_state_ci.pScissors = NULL;
+    vp_state_ci.viewportCount = 1;
+    vp_state_ci.pViewports = NULL;
+
+    VkDynamicState dynamic_states[2] = {VK_DYNAMIC_STATE_VIEWPORT,
+                                        VK_DYNAMIC_STATE_SCISSOR};
+    VkPipelineDynamicStateCreateInfo dyn_state_ci = {};
+    dyn_state_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    dyn_state_ci.dynamicStateCount = 2;
+    dyn_state_ci.pDynamicStates = dynamic_states;
+
+    VkPipelineShaderStageCreateInfo shaderStages[2];
+    memset(&shaderStages, 0, 2 * sizeof(VkPipelineShaderStageCreateInfo));
+
+    VkShaderObj *vs = new VkShaderObj(testDevice, bindStateVertShaderText,
+                                      VK_SHADER_STAGE_VERTEX_BIT, this);
+    // TODO - We shouldn't need a fragment shader
+    // but add it to be able to run on more devices
+    VkShaderObj *fs = new VkShaderObj(testDevice, bindStateFragShaderText,
+                                      VK_SHADER_STAGE_FRAGMENT_BIT,
+                                      this);
+    shaderStages[0] = vs->GetStageCreateInfo();
+    shaderStages[1] = fs->GetStageCreateInfo();
+
+    VkPipelineVertexInputStateCreateInfo vi_ci = {};
+    vi_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    vi_ci.pNext = nullptr;
+    vi_ci.vertexBindingDescriptionCount = 0;
+    vi_ci.pVertexBindingDescriptions = nullptr;
+    vi_ci.vertexAttributeDescriptionCount = 0;
+    vi_ci.pVertexAttributeDescriptions = nullptr;
+
+    VkPipelineInputAssemblyStateCreateInfo ia_ci = {};
+    ia_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    ia_ci.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
+
+    VkPipelineRasterizationStateCreateInfo rs_ci = {};
+    rs_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    rs_ci.pNext = nullptr;
+    rs_ci.lineWidth = 1.0f;
+    rs_ci.polygonMode = VK_POLYGON_MODE_POINT;  // Set unsupported polygon mode
+
+    VkPipelineColorBlendAttachmentState att = {};
+    att.blendEnable = VK_FALSE;
+    att.colorWriteMask = 0xf;
+
+    VkPipelineMultisampleStateCreateInfo ms_ci = {};
+    ms_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    ms_ci.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+
+    VkPipelineColorBlendStateCreateInfo cb_ci = {};
+    cb_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    cb_ci.pNext = nullptr;
+    cb_ci.attachmentCount = 1;
+    cb_ci.pAttachments = &att;
+
+    VkGraphicsPipelineCreateInfo gp_ci = {};
+    gp_ci.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    gp_ci.stageCount = 2;
+    gp_ci.pStages = shaderStages;
+    gp_ci.pVertexInputState = &vi_ci;
+    gp_ci.pInputAssemblyState = &ia_ci;
+    gp_ci.pViewportState = &vp_state_ci;
+    gp_ci.pRasterizationState = &rs_ci;
+    gp_ci.pMultisampleState = &ms_ci;
+    gp_ci.pColorBlendState = &cb_ci;
+    gp_ci.pDynamicState = &dyn_state_ci;
+    gp_ci.flags = VK_PIPELINE_CREATE_DISABLE_OPTIMIZATION_BIT;
+    gp_ci.layout = pipeline_layout;
+    gp_ci.renderPass = testRenderPass;
+
+    VkPipeline pipeline = VK_NULL_HANDLE;
+    err = vkCreateGraphicsPipelines(testDevice->device(), VK_NULL_HANDLE, 1,
+                                    &gp_ci, NULL, &pipeline);
+    m_errorMonitor->VerifyFound();
+    if (pipeline != VK_NULL_HANDLE)
+        vkDestroyPipeline(testDevice->device(), pipeline, NULL);
+
+    // Try again with polygonMode=LINE
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT,
+        "vkCreateGraphicsPipelines: "dy
+        "pCreateInfos[0].pRasterizationState->polygonMode == "
+        "VK_POLYGON_MODE_LINE is not supported when device does not support "
+        "fillModeNonSolid.");
+    rs_ci.polygonMode = VK_POLYGON_MODE_LINE;  // Set unsupported polygon mode
+    pipeline = VK_NULL_HANDLE;
+    err = vkCreateGraphicsPipelines(testDevice->device(), VK_NULL_HANDLE, 1,
+                                    &gp_ci, NULL, &pipeline);
+    m_errorMonitor->VerifyFound();
+    if (pipeline != VK_NULL_HANDLE)
+        vkDestroyPipeline(testDevice->device(), pipeline, NULL);
+
+    // Try again with polygonMode=FILL. No error is expected.
+    rs_ci.polygonMode = VK_POLYGON_MODE_FILL;  // This one should still work.
+    pipeline = VK_NULL_HANDLE;
+    err = vkCreateGraphicsPipelines(testDevice->device(), VK_NULL_HANDLE, 1,
+                                    &gp_ci, NULL, &pipeline);
+    vkDestroyPipeline(testDevice->device(), pipeline, NULL);
+
+    vkDestroyPipelineLayout(testDevice->device(), pipeline_layout, NULL);
+    vkDestroyRenderPass(testDevice->handle(), testRenderPass, NULL);
+    delete vs;
+    delete fs;
+    delete testDevice;
+}
+
 TEST_F(VkLayerTest, NullRenderPass) {
     // Bind a NULL RenderPass
     m_errorMonitor->SetDesiredFailureMsg(
