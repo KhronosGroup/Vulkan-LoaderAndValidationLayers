@@ -71,6 +71,7 @@ typedef enum _BsoFailSelect {
     BsoFailStencilWriteMask = 0x00000080,
     BsoFailStencilReference = 0x00000100,
     BsoFailCmdClearAttachments = 0x00000200,
+    BsoFailIndexBuffer = 0x00000400,
 } BsoFailSelect;
 
 struct vktriangle_vs_uniform {
@@ -489,7 +490,12 @@ void VkLayerTest::VKTriangleTest(const char *vertShaderText,
     GenericDrawPreparation(pipelineobj, descriptorSet, failMask);
 
     // render triangle
-    Draw(3, 1, 0, 0);
+    if (failMask & BsoFailIndexBuffer) {
+        // Use DrawIndexed w/o an index buffer bound
+        DrawIndexed(3, 1, 0, 0, 0);
+    } else {
+        Draw(3, 1, 0, 0);
+    }
 
     if (failMask & BsoFailCmdClearAttachments) {
         VkClearAttachment color_attachment = {};
@@ -6312,6 +6318,16 @@ TEST_F(VkLayerTest, DynamicStencilRefNotBound) {
     m_errorMonitor->VerifyFound();
 }
 
+TEST_F(VkLayerTest, IndexBufferNotBound) {
+    TEST_DESCRIPTION("Run an indexed draw call without an index buffer bound.");
+    m_errorMonitor->SetDesiredFailureMsg(
+        VK_DEBUG_REPORT_ERROR_BIT_EXT,
+        "Index buffer object not bound to this command buffer when Indexed ");
+    VKTriangleTest(bindStateVertShaderText, bindStateFragShaderText,
+                   BsoFailIndexBuffer);
+    m_errorMonitor->VerifyFound();
+}
+
 TEST_F(VkLayerTest, CommandBufferTwoSubmits) {
     m_errorMonitor->SetDesiredFailureMsg(
         VK_DEBUG_REPORT_ERROR_BIT_EXT,
@@ -10214,8 +10230,8 @@ TEST_F(VkLayerTest, InvalidQueueFamilyIndex) {
 }
 
 TEST_F(VkLayerTest, ExecuteCommandsPrimaryCB) {
-    // Attempt vkCmdExecuteCommands w/ a primary cmd buffer (should only be
-    // secondary)
+    TEST_DESCRIPTION("Attempt vkCmdExecuteCommands w/ a primary cmd buffer"
+                     " (should only be secondary)");
 
     m_errorMonitor->SetDesiredFailureMsg(
         VK_DEBUG_REPORT_ERROR_BIT_EXT,
@@ -10225,7 +10241,7 @@ TEST_F(VkLayerTest, ExecuteCommandsPrimaryCB) {
     ASSERT_NO_FATAL_FAILURE(InitRenderTarget());
 
     BeginCommandBuffer();
-    // ASSERT_VK_SUCCESS(err);
+
     VkCommandBuffer primCB = m_commandBuffer->GetBufferHandle();
     vkCmdExecuteCommands(m_commandBuffer->GetBufferHandle(), 1, &primCB);
 
@@ -12335,6 +12351,226 @@ TEST_F(VkLayerTest, ValidRenderPassAttachmentLayoutWithLoadOp) {
     m_errorMonitor->VerifyNotFound();
 
     vkDestroyRenderPass(m_device->device(), rp, NULL);
+}
+
+TEST_F(VkLayerTest, FramebufferIncompatible) {
+    TEST_DESCRIPTION("Bind a secondary command buffer with with a framebuffer "
+                     "that does not match the framebuffer for the active "
+                     "renderpass.");
+    ASSERT_NO_FATAL_FAILURE(InitState());
+    ASSERT_NO_FATAL_FAILURE(InitRenderTarget());
+
+    // A renderpass with one color attachment.
+    VkAttachmentDescription attachment = {
+        0,
+        VK_FORMAT_B8G8R8A8_UNORM,
+        VK_SAMPLE_COUNT_1_BIT,
+        VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        VK_ATTACHMENT_STORE_OP_STORE,
+        VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+
+    VkAttachmentReference att_ref = {0,
+                                     VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+
+    VkSubpassDescription subpass = {0,       VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                    0,       nullptr,
+                                    1,       &att_ref,
+                                    nullptr, nullptr,
+                                    0,       nullptr};
+
+    VkRenderPassCreateInfo rpci = {VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+                                   nullptr,
+                                   0,
+                                   1,
+                                   &attachment,
+                                   1,
+                                   &subpass,
+                                   0,
+                                   nullptr};
+
+    VkRenderPass rp;
+    VkResult err = vkCreateRenderPass(m_device->device(), &rpci, nullptr, &rp);
+    ASSERT_VK_SUCCESS(err);
+
+    // A compatible framebuffer.
+    VkImageObj image(m_device);
+    image.init(32, 32, VK_FORMAT_B8G8R8A8_UNORM,
+               VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_TILING_OPTIMAL, 0);
+    ASSERT_TRUE(image.initialized());
+
+    VkImageViewCreateInfo ivci = {
+        VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        nullptr,
+        0,
+        image.handle(),
+        VK_IMAGE_VIEW_TYPE_2D,
+        VK_FORMAT_B8G8R8A8_UNORM,
+        {VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY,
+         VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY},
+        {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
+    };
+    VkImageView view;
+    err = vkCreateImageView(m_device->device(), &ivci, nullptr, &view);
+    ASSERT_VK_SUCCESS(err);
+
+    VkFramebufferCreateInfo fci = {VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+                                   nullptr,
+                                   0,
+                                   rp,
+                                   1,
+                                   &view,
+                                   32,
+                                   32,
+                                   1};
+    VkFramebuffer fb;
+    err = vkCreateFramebuffer(m_device->device(), &fci, nullptr, &fb);
+    ASSERT_VK_SUCCESS(err);
+
+    VkCommandBufferAllocateInfo cbai = {};
+    cbai.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    cbai.commandPool = m_commandPool;
+    cbai.level = VK_COMMAND_BUFFER_LEVEL_SECONDARY;
+    cbai.commandBufferCount = 1;
+
+    VkCommandBuffer sec_cb;
+    err = vkAllocateCommandBuffers(m_device->device(), &cbai, &sec_cb);
+    ASSERT_VK_SUCCESS(err);
+    VkCommandBufferBeginInfo cbbi = {};
+    VkCommandBufferInheritanceInfo cbii = {};
+    cbii.renderPass = renderPass();
+    cbii.framebuffer = fb;
+    cbbi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    cbbi.pNext = NULL;
+    cbbi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT |
+                 VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT;
+    cbbi.pInheritanceInfo = &cbii;
+    vkBeginCommandBuffer(sec_cb, &cbbi);
+    vkEndCommandBuffer(sec_cb);
+
+    BeginCommandBuffer();
+
+    m_errorMonitor->SetDesiredFailureMsg(
+        VK_DEBUG_REPORT_ERROR_BIT_EXT,
+        " that is not the same as the primaryCB's current active framebuffer ");
+    vkCmdExecuteCommands(m_commandBuffer->GetBufferHandle(), 1, &sec_cb);
+    m_errorMonitor->VerifyFound();
+    // Cleanup
+    vkDestroyImageView(m_device->device(), view, NULL);
+    vkDestroyRenderPass(m_device->device(), rp, NULL);
+    vkDestroyFramebuffer(m_device->device(), fb, NULL);
+}
+
+TEST_F(VkLayerTest, ColorBlendLogicOpTests) {
+    TEST_DESCRIPTION("If logicOp is available on the device, set it to an "
+                     "invalid value. If logicOp is not available, attempt to "
+                     "use it and verify that we see the correct error.");
+    ASSERT_NO_FATAL_FAILURE(InitState());
+    ASSERT_NO_FATAL_FAILURE(InitRenderTarget());
+
+    auto features = m_device->phy().features();
+    // Set the expected error depending on whether or not logicOp available
+    if (VK_FALSE == features.logicOp) {
+        m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT,
+                                             "If logic operations feature not "
+                                             "enabled, logicOpEnable must be "
+                                             "VK_FALSE");
+    } else {
+        m_errorMonitor->SetDesiredFailureMsg(
+            VK_DEBUG_REPORT_ERROR_BIT_EXT,
+            ", logicOp must be a valid VkLogicOp value");
+    }
+    // Create a pipeline using logicOp
+    VkResult err;
+
+    VkPipelineLayoutCreateInfo pipeline_layout_ci = {};
+    pipeline_layout_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+
+    VkPipelineLayout pipeline_layout;
+    err = vkCreatePipelineLayout(m_device->device(), &pipeline_layout_ci, NULL,
+                                 &pipeline_layout);
+    ASSERT_VK_SUCCESS(err);
+
+    VkPipelineViewportStateCreateInfo vp_state_ci = {};
+    vp_state_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    vp_state_ci.viewportCount = 1;
+    VkViewport vp = {};           // Just need dummy vp to point to
+    vp_state_ci.pViewports = &vp; // Null vp w/ count of 1 should cause error
+    vp_state_ci.scissorCount = 1;
+    VkRect2D scissors = {}; // Dummy scissors to point to
+    vp_state_ci.pScissors = &scissors;
+    // No dynamic state
+    VkPipelineDynamicStateCreateInfo dyn_state_ci = {};
+    dyn_state_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+
+    VkPipelineShaderStageCreateInfo shaderStages[2];
+    memset(&shaderStages, 0, 2 * sizeof(VkPipelineShaderStageCreateInfo));
+
+    VkShaderObj vs(m_device, bindStateVertShaderText,
+                   VK_SHADER_STAGE_VERTEX_BIT, this);
+    VkShaderObj fs(m_device, bindStateFragShaderText,
+                   VK_SHADER_STAGE_FRAGMENT_BIT,
+                   this); // We shouldn't need a fragment shader
+                          // but add it to be able to run on more devices
+    shaderStages[0] = vs.GetStageCreateInfo();
+    shaderStages[1] = fs.GetStageCreateInfo();
+
+    VkPipelineVertexInputStateCreateInfo vi_ci = {};
+    vi_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+
+    VkPipelineInputAssemblyStateCreateInfo ia_ci = {};
+    ia_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    ia_ci.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
+
+    VkPipelineRasterizationStateCreateInfo rs_ci = {};
+    rs_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+
+    VkPipelineColorBlendAttachmentState att = {};
+    att.blendEnable = VK_FALSE;
+    att.colorWriteMask = 0xf;
+
+    VkPipelineColorBlendStateCreateInfo cb_ci = {};
+    cb_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    // Enable logicOp & set logicOp to value 1 beyond allowed entries
+    cb_ci.logicOpEnable = VK_TRUE;
+    cb_ci.logicOp = VK_LOGIC_OP_RANGE_SIZE; // This should cause an error
+    cb_ci.attachmentCount = 1;
+    cb_ci.pAttachments = &att;
+
+    VkGraphicsPipelineCreateInfo gp_ci = {};
+    gp_ci.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    gp_ci.stageCount = 2;
+    gp_ci.pStages = shaderStages;
+    gp_ci.pVertexInputState = &vi_ci;
+    gp_ci.pInputAssemblyState = &ia_ci;
+    gp_ci.pViewportState = &vp_state_ci;
+    gp_ci.pRasterizationState = &rs_ci;
+    gp_ci.pColorBlendState = &cb_ci;
+    gp_ci.pDynamicState = &dyn_state_ci;
+    gp_ci.flags = VK_PIPELINE_CREATE_DISABLE_OPTIMIZATION_BIT;
+    gp_ci.layout = pipeline_layout;
+    gp_ci.renderPass = renderPass();
+
+    VkPipelineCacheCreateInfo pc_ci = {};
+    pc_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
+
+    VkPipeline pipeline;
+    VkPipelineCache pipelineCache;
+    err =
+        vkCreatePipelineCache(m_device->device(), &pc_ci, NULL, &pipelineCache);
+    ASSERT_VK_SUCCESS(err);
+
+    err = vkCreateGraphicsPipelines(m_device->device(), pipelineCache, 1,
+                                    &gp_ci, NULL, &pipeline);
+    m_errorMonitor->VerifyFound();
+    if (VK_SUCCESS == err) {
+        vkDestroyPipeline(m_device->device(), pipeline, NULL);
+    }
+    m_errorMonitor->VerifyFound();
+    vkDestroyPipelineCache(m_device->device(), pipelineCache, NULL);
+    vkDestroyPipelineLayout(m_device->device(), pipeline_layout, NULL);
 }
 #endif // DRAW_STATE_TESTS
 
