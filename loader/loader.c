@@ -1123,6 +1123,18 @@ VkResult loader_add_to_layer_list(const struct loader_instance *inst,
 
         memcpy(&list->list[list->count], layer,
                sizeof(struct loader_layer_properties));
+        // list->list[list->count].instance_extension_list.list now references
+        // the same memory as layer->instance_extension_list. A ref-counter
+        // or a deep copy is needed at this point.
+        memset(&list->list[list->count].instance_extension_list, 0,
+                sizeof(list->list[list->count].instance_extension_list));
+        VkResult result = loader_add_to_ext_list(
+            inst, &list->list[list->count].instance_extension_list,
+            layer->instance_extension_list.count,
+            layer->instance_extension_list.list);
+        if (result != VK_SUCCESS) {
+            return result;
+        }
         list->count++;
     }
 
