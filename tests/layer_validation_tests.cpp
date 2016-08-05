@@ -566,6 +566,27 @@ protected:
     }
 };
 
+class VkCreateBufferState {
+public:
+    VkCreateBufferState(VkStructureType aStructureType,
+                        VkDeviceSize aBufferByteCount,
+                        VkBufferUsageFlags aBufferUsage = 0)
+        : BufferCreateInfo{} {
+        BufferCreateInfo.sType = aStructureType;
+        BufferCreateInfo.size = aBufferByteCount;
+        BufferCreateInfo.usage = aBufferUsage;
+    }
+
+    VkBufferCreateInfo &GetCreateInfo() {
+        return BufferCreateInfo;
+    }
+
+protected:
+    VkBufferCreateInfo BufferCreateInfo;
+};
+
+// VkBufferTest provides a range of buffer related tests that are difficult to
+// create within the framework
 class VkBufferTest {
 public:
     enum eTestEnFlags {
@@ -590,14 +611,14 @@ public:
         VkDeviceSize offset_limit = 0;
         if (eInvalidMemoryOffset == aTestFlag) {
             VkBuffer vulkanBuffer;
-            VkBufferCreateInfo buffer_create_info = {};
-            buffer_create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-            buffer_create_info.size = 32;
-            buffer_create_info.usage = aBufferUsage;
+            VkCreateBufferState
+                    buffer_create_info(VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, 32,
+                                       aBufferUsage);
 
-            vkCreateBuffer(aVulkanDevice->device(), &buffer_create_info, nullptr,
+            vkCreateBuffer(aVulkanDevice->device(),
+                           &buffer_create_info.GetCreateInfo(), nullptr,
                            &vulkanBuffer);
-            VkMemoryRequirements memory_reqs = {0};
+            VkMemoryRequirements memory_reqs = {};
 
             vkGetBufferMemoryRequirements(aVulkanDevice->device(),
                                           vulkanBuffer, &memory_reqs);
@@ -717,9 +738,686 @@ protected:
     VkBuffer VulkanBuffer;
     VkDevice VulkanDevice;
     VkDeviceMemory VulkanMemory;
-
 };
 
+// VkCommandBufferTest adds support for a secondary command buffer which
+// is required for vkCmdExecuteCommands operations in addition to supporting
+// custom primary and secondary command buffers.
+class VkCommandBufferTest {
+public:
+    VkCommandBufferTest (VkDevice aVulkanDevice, unsigned aBufferCount = 1,
+                         bool aSecondaryEn = false,
+                         VkCommandPool *aCommandPool = nullptr)
+        : AllocateCurrent(false),
+          PoolCurrent(false),
+          PoolOwner(false),
+          SecondarySel(aSecondaryEn),
+          BufferCount(aBufferCount),
+          CommandPool(aCommandPool),
+          VulkanDevice(aVulkanDevice) {
+        if (nullptr == CommandPool) {
+            VkCommandPoolCreateInfo cmd_pool_info = {};
+            cmd_pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+            cmd_pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+
+            if (VK_SUCCESS != vkCreateCommandPool(VulkanDevice, &cmd_pool_info,
+                                                  nullptr, CommandPool)) {
+                return;
+            }
+            PoolOwner = true;
+        }
+        PoolCurrent = true;
+
+        CommandBuffer = new VkCommandBuffer[BufferCount];
+
+        VkCommandBufferAllocateInfo cb_allocate_info = {};
+        cb_allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        cb_allocate_info.commandPool = *CommandPool;
+        cb_allocate_info.level = SecondarySel ?
+                    VK_COMMAND_BUFFER_LEVEL_SECONDARY :
+                    VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+
+        cb_allocate_info.commandBufferCount = BufferCount;
+
+        if (VK_SUCCESS != vkAllocateCommandBuffers(VulkanDevice,
+                                                   &cb_allocate_info,
+                                                   CommandBuffer)) {
+            return;
+        }
+        AllocateCurrent = true;
+    }
+
+    bool BeginCommandBuffer(unsigned aBufferNumber = 0) {
+        return BeginCommandBuffer(VK_NULL_HANDLE, VK_NULL_HANDLE, aBufferNumber);
+    }
+
+    bool BeginCommandBuffer(VkRenderPass aRenderPass,
+                            VkFramebuffer aVkFramebuffer,
+                            unsigned aBufferNumber = 0) {
+        if (IsBufferValid(aBufferNumber)) {
+            VkCommandBufferBeginInfo command_buffer_begin_info = {};
+            command_buffer_begin_info.flags =
+                    VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT |
+                    VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT;
+            command_buffer_begin_info.sType =
+                    VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+            VkCommandBufferInheritanceInfo hinfo = {};
+            if (SecondarySel) {
+                command_buffer_begin_info.pInheritanceInfo = &hinfo;
+                hinfo.framebuffer = aVkFramebuffer;
+                hinfo.renderPass = aRenderPass;
+                hinfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
+            }
+
+            return VK_SUCCESS ==
+                    vkBeginCommandBuffer(CommandBuffer[aBufferNumber],
+                                         &command_buffer_begin_info);
+        }
+        return false;
+    }
+
+    bool EndCommandBuffer(unsigned aBufferNumber = 0) {
+        if (IsBufferValid(aBufferNumber)) {
+            vkEndCommandBuffer(CommandBuffer[aBufferNumber]);
+            return true;
+        }
+        return false;
+    }
+
+    ~VkCommandBufferTest() {
+        if (AllocateCurrent) {
+            vkFreeCommandBuffers(VulkanDevice, *CommandPool, BufferCount,
+                                 CommandBuffer);
+        }
+        if (PoolCurrent && PoolOwner) {
+            vkDestroyCommandPool(VulkanDevice, *CommandPool, nullptr);
+        }
+        delete [] CommandBuffer;
+    }
+
+    VkCommandBuffer GetCommandBuffer(unsigned aBufferNumber = 0) {
+        if (IsBufferValid(aBufferNumber)) {
+            return CommandBuffer[aBufferNumber];
+        }
+        return 0;
+    }
+
+    VkCommandBuffer *GetCommandBuffers(unsigned aBufferNumber = 0) {
+        if (IsBufferValid(aBufferNumber)) {
+            return &CommandBuffer[aBufferNumber];
+        }
+        return 0;
+    }
+
+    unsigned GetCommandBufferCount() {
+        if (IsBufferValid(0)) {
+            return BufferCount;
+        }
+        return 0;
+    }
+
+protected:
+    bool IsBufferValid(unsigned aBufferNumber) {
+        return AllocateCurrent && PoolCurrent && BufferCount > aBufferNumber;
+    }
+
+    bool AllocateCurrent;
+    bool PoolCurrent;
+    bool PoolOwner;
+    bool SecondarySel;
+
+    unsigned BufferCount;
+    VkCommandBuffer *CommandBuffer;
+    VkCommandPool *CommandPool;
+    VkDevice VulkanDevice;
+};
+
+// VkDeviceCreateStateTest manages state for vkCreateDevice, and provides
+// convenience functions for customizing the state prior to device creation,
+// which is not available via the framework
+
+class VkDeviceCreateStateTest {
+public:
+    VkDeviceCreateStateTest(VkDeviceObj *aVulkanDevice, bool aStdLayersEn = true)
+        : VkDeviceCreateStateTest(aVulkanDevice, nullptr, aStdLayersEn) {
+    }
+
+    VkDeviceCreateStateTest(VkDeviceObj *aVulkanDevice,
+                            std::vector<const char *> *aExtensionNames,
+                            bool aStdLayersEn = true)
+        : DeviceCreateInfo{},
+          PhysicalDeviceFeatures(aVulkanDevice->phy().features()) {
+        DeviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+
+        QueueCreateInfo.reserve(aVulkanDevice->queue_props.size());
+
+        for (uint32_t i = 0; i < (uint32_t)aVulkanDevice->queue_props.size();
+             i++) {
+            VkDeviceQueueCreateInfo qi = {};
+            qi.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+            qi.queueFamilyIndex = i;
+            qi.queueCount = aVulkanDevice->queue_props[i].queueCount;
+            QueuePriorityList.emplace_back(qi.queueCount, 0.0f);
+            qi.pQueuePriorities = QueuePriorityList[i].data();
+            QueueCreateInfo.push_back(qi);
+        }
+
+        DeviceCreateInfo.queueCreateInfoCount = QueueCreateInfo.size();
+        DeviceCreateInfo.pQueueCreateInfos = QueueCreateInfo.data();
+
+        if (aStdLayersEn) {
+            NamesDeviceLayers.push_back("VK_LAYER_GOOGLE_threading");
+            NamesDeviceLayers.push_back("VK_LAYER_LUNARG_parameter_validation");
+            NamesDeviceLayers.push_back("VK_LAYER_LUNARG_object_tracker");
+            NamesDeviceLayers.push_back("VK_LAYER_LUNARG_core_validation");
+            NamesDeviceLayers.push_back("VK_LAYER_LUNARG_image");
+            NamesDeviceLayers.push_back("VK_LAYER_LUNARG_swapchain");
+            NamesDeviceLayers.push_back("VK_LAYER_GOOGLE_unique_objects");
+
+            DeviceCreateInfo.enabledLayerCount = NamesDeviceLayers.size();
+            DeviceCreateInfo.ppEnabledLayerNames = NamesDeviceLayers.data();
+        }
+
+        if (aExtensionNames) {
+            NamesDeviceExtensions = *aExtensionNames;
+            DeviceCreateInfo.enabledExtensionCount = NamesDeviceExtensions.size();
+            DeviceCreateInfo.ppEnabledExtensionNames = NamesDeviceExtensions.data();
+        }
+        DeviceCreateInfo.pEnabledFeatures = &PhysicalDeviceFeatures;
+    }
+
+    void IndependentBlendSet(bool aEn) {
+        PhysicalDeviceFeatures.independentBlend = aEn;
+    }
+
+    ~VkDeviceCreateStateTest() {
+    }
+
+    const VkDeviceCreateInfo &GetCreateInfo() {
+        return DeviceCreateInfo;
+    }
+
+protected:
+    VkDeviceCreateInfo DeviceCreateInfo;
+    std::vector<const char *> NamesDeviceExtensions;
+    std::vector<const char *> NamesDeviceLayers;
+    VkPhysicalDeviceFeatures PhysicalDeviceFeatures;
+    std::vector<VkDeviceQueueCreateInfo> QueueCreateInfo;
+    std::vector<std::vector<float>> QueuePriorityList;
+};
+
+// VkCreateDeviceTest is a class for creating, customizing, managing,
+// and ultimately testing the Vulkan Device
+class VkCreateDeviceTest {
+public:
+    // Generic sane construction with no customizations. The frameworks
+    // device object is only used to capture state that
+    // is required to create a new device.
+    VkCreateDeviceTest (VkPhysicalDevice aPhysicalDevice,
+                        VkDeviceObj *aVulkanDevice) {
+        VkDeviceCreateStateTest device_create_state(aVulkanDevice);
+        vkCreateDevice(aPhysicalDevice,
+                       &device_create_state.GetCreateInfo(),
+                       nullptr, &VulkanDevice);
+    }
+
+    // Customize creation of the device
+    VkCreateDeviceTest (VkPhysicalDevice aPhysicalDevice,
+                        VkDeviceCreateStateTest &aDeviceCreateStateTest) {
+        vkCreateDevice(aPhysicalDevice,
+                       &aDeviceCreateStateTest.GetCreateInfo(),
+                       nullptr, &VulkanDevice);
+    }
+
+    VkDevice GetDevice() {
+        return VulkanDevice;
+    }
+
+    ~VkCreateDeviceTest() {
+        vkDestroyDevice(VulkanDevice, nullptr);
+    }
+
+protected:
+    VkDevice VulkanDevice;
+};
+
+// VkFramebufferCreateState provides convenience member functions
+// for creating a generic or custom framebuffer via
+// VkCreateFramebufferTest
+class VkFramebufferCreateState {
+public:
+    VkFramebufferCreateState(VkRenderPass aRenderPass)
+        : FramebufferCreateInfo{} {
+        FramebufferCreateInfo.height = 32;
+        FramebufferCreateInfo.layers = 1;
+        FramebufferCreateInfo.renderPass = aRenderPass;
+        FramebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        FramebufferCreateInfo.width = 32;
+    }
+
+    void SetImageViews(std::vector<VkImageView> &aImageViews) {
+        ImageViews = aImageViews;
+        FramebufferCreateInfo.attachmentCount = ImageViews.size();
+        FramebufferCreateInfo.pAttachments = ImageViews.data();
+    }
+
+    VkFramebufferCreateInfo &GetCreateState() {
+        return FramebufferCreateInfo;
+    }
+
+protected:
+    VkFramebufferCreateInfo FramebufferCreateInfo;
+    std::vector<VkImageView> ImageViews;
+};
+
+// VkCreateFramebufferTest provides a quick and dirty generic
+// framebuffer for a variety of test purposes
+class VkCreateFramebufferTest {
+public:
+    VkCreateFramebufferTest(VkDeviceObj *aDeviceObj,
+                            VkFramebufferCreateState &aFramebufferCreateState)
+        : ImageObj(aDeviceObj),
+          VulkanDevice(aDeviceObj->device()) {
+        // A compatible framebuffer.
+        ImageObj.init(32, 32, VK_FORMAT_B8G8R8A8_UNORM,
+                   VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+                   VK_IMAGE_TILING_OPTIMAL, 0);
+
+        int image_view_sel = CreateImageView(ImageObj);
+        if (-1 != image_view_sel) {
+            aFramebufferCreateState.SetImageViews(ImageViews);
+            if (VK_SUCCESS == vkCreateFramebuffer(VulkanDevice,
+                                                  &aFramebufferCreateState.
+                                                  GetCreateState(), nullptr,
+                                                  &VulkanFramebuffer)) {
+                FramebufferCurrent = true;
+                return;
+            }
+        }
+        FramebufferCurrent = false;
+    }
+
+    ~VkCreateFramebufferTest() {
+        if (FramebufferCurrent) {
+            vkDestroyFramebuffer(VulkanDevice, VulkanFramebuffer, nullptr);
+        }
+        for (auto &image_view_i : ImageViews) {
+            vkDestroyImageView(VulkanDevice, image_view_i, nullptr);
+        }
+    }
+
+    int CreateImageView(VkImageObj &aImageObj) {
+        if (aImageObj.initialized()) {
+            VkImageViewCreateInfo image_view_create_info = {
+                VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO, nullptr,
+                0, aImageObj.handle(), VK_IMAGE_VIEW_TYPE_2D,
+                VK_FORMAT_B8G8R8A8_UNORM,
+                {
+                    VK_COMPONENT_SWIZZLE_IDENTITY,
+                    VK_COMPONENT_SWIZZLE_IDENTITY,
+                    VK_COMPONENT_SWIZZLE_IDENTITY,
+                    VK_COMPONENT_SWIZZLE_IDENTITY
+                },
+                {
+                    VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1
+                },
+            };
+
+            ImageViews.emplace_back(VkImageView{});
+            if (VK_SUCCESS == vkCreateImageView(aImageObj.device()->device(),
+                                                &image_view_create_info,
+                                                nullptr, &ImageViews.back())) {
+                return static_cast<int>(ImageViews.size());
+            }
+        }
+        return -1;
+    }
+
+    VkFramebuffer &GetVulkanFramebuffer() {
+        return VulkanFramebuffer;
+    }
+
+protected:
+    bool FramebufferCurrent;
+    VkImageObj ImageObj;
+    std::vector<VkImageView> ImageViews;
+    VkDevice VulkanDevice;
+    VkFramebuffer VulkanFramebuffer;
+};
+
+// VkLiveCommandBuffer moves a VkCommandBufferTest command buffer to a begin
+// state for the duration of the class's scope
+class VkLiveCommandBuffer {
+public:
+    VkLiveCommandBuffer(VkCommandBufferTest *aCommandBufferTest,
+                        unsigned aBufferNumber,
+                        VkRenderPass aRenderPass = VK_NULL_HANDLE,
+                        VkFramebuffer aFrameBuffer = VK_NULL_HANDLE)
+        : BufferNumber(aBufferNumber),
+          CommandBufferTest(aCommandBufferTest) {
+        BeginCurrent = CommandBufferTest->BeginCommandBuffer(aRenderPass,
+                                                             aFrameBuffer,
+                                                             BufferNumber);
+    }
+
+    VkCommandBuffer GetCommandBuffer() {
+        return CommandBufferTest->GetCommandBuffer(BufferNumber);
+    }
+
+    ~VkLiveCommandBuffer() {
+        if (BeginCurrent) {
+            CommandBufferTest->EndCommandBuffer(BufferNumber);
+        }
+    }
+
+protected:
+    bool BeginCurrent;
+    unsigned BufferNumber;
+    VkCommandBufferTest *CommandBufferTest;
+};
+
+// When using VkCreateDeviceTest for tests that require a pipeline, the
+// framework pipeline and other objects can't be used because they are tied
+// to the framework's device. VkPipelineCreateState resolves that problem,
+// and adds custom pipeline creation with VkGraphicsPipelineTest.
+class VkGraphicsPipelineTest;
+class VkPipelineCreateState {
+    friend VkGraphicsPipelineTest;
+public:
+    VkPipelineCreateState(VkCreateDeviceTest *aVulkanDevice)
+        : ColorBlendCurrent(false),
+          LayoutCurrent(false),
+          RenderPassCurrent(false),
+          ShadersCurrent(false),
+          AttachmentDescription{},
+          ColorAttachmentReference{},
+          InputAttachmentReference{},
+          GraphicsPipeCreateInfo{},
+          PipelineColorBlendCreateInfo{},
+          PipelineInputAssemblyStateCreateInfo{},
+          PipelineLayoutCreateState{},
+          PipelineMultisampleStateCreateInfo{},
+          PipelineRasterizationStateCreateInfo{},
+          PipelineVertexIntputStateCreateInfo{},
+          PipelineViewportStateCreateInfo{},
+          RenderPassCreateInfo{},
+          SubpassDescription{},
+          VulkanDevice(aVulkanDevice) {
+        GraphicsPipeCreateInfo.sType =
+                VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+        GraphicsPipeCreateInfo.flags =
+                VK_PIPELINE_CREATE_DISABLE_OPTIMIZATION_BIT;
+
+        PipelineInputAssemblyStateCreateInfo.sType =
+                VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+        PipelineInputAssemblyStateCreateInfo.topology =
+                VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
+        GraphicsPipeCreateInfo.pInputAssemblyState =
+                &PipelineInputAssemblyStateCreateInfo;
+        PipelineLayoutCreateState.sType =
+                VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+
+        PipelineMultisampleStateCreateInfo.sType =
+                VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+        PipelineMultisampleStateCreateInfo.rasterizationSamples =
+                VK_SAMPLE_COUNT_1_BIT;
+        GraphicsPipeCreateInfo.pMultisampleState =
+                &PipelineMultisampleStateCreateInfo;
+
+        PipelineRasterizationStateCreateInfo.sType =
+                VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+        GraphicsPipeCreateInfo.pRasterizationState =
+                &PipelineRasterizationStateCreateInfo;
+        PipelineViewportStateCreateInfo.sType =
+                VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+        GraphicsPipeCreateInfo.pViewportState =
+                &PipelineViewportStateCreateInfo;
+
+        RenderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+
+        // Lots of dumb assumptions are made about the shaders etc. here to keep
+        // it simple and expedient.
+        ColorAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        SubpassDescription.colorAttachmentCount = 1;
+        SubpassDescription.pColorAttachments = &ColorAttachmentReference;
+        InputAttachmentReference.layout =
+                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        SubpassDescription.inputAttachmentCount = 1;
+        SubpassDescription.pInputAttachments = &InputAttachmentReference;
+        RenderPassCreateInfo.subpassCount = 1;
+        RenderPassCreateInfo.pSubpasses = &SubpassDescription;
+        RenderPassCreateInfo.attachmentCount = 1;
+
+        AttachmentDescription.format = VK_FORMAT_R8G8B8A8_UNORM;
+        RenderPassCreateInfo.pAttachments = &AttachmentDescription;
+
+        GraphicsPipeCreateInfo.pColorBlendState = &PipelineColorBlendCreateInfo;
+        PipelineVertexIntputStateCreateInfo.sType =
+                VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+        GraphicsPipeCreateInfo.pVertexInputState =
+                &PipelineVertexIntputStateCreateInfo;
+    }
+
+    ~VkPipelineCreateState() {
+        if (PipelineColorBlendCreateInfo.pAttachments) {
+            delete [] PipelineColorBlendCreateInfo.pAttachments;
+        }
+    }
+
+    bool AddColorBlendAttachments(unsigned aBlendAttachmentCount,
+                                  const VkPipelineColorBlendAttachmentState
+                                  *aBlendAttachmentState = nullptr) {
+        RemoveColorBlendAttachmentState();
+        VkPipelineColorBlendAttachmentState *blend_attachments =
+                new VkPipelineColorBlendAttachmentState[aBlendAttachmentCount];
+        if (nullptr != blend_attachments) {
+            if (aBlendAttachmentState) {
+                memcpy(blend_attachments, aBlendAttachmentState,
+                       sizeof(VkPipelineColorBlendAttachmentState) *
+                       aBlendAttachmentCount);
+                ColorBlendCurrent = true;
+                PipelineColorBlendCreateInfo.attachmentCount =
+                        aBlendAttachmentCount;
+                PipelineColorBlendCreateInfo.pAttachments = blend_attachments;
+                PipelineColorBlendCreateInfo.sType =
+                        VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    int AddShaderStage(VkShaderModule &aShaderModule,
+                       VkShaderStageFlagBits aStageFlags,
+                       const char *aName) {
+        PipelineShaderStageCreateInfo.emplace_back(VkPipelineShaderStageCreateInfo{});
+        const unsigned info_index =
+                static_cast<unsigned>(PipelineShaderStageCreateInfo.size()) - 1;
+        VkPipelineShaderStageCreateInfo *stage_create_info =
+                &PipelineShaderStageCreateInfo.at(info_index);
+        stage_create_info->sType =
+                VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        stage_create_info->stage = aStageFlags;
+        stage_create_info->module = aShaderModule;
+        stage_create_info->pName = aName;
+        return static_cast<int>(info_index);
+    }
+
+    void CompleteShaderStages() {
+        GraphicsPipeCreateInfo.stageCount = PipelineShaderStageCreateInfo.size();
+        GraphicsPipeCreateInfo.pStages = PipelineShaderStageCreateInfo.data();
+    }
+
+    bool IsStateCurrent() {
+        return ColorBlendCurrent && LayoutCurrent &&
+                RenderPassCurrent && ShadersCurrent;
+    }
+
+    void RemoveColorBlendAttachmentState() {
+        if (PipelineColorBlendCreateInfo.pAttachments) {
+            delete [] PipelineColorBlendCreateInfo.pAttachments;
+            PipelineColorBlendCreateInfo.pAttachments = nullptr;
+            ColorBlendCurrent = false;
+            PipelineColorBlendCreateInfo.attachmentCount = 0;
+        }
+    }
+
+    void SetPipelineLayout(VkPipelineLayout &aPipelineLayout) {
+        GraphicsPipeCreateInfo.layout = aPipelineLayout;
+        LayoutCurrent = true;
+    }
+    void SetRenderPass(VkRenderPass &aRenderPass) {
+        GraphicsPipeCreateInfo.renderPass = aRenderPass;
+        RenderPassCurrent = true;
+    }
+
+protected:
+    bool ColorBlendCurrent;
+    bool LayoutCurrent;
+    bool RenderPassCurrent;
+    bool ShadersCurrent;
+
+    VkAttachmentDescription AttachmentDescription;
+    VkAttachmentReference ColorAttachmentReference;
+    VkAttachmentReference InputAttachmentReference;
+    VkGraphicsPipelineCreateInfo GraphicsPipeCreateInfo;
+    VkPipelineColorBlendStateCreateInfo PipelineColorBlendCreateInfo;
+    VkPipelineInputAssemblyStateCreateInfo PipelineInputAssemblyStateCreateInfo;
+    VkPipelineLayoutCreateInfo PipelineLayoutCreateState;
+    VkPipelineMultisampleStateCreateInfo PipelineMultisampleStateCreateInfo;
+    VkPipelineRasterizationStateCreateInfo PipelineRasterizationStateCreateInfo;
+    std::vector<VkPipelineShaderStageCreateInfo> PipelineShaderStageCreateInfo;
+    VkPipelineVertexInputStateCreateInfo PipelineVertexIntputStateCreateInfo;
+    VkPipelineViewportStateCreateInfo PipelineViewportStateCreateInfo;
+
+    VkRenderPassCreateInfo RenderPassCreateInfo;
+    VkSubpassDescription SubpassDescription;
+
+    VkCreateDeviceTest *VulkanDevice;
+};
+
+// VkGraphicsPipelineTest will constuct a graphics pipeline using
+// VkPipelineCreateState as a guide.
+class VkGraphicsPipelineTest {
+public:
+    VkGraphicsPipelineTest(VkCreateDeviceTest *aVulkanDevice,
+                       VkPipelineCreateState &aGraphicsPipeCreateState,
+                       VkRenderFramework *aRenderFramework)
+        : LayoutCurrent(false),
+          PipelineCurrent(false),
+          RenderPassCurrent(false),
+          VulkanDevice(aVulkanDevice) {
+        VkResult api_result = vkCreatePipelineLayout(VulkanDevice->GetDevice(),
+                                                     &aGraphicsPipeCreateState.
+                                                     PipelineLayoutCreateState,
+                                                     nullptr,
+                                                     &PipelineLayout);
+        if (VK_SUCCESS != api_result) {
+            return;
+        }
+        LayoutCurrent = true;
+        aGraphicsPipeCreateState.SetPipelineLayout(PipelineLayout);
+
+        AddShaderStage(aGraphicsPipeCreateState,
+                       bindStateVertShaderText,
+                       VK_SHADER_STAGE_VERTEX_BIT,
+                       aRenderFramework);
+        AddShaderStage(aGraphicsPipeCreateState,
+                       bindStateFragShaderText,
+                       VK_SHADER_STAGE_FRAGMENT_BIT,
+                       aRenderFramework);
+        aGraphicsPipeCreateState.CompleteShaderStages();
+
+
+        api_result = vkCreateRenderPass(VulkanDevice->GetDevice(),
+                                        &aGraphicsPipeCreateState.
+                                        RenderPassCreateInfo,
+                                        nullptr, &RenderPass);
+        if (VK_SUCCESS != api_result) {
+            vkDestroyPipelineLayout(VulkanDevice->GetDevice(),
+                                    PipelineLayout, nullptr);
+            LayoutCurrent = false;
+            return;
+        }
+        RenderPassCurrent = true;
+        aGraphicsPipeCreateState.SetRenderPass(RenderPass);
+
+        api_result =
+                vkCreateGraphicsPipelines(VulkanDevice->GetDevice(),
+                                          VK_NULL_HANDLE, 1,
+                                          &aGraphicsPipeCreateState.
+                                          GraphicsPipeCreateInfo,
+                                          nullptr, &Pipeline);
+        if (VK_SUCCESS != api_result) {
+            vkDestroyRenderPass(VulkanDevice->GetDevice(), RenderPass, nullptr);
+            RenderPassCurrent = false;
+            vkDestroyPipelineLayout(VulkanDevice->GetDevice(),
+                                    PipelineLayout, nullptr);
+            LayoutCurrent = false;
+            return;
+        }
+        PipelineCurrent = true;
+    }
+
+    ~VkGraphicsPipelineTest() {
+        for (auto &shader_module_i : ShaderModules) {
+            vkDestroyShaderModule(VulkanDevice->GetDevice(),
+                                  shader_module_i, nullptr);
+        }
+        if (PipelineCurrent) {
+            vkDestroyPipeline(VulkanDevice->GetDevice(), Pipeline, nullptr);
+        }
+        if (RenderPassCurrent) {
+            vkDestroyRenderPass(VulkanDevice->GetDevice(), RenderPass, nullptr);
+        }
+        if (LayoutCurrent) {
+            vkDestroyPipelineLayout(VulkanDevice->GetDevice(), PipelineLayout,
+                                    nullptr);
+        }
+    }
+
+    int AddShaderStage(VkPipelineCreateState &aGraphicsPipeCreateState,
+                       const char *aShaderCode,
+                       VkShaderStageFlagBits aStageFlags,
+                       VkRenderFramework *aRenderFramework,
+                       const char *aName = "main") {
+        VkShaderModuleCreateInfo shader_module_create_info = {};
+        shader_module_create_info.sType =
+                VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+
+        std::vector<unsigned int> spirv_code;
+        aRenderFramework->GLSLtoSPV(aStageFlags, aShaderCode, spirv_code);
+        shader_module_create_info.pCode = spirv_code.data();
+        shader_module_create_info.codeSize = spirv_code.size() * sizeof(unsigned int);
+
+        VkShaderModule shader_module;
+        if (VK_SUCCESS == vkCreateShaderModule(VulkanDevice->GetDevice(),
+                                               &shader_module_create_info,
+                                               nullptr,
+                                               &shader_module)) {
+            ShaderModules.push_back(shader_module);
+            return aGraphicsPipeCreateState.AddShaderStage(shader_module,
+                                                           aStageFlags,
+                                                           aName);
+        }
+        return -1;
+    }
+
+protected:
+    bool LayoutCurrent;
+    bool PipelineCurrent;
+    bool RenderPassCurrent;
+
+    VkPipeline Pipeline;
+    VkPipelineLayout PipelineLayout;
+    VkRenderPass RenderPass;
+    std::vector<VkShaderModule> ShaderModules;
+    VkCreateDeviceTest *VulkanDevice;
+};
+
+// VkVerticesObj adds vulkan vertex intput capability to the framework
+// VkConstantBufferObj class
 class VkVerticesObj {
 public:
     VkVerticesObj(VkDeviceObj *aVulkanDevice, unsigned aAttributeCount,
@@ -3183,55 +3881,21 @@ TEST_F(VkLayerTest, LeakAnObject) {
 
     ASSERT_NO_FATAL_FAILURE(InitState());
 
-    const std::vector<VkQueueFamilyProperties> queue_props =
-        m_device->queue_props;
-    std::vector<VkDeviceQueueCreateInfo> queue_info;
-    queue_info.reserve(queue_props.size());
-    std::vector<std::vector<float>> queue_priorities;
-    for (uint32_t i = 0; i < (uint32_t)queue_props.size(); i++) {
-        VkDeviceQueueCreateInfo qi = {};
-        qi.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-        qi.pNext = NULL;
-        qi.queueFamilyIndex = i;
-        qi.queueCount = queue_props[i].queueCount;
-        queue_priorities.emplace_back(qi.queueCount, 0.0f);
-        qi.pQueuePriorities = queue_priorities[i].data();
-        queue_info.push_back(qi);
+    {
+        VkCreateDeviceTest testDevice(gpu(), m_device);
+
+        VkFence fence;
+        VkFenceCreateInfo fence_create_info = {};
+        fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+        fence_create_info.pNext = NULL;
+        fence_create_info.flags = 0;
+        err = vkCreateFence(testDevice.GetDevice(), &fence_create_info,
+                            nullptr, &fence);
+        ASSERT_VK_SUCCESS(err);
+
+        // Induce failure by not calling vkDestroyFence before the
+        // test vulkan device goes out of scope and gets destroyed
     }
-
-    std::vector<const char *> device_layer_names;
-    std::vector<const char *> device_extension_names;
-    device_layer_names.push_back("VK_LAYER_GOOGLE_threading");
-    device_layer_names.push_back("VK_LAYER_LUNARG_parameter_validation");
-    device_layer_names.push_back("VK_LAYER_LUNARG_object_tracker");
-    device_layer_names.push_back("VK_LAYER_LUNARG_core_validation");
-    device_layer_names.push_back("VK_LAYER_LUNARG_image");
-    device_layer_names.push_back("VK_LAYER_GOOGLE_unique_objects");
-
-    // The sacrificial device object
-    VkDevice testDevice;
-    VkDeviceCreateInfo device_create_info = {};
-    auto features = m_device->phy().features();
-    device_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    device_create_info.pNext = NULL;
-    device_create_info.queueCreateInfoCount = queue_info.size();
-    device_create_info.pQueueCreateInfos = queue_info.data();
-    device_create_info.enabledLayerCount = device_layer_names.size();
-    device_create_info.ppEnabledLayerNames = device_layer_names.data();
-    device_create_info.pEnabledFeatures = &features;
-    err = vkCreateDevice(gpu(), &device_create_info, NULL, &testDevice);
-    ASSERT_VK_SUCCESS(err);
-
-    VkFence fence;
-    VkFenceCreateInfo fence_create_info = {};
-    fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fence_create_info.pNext = NULL;
-    fence_create_info.flags = 0;
-    err = vkCreateFence(testDevice, &fence_create_info, NULL, &fence);
-    ASSERT_VK_SUCCESS(err);
-
-    // Induce failure by not calling vkDestroyFence
-    vkDestroyDevice(testDevice, NULL);
     m_errorMonitor->VerifyFound();
 }
 
@@ -9642,6 +10306,43 @@ TEST_F(VkLayerTest, PSOLineWidthInvalid) {
     vkDestroyPipeline(m_device->device(), pipeline, NULL);
 }
 
+TEST_F(VkLayerTest, InvalidRenderArea) {
+    TEST_DESCRIPTION("Test case where the render area is outside of the"
+                     "framebuffer.");
+
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT,
+                "Cannot execute a render pass with renderArea not within the "
+                "bound of the framebuffer. RenderArea: x ");
+
+    ASSERT_NO_FATAL_FAILURE(InitState());
+    ASSERT_NO_FATAL_FAILURE(InitRenderTarget());
+
+    VkCommandBufferInheritanceInfo hinfo = {};
+    hinfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
+
+    VkCommandBufferBeginInfo info = {};
+    info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    info.pInheritanceInfo = &hinfo;
+
+    vkBeginCommandBuffer(m_commandBuffer->handle(), &info);
+
+    VkRenderPassBeginInfo rp_begin = {};
+    rp_begin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    rp_begin.renderArea.offset.x = 512;
+    rp_begin.renderArea.offset.y = 0;
+    rp_begin.renderArea.extent.width = 256;
+    rp_begin.renderArea.extent.height = 256;
+    rp_begin.renderPass = renderPass();
+    rp_begin.framebuffer = framebuffer();
+    rp_begin.clearValueCount = m_renderPassClearValues.size();
+    rp_begin.pClearValues = m_renderPassClearValues.data();
+
+    vkCmdBeginRenderPass(m_commandBuffer->GetBufferHandle(), &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
+
+    m_errorMonitor->VerifyFound();
+}
+
 TEST_F(VkLayerTest, NullRenderPass) {
     // Bind a NULL RenderPass
     m_errorMonitor->SetDesiredFailureMsg(
@@ -11957,6 +12658,132 @@ TEST_F(VkLayerTest, VtxBufferBadIndex) {
     vkDestroyPipelineLayout(m_device->device(), pipeline_layout, NULL);
     vkDestroyDescriptorSetLayout(m_device->device(), ds_layout, NULL);
     vkDestroyDescriptorPool(m_device->device(), ds_pool, NULL);
+}
+
+TEST_F(VkLayerTest, FramebufferInvalid) {
+    TEST_DESCRIPTION("Test case where an invalid Framebuffer Index "
+                     "is used with a begin command buffer and "
+                     "where the Framebuffer in a command buffer, "
+                     "does not match the one defined by the "
+                     "render pass");
+
+    const char *framebuffer_index_invalid = "Invalid Framebuffer Object 0x";
+    const char *framebuffer_index_mismatch = "vkCmdExecuteCommands(): "
+                                             "Secondary Command Buffer"
+                                             " (0x";
+    ASSERT_NO_FATAL_FAILURE(InitState());
+    ASSERT_NO_FATAL_FAILURE(InitViewport());
+    ASSERT_NO_FATAL_FAILURE(InitRenderTarget());
+
+    m_commandBuffer->BeginCommandBuffer();
+    VkRenderPassBeginInfo rp_begin = {};
+    rp_begin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    rp_begin.renderPass = m_renderPass;
+    rp_begin.framebuffer = m_framebuffer;
+    rp_begin.renderArea.offset.x = 0;
+    rp_begin.renderArea.offset.y = 0;
+    rp_begin.renderArea.extent.width = static_cast<uint32_t>(m_width);
+    rp_begin.renderArea.extent.height = static_cast<uint32_t>(m_height);
+    rp_begin.clearValueCount = m_renderPassClearValues.size();
+    rp_begin.pClearValues = m_renderPassClearValues.data();
+
+    // specifying VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS means the
+    // subpass may ONLY call vkCmdExecuteCommands
+    vkCmdBeginRenderPass(m_commandBuffer->handle(), &rp_begin,
+                         VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
+
+    VkPipelineLayoutCreateInfo pipeline_layout_ci = {};
+    pipeline_layout_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    VkPipelineLayout pipeline_layout;
+
+    VkResult err = vkCreatePipelineLayout(m_device->device(),
+                                          &pipeline_layout_ci, nullptr,
+                                          &pipeline_layout);
+    ASSERT_VK_SUCCESS(err);
+
+    VkShaderObj vs(m_device, bindStateVertShaderText,
+                   VK_SHADER_STAGE_VERTEX_BIT, this);
+    VkShaderObj fs(m_device, bindStateFragShaderText,
+                   VK_SHADER_STAGE_FRAGMENT_BIT,
+                   this);
+    VkPipelineObj pipe(m_device);
+    pipe.AddShader(&vs);
+    pipe.AddShader(&fs);
+    pipe.AddColorAttachment();
+    pipe.SetViewport(m_viewports);
+    pipe.SetScissor(m_scissors);
+    pipe.CreateVKPipeline(pipeline_layout, renderPass());
+
+    VkCommandBufferTest command_buffer(m_device->device(), 1,
+                                       true, &m_commandPool);
+
+    {
+        // Use a bad index for the framebuffer in this test
+        union {
+            VkFramebuffer framebuffer_memory;
+            unsigned long long index_access;
+        } bad_index;
+
+        bad_index.index_access = 0xdeadbeef;
+        m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT,
+                                             framebuffer_index_invalid);
+        VkLiveCommandBuffer secondary_buffer(&command_buffer, 0, m_renderPass,
+                                             bad_index.framebuffer_memory);
+        (void)secondary_buffer;
+        m_errorMonitor->VerifyFound();
+    }
+
+    // The following is intentionally incorrect. The framebuffer
+    // in the command buffer, if set, must match that in the
+    // renderpass
+    VkFramebufferCreateState framebuffer_create_state(m_renderPass);
+    VkCreateFramebufferTest test_framebuffer(m_device,
+                                             framebuffer_create_state);
+    {
+        VkLiveCommandBuffer secondary_buffer(&command_buffer, 0, m_renderPass,
+                                             test_framebuffer.GetVulkanFramebuffer());
+        (void) secondary_buffer;
+    }
+
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT,
+                                         framebuffer_index_mismatch);
+    vkCmdExecuteCommands(m_commandBuffer->GetBufferHandle(), 1,
+                         command_buffer.GetCommandBuffers());
+    m_errorMonitor->VerifyFound();
+
+    vkCmdEndRenderPass(m_commandBuffer->handle());
+
+    vkDestroyPipelineLayout(m_device->device(), pipeline_layout, NULL);
+}
+
+TEST_F(VkLayerTest, FailDisabledIndependentBlend) {
+    TEST_DESCRIPTION("Test case where Independent Blend is disabled "
+                     "and color blend attachments don't match");
+
+    m_errorMonitor->SetDesiredFailureMsg(
+                VK_DEBUG_REPORT_ERROR_BIT_EXT,
+                "Invalid Pipeline CreateInfo: If independent blend feature not");
+
+    ASSERT_NO_FATAL_FAILURE(InitState());
+
+    VkDeviceCreateStateTest device_create_state(m_device);
+    device_create_state.IndependentBlendSet(false);
+    VkCreateDeviceTest testDevice(gpu(), device_create_state);
+
+    VkPipelineCreateState pipeline_create_state(&testDevice);
+    // The failure condition is caused by the 2 copies of
+    //  VkPipelineColorBlendAttachmentState not being identical
+    VkPipelineColorBlendAttachmentState att_state[2] = {};
+    att_state[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_CONSTANT_COLOR;
+    att_state[0].blendEnable = VK_TRUE;
+    att_state[1].blendEnable = VK_FALSE;
+    pipeline_create_state.AddColorBlendAttachments(2, att_state);
+
+    VkGraphicsPipelineTest graphics_pipeline(&testDevice, pipeline_create_state,
+                                         this);
+    (void) graphics_pipeline;
+
+    m_errorMonitor->VerifyFound();
 }
 
 TEST_F(VkLayerTest, VertexBufferInvalid) {
