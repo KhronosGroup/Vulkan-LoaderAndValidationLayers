@@ -273,6 +273,13 @@ Device::~Device() {
 
 void Device::init(std::vector<const char *> &layers,
                   std::vector<const char *> &extensions) {
+    // request all supportable features enabled
+    auto features = phy().features();
+    return init(layers, extensions, features);
+}
+void Device::init(std::vector<const char *> &layers,
+                  std::vector<const char *> &extensions,
+                  const VkPhysicalDeviceFeatures &features) {
     // request all queues
     const std::vector<VkQueueFamilyProperties> queue_props =
         phy_.queue_properties();
@@ -306,9 +313,6 @@ void Device::init(std::vector<const char *> &layers,
     dev_info.ppEnabledLayerNames = layers.data();
     dev_info.enabledExtensionCount = extensions.size();
     dev_info.ppEnabledExtensionNames = extensions.data();
-
-    // request all supportable features enabled
-    auto features = phy().features();
     dev_info.pEnabledFeatures = &features;
 
     init(dev_info);

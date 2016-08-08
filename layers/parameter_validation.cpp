@@ -2904,6 +2904,22 @@ CreateGraphicsPipelines(VkDevice device, VkPipelineCache pipelineCache, uint32_t
                 }
             }
 
+            if (pCreateInfos[i].pRasterizationState != nullptr) {
+              // If features.fillModeNonSolid is VK_FALSE, pRasterizationState->polygonMode must not be VK_POLYGON_MODE_POINT or
+              // VK_POLYGON_MODE_LINE.
+              if ((device_data->physical_device_features.fillModeNonSolid == VK_FALSE) &&
+                  (pCreateInfos[i].pRasterizationState->polygonMode == VK_POLYGON_MODE_POINT ||
+                   pCreateInfos[i].pRasterizationState->polygonMode == VK_POLYGON_MODE_LINE)) {
+                const char *polygon_mode_str = (pCreateInfos[i].pRasterizationState->polygonMode == VK_POLYGON_MODE_POINT) ?
+                                               "VK_POLYGON_MODE_POINT" : "VK_POLYGON_MODE_LINE";
+                skip_call |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, __LINE__,
+                    DEVICE_FEATURE, LayerName,
+                    "vkCreateGraphicsPipelines: pCreateInfos[%d].pRasterizationState->polygonMode == %s is not supported when device "
+                    "does not support fillModeNonSolid.",
+                    i, polygon_mode_str);
+              }
+            }
+
             if (pCreateInfos[i].pMultisampleState == nullptr) {
                 // If the rasterizerDiscardEnable member of pRasterizationState is VK_FALSE, pMultisampleState must be a pointer to
                 // a valid VkPipelineMultisampleStateCreateInfo structure

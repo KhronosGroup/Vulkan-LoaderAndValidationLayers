@@ -449,6 +449,17 @@ VkDeviceObj::VkDeviceObj(uint32_t id, VkPhysicalDevice obj,
     queue_props = phy().queue_properties();
 }
 
+VkDeviceObj::VkDeviceObj(uint32_t id, VkPhysicalDevice obj,
+                         std::vector<const char *> &layer_names,
+                         std::vector<const char *> &extension_names,
+                         const VkPhysicalDeviceFeatures &features)
+    : vk_testing::Device(obj), id(id) {
+    init(layer_names, extension_names, features);
+
+    props = phy().properties();
+    queue_props = phy().queue_properties();
+}
+
 void VkDeviceObj::get_device_queue() {
     ASSERT_NE(true, graphics_queues().empty());
     m_queue = graphics_queues()[0]->handle();
