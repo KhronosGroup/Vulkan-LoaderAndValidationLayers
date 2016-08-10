@@ -4682,6 +4682,42 @@ static bool validateCommandBufferState(layer_data *dev_data, GLOBAL_CB_NODE *pCB
     return skip_call;
 }
 
+// Validate that queueFamilyIndices of primary and any secondary command buffers match this queue
+static bool validateQueueFamilyIndices(layer_data *dev_data, GLOBAL_CB_NODE *pCB, VkQueue queue) {
+    bool skip_call = false;
+    auto pPool = getCommandPoolNode(dev_data, pCB->createInfo.commandPool);
+    auto queue_node = getQueueNode(dev_data, queue);
+
+    if (pPool && queue_node && (pPool->queueFamilyIndex != queue_node->queueFamilyIndex)) {
+        skip_call |= log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
+            reinterpret_cast<uint64_t>(pCB->commandBuffer), __LINE__, DRAWSTATE_INVALID_QUEUE_FAMILY, "DS",
+            "vkQueueSubmit: Primary ommand buffer 0x%" PRIxLEAST64
+            " created in queue family %d is being submitted on queue 0x%" PRIxLEAST64 " from queue family %d.",
+            reinterpret_cast<uint64_t>(pCB->commandBuffer), pPool->queueFamilyIndex,
+            reinterpret_cast<uint64_t>(queue), queue_node->queueFamilyIndex);
+    }
+
+    if (!pCB->secondaryCommandBuffers.empty()) {
+        for (auto secondaryCmdBuffer : pCB->secondaryCommandBuffers) {
+            GLOBAL_CB_NODE *pSubCB = getCBNode(dev_data, secondaryCmdBuffer);
+            if (pSubCB) {
+                pPool = getCommandPoolNode(dev_data, pSubCB->createInfo.commandPool);
+                if (pPool && (pPool->queueFamilyIndex != queue_node->queueFamilyIndex)) {
+                    skip_call |= log_msg(
+                        dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
+                        reinterpret_cast<uint64_t>(pSubCB->commandBuffer), __LINE__, DRAWSTATE_INVALID_QUEUE_FAMILY, "DS",
+                        "vkQueueSubmit: Secondary command buffer 0x%" PRIxLEAST64
+                        " created in queue family %d is being submitted on queue 0x%" PRIxLEAST64 " from queue family %d.",
+                        reinterpret_cast<uint64_t>(pSubCB->commandBuffer), pPool->queueFamilyIndex,
+                        reinterpret_cast<uint64_t>(queue), queue_node->queueFamilyIndex);
+                }
+            }
+        }
+    }
+
+    return skip_call;
+}
+
 static bool validatePrimaryCommandBufferState(layer_data *dev_data, GLOBAL_CB_NODE *pCB) {
     // Track in-use for resources off of primary and any secondary CBs
     bool skip_call = false;
@@ -4831,6 +4867,7 @@ QueueSubmit(VkQueue queue, uint32_t submitCount, const VkSubmitInfo *pSubmits, V
 
                 pCBNode->submitCount++; // increment submit count
                 skip_call |= validatePrimaryCommandBufferState(dev_data, pCBNode);
+                skip_call |= validateQueueFamilyIndices(dev_data, pCBNode, queue);
                 // Call submit-time functions to validate/update state
                 for (auto &function : pCBNode->validate_functions) {
                     skip_call |= function();
@@ -5059,6 +5096,7 @@ VKAPI_ATTR void VKAPI_CALL GetDeviceQueue(VkDevice device, uint32_t queueFamilyI
     if (result.second == true) {
         QUEUE_NODE *pQNode = &dev_data->queueMap[*pQueue];
         pQNode->queue = *pQueue;
+        pQNode->queueFamilyIndex = queueFamilyIndex;
     }
 }
 
