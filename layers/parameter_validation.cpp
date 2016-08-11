@@ -1432,7 +1432,7 @@ VKAPI_ATTR VkResult VKAPI_CALL EnumeratePhysicalDevices(VkInstance instance, uin
         if ((result == VK_SUCCESS) && (NULL != pPhysicalDevices)) {
             for (uint32_t i = 0; i < *pPhysicalDeviceCount; i++) {
                 layer_data *phy_dev_data = get_my_data_ptr(get_dispatch_key(pPhysicalDevices[i]), layer_data_map);
-                // Save the supported features for each physical device
+                // Save the default supported features for each physical device
                 VkLayerInstanceDispatchTable *disp_table = get_dispatch_table(pc_instance_table_map, pPhysicalDevices[i]);
                 disp_table->GetPhysicalDeviceFeatures(pPhysicalDevices[i], &(phy_dev_data->physical_device_features));
             }
@@ -1651,7 +1651,6 @@ VKAPI_ATTR VkResult VKAPI_CALL CreateDevice(VkPhysicalDevice physicalDevice,
             my_device_data->report_data = layer_debug_report_create_device(my_instance_data->report_data, *pDevice);
             initDeviceTable(*pDevice, fpGetDeviceProcAddr, pc_device_table_map);
 
-
             uint32_t count;
             VkLayerInstanceDispatchTable *instance_dispatch_table = get_dispatch_table(pc_instance_table_map, physicalDevice);
             instance_dispatch_table->GetPhysicalDeviceQueueFamilyProperties(physicalDevice, &count, nullptr);
@@ -1666,6 +1665,14 @@ VKAPI_ATTR VkResult VKAPI_CALL CreateDevice(VkPhysicalDevice physicalDevice,
             instance_dispatch_table->GetPhysicalDeviceProperties(physicalDevice, &device_properties);
             memcpy(&my_device_data->device_limits, &device_properties.limits, sizeof(VkPhysicalDeviceLimits));
             my_device_data->physical_device = physicalDevice;
+
+            // Replace hardware feature set with app-enabled features
+            layer_data *phy_dev_data = get_my_data_ptr(get_dispatch_key(physicalDevice), layer_data_map);
+            if (pCreateInfo->pEnabledFeatures) {
+                memcpy(&phy_dev_data->physical_device_features, &pCreateInfo->pEnabledFeatures, sizeof(VkPhysicalDeviceFeatures));
+            } else {
+                memset(&my_device_data->physical_device_features, 0, sizeof(VkPhysicalDeviceFeatures));
+            }
         }
     }
 
