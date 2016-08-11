@@ -57,8 +57,6 @@ if(NOT WIN32)
     include(FindPkgConfig)
 endif()
 
-set (CMAKE_INSTALL_PREFIX "")
-
 if (CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
     set(COMMON_COMPILE_FLAGS "-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers")
     set(COMMON_COMPILE_FLAGS "${COMMON_COMPILE_FLAGS} -fno-strict-aliasing -fno-builtin-memcmp")
@@ -112,7 +110,7 @@ option(CUSTOM_SPIRV_TOOLS_BIN_ROOT "Use the user defined SPIRV_TOOLS_BINARY_ROOT
 
 #Choose natural default paths for glslang and SPIRV-Tools binaries to support custom definition by the user on the CMake command line or in the GUI
 set(GLSLANG_BINARY_ROOT "${CMAKE_BINARY_DIR}/../glslang" CACHE STRING "User defined path to the glslang binaries for this project")
-set(SPRIV_TOOLS_BINARY_ROOT "${CMAKE_BINARY_DIR}/../SPIRV-Tools" CACHE STRING "User defined path to the SPIRV-Tools binaries for this project")
+set(SPIRV_TOOLS_BINARY_ROOT "${CMAKE_BINARY_DIR}/../SPIRV-Tools" CACHE STRING "User defined path to the SPIRV-Tools binaries for this project")
 
 # Define a variable for a default root location to the gslang, SPIRV-Tools and other external sources and cache it to allow the user to customize it as needed
 set(EXTERNAL_SOURCE_ROOT "${CMAKE_SOURCE_DIR}/external" CACHE STRING "Root path to external sources such as glslang and SPIRV-Tools")
@@ -147,8 +145,8 @@ if (WIN32)
                                    "${GSLANG_FINAL_BINARY_PATH}/SPIRV/${DEBUG_DECORATION}")
 
     if(CUSTOM_SPIRV_TOOLS_BIN_ROOT)
-        set (SPIRV_TOOLS_SEARCH_PATH "${SPRIV_TOOLS_BINARY_ROOT}/${BUILDTGT_DIR}/source/${RELEASE_DECORATION}")
-        set (SPIRV_TOOLS_DEBUG_SEARCH_PATH "${SPRIV_TOOLS_BINARY_ROOT}/${BUILDTGT_DIR}/source/${DEBUG_DECORATION}")
+        set (SPIRV_TOOLS_SEARCH_PATH "${SPIRV_TOOLS_BINARY_ROOT}/${BUILDTGT_DIR}/source/${RELEASE_DECORATION}")
+        set (SPIRV_TOOLS_DEBUG_SEARCH_PATH "${SPIRV_TOOLS_BINARY_ROOT}/${BUILDTGT_DIR}/source/${DEBUG_DECORATION}")
     else()
         set (SPIRV_TOOLS_SEARCH_PATH "${EXTERNAL_SOURCE_ROOT}/spirv-tools/${BUILDTGT_DIR}/source/${RELEASE_DECORATION}")
         set (SPIRV_TOOLS_DEBUG_SEARCH_PATH "${EXTERNAL_SOURCE_ROOT}/spirv-tools/${BUILDTGT_DIR}/source/${DEBUG_DECORATION}")
@@ -168,7 +166,7 @@ else()
     endif()
 
     if(CUSTOM_SPIRV_TOOLS_BIN_ROOT)
-        set (SPIRV_TOOLS_SEARCH_PATH "${SPRIV_TOOLS_BINARY_ROOT}/source" )
+        set (SPIRV_TOOLS_SEARCH_PATH "${SPIRV_TOOLS_BINARY_ROOT}/source" )
     else()
         set (SPIRV_TOOLS_SEARCH_PATH "${EXTERNAL_SOURCE_ROOT}/spirv-tools/${BUILDTGT_DIR}/source" "${CMAKE_SOURCE_DIR}/../x86_64/lib/spirv-tools" )
     endif()
@@ -217,15 +215,15 @@ if (WIN32)
     add_library(Loader      STATIC IMPORTED)
     add_library(SPIRV-Tools STATIC IMPORTED)
 
-    find_library(GLSLANG_DLIB NAMES glslang
+    find_library(GLSLANG_DLIB NAMES glslangd
                  HINTS ${GLSLANG_DEBUG_SEARCH_PATH} )
-    find_library(OGLCompiler_DLIB NAMES OGLCompiler
+    find_library(OGLCompiler_DLIB NAMES OGLCompilerd
                  HINTS ${GLSLANG_DEBUG_SEARCH_PATH} )
-    find_library(OSDependent_DLIB NAMES OSDependent
+    find_library(OSDependent_DLIB NAMES OSDependentd
                  HINTS ${GLSLANG_DEBUG_SEARCH_PATH} )
-    find_library(HLSL_DLIB NAMES HLSL
+    find_library(HLSL_DLIB NAMES HLSLd
                  HINTS ${GLSLANG_DEBUG_SEARCH_PATH} )
-    find_library(SPIRV_DLIB NAMES SPIRV
+    find_library(SPIRV_DLIB NAMES SPIRVd
                  HINTS ${GLSLANG_DEBUG_SEARCH_PATH} )
     find_library(SPIRV_TOOLS_DLIB NAMES SPIRV-Tools
                  HINTS ${SPIRV_TOOLS_DEBUG_SEARCH_PATH} )
@@ -262,7 +260,7 @@ if(NOT WIN32)
     include(GNUInstallDirs)
     add_definitions(-DSYSCONFDIR="${CMAKE_INSTALL_SYSCONFDIR}")
     add_definitions(-DDATADIR="${CMAKE_INSTALL_DATADIR}")
-    if (CMAKE_INSTALL_PREFIX STREQUAL "/usr")
+    if (CMAKE_INSTALL_PREFIX STREQUAL "/usr/local")
     elseif (CMAKE_INSTALL_PREFIX STREQUAL "")
     else()
         add_definitions(-DLOCALPREFIX="${CMAKE_INSTALL_PREFIX}")

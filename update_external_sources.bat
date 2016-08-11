@@ -137,8 +137,10 @@ if not exist spirv-tools_revision (
 
 set /p GLSLANG_REVISION= < glslang_revision
 set /p SPIRV_TOOLS_REVISION= < spirv-tools_revision
+set /p SPIRV_HEADERS_REVISION= < spirv-headers_revision
 echo GLSLANG_REVISION=%GLSLANG_REVISION%
 echo SPIRV_TOOLS_REVISION=%SPIRV_TOOLS_REVISION%
+echo SPIRV_HEADERS_REVISION=%SPIRV_HEADERS_REVISION%
 
 
 echo Creating and/or updating glslang, spirv-tools in %BASE_DIR%
@@ -215,6 +217,9 @@ goto:eof
    cd %GLSLANG_DIR%
    git fetch --all
    git checkout %GLSLANG_REVISION%
+   REM Revert glslang a5c33d6ffb34ccede5b233bc724c907166b6e479
+   REM See https://github.com/KhronosGroup/Vulkan-LoaderAndValidationLayers/issues/681
+   git apply --whitespace=fix %BUILD_DIR%\glslang_revert_a5c33d.patch.txt
 goto:eof
 
 :create_spirv-tools
@@ -228,6 +233,15 @@ goto:eof
       echo spirv-tools source download failed!
       set errorCode=1
    )
+   mkdir %SPIRV_TOOLS_DIR%\external
+   mkdir %SPIRV_TOOLS_DIR%\external\spirv-headers
+   cd %SPIRV_TOOLS_DIR%\external\spirv-headers
+   git clone https://github.com/KhronosGroup/SPIRV-HEADERS.git .
+   git checkout %SPIRV_HEADERS_REVISION%
+   if not exist %SPIRV_TOOLS_DIR%\external\spirv-headers\README.md (
+      echo spirv-headers download failed!
+      set errorCode=1
+   )
 goto:eof
 
 :update_spirv-tools
@@ -236,6 +250,9 @@ goto:eof
    cd %SPIRV_TOOLS_DIR%
    git fetch --all
    git checkout %SPIRV_TOOLS_REVISION%
+   cd %SPIRV_TOOLS_DIR%\external\spirv-headers
+   git fetch --all
+   git checkout %SPIRV_HEADERS_REVISION%
 goto:eof
 
 :build_glslang
@@ -264,7 +281,7 @@ goto:eof
    msbuild INSTALL.vcxproj /p:Platform=x86 /p:Configuration=Debug /verbosity:quiet
    
    REM Check for existence of one lib, even though we should check for all results
-   if not exist %GLSLANG_BUILD_DIR%\glslang\Debug\glslang.lib (
+   if not exist %GLSLANG_BUILD_DIR%\glslang\Debug\glslangd.lib (
       echo.
       echo glslang 32-bit Debug build failed!
       set errorCode=1
@@ -294,7 +311,7 @@ goto:eof
    msbuild INSTALL.vcxproj /p:Platform=x64 /p:Configuration=Debug /verbosity:quiet
    
    REM Check for existence of one lib, even though we should check for all results
-   if not exist %GLSLANG_BUILD_DIR%\glslang\Debug\glslang.lib (
+   if not exist %GLSLANG_BUILD_DIR%\glslang\Debug\glslangd.lib (
       echo.
       echo glslang 64-bit Debug build failed!
       set errorCode=1

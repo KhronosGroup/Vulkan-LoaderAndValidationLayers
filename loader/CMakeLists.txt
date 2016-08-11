@@ -17,6 +17,7 @@ set(NORMAL_LOADER_SRCS
     loader.c
     loader.h
     vk_loader_platform.h
+    vk_loader_layer.h
     trampoline.c
     wsi.c
     wsi.h
@@ -37,8 +38,14 @@ set (OPT_LOADER_SRCS
 set (LOADER_SRCS ${NORMAL_LOADER_SRCS} ${OPT_LOADER_SRCS})
 
 if (WIN32)
-    set(CMAKE_C_FLAGS_DEBUG "-MTd")
-    set(CMAKE_C_FLAGS_RELEASE "-MT")
+    # Use static MSVCRT libraries
+    foreach(configuration in CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELEASE CMAKE_C_FLAGS_RELWITHDEBINFO
+                             CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELEASE CMAKE_CXX_FLAGS_RELWITHDEBINFO)
+        if(${configuration} MATCHES "/MD")
+            string(REGEX REPLACE "/MD" "/MT" ${configuration} "${${configuration}}")
+        endif()
+    endforeach()
+
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_CRT_SECURE_NO_WARNINGS")
     # Build dev_ext_trampoline.c with -O2 to allow tail-call optimization.
     # Build other C files with normal options
@@ -56,6 +63,7 @@ if (WIN32)
     add_library(VKstatic.${MAJOR} STATIC $<TARGET_OBJECTS:loader-opt> $<TARGET_OBJECTS:loader-norm>)
     set_target_properties(VKstatic.${MAJOR} PROPERTIES OUTPUT_NAME VKstatic.${MAJOR})
     target_link_libraries(vulkan-${MAJOR} shlwapi)
+    target_link_libraries(VKstatic.${MAJOR} shlwapi)
     if (CMAKE_GENERATOR MATCHES "^Visual Studio.*")
         file(TO_NATIVE_PATH ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIGURATION>/vulkan-${MAJOR}.dll COPY_SRC_PATH)
         file(TO_NATIVE_PATH ${CMAKE_CURRENT_BINARY_DIR}/../demos/$<CONFIGURATION>/ COPY_DST_PATH)
@@ -74,6 +82,6 @@ else()
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wpointer-arith")
 
     add_library(vulkan SHARED ${LOADER_SRCS})
-    set_target_properties(vulkan PROPERTIES SOVERSION "1" VERSION "1.0.13")
+    set_target_properties(vulkan PROPERTIES SOVERSION "1" VERSION "1.0.21")
     target_link_libraries(vulkan -ldl -lpthread -lm)
 endif()

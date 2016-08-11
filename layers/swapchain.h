@@ -45,7 +45,7 @@ enum SWAPCHAIN_ERROR {
     SWAPCHAIN_CREATE_SWAP_EXTENTS_NO_MATCH_WIN, // Called vkCreateSwapchainKHR() with imageExtent that doesn't match window's extent
     SWAPCHAIN_CREATE_SWAP_BAD_PRE_TRANSFORM,    // Called vkCreateSwapchainKHR() with a non-supported preTransform
     SWAPCHAIN_CREATE_SWAP_BAD_COMPOSITE_ALPHA,  // Called vkCreateSwapchainKHR() with a non-supported compositeAlpha
-    SWAPCHAIN_CREATE_SWAP_BAD_IMG_ARRAY_SIZE,   // Called vkCreateSwapchainKHR() with a non-supported imageArraySize
+    SWAPCHAIN_CREATE_SWAP_BAD_IMG_ARRAY_LAYERS, // Called vkCreateSwapchainKHR() with a non-supported imageArrayLayers
     SWAPCHAIN_CREATE_SWAP_BAD_IMG_USAGE_FLAGS,  // Called vkCreateSwapchainKHR() with a non-supported imageUsageFlags
     SWAPCHAIN_CREATE_SWAP_BAD_IMG_COLOR_SPACE,  // Called vkCreateSwapchainKHR() with a non-supported imageColorSpace
     SWAPCHAIN_CREATE_SWAP_BAD_IMG_FORMAT,       // Called vkCreateSwapchainKHR() with a non-supported imageFormat
@@ -74,6 +74,9 @@ enum SWAPCHAIN_ERROR {
     SWAPCHAIN_SURFACE_NOT_SUPPORTED_WITH_QUEUE, // A surface is not supported by a given queueFamilyIndex, as seen by
                                                 // vkGetPhysicalDeviceSurfaceSupportKHR()
     SWAPCHAIN_NO_SYNC_FOR_ACQUIRE,      // vkAcquireNextImageKHR should be called with a valid semaphore and/or fence
+    SWAPCHAIN_GET_SUPPORTED_DISPLAYS_WITHOUT_QUERY,     // vkGetDisplayPlaneSupportedDisplaysKHR should be called after querying 
+                                                        // device display plane properties
+    SWAPCHAIN_PLANE_INDEX_TOO_LARGE,    // a planeIndex value is larger than what vkGetDisplayPlaneSupportedDisplaysKHR returns
 };
 
 // The following is for logging error messages:
@@ -160,6 +163,9 @@ struct SwpInstance {
 
     // Set to true if VK_KHR_SURFACE_EXTENSION_NAME was enabled for this VkInstance:
     bool surfaceExtensionEnabled;
+
+    // Set to true if VK_KHR_DISPLAY_EXTENSION_NAME was enabled for this VkInstance:
+    bool displayExtensionEnabled;
 
 // TODO: Add additional booleans for platform-specific extensions:
 #ifdef VK_USE_PLATFORM_ANDROID_KHR
@@ -251,6 +257,10 @@ struct SwpPhysicalDevice {
     // Count and VkPresentModeKHR's returned by vkGetPhysicalDeviceSurfacePresentModesKHR():
     uint32_t presentModeCount;
     VkPresentModeKHR *pPresentModes;
+
+    // Count returned by vkGetPhysicalDeviceDisplayPlanePropertiesKHR():
+    uint32_t displayPlanePropertyCount;
+    bool gotDisplayPlanePropertyCount;
 };
 
 // Create one of these for each VkDevice within a VkInstance:

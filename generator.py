@@ -2573,9 +2573,9 @@ class ThreadOutputGenerator(OutputGenerator):
                                 limit = element[0:element.find('s[]')] + 'Count'
                                 dotp = limit.rfind('.p')
                                 limit = limit[0:dotp+1] + limit[dotp+2:dotp+3].lower() + limit[dotp+3:]
-                                paramdecl += '        for(uint32_t index2=0;index2<'+limit+';index2++)'
+                                paramdecl += '        for(uint32_t index2=0;index2<'+limit+';index2++)\n'
                                 element = element.replace('[]','[index2]')
-                            paramdecl += '        ' + functionprefix + 'WriteObject(my_data, ' + element + ');\n'
+                            paramdecl += '            ' + functionprefix + 'WriteObject(my_data, ' + element + ');\n'
                         paramdecl += '    }\n'
                     else:
                         # externsync can list members to synchronize
@@ -2601,7 +2601,7 @@ class ThreadOutputGenerator(OutputGenerator):
             for param in explicitexternsyncparams:
                 externsyncattrib = param.attrib.get('externsync')
                 paramname = param.find('name')
-                paramdecl += '// Host access to '
+                paramdecl += '    // Host access to '
                 if externsyncattrib == 'true':
                     if self.paramIsArray(param):
                         paramdecl += 'each member of ' + paramname.text
@@ -2810,12 +2810,19 @@ class ThreadOutputGenerator(OutputGenerator):
         else:
             assignresult = ''
 
-        self.appendSection('command', str(startthreadsafety))
+        self.appendSection('command', '    bool threadChecks = startMultiThread();')
+        self.appendSection('command', '    if (threadChecks) {')
+        self.appendSection('command', "    "+"\n    ".join(str(startthreadsafety).rstrip().split("\n")))
+        self.appendSection('command', '    }')
         params = cmdinfo.elem.findall('param/name')
         paramstext = ','.join([str(param.text) for param in params])
         API = cmdinfo.elem.attrib.get('name').replace('vk','pTable->',1)
         self.appendSection('command', '    ' + assignresult + API + '(' + paramstext + ');')
-        self.appendSection('command', str(finishthreadsafety))
+        self.appendSection('command', '    if (threadChecks) {')
+        self.appendSection('command', "    "+"\n    ".join(str(finishthreadsafety).rstrip().split("\n")))
+        self.appendSection('command', '    } else {')
+        self.appendSection('command', '        finishMultiThread();')
+        self.appendSection('command', '    }')
         # Return result variable, if any.
         if (resulttype != None):
             self.appendSection('command', '    return result;')
@@ -2863,6 +2870,8 @@ class ParamCheckerOutputGenerator(OutputGenerator):
             'vkDebugReportMessageEXT']
         # Validation conditions for some special case struct members that are conditionally validated
         self.structMemberValidationConditions = { 'VkPipelineColorBlendStateCreateInfo' : { 'logicOp' : '{}logicOpEnable == VK_TRUE' } }
+        # Header version
+        self.headerVersion = None
         # Internal state - accumulators for different inner block text
         self.sections = dict([(section, []) for section in self.ALL_SECTIONS])
         self.structNames = []                             # List of Vulkan struct typenames
@@ -2944,6 +2953,7 @@ class ParamCheckerOutputGenerator(OutputGenerator):
         # Accumulate includes, defines, types, enums, function pointer typedefs,
         # end function prototypes separately for this feature. They're only
         # printed in endFeature().
+        self.headerVersion = None
         self.sections = dict([(section, []) for section in self.ALL_SECTIONS])
         self.structNames = []
         self.stypes = []
@@ -2969,6 +2979,10 @@ class ParamCheckerOutputGenerator(OutputGenerator):
             self.processStructMemberData()
             # Generate the command parameter checking code from the captured data
             self.processCmdData()
+            # Write the declaration for the HeaderVersion
+            if self.headerVersion:
+                write('const uint32_t GeneratedHeaderVersion = {};'.format(self.headerVersion), file=self.outFile)
+                self.newline()
             # Write the declarations for the VkFlags values combining all flag bits
             for flag in sorted(self.flags):
                 flagBits = flag.replace('Flags', 'FlagBits')
@@ -3012,6 +3026,10 @@ class ParamCheckerOutputGenerator(OutputGenerator):
             self.handleTypes.add(name)
         elif (category == 'bitmask'):
             self.flags.add(name)
+        elif (category == 'define'):
+            if name == 'VK_HEADER_VERSION':
+                nameElem = typeElem.find('name')
+                self.headerVersion = noneStr(nameElem.tail).strip()
     #
     # Struct parameter check generation.
     # This is a special case of the <type> tag where the contents are
@@ -3413,7 +3431,7 @@ class ParamCheckerOutputGenerator(OutputGenerator):
             extStructCount = 'ARRAY_SIZE(allowedStructs)'
             extStructVar = 'allowedStructs'
             extStructNames = '"' + ', '.join(structs) + '"'
-        checkExpr.append('skipCall |= validate_struct_pnext(report_data, "{}", "{}", {}, {}{}, {}, {});\n'.format(
+        checkExpr.append('skipCall |= validate_struct_pnext(report_data, "{}", "{}", {}, {}{}, {}, {}, GeneratedHeaderVersion);\n'.format(
             funcPrintName, valuePrintName, extStructNames, prefix, value.name, extStructCount, extStructVar))
         return checkExpr
     #
@@ -3566,10 +3584,10 @@ class ParamCheckerOutputGenerator(OutputGenerator):
                             usedLines += self.makeStructNextCheck(valuePrefix, value, funcName, valueDisplayName)
                     else:
                         usedLines += self.makePointerCheck(valuePrefix, value, lenParam, req, cvReq, cpReq, funcName, lenDisplayName, valueDisplayName)
-                #
-                # If this is a pointer to a struct (input), see if it contains members that need to be checked
-                if value.type in self.validatedStructs and value.isconst:
-                    usedLines.append(self.expandStructPointerCode(valuePrefix, value, lenParam, funcName, valueDisplayName))
+                    #
+                    # If this is a pointer to a struct (input), see if it contains members that need to be checked
+                    if value.type in self.validatedStructs and value.isconst:
+                        usedLines.append(self.expandStructPointerCode(valuePrefix, value, lenParam, funcName, valueDisplayName))
             # Non-pointer types
             else:
                 #
@@ -3600,12 +3618,12 @@ class ParamCheckerOutputGenerator(OutputGenerator):
                     elif value.israngedenum:
                         enumRange = self.enumRanges[value.type]
                         usedLines.append('skipCall |= validate_ranged_enum(report_data, "{}", "{}", "{}", {}, {}, {}{});\n'.format(funcName, valueDisplayName, value.type, enumRange[0], enumRange[1], valuePrefix, value.name))
-                #
-                # If this is a pointer to a struct (input), see if it contains members that need to be checked
-                if value.type in self.validatedStructs:
-                    memberNamePrefix = '{}{}.'.format(valuePrefix, value.name)
-                    memberDisplayNamePrefix = '{}.'.format(valueDisplayName)
-                    usedLines.append(self.expandStructCode(self.validatedStructs[value.type], funcName, memberNamePrefix, memberDisplayNamePrefix, '', []))
+                    #
+                    # If this is a struct, see if it contains members that need to be checked
+                    if value.type in self.validatedStructs:
+                        memberNamePrefix = '{}{}.'.format(valuePrefix, value.name)
+                        memberDisplayNamePrefix = '{}.'.format(valueDisplayName)
+                        usedLines.append(self.expandStructCode(self.validatedStructs[value.type], funcName, memberNamePrefix, memberDisplayNamePrefix, '', []))
             #
             # Append the parameter check to the function body for the current command
             if usedLines:

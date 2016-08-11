@@ -54,22 +54,108 @@
 
 // Fwd declarations
 namespace cvdescriptorset {
+class DescriptorSetLayout;
 class DescriptorSet;
 };
 
+struct GLOBAL_CB_NODE;
+
 class BASE_NODE {
   public:
+    // Track when object is being used by an in-flight command buffer
     std::atomic_int in_use;
+    // Track command buffers that this object is bound to
+    //  binding initialized when cmd referencing object is bound to command buffer
+    //  binding removed when command buffer is reset or destroyed
+    // When an object is destroyed, any bound cbs are set to INVALID
+    std::unordered_set<GLOBAL_CB_NODE *> cb_bindings;
+};
+
+// Generic wrapper for vulkan objects
+struct VK_OBJECT {
+    uint64_t handle;
+    VkDebugReportObjectTypeEXT type;
+};
+
+inline bool operator==(VK_OBJECT a, VK_OBJECT b) NOEXCEPT { return a.handle == b.handle && a.type == b.type; }
+
+namespace std {
+template <> struct hash<VK_OBJECT> {
+    size_t operator()(VK_OBJECT obj) const NOEXCEPT { return hash<uint64_t>()(obj.handle) ^ hash<uint32_t>()(obj.type); }
+};
+}
+
+
+// Flags describing requirements imposed by the pipeline on a descriptor. These
+// can't be checked at pipeline creation time as they depend on the Image or
+// ImageView bound.
+enum descriptor_req {
+    DESCRIPTOR_REQ_VIEW_TYPE_1D = 1 << VK_IMAGE_VIEW_TYPE_1D,
+    DESCRIPTOR_REQ_VIEW_TYPE_1D_ARRAY = 1 << VK_IMAGE_VIEW_TYPE_1D_ARRAY,
+    DESCRIPTOR_REQ_VIEW_TYPE_2D = 1 << VK_IMAGE_VIEW_TYPE_2D,
+    DESCRIPTOR_REQ_VIEW_TYPE_2D_ARRAY = 1 << VK_IMAGE_VIEW_TYPE_2D_ARRAY,
+    DESCRIPTOR_REQ_VIEW_TYPE_3D = 1 << VK_IMAGE_VIEW_TYPE_3D,
+    DESCRIPTOR_REQ_VIEW_TYPE_CUBE = 1 << VK_IMAGE_VIEW_TYPE_CUBE,
+    DESCRIPTOR_REQ_VIEW_TYPE_CUBE_ARRAY = 1 << VK_IMAGE_VIEW_TYPE_CUBE_ARRAY,
+
+    DESCRIPTOR_REQ_SINGLE_SAMPLE = 2 << VK_IMAGE_VIEW_TYPE_END_RANGE,
+    DESCRIPTOR_REQ_MULTI_SAMPLE = DESCRIPTOR_REQ_SINGLE_SAMPLE << 1,
+};
+
+struct DESCRIPTOR_POOL_NODE {
+    VkDescriptorPool pool;
+    uint32_t maxSets;       // Max descriptor sets allowed in this pool
+    uint32_t availableSets; // Available descriptor sets in this pool
+
+    VkDescriptorPoolCreateInfo createInfo;
+    std::unordered_set<cvdescriptorset::DescriptorSet *> sets; // Collection of all sets in this pool
+    std::vector<uint32_t> maxDescriptorTypeCount;              // Max # of descriptors of each type in this pool
+    std::vector<uint32_t> availableDescriptorTypeCount;        // Available # of descriptors of each type in this pool
+
+    DESCRIPTOR_POOL_NODE(const VkDescriptorPool pool, const VkDescriptorPoolCreateInfo *pCreateInfo)
+        : pool(pool), maxSets(pCreateInfo->maxSets), availableSets(pCreateInfo->maxSets), createInfo(*pCreateInfo),
+          maxDescriptorTypeCount(VK_DESCRIPTOR_TYPE_RANGE_SIZE, 0), availableDescriptorTypeCount(VK_DESCRIPTOR_TYPE_RANGE_SIZE, 0) {
+        if (createInfo.poolSizeCount) { // Shadow type struct from ptr into local struct
+            size_t poolSizeCountSize = createInfo.poolSizeCount * sizeof(VkDescriptorPoolSize);
+            createInfo.pPoolSizes = new VkDescriptorPoolSize[poolSizeCountSize];
+            memcpy((void *)createInfo.pPoolSizes, pCreateInfo->pPoolSizes, poolSizeCountSize);
+            // Now set max counts for each descriptor type based on count of that type times maxSets
+            uint32_t i = 0;
+            for (i = 0; i < createInfo.poolSizeCount; ++i) {
+                uint32_t typeIndex = static_cast<uint32_t>(createInfo.pPoolSizes[i].type);
+                // Same descriptor types can appear several times
+                maxDescriptorTypeCount[typeIndex] += createInfo.pPoolSizes[i].descriptorCount;
+                availableDescriptorTypeCount[typeIndex] = maxDescriptorTypeCount[typeIndex];
+            }
+        } else {
+            createInfo.pPoolSizes = NULL; // Make sure this is NULL so we don't try to clean it up
+        }
+    }
+    ~DESCRIPTOR_POOL_NODE() {
+        delete[] createInfo.pPoolSizes;
+        // TODO : pSets are currently freed in deletePools function which uses freeShadowUpdateTree function
+        //  need to migrate that struct to smart ptrs for auto-cleanup
+    }
 };
 
 class BUFFER_NODE : public BASE_NODE {
   public:
     using BASE_NODE::in_use;
+    VkBuffer buffer;
     VkDeviceMemory mem;
+    VkDeviceSize memOffset;
+    VkDeviceSize memSize; // Note: may differ from createInfo::size
     VkBufferCreateInfo createInfo;
-    BUFFER_NODE() : mem(VK_NULL_HANDLE), createInfo{} { in_use.store(0); };
-    BUFFER_NODE(const VkBufferCreateInfo *pCreateInfo) : mem(VK_NULL_HANDLE), createInfo(*pCreateInfo) { in_use.store(0); };
-    BUFFER_NODE(const BUFFER_NODE &rh_obj) : mem(rh_obj.mem), createInfo(rh_obj.createInfo) { in_use.store(rh_obj.in_use.load()); };
+    BUFFER_NODE() : buffer(VK_NULL_HANDLE), mem(VK_NULL_HANDLE), memOffset(0), memSize(0), createInfo{} { in_use.store(0); };
+    BUFFER_NODE(VkBuffer buff, const VkBufferCreateInfo *pCreateInfo)
+        : buffer(buff), mem(VK_NULL_HANDLE), memOffset(0), memSize(0), createInfo(*pCreateInfo) {
+        in_use.store(0);
+    };
+    BUFFER_NODE(const BUFFER_NODE &rh_obj)
+        : buffer(rh_obj.buffer), mem(rh_obj.mem), memOffset(rh_obj.memOffset),
+          memSize(rh_obj.memSize), createInfo(rh_obj.createInfo) {
+        in_use.store(0);
+    };
 };
 
 struct SAMPLER_NODE {
@@ -82,24 +168,26 @@ struct SAMPLER_NODE {
 class IMAGE_NODE : public BASE_NODE {
   public:
     using BASE_NODE::in_use;
+    VkImage image;
     VkImageCreateInfo createInfo;
     VkDeviceMemory mem;
     bool valid; // If this is a swapchain image backing memory track valid here as it doesn't have DEVICE_MEM_INFO
     VkDeviceSize memOffset;
     VkDeviceSize memSize;
-    IMAGE_NODE() : createInfo{}, mem(VK_NULL_HANDLE), valid(false), memOffset(0), memSize(0) { in_use.store(0); };
-    IMAGE_NODE(const VkImageCreateInfo *pCreateInfo)
-        : createInfo(*pCreateInfo), mem(VK_NULL_HANDLE), valid(false), memOffset(0), memSize(0) {
+    IMAGE_NODE() : image(VK_NULL_HANDLE), createInfo{}, mem(VK_NULL_HANDLE), valid(false), memOffset(0), memSize(0) { in_use.store(0); };
+    IMAGE_NODE(VkImage img, const VkImageCreateInfo *pCreateInfo)
+        : image(img), createInfo(*pCreateInfo), mem(VK_NULL_HANDLE), valid(false), memOffset(0), memSize(0) {
         in_use.store(0);
     };
     IMAGE_NODE(const IMAGE_NODE &rh_obj)
-        : createInfo(rh_obj.createInfo), mem(rh_obj.mem), valid(rh_obj.valid), memOffset(rh_obj.memOffset),
+        : image(rh_obj.image), createInfo(rh_obj.createInfo), mem(rh_obj.mem), valid(rh_obj.valid), memOffset(rh_obj.memOffset),
           memSize(rh_obj.memSize) {
         in_use.store(rh_obj.in_use.load());
     };
 };
 
 // Simple struct to hold handle and type of object so they can be uniquely identified and looked up in appropriate map
+// TODO : Unify this with VK_OBJECT above
 struct MT_OBJ_HANDLE_TYPE {
     uint64_t handle;
     VkDebugReportObjectTypeEXT type;
@@ -128,16 +216,21 @@ struct MEMORY_RANGE {
 // Data struct for tracking memory object
 struct DEVICE_MEM_INFO {
     void *object; // Dispatchable object used to create this memory (device of swapchain)
-    bool valid;   // Stores if the memory has valid data or not
+    bool valid; // Stores if the color/depth/buffer memory has valid data or not
+    bool stencil_valid; // TODO: Stores if the stencil memory has valid data or not. The validity of this memory may ultimately need
+                        // to be tracked separately from the depth/stencil/buffer memory
     VkDeviceMemory mem;
-    VkMemoryAllocateInfo allocInfo;
-    std::unordered_set<MT_OBJ_HANDLE_TYPE> objBindings;        // objects bound to this memory
-    std::unordered_set<VkCommandBuffer> commandBufferBindings; // cmd buffers referencing this memory
-    std::vector<MEMORY_RANGE> bufferRanges;
-    std::vector<MEMORY_RANGE> imageRanges;
-    VkImage image; // If memory is bound to image, this will have VkImage handle, else VK_NULL_HANDLE
-    MemRange memRange;
-    void *pData, *pDriverData;
+    VkMemoryAllocateInfo alloc_info;
+    std::unordered_set<MT_OBJ_HANDLE_TYPE> obj_bindings;         // objects bound to this memory
+    std::unordered_set<VkCommandBuffer> command_buffer_bindings; // cmd buffers referencing this memory
+    std::vector<MEMORY_RANGE> buffer_ranges;
+    std::vector<MEMORY_RANGE> image_ranges;
+
+    MemRange mem_range;
+    void *p_data, *p_driver_data;
+    DEVICE_MEM_INFO(void *disp_object, const VkDeviceMemory in_mem, const VkMemoryAllocateInfo *p_alloc_info)
+        : object(disp_object), valid(false), stencil_valid(false), mem(in_mem), alloc_info(*p_alloc_info), mem_range{}, p_data(0),
+          p_driver_data(0){};
 };
 
 class SWAPCHAIN_NODE {
@@ -179,6 +272,8 @@ struct MT_PASS_ATTACHMENT_INFO {
     uint32_t attachment;
     VkAttachmentLoadOp load_op;
     VkAttachmentStoreOp store_op;
+    VkAttachmentLoadOp stencil_load_op;
+    VkAttachmentStoreOp stencil_store_op;
 };
 
 // Store the DAG.
@@ -304,9 +399,9 @@ enum CBStatusFlagBits {
     CBSTATUS_STENCIL_READ_MASK_SET  = 0x00000020,   // Stencil read mask has been set
     CBSTATUS_STENCIL_WRITE_MASK_SET = 0x00000040,   // Stencil write mask has been set
     CBSTATUS_STENCIL_REFERENCE_SET  = 0x00000080,   // Stencil reference has been set
-    CBSTATUS_INDEX_BUFFER_BOUND     = 0x00000100,   // Index buffer has been set
-    CBSTATUS_SCISSOR_SET            = 0x00000200,   // Scissor has been set
-    CBSTATUS_ALL                    = 0x000003FF,   // All dynamic state set
+    CBSTATUS_SCISSOR_SET            = 0x00000100,   // Scissor has been set
+    CBSTATUS_INDEX_BUFFER_BOUND     = 0x00000200,   // Index buffer has been set
+    CBSTATUS_ALL                    = 0x000001FF,   // All dynamic state set (intentionally exclude index buffer)
     // clang-format on
 };
 
@@ -357,10 +452,25 @@ template <> struct hash<ImageSubresourcePair> {
 };
 }
 
+// Store layouts and pushconstants for PipelineLayout
+struct PIPELINE_LAYOUT_NODE {
+    VkPipelineLayout layout;
+    std::vector<cvdescriptorset::DescriptorSetLayout const *> set_layouts;
+    std::vector<VkPushConstantRange> push_constant_ranges;
+
+    PIPELINE_LAYOUT_NODE() : layout(VK_NULL_HANDLE), set_layouts{}, push_constant_ranges{} {}
+
+    void reset() {
+        layout = VK_NULL_HANDLE;
+        set_layouts.clear();
+        push_constant_ranges.clear();
+    }
+};
+
 // Track last states that are bound per pipeline bind point (Gfx & Compute)
 struct LAST_BOUND_STATE {
     VkPipeline pipeline;
-    VkPipelineLayout pipelineLayout;
+    PIPELINE_LAYOUT_NODE pipeline_layout;
     // Track each set that has been bound
     // TODO : can unique be global per CB? (do we care about Gfx vs. Compute?)
     std::unordered_set<cvdescriptorset::DescriptorSet *> uniqueBoundSets;
@@ -371,7 +481,7 @@ struct LAST_BOUND_STATE {
 
     void reset() {
         pipeline = VK_NULL_HANDLE;
-        pipelineLayout = VK_NULL_HANDLE;
+        pipeline_layout.reset();
         uniqueBoundSets.clear();
         boundDescriptorSets.clear();
         dynamicOffsets.clear();
@@ -383,7 +493,6 @@ struct GLOBAL_CB_NODE : public BASE_NODE {
     VkCommandBufferAllocateInfo createInfo;
     VkCommandBufferBeginInfo beginInfo;
     VkCommandBufferInheritanceInfo inheritanceInfo;
-    // VkFence fence;                      // fence tracking this cmd buffer
     VkDevice device;                    // device this CB belongs to
     uint64_t numCmds;                   // number of cmds in this CB
     uint64_t drawCount[NUM_DRAW_TYPES]; // Count of each type of draw in this CB
@@ -397,27 +506,21 @@ struct GLOBAL_CB_NODE : public BASE_NODE {
     // Store last bound state for Gfx & Compute pipeline bind points
     LAST_BOUND_STATE lastBound[VK_PIPELINE_BIND_POINT_RANGE_SIZE];
 
-    std::vector<VkViewport> viewports;
-    std::vector<VkRect2D> scissors;
+    uint32_t viewportMask;
+    uint32_t scissorMask;
     VkRenderPassBeginInfo activeRenderPassBeginInfo;
-    uint64_t fenceId;
-    VkFence lastSubmittedFence;
-    VkQueue lastSubmittedQueue;
     RENDER_PASS_NODE *activeRenderPass;
     VkSubpassContents activeSubpassContents;
     uint32_t activeSubpass;
     VkFramebuffer activeFramebuffer;
     std::unordered_set<VkFramebuffer> framebuffers;
-    // Track descriptor sets that are destroyed or updated while bound to CB
-    // TODO : These data structures relate to tracking resources that invalidate
-    //  a cmd buffer that references them. Need to unify how we handle these
-    //  cases so we don't have different tracking data for each type.
-    std::unordered_set<cvdescriptorset::DescriptorSet *> destroyedSets;
-    std::unordered_set<cvdescriptorset::DescriptorSet *> updatedSets;
-    std::unordered_set<VkFramebuffer> destroyedFramebuffers;
+    // Unified data structs to track objects bound to this command buffer as well as object
+    //  dependencies that have been broken : either destroyed objects, or updated descriptor sets
+    std::unordered_set<VK_OBJECT> object_bindings;
+    std::vector<VK_OBJECT> broken_bindings;
+
     std::unordered_set<VkEvent> waitedEvents;
     std::vector<VkEvent> writeEventsBeforeWait;
-    std::vector<VkSemaphore> semaphores;
     std::vector<VkEvent> events;
     std::unordered_map<QueryObject, std::unordered_set<VkEvent>> waitedEventsBeforeQueryReset;
     std::unordered_map<QueryObject, bool> queryToStateMap; // 0 is unavailable, 1 is available
@@ -443,5 +546,31 @@ struct GLOBAL_CB_NODE : public BASE_NODE {
 
     ~GLOBAL_CB_NODE();
 };
+
+struct CB_SUBMISSION {
+    CB_SUBMISSION(std::vector<VkCommandBuffer> const &cbs, std::vector<VkSemaphore> const &semaphores)
+        : cbs(cbs), semaphores(semaphores) {}
+
+    std::vector<VkCommandBuffer> cbs;
+    std::vector<VkSemaphore> semaphores;
+};
+
+// Fwd declarations of layer_data and helpers to look-up/validate state from layer_data maps
+namespace core_validation {
+struct layer_data;
+cvdescriptorset::DescriptorSet *getSetNode(const layer_data *, VkDescriptorSet);
+cvdescriptorset::DescriptorSetLayout const *getDescriptorSetLayout(layer_data const *, VkDescriptorSetLayout);
+DESCRIPTOR_POOL_NODE *getPoolNode(const layer_data *, const VkDescriptorPool);
+BUFFER_NODE *getBufferNode(const layer_data *, VkBuffer);
+IMAGE_NODE *getImageNode(const layer_data *, VkImage);
+DEVICE_MEM_INFO *getMemObjInfo(const layer_data *, VkDeviceMemory);
+VkBufferViewCreateInfo *getBufferViewInfo(const layer_data *, VkBufferView);
+SAMPLER_NODE *getSamplerNode(const layer_data *, VkSampler);
+VkImageViewCreateInfo *getImageViewData(const layer_data *, VkImageView);
+VkSwapchainKHR getSwapchainFromImage(const layer_data *, VkImage);
+SWAPCHAIN_NODE *getSwapchainNode(const layer_data *, VkSwapchainKHR);
+void invalidateCommandBuffers(std::unordered_set<GLOBAL_CB_NODE *>, VK_OBJECT);
+bool ValidateMemoryIsBoundToBuffer(const layer_data *, const BUFFER_NODE *, const char *);
+}
 
 #endif // CORE_VALIDATION_TYPES_H_

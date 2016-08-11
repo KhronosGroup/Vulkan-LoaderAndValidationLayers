@@ -39,6 +39,8 @@ enum MEM_TRACK_ERROR {
     MEMTRACK_REBIND_OBJECT,                // Non-sparse object bindings are immutable
     MEMTRACK_INVALID_USAGE_FLAG,           // Usage flags specified at image/buffer create conflict w/ use of object
     MEMTRACK_INVALID_MAP,                  // Size flag specified at alloc is too small for mapping range
+    MEMTRACK_INVALID_MEM_TYPE,             // Memory Type mismatch
+    MEMTRACK_OBJECT_NOT_BOUND,             // Image or Buffer used without having memory bound to it
 };
 
 // Draw State ERROR codes
@@ -48,13 +50,11 @@ enum DRAW_STATE_ERROR {
     DRAWSTATE_NONE,                          // Used for INFO & other non-error messages
     DRAWSTATE_INTERNAL_ERROR,                // Error with DrawState internal data structures
     DRAWSTATE_NO_PIPELINE_BOUND,             // Unable to identify a bound pipeline
-    DRAWSTATE_INVALID_POOL,                  // Invalid DS pool
     DRAWSTATE_INVALID_SET,                   // Invalid DS
     DRAWSTATE_INVALID_RENDER_AREA,           // Invalid renderArea
     DRAWSTATE_INVALID_LAYOUT,                // Invalid DS layout
     DRAWSTATE_INVALID_IMAGE_LAYOUT,          // Invalid Image layout
     DRAWSTATE_INVALID_PIPELINE,              // Invalid Pipeline handle referenced
-    DRAWSTATE_INVALID_PIPELINE_LAYOUT,       // Invalid PipelineLayout
     DRAWSTATE_INVALID_PIPELINE_CREATE_STATE, // Attempt to create a pipeline
                                              // with invalid state
     DRAWSTATE_INVALID_COMMAND_BUFFER,        // Invalid CommandBuffer referenced
@@ -62,7 +62,6 @@ enum DRAW_STATE_ERROR {
     DRAWSTATE_INVALID_BUFFER,                // Invalid Buffer
     DRAWSTATE_INVALID_QUERY,                 // Invalid Query
     DRAWSTATE_INVALID_FENCE,                 // Invalid Fence
-    DRAWSTATE_INVALID_SEMAPHORE,             // Invalid Semaphore
     DRAWSTATE_INVALID_EVENT,                 // Invalid Event
     DRAWSTATE_VTX_INDEX_OUT_OF_BOUNDS,       // binding in vkCmdBindVertexData() too
                                              // large for PSO's
@@ -88,8 +87,10 @@ enum DRAW_STATE_ERROR {
     DRAWSTATE_CANT_FREE_FROM_NON_FREE_POOL,           // Invalid to call
                                                       // vkFreeDescriptorSets on Sets
                                                       // allocated from a NON_FREE Pool
-    DRAWSTATE_INVALID_UPDATE_INDEX,                   // Index of requested update is invalid for
-                                                      // specified descriptors set
+    DRAWSTATE_INVALID_WRITE_UPDATE,                   // Attempting a write update to a descriptor
+                                                      // set with invalid update state
+    DRAWSTATE_INVALID_COPY_UPDATE,                    // Attempting copy update to a descriptor set
+                                                      // with invalid state
     DRAWSTATE_INVALID_UPDATE_STRUCT,                  // Struct in DS Update tree is of invalid
                                                       // type
     DRAWSTATE_NUM_SAMPLES_MISMATCH,                   // Number of samples in bound PSO does not
@@ -130,12 +131,17 @@ enum DRAW_STATE_ERROR {
     DRAWSTATE_FRAMEBUFFER_INCOMPATIBLE,         // Incompatible framebuffer between
                                                 // secondary cmdBuffer and active
                                                 // renderPass
+    DRAWSTATE_INVALID_FRAMEBUFFER_CREATE_INFO,  // Invalid VkFramebufferCreateInfo state
     DRAWSTATE_INVALID_RENDERPASS,               // Use of a NULL or otherwise invalid
                                                 // RenderPass object
     DRAWSTATE_INVALID_RENDERPASS_CMD,           // Invalid cmd submitted while a
                                                 // RenderPass is active
     DRAWSTATE_NO_ACTIVE_RENDERPASS,             // Rendering cmd submitted without an active
                                                 // RenderPass
+    DRAWSTATE_INVALID_IMAGE_USAGE,              // Image attachment location conflicts with
+                                                // image's USAGE flags
+    DRAWSTATE_INVALID_ATTACHMENT_INDEX,         // Attachment reference contains an index
+                                                // that is out-of-bounds
     DRAWSTATE_DESCRIPTOR_SET_NOT_UPDATED,       // DescriptorSet bound but it was
                                                 // never updated. This is a warning
                                                 // code.
@@ -213,9 +219,12 @@ enum DRAW_STATE_ERROR {
                                              // must be a valid VkLogicOp value
     DRAWSTATE_INVALID_QUEUE_INDEX,           // Specified queue index exceeds number
                                              // of queried queue families
+    DRAWSTATE_INVALID_QUEUE_FAMILY,          // Command buffer submitted on queue is from
+                                             // a different queue family
     DRAWSTATE_PUSH_CONSTANTS_ERROR,          // Push constants exceed maxPushConstantSize
 };
 
+// Shader Checker ERROR codes
 enum SHADER_CHECKER_ERROR {
     SHADER_CHECKER_NONE,
     SHADER_CHECKER_INTERFACE_TYPE_MISMATCH,    // Type mismatch between shader stages or shader and pipeline
@@ -236,4 +245,15 @@ enum SHADER_CHECKER_ERROR {
     SHADER_CHECKER_BAD_CAPABILITY,                          // Shader uses capability not supported by Vulkan (OpenCL features)
 };
 
+// Device Limits ERROR codes
+enum DEV_LIMITS_ERROR {
+    DEVLIMITS_NONE,                          // Used for INFO & other non-error messages
+    DEVLIMITS_INVALID_INSTANCE,              // Invalid instance used
+    DEVLIMITS_INVALID_PHYSICAL_DEVICE,       // Invalid physical device used
+    DEVLIMITS_MISSING_QUERY_COUNT,           // Did not make initial call to an API to query the count
+    DEVLIMITS_MUST_QUERY_COUNT,              // Failed to make initial call to an API to query the count
+    DEVLIMITS_INVALID_FEATURE_REQUESTED,     // App requested a feature not supported by physical device
+    DEVLIMITS_COUNT_MISMATCH,                // App requesting a count value different than actual value
+    DEVLIMITS_INVALID_QUEUE_CREATE_REQUEST,  // Invalid queue requested based on queue family properties
+};
 #endif // CORE_VALIDATION_ERROR_ENUMS_H_

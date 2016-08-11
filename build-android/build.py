@@ -20,8 +20,44 @@ import multiprocessing
 import os
 import subprocess
 import sys
+import shutil
 
 from subprocess import PIPE, STDOUT
+
+def install_file(file_name, src_dir, dst_dir):
+    src_file = os.path.join(src_dir, file_name)
+    dst_file = os.path.join(dst_dir, file_name)
+
+    print('Copying {} to {}...'.format(src_file, dst_file))
+    if os.path.isdir(src_file):
+        _install_dir(src_file, dst_file)
+    elif os.path.islink(src_file):
+        _install_symlink(src_file, dst_file)
+    else:
+        _install_file(src_file, dst_file)
+
+
+def _install_dir(src_dir, dst_dir):
+    parent_dir = os.path.normpath(os.path.join(dst_dir, '..'))
+    if not os.path.exists(parent_dir):
+        os.makedirs(parent_dir)
+    shutil.copytree(src_dir, dst_dir, symlinks=True)
+
+
+def _install_symlink(src_file, dst_file):
+    dirname = os.path.dirname(dst_file)
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
+    link_target = os.readlink(src_file)
+    os.symlink(link_target, dst_file)
+
+
+def _install_file(src_file, dst_file):
+    dirname = os.path.dirname(dst_file)
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
+    # copy2 is just copy followed by copystat (preserves file metadata).
+    shutil.copy2(src_file, dst_file)
 
 THIS_DIR = os.path.realpath(os.path.dirname(__file__))
 
@@ -82,8 +118,6 @@ class ArgParser(argparse.ArgumentParser):
 
 
 def main():
-  print('Constructing Vulkan validation layer source...')
-
   print('THIS_DIR: %s' % THIS_DIR)
   parser = ArgParser()
   args = parser.parse_args()
@@ -103,8 +137,8 @@ def main():
   for arch in arches:
     abis.extend(arch_to_abis(arch))
 
-  shaderc_dir = THIS_DIR + '/../../shaderc/shaderc/android_test'
-  print('shaderc_dir = %s' % shaderc_dir)
+  shaderc_path = installdir + '/shaderc/android_test'
+  print('shaderc_path = %s' % shaderc_path)
 
   if os.path.isdir('/buildbot/android-ndk'):
     ndk_dir = '/buildbot/android-ndk'
@@ -132,9 +166,92 @@ def main():
   print('obj_out: %s' % obj_out)
   print('lib_out: %s' % lib_out)
 
+  print('Constructing shaderc build tree...')
+  shaderc_root_dir = os.path.join(THIS_DIR, '../../shaderc')
+
+  copies = [
+      {
+          'source_dir': os.path.join(shaderc_root_dir, 'shaderc'),
+          'dest_dir': 'shaderc',
+          'files': [
+              'Android.mk', 'libshaderc/Android.mk',
+              'libshaderc_util/Android.mk',
+              'third_party/Android.mk',
+              'utils/update_build_version.py',
+              'CHANGES',
+          ],
+          'dirs': [
+              'libshaderc/include', 'libshaderc/src',
+              'libshaderc_util/include', 'libshaderc_util/src',
+              'android_test'
+          ],
+      },
+      {
+          'source_dir': os.path.join(shaderc_root_dir, 'spirv-tools'),
+          'dest_dir': 'shaderc/third_party/spirv-tools',
+          'files': [
+              'utils/generate_grammar_tables.py',
+              'utils/update_build_version.py',
+              'CHANGES',
+          ],
+          'dirs': ['include', 'source'],
+      },
+      {
+          'source_dir': os.path.join(shaderc_root_dir, 'spirv-headers'),
+          'dest_dir':
+              'shaderc/third_party/spirv-tools/external/spirv-headers',
+          'dirs': ['include',],
+          'files': [
+              'include/spirv/1.0/spirv.py',
+              'include/spirv/1.1/spirv.py'
+          ],
+      },
+      {
+          'source_dir': os.path.join(shaderc_root_dir, 'glslang'),
+          'dest_dir': 'shaderc/third_party/glslang',
+          'files': ['glslang/OSDependent/osinclude.h'],
+          'dirs': [
+              'SPIRV',
+              'OGLCompilersDLL',
+              'glslang/GenericCodeGen',
+              'hlsl',
+              'glslang/Include',
+              'glslang/MachineIndependent',
+              'glslang/OSDependent/Unix',
+              'glslang/Public',
+          ],
+      },
+  ]
+
+  default_ignore_patterns = shutil.ignore_patterns(
+      "*CMakeLists.txt",
+      "*.py",
+      "*test.h",
+      "*test.cc")
+
+  for properties in copies:
+      source_dir = properties['source_dir']
+      dest_dir = os.path.join(installdir, properties['dest_dir'])
+      for d in properties['dirs']:
+          src = os.path.join(source_dir, d)
+          dst = os.path.join(dest_dir, d)
+          print(src, " -> ", dst)
+          shutil.copytree(src, dst,
+                          ignore=default_ignore_patterns)
+      for f in properties['files']:
+          print(source_dir, ':', dest_dir, ":", f)
+          # Only copy if the source file exists.  That way
+          # we can update this script in anticipation of
+          # source files yet-to-come.
+          if os.path.exists(os.path.join(source_dir, f)):
+              install_file(f, source_dir, dest_dir)
+          else:
+              print(source_dir, ':', dest_dir, ":", f, "SKIPPED")
+
   print('Building shader toolchain...')
   build_cmd = [
-    'bash', ndk_build, '-C', shaderc_dir, jobs_arg(),
+    'bash', ndk_build, '-C', shaderc_path,
+    jobs_arg(),
     'APP_ABI=' + ' '.join(abis),
     # Use the prebuilt platforms and toolchains.
     'NDK_PLATFORMS_ROOT=' + platforms_root,
@@ -146,19 +263,22 @@ def main():
     # typical ndk-build layout with a jni/{Android,Application}.mk.
     'NDK_PROJECT_PATH=null',
     'NDK_TOOLCHAIN_VERSION=' + compiler,
-    'APP_BUILD_SCRIPT=' + os.path.join(shaderc_dir, 'jni', 'Android.mk'),
+    'APP_BUILD_SCRIPT=' + os.path.join(shaderc_path, 'jni', 'Android.mk'),
     'APP_STL=' + stl,
-    'NDK_APPLICATION_MK=' + os.path.join(shaderc_dir, 'jni', 'Application.mk'),
-    'NDK_OUT=' + os.path.join(shaderc_dir, 'obj'),
-    'NDK_LIBS_OUT=' + os.path.join(shaderc_dir, 'jniLibs'),
-    'THIRD_PARTY_PATH=../..',
+    'NDK_APPLICATION_MK=' + os.path.join(shaderc_path, 'jni', 'Application.mk'),
+    'NDK_OUT=' + os.path.join(shaderc_path, 'obj'),
+    'NDK_LIBS_OUT=' + os.path.join(shaderc_path, 'jniLibs'),
+    'THIRD_PARTY_PATH=../third_party',
 
     # Put armeabi-v7a-hard in its own directory.
     '_NDK_TESTING_ALL_=yes'
   ]
+  print(' '.join(build_cmd))
 
   subprocess.check_call(build_cmd)
   print('Finished shader toolchain build')
+
+  print('Constructing Vulkan validation layer source...')
 
   build_cmd = [
     'bash', THIS_DIR + '/android-generate.sh'
@@ -169,7 +289,8 @@ def main():
 
 
   build_cmd = [
-    'bash', ndk_build, '-C', build_dir, jobs_arg(),
+    'bash', ndk_build, '-C', build_dir,
+    jobs_arg(),
     'APP_ABI=' + ' '.join(abis),
     # Use the prebuilt platforms and toolchains.
     'NDK_PLATFORMS_ROOT=' + platforms_root,
@@ -187,6 +308,8 @@ def main():
     'NDK_OUT=' + obj_out,
     'NDK_LIBS_OUT=' + lib_out,
     'THIRD_PARTY_PATH=',
+    'SHADERC_OBJ_PATH=' + shaderc_path + '/obj',
+    'EXTERNAL_INCLUDE_PATH=' + installdir + '/shaderc',
 
     # Put armeabi-v7a-hard in its own directory.
     '_NDK_TESTING_ALL_=yes'
@@ -194,6 +317,8 @@ def main():
 
   print('Building Vulkan validation layers for ABIs:' +
     ' {}'.format(', '.join(abis)))
+  print(' '.join(build_cmd))
+
   subprocess.check_call(build_cmd)
 
   print('Finished building Vulkan validation layers')

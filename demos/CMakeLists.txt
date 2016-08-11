@@ -1,6 +1,13 @@
 if(NOT WIN32)
-    find_package(XCB REQUIRED)
-    find_package(X11 REQUIRED)
+    if (BUILD_WSI_XCB_SUPPORT)
+        find_package(XCB REQUIRED)
+    endif()
+    if (BUILD_WSI_XLIB_SUPPORT)
+        find_package(X11 REQUIRED)
+    endif()
+    if (BUILD_WSI_WAYLAND_SUPPORT)
+        find_package(Wayland REQUIRED)
+    endif()
 endif()
 
 file(GLOB TEXTURES
@@ -28,8 +35,13 @@ if(WIN32)
         set (BUILDTGT_DIR build32)
     endif()
 
-    set(CMAKE_C_FLAGS_DEBUG "-MTd")
-    set(CMAKE_C_FLAGS_RELEASE "-MT")
+    # Use static MSVCRT libraries
+    foreach(configuration in CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELEASE CMAKE_C_FLAGS_RELWITHDEBINFO
+                             CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELEASE CMAKE_CXX_FLAGS_RELWITHDEBINFO)
+        if(${configuration} MATCHES "/MD")
+            string(REGEX REPLACE "/MD" "/MT" ${configuration} "${${configuration}}")
+        endif()
+    endforeach()
 
     add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/demos/tri-vert.spv
        COMMAND ${GLSLANG_VALIDATOR} -s -V ${PROJECT_SOURCE_DIR}/demos/tri.vert
@@ -75,12 +87,21 @@ else()
 endif()
 
 if(NOT WIN32)
-    include_directories (
-       ${XCB_INCLUDE_DIRS}
-       ${X11_INCLUDE_DIRS}
-       "${PROJECT_SOURCE_DIR}/icd/common"
-       )
-    link_libraries(${XCB_LIBRARIES} ${X11_LIBRARIES} vulkan m)
+    if(BUILD_WSI_XCB_SUPPORT)
+        include_directories(${XCB_INCLUDE_DIRS})
+        link_libraries(${XCB_LIBRARIES})
+    endif()
+    if(BUILD_WSI_XLIB_SUPPORT)
+        include_directories(${X11_INCLUDE_DIRS})
+        link_libraries(${X11_LIBRARIES})
+    endif()
+    if(BUILD_WSI_WAYLAND_SUPPORT)
+        include_directories(${WAYLAND_CLIENT_INCLUDE_DIR})
+        link_libraries(${WAYLAND_CLIENT_LIBRARIES})
+    endif()
+
+    include_directories ("${PROJECT_SOURCE_DIR}/icd/common")
+    link_libraries(vulkan m)
 endif()
 if(WIN32)
     include_directories (

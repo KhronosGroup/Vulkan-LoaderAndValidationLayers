@@ -26,7 +26,6 @@ python ../vk-generate.py Android dispatch-table-ops layer > generated/include/vk
 python ../vk_helper.py --gen_enum_string_helper ../include/vulkan/vulkan.h --abs_out_dir generated/include
 python ../vk_helper.py --gen_struct_wrappers ../include/vulkan/vulkan.h --abs_out_dir generated/include
 
-python ../vk-layer-generate.py Android object_tracker ../include/vulkan/vulkan.h > generated/include/object_tracker.cpp
 python ../vk-layer-generate.py Android unique_objects ../include/vulkan/vulkan.h > generated/include/unique_objects.cpp
 ( cd generated/include; python ../../../genvk.py threading -registry ../../../vk.xml thread_check.h )
 ( cd generated/include; python ../../../genvk.py paramchecker -registry ../../../vk.xml parameter_validation.h )
@@ -40,8 +39,8 @@ cp -f ../layers/descriptor_sets.cpp   generated/common/
 # layer names and their original source files directory
 # 1 to 1 correspondence -- one layer one source file; additional files are copied
 # at fixup step
-declare layers=(core_validation device_limits image object_tracker parameter_validation swapchain threading unique_objects)
-declare src_dirs=(../layers ../layers ../layers generated/include ../layers ../layers ../layers generated/include)
+declare layers=(core_validation image object_tracker parameter_validation swapchain threading unique_objects)
+declare src_dirs=(../layers ../layers ../layers ../layers ../layers ../layers generated/include)
 
 SRC_ROOT=generated/layer-src
 BUILD_ROOT=generated/gradle-build
@@ -65,7 +64,6 @@ cp  generated/include/vk_safe_struct.cpp ${SRC_ROOT}/core_validation/vk_safe_str
 mv  generated/include/vk_safe_struct.cpp ${SRC_ROOT}/unique_objects/vk_safe_struct.cpp
 
 # fixup - remove copied files from generated/include
-rm  generated/include/object_tracker.cpp
 rm  generated/include/unique_objects.cpp
 
 exit 0

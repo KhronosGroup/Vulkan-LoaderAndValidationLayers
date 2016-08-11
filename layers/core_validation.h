@@ -125,14 +125,7 @@ struct IMAGE_LAYOUT_NODE {
     VkFormat format;
 };
 
-// Store layouts and pushconstants for PipelineLayout
-struct PIPELINE_LAYOUT_NODE {
-    std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
-    std::vector<cvdescriptorset::DescriptorSetLayout const *> setLayouts;
-    std::vector<VkPushConstantRange> pushConstantRanges;
-};
-
-class PIPELINE_NODE {
+class PIPELINE_NODE : public BASE_NODE {
   public:
     VkPipeline pipeline;
     safe_VkGraphicsPipelineCreateInfo graphicsPipelineCI;
@@ -141,19 +134,21 @@ class PIPELINE_NODE {
     uint32_t active_shaders;
     uint32_t duplicate_shaders;
     // Capture which slots (set#->bindings) are actually used by the shaders of this pipeline
-    std::unordered_map<uint32_t, std::unordered_set<uint32_t>> active_slots;
+    std::unordered_map<uint32_t, std::unordered_map<uint32_t, descriptor_req>> active_slots;
     // Vtx input info (if any)
     std::vector<VkVertexInputBindingDescription> vertexBindingDescriptions;
     std::vector<VkVertexInputAttributeDescription> vertexAttributeDescriptions;
     std::vector<VkPipelineColorBlendAttachmentState> attachments;
     bool blendConstantsEnabled; // Blend constants enabled for any attachments
-    RENDER_PASS_NODE *renderPass;
-    PIPELINE_LAYOUT_NODE const *pipelineLayout;
+    // Store RPCI b/c renderPass may be destroyed after Pipeline creation
+    safe_VkRenderPassCreateInfo render_pass_ci;
+    PIPELINE_LAYOUT_NODE pipeline_layout;
 
     // Default constructor
     PIPELINE_NODE()
-        : pipeline{}, graphicsPipelineCI{}, computePipelineCI{}, active_shaders(0), duplicate_shaders(0), active_slots(), vertexBindingDescriptions(),
-          vertexAttributeDescriptions(), attachments(), blendConstantsEnabled(false), renderPass(nullptr), pipelineLayout(nullptr) {}
+        : pipeline{}, graphicsPipelineCI{}, computePipelineCI{}, active_shaders(0), duplicate_shaders(0), active_slots(),
+          vertexBindingDescriptions(), vertexAttributeDescriptions(), attachments(), blendConstantsEnabled(false), render_pass_ci(),
+          pipeline_layout() {}
 
     void initGraphicsPipeline(const VkGraphicsPipelineCreateInfo *pCreateInfo) {
         graphicsPipelineCI.initialize(pCreateInfo);
@@ -208,20 +203,19 @@ class PHYS_DEV_PROPERTIES_NODE {
     std::vector<VkQueueFamilyProperties> queue_family_properties;
 };
 
-class FENCE_NODE : public BASE_NODE {
-  public:
-    using BASE_NODE::in_use;
+enum FENCE_STATE { FENCE_UNSIGNALED, FENCE_INFLIGHT, FENCE_RETIRED };
 
-    VkSwapchainKHR swapchain; // Swapchain that this fence is submitted against or NULL
-    bool firstTimeFlag;       // Fence was created in signaled state, avoid warnings for first use
+class FENCE_NODE {
+  public:
+    VkFence fence;
     VkFenceCreateInfo createInfo;
     std::unordered_set<VkQueue> queues;
-    std::vector<VkCommandBuffer> cmdBuffers;
-    bool needsSignaled;
+    std::vector<CB_SUBMISSION> submissions;
     std::vector<VkFence> priorFences;
+    FENCE_STATE state;
 
     // Default constructor
-    FENCE_NODE() : swapchain(VK_NULL_HANDLE), firstTimeFlag(false), needsSignaled(false){};
+    FENCE_NODE() : state(FENCE_UNSIGNALED) {}
 };
 
 class SEMAPHORE_NODE : public BASE_NODE {
@@ -241,14 +235,10 @@ class EVENT_NODE : public BASE_NODE {
 
 class QUEUE_NODE {
   public:
-    VkDevice device;
+    VkQueue queue;
+    uint32_t queueFamilyIndex;
     std::vector<VkFence> lastFences;
-#if MTMERGE
-    // MTMTODO : merge cmd_buffer data structs here
-    std::list<VkCommandBuffer> pQueueCommandBuffers;
-    std::list<VkDeviceMemory> pMemRefList;
-#endif
-    std::vector<VkCommandBuffer> untrackedCmdBuffers;
+    std::vector<CB_SUBMISSION> untrackedSubmissions;
     std::unordered_map<VkEvent, VkPipelineStageFlags> eventToStageMap;
     std::unordered_map<QueryObject, bool> queryToStateMap; // 0 is unavailable, 1 is available
 };
@@ -258,47 +248,17 @@ class QUERY_POOL_NODE : public BASE_NODE {
     VkQueryPoolCreateInfo createInfo;
 };
 
-class FRAMEBUFFER_NODE {
+class FRAMEBUFFER_NODE : BASE_NODE {
   public:
-    VkFramebufferCreateInfo createInfo;
+    using BASE_NODE::in_use;
+    using BASE_NODE::cb_bindings;
+    VkFramebuffer framebuffer;
+    safe_VkFramebufferCreateInfo createInfo;
+    safe_VkRenderPassCreateInfo renderPassCreateInfo;
     std::unordered_set<VkCommandBuffer> referencingCmdBuffers;
     std::vector<MT_FB_ATTACHMENT_INFO> attachments;
-};
-
-struct DESCRIPTOR_POOL_NODE {
-    VkDescriptorPool pool;
-    uint32_t maxSets;                              // Max descriptor sets allowed in this pool
-    uint32_t availableSets;                        // Available descriptor sets in this pool
-
-    VkDescriptorPoolCreateInfo createInfo;
-    std::unordered_set<cvdescriptorset::DescriptorSet *> sets; // Collection of all sets in this pool
-    std::vector<uint32_t> maxDescriptorTypeCount;       // Max # of descriptors of each type in this pool
-    std::vector<uint32_t> availableDescriptorTypeCount; // Available # of descriptors of each type in this pool
-
-    DESCRIPTOR_POOL_NODE(const VkDescriptorPool pool, const VkDescriptorPoolCreateInfo *pCreateInfo)
-        : pool(pool), maxSets(pCreateInfo->maxSets), availableSets(pCreateInfo->maxSets), createInfo(*pCreateInfo),
-          maxDescriptorTypeCount(VK_DESCRIPTOR_TYPE_RANGE_SIZE, 0), availableDescriptorTypeCount(VK_DESCRIPTOR_TYPE_RANGE_SIZE, 0) {
-        if (createInfo.poolSizeCount) { // Shadow type struct from ptr into local struct
-            size_t poolSizeCountSize = createInfo.poolSizeCount * sizeof(VkDescriptorPoolSize);
-            createInfo.pPoolSizes = new VkDescriptorPoolSize[poolSizeCountSize];
-            memcpy((void *)createInfo.pPoolSizes, pCreateInfo->pPoolSizes, poolSizeCountSize);
-            // Now set max counts for each descriptor type based on count of that type times maxSets
-            uint32_t i = 0;
-            for (i = 0; i < createInfo.poolSizeCount; ++i) {
-                uint32_t typeIndex = static_cast<uint32_t>(createInfo.pPoolSizes[i].type);
-                // Same descriptor types can appear several times
-                maxDescriptorTypeCount[typeIndex] += createInfo.pPoolSizes[i].descriptorCount;
-                availableDescriptorTypeCount[typeIndex] = maxDescriptorTypeCount[typeIndex];
-            }
-        } else {
-            createInfo.pPoolSizes = NULL; // Make sure this is NULL so we don't try to clean it up
-        }
-    }
-    ~DESCRIPTOR_POOL_NODE() {
-        delete[] createInfo.pPoolSizes;
-        // TODO : pSets are currently freed in deletePools function which uses freeShadowUpdateTree function
-        //  need to migrate that struct to smart ptrs for auto-cleanup
-    }
+    FRAMEBUFFER_NODE(VkFramebuffer fb, const VkFramebufferCreateInfo *pCreateInfo, const VkRenderPassCreateInfo *pRPCI)
+        : framebuffer(fb), createInfo(pCreateInfo), renderPassCreateInfo(pRPCI){};
 };
 
 typedef struct stencil_data {
@@ -306,3 +266,39 @@ typedef struct stencil_data {
     uint32_t writeMask;
     uint32_t reference;
 } CBStencilData;
+
+// Track command pools and their command buffers
+struct COMMAND_POOL_NODE {
+    VkCommandPoolCreateFlags createFlags;
+    uint32_t queueFamilyIndex;
+    // TODO: why is this std::list?
+    std::list<VkCommandBuffer> commandBuffers; // container of cmd buffers allocated from this pool
+};
+
+// Stuff from Device Limits Layer
+enum CALL_STATE {
+    UNCALLED,      // Function has not been called
+    QUERY_COUNT,   // Function called once to query a count
+    QUERY_DETAILS, // Function called w/ a count to query details
+};
+
+struct INSTANCE_STATE {
+    // Track the call state and array size for physical devices
+    CALL_STATE vkEnumeratePhysicalDevicesState;
+    uint32_t physical_devices_count;
+    INSTANCE_STATE() : vkEnumeratePhysicalDevicesState(UNCALLED), physical_devices_count(0) {};
+};
+
+struct PHYSICAL_DEVICE_STATE {
+    // Track the call state and array sizes for various query functions
+    CALL_STATE vkGetPhysicalDeviceQueueFamilyPropertiesState;
+    uint32_t queueFamilyPropertiesCount;
+    CALL_STATE vkGetPhysicalDeviceLayerPropertiesState;
+    CALL_STATE vkGetPhysicalDeviceExtensionPropertiesState;
+    CALL_STATE vkGetPhysicalDeviceFeaturesState;
+    PHYSICAL_DEVICE_STATE()
+        : vkGetPhysicalDeviceQueueFamilyPropertiesState(UNCALLED),
+        vkGetPhysicalDeviceLayerPropertiesState(UNCALLED),
+        vkGetPhysicalDeviceExtensionPropertiesState(UNCALLED),
+        vkGetPhysicalDeviceFeaturesState(UNCALLED) {};
+};

@@ -1046,7 +1046,7 @@ class StructWrapperGen:
                         sh_funcs.append('    ss[%u].str("");' % index)
             # Now print one-line info for all data members
             index = 0
-            final_str = ''
+            final_str = []
             for m in sorted(self.struct_dict[s]):
                 if not is_type(self.struct_dict[s][m]['type'], 'enum'):
                     if is_type(self.struct_dict[s][m]['type'], 'struct') and not self.struct_dict[s][m]['ptr']:
@@ -1106,12 +1106,12 @@ class StructWrapperGen:
                     # For single enum just print the string representation
                     else:
                         value_print = 'string_%s(pStruct->%s)' % (self.struct_dict[s][m]['type'], self.struct_dict[s][m]['name'])
-                final_str += ' + prefix + "%s = " + %s + "\\n"' % (self.struct_dict[s][m]['name'], value_print)
-            final_str = final_str[3:] # strip off the initial ' + '
+                final_str.append('+ prefix + "%s = " + %s + "\\n"' % (self.struct_dict[s][m]['name'], value_print))
             if 0 != num_stps: # Append data for any embedded structs
-                final_str += " + %s" % " + ".join(['stp_strs[%u]' % n for n in reversed(range(num_stps))])
+                final_str.append("+ %s" % " + ".join(['stp_strs[%u]' % n for n in reversed(range(num_stps))]))
             sh_funcs.append('%s' % lineinfo.get())
-            sh_funcs.append('    final_str = %s;' % final_str)
+            for final_str_part in final_str:
+                sh_funcs.append('    final_str = final_str %s;' % final_str_part)
             sh_funcs.append('    return final_str;\n}')
 
             # End of platform wrapped section
@@ -1563,7 +1563,7 @@ class StructWrapperGen:
 
     # If struct has sType or ptr members, generate safe type
     def _hasSafeStruct(self, s):
-        exceptions = ['VkPhysicalDeviceFeatures', 'VkPipelineColorBlendStateCreateInfo', 'VkDebugMarkerMarkerInfoEXT']
+        exceptions = ['VkPhysicalDeviceFeatures']
         if s in exceptions:
             return False
         if 'sType' == self.struct_dict[s][0]['name']:
@@ -1571,6 +1571,9 @@ class StructWrapperGen:
         for m in self.struct_dict[s]:
             if self.struct_dict[s][m]['ptr']:
                 return True
+        inclusions = ['VkDisplayPlanePropertiesKHR', 'VkDisplayModePropertiesKHR', 'VkDisplayPropertiesKHR']
+        if s in inclusions:
+            return True
         return False
 
     def _generateSafeStructHeader(self):
@@ -1641,6 +1644,7 @@ class StructWrapperGen:
                 ss_src.append('#ifdef %s' % ifdef_dict[s])
             ss_name = self._getSafeStructName(s)
             init_list = '' # list of members in struct constructor initializer
+            default_init_list = '' # Default constructor just inits ptrs to nullptr in initializer
             init_func_txt = '' # Txt for initialize() function that takes struct ptr and inits members
             construct_txt = '' # Body of constuctor as well as body of initialize() func following init_func_txt
             destruct_txt = ''
@@ -1695,6 +1699,7 @@ class StructWrapperGen:
                         init_list += '\n\t%s(pInStruct->%s),' % (m_name, m_name)
                         init_func_txt += '    %s = pInStruct->%s;\n' % (m_name, m_name)
                     else:
+                        default_init_list += '\n\t%s(nullptr),' % (m_name)
                         init_list += '\n\t%s(nullptr),' % (m_name)
                         init_func_txt += '    %s = nullptr;\n' % (m_name)
                         if 'pNext' != m_name and 'void' not in m_type:
@@ -1713,23 +1718,30 @@ class StructWrapperGen:
                                 destruct_txt += '    if (%s)\n' % (m_name)
                                 destruct_txt += '        delete[] %s;\n' % (m_name)
                 elif self.struct_dict[s][m]['array']:
-                    # Init array ptr to NULL
-                    init_list += '\n\t%s(NULL),' % (m_name)
-                    init_func_txt += '    %s = NULL;\n' % (m_name)
-                    array_element = 'pInStruct->%s[i]' % (m_name)
-                    if is_type(self.struct_dict[s][m]['type'], 'struct') and self._hasSafeStruct(self.struct_dict[s][m]['type']):
-                        array_element = '%s(&pInStruct->%s[i])' % (self._getSafeStructName(self.struct_dict[s][m]['type']), m_name)
-                    construct_txt += '    if (%s && pInStruct->%s) {\n' % (self.struct_dict[s][m]['array_size'], m_name)
-                    construct_txt += '        %s = new %s[%s];\n' % (m_name, m_type, self.struct_dict[s][m]['array_size'])
-                    destruct_txt += '    if (%s)\n' % (m_name)
-                    destruct_txt += '        delete[] %s;\n' % (m_name)
-                    construct_txt += '        for (uint32_t i=0; i<%s; ++i) {\n' % (self.struct_dict[s][m]['array_size'])
-                    if 'safe_' in m_type:
-                        construct_txt += '            %s[i].initialize(&pInStruct->%s[i]);\n' % (m_name, m_name)
+                    if not self.struct_dict[s][m]['dyn_array']:
+                        # Handle static array case
+                        construct_txt += '    for (uint32_t i=0; i<%s; ++i) {\n' % (self.struct_dict[s][m]['array_size'])
+                        construct_txt += '        %s[i] = pInStruct->%s[i];\n' % (m_name, m_name)
+                        construct_txt += '    }\n'
                     else:
-                        construct_txt += '            %s[i] = %s;\n' % (m_name, array_element)
-                    construct_txt += '        }\n'
-                    construct_txt += '    }\n'
+                        # Init array ptr to NULL
+                        default_init_list += '\n\t%s(nullptr),' % (m_name)
+                        init_list += '\n\t%s(nullptr),' % (m_name)
+                        init_func_txt += '    %s = nullptr;\n' % (m_name)
+                        array_element = 'pInStruct->%s[i]' % (m_name)
+                        if is_type(self.struct_dict[s][m]['type'], 'struct') and self._hasSafeStruct(self.struct_dict[s][m]['type']):
+                            array_element = '%s(&pInStruct->%s[i])' % (self._getSafeStructName(self.struct_dict[s][m]['type']), m_name)
+                        construct_txt += '    if (%s && pInStruct->%s) {\n' % (self.struct_dict[s][m]['array_size'], m_name)
+                        construct_txt += '        %s = new %s[%s];\n' % (m_name, m_type, self.struct_dict[s][m]['array_size'])
+                        destruct_txt += '    if (%s)\n' % (m_name)
+                        destruct_txt += '        delete[] %s;\n' % (m_name)
+                        construct_txt += '        for (uint32_t i=0; i<%s; ++i) {\n' % (self.struct_dict[s][m]['array_size'])
+                        if 'safe_' in m_type:
+                            construct_txt += '            %s[i].initialize(&pInStruct->%s[i]);\n' % (m_name, m_name)
+                        else:
+                            construct_txt += '            %s[i] = %s;\n' % (m_name, array_element)
+                        construct_txt += '        }\n'
+                        construct_txt += '    }\n'
                 elif self.struct_dict[s][m]['ptr']:
                     construct_txt += '    if (pInStruct->%s)\n' % (m_name)
                     construct_txt += '        %s = new %s(pInStruct->%s);\n' % (m_name, m_type, m_name)
@@ -1748,7 +1760,9 @@ class StructWrapperGen:
             if s in custom_construct_txt:
                 construct_txt = custom_construct_txt[s]
             ss_src.append("\n%s::%s(const %s* pInStruct) : %s\n{\n%s}" % (ss_name, ss_name, s, init_list, construct_txt))
-            ss_src.append("\n%s::%s() {}" % (ss_name, ss_name))
+            if '' != default_init_list:
+                default_init_list = " : %s" % (default_init_list[:-1])
+            ss_src.append("\n%s::%s()%s\n{}" % (ss_name, ss_name, default_init_list))
             # Create slight variation of init and construct txt for copy constructor that takes a src object reference vs. struct ptr
             copy_construct_init = init_func_txt.replace('pInStruct->', 'src.')
             copy_construct_txt = construct_txt.replace(' (pInStruct->', ' (src.') # Exclude 'if' blocks from next line

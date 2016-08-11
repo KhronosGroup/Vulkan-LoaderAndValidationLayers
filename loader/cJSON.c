@@ -88,6 +88,10 @@ void cJSON_Delete(cJSON *c) {
     }
 }
 
+void cJSON_Free(void *p) {
+    cJSON_free(p);
+}
+
 /* Parse the input text to generate a number, and populate the result into item.
  */
 static const char *parse_number(cJSON *item, const char *num) {
@@ -423,7 +427,6 @@ static char *print_string_ptr(const char *str, printbuffer *p) {
         if ((unsigned char)*ptr > 31 && *ptr != '\"' && *ptr != '\\')
             *ptr2++ = *ptr++;
         else {
-            *ptr2++ = '\\';
             switch (token = *ptr++) {
             case '\\':
                 *ptr2++ = '\\';
@@ -432,19 +435,19 @@ static char *print_string_ptr(const char *str, printbuffer *p) {
                 *ptr2++ = '\"';
                 break;
             case '\b':
-                *ptr2++ = 'b';
+                *ptr2++ = '\b';
                 break;
             case '\f':
-                *ptr2++ = 'f';
+                *ptr2++ = '\f';
                 break;
             case '\n':
-                *ptr2++ = 'n';
+                *ptr2++ = '\n';
                 break;
             case '\r':
-                *ptr2++ = 'r';
+                *ptr2++ = '\r';
                 break;
             case '\t':
-                *ptr2++ = 't';
+                *ptr2++ = '\t';
                 break;
             default:
                 sprintf(ptr2, "u%04x", token);
