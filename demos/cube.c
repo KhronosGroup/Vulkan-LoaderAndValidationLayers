@@ -770,10 +770,23 @@ static void demo_prepare_buffers(struct demo *demo) {
     VkExtent2D swapchainExtent;
     // width and height are either both -1, or both not -1.
     if (surfCapabilities.currentExtent.width == (uint32_t)-1) {
-        // If the surface size is undefined, the size is set to
-        // the size of the images requested.
+        // If the surface size is undefined, the size is set to the size
+        // of the images requested, which must fit within the minimum and
+        // maximum values.
         swapchainExtent.width = demo->width;
         swapchainExtent.height = demo->height;
+
+        if (swapchainExtent.width < surfCapabilities.minImageExtent.width) {
+            swapchainExtent.width = surfCapabilities.minImageExtent.width;
+        } else if (swapchainExtent.width > surfCapabilities.maxImageExtent.width) {
+            swapchainExtent.width = surfCapabilities.maxImageExtent.width;
+        }
+        
+        if (swapchainExtent.height < surfCapabilities.minImageExtent.height) {
+            swapchainExtent.height = surfCapabilities.minImageExtent.height;
+        } else if (swapchainExtent.height > surfCapabilities.maxImageExtent.height) {
+            swapchainExtent.height = surfCapabilities.maxImageExtent.height;
+        }
     } else {
         // If the surface size is defined, the swap chain size must match
         swapchainExtent = surfCapabilities.currentExtent;
@@ -797,13 +810,12 @@ static void demo_prepare_buffers(struct demo *demo) {
         }
     }
 
-    // Determine the number of VkImage's to use in the swap chain (we desire to
-    // own only 1 image at a time, besides the images being displayed and
-    // queued for display):
-    uint32_t desiredNumberOfSwapchainImages =
-        surfCapabilities.minImageCount + 1;
-    // If maxImageCount is 0, we can ask for as many images as we want, otherwise
-    // we're limited to maxImageCount
+    // Determine the number of VkImage's to use in the swap chain.
+    // Application desires to only acquire 1 image at a time (which is
+    // 'surfaceCapabilities.minImageCount').
+    uint32_t desiredNumberOfSwapchainImages = surfCapabilities.minImageCount;
+    // If maxImageCount is 0, we can ask for as many images as we want;
+    // otherwise we're limited to maxImageCount
     if ((surfCapabilities.maxImageCount > 0) &&
         (desiredNumberOfSwapchainImages > surfCapabilities.maxImageCount)) {
         // Application must settle for fewer images than desired:
