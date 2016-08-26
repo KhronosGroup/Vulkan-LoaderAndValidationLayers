@@ -1418,6 +1418,10 @@ class ObjectTrackerSubcommand(Subcommand):
                                    'vkGetPhysicalDeviceWaylandPresentationSupportKHR',
                                    'vkCreateMirSurfaceKHR',
                                    'vkGetPhysicalDeviceMirPresentationSupportKHR'])]
+        elif self.wsi == 'Display':
+            instance_extensions=[('msg_callback_get_proc_addr', []),
+                                  ('wsi_enabled',
+                                  additional_instance_extensions)]
         else:
             print('Error: Undefined DisplayServer')
             instance_extensions=[]
@@ -1722,6 +1726,9 @@ class UniqueObjectsSubcommand(Subcommand):
                                  ('xlib_enabled', ['vkCreateXlibSurfaceKHR']),
                                  ('wayland_enabled',  ['vkCreateWaylandSurfaceKHR']),
                                  ('mir_enabled', ['vkCreateMirSurfaceKHR'])]
+        elif self.wsi == 'Display':
+            instance_extensions=[('wsi_enabled', surface_wsi_instance_exts),
+                                 ('display_enabled', display_wsi_instance_exts)]
         else:
             print('Error: Undefined DisplayServer')
             instance_extensions=[]
@@ -1743,6 +1750,7 @@ def main():
             "Xlib",
             "Wayland",
             "Mir",
+            "Display",
     }
 
     subcommands = {
