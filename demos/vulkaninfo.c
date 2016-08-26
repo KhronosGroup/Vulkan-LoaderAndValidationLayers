@@ -33,7 +33,9 @@
 #endif // _WIN32
 
 #ifdef __linux__
+#if defined(VK_USE_PLATFORM_XCB_KHR) | defined(VK_USE_PLATFORM_XLIB_KHR)
 #include <X11/Xutil.h>
+#endif
 #endif
 
 #include <vulkan/vulkan.h>
