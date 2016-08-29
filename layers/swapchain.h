@@ -23,6 +23,7 @@
 #define SWAPCHAIN_H
 
 #include "vulkan/vk_layer.h"
+#include "vk_layer_utils.h"
 #include "vk_layer_config.h"
 #include "vk_layer_logging.h"
 #include <vector>
@@ -276,6 +277,8 @@ struct SwpQueue {
 
 struct layer_data {
     VkInstance instance;
+
+    layer_shared_memory_info shared_memory_info;
 
     debug_report_data *report_data;
     std::vector<VkDebugReportCallbackEXT> logging_callback;

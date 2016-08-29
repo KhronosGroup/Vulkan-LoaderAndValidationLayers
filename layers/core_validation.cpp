@@ -98,6 +98,7 @@ struct layer_data {
     VkInstance instance;
     unique_ptr<INSTANCE_STATE> instance_state;
 
+    layer_shared_memory_info shared_memory_info;
 
     debug_report_data *report_data;
     std::vector<VkDebugReportCallbackEXT> logging_callback;
@@ -4153,9 +4154,8 @@ static bool outsideRenderPass(const layer_data *my_data, GLOBAL_CB_NODE *pCB, co
 }
 
 static void init_core_validation(layer_data *instance_data, const VkAllocationCallbacks *pAllocator) {
-
+    InitializeLayerSharedMemory(&instance_data->shared_memory_info);
     layer_debug_actions(instance_data->report_data, instance_data->logging_callback, pAllocator, "lunarg_core_validation");
-
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
@@ -4191,7 +4191,7 @@ CreateInstance(const VkInstanceCreateInfo *pCreateInfo, const VkAllocationCallba
     return result;
 }
 
-/* hook DestroyInstance to remove tableInstanceMap entry */
+// Hook DestroyInstance to remove tableInstanceMap entry
 VKAPI_ATTR void VKAPI_CALL DestroyInstance(VkInstance instance, const VkAllocationCallbacks *pAllocator) {
     // TODOSC : Shouldn't need any customization here
     dispatch_key key = get_dispatch_key(instance);
@@ -4208,7 +4208,7 @@ VKAPI_ATTR void VKAPI_CALL DestroyInstance(VkInstance instance, const VkAllocati
         layer_destroy_msg_callback(my_data->report_data, callback, pAllocator);
         my_data->logging_callback.pop_back();
     }
-
+    DisableLayerSharedMemory(&my_data->shared_memory_info);
     layer_debug_report_destroy_instance(my_data->report_data);
     delete my_data->instance_dispatch_table;
     layer_data_map.erase(key);

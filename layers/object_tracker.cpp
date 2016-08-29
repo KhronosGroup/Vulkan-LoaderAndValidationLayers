@@ -45,7 +45,7 @@
 namespace object_tracker {
 
 static void InitObjectTracker(layer_data *my_data, const VkAllocationCallbacks *pAllocator) {
-
+    InitializeLayerSharedMemory(&my_data->shared_memory_info);
     layer_debug_actions(my_data->report_data, my_data->logging_callback, pAllocator, "lunarg_object_tracker");
 }
 
@@ -463,6 +463,7 @@ VKAPI_ATTR void VKAPI_CALL DestroyInstance(VkInstance instance, const VkAllocati
     }
 
     layer_debug_report_destroy_instance(instance_data->report_data);
+    DisableLayerSharedMemory(&instance_data->shared_memory_info);
     layer_data_map.erase(key);
 
     instanceExtMap.erase(pInstanceTable);

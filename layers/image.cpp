@@ -62,6 +62,8 @@ struct layer_data {
     VkPhysicalDevice physicalDevice;
     VkPhysicalDeviceProperties physicalDeviceProperties;
 
+    layer_shared_memory_info shared_memory_info;
+
     unordered_map<VkImage, IMAGE_STATE> imageMap;
 
     layer_data()
@@ -73,6 +75,7 @@ static unordered_map<void *, layer_data *> layer_data_map;
 static std::mutex global_lock;
 
 static void init_image(layer_data *my_data, const VkAllocationCallbacks *pAllocator) {
+    InitializeLayerSharedMemory(&my_data->shared_memory_info);
     layer_debug_actions(my_data->report_data, my_data->logging_callback, pAllocator, "lunarg_image");
 }
 
@@ -157,8 +160,11 @@ VKAPI_ATTR void VKAPI_CALL DestroyInstance(VkInstance instance, const VkAllocati
     }
 
     layer_debug_report_destroy_instance(my_data->report_data);
+    DisableLayerSharedMemory(&my_data->shared_memory_info);
     delete my_data->instance_dispatch_table;
     layer_data_map.erase(key);
+
+
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL CreateDevice(VkPhysicalDevice physicalDevice,

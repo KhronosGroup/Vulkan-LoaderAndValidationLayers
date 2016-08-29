@@ -42,7 +42,7 @@
 namespace threading {
 
 static void initThreading(layer_data *my_data, const VkAllocationCallbacks *pAllocator) {
-
+    InitializeLayerSharedMemory(&my_data->shared_memory_info);
     layer_debug_actions(my_data->report_data, my_data->logging_callback, pAllocator, "google_threading");
 }
 
@@ -122,6 +122,7 @@ VKAPI_ATTR void VKAPI_CALL DestroyInstance(VkInstance instance, const VkAllocati
     }
 
     layer_debug_report_destroy_instance(my_data->report_data);
+    DisableLayerSharedMemory(&my_data->shared_memory_info);
     delete my_data->instance_dispatch_table;
     layer_data_map.erase(key);
 }

@@ -17,7 +17,7 @@
  * Author: Mark Lobodzinski <mark@lunarg.com>
  *
  */
-
+#include <mutex>
 #include <string.h>
 #include <string>
 #include <vector>
@@ -25,6 +25,8 @@
 #include "vulkan/vulkan.h"
 #include "vk_layer_config.h"
 #include "vk_layer_utils.h"
+
+static std::mutex global_lock;
 
 struct VULKAN_FORMAT_INFO {
     size_t size;
@@ -627,6 +629,51 @@ VkStringErrorFlags vk_string_validate(const int max_length, const char *utf8) {
         }
     }
     return result;
+}
+
+// Enable and manage shared memory support for a layer
+VkResult InitializeLayerSharedMemory(layer_shared_memory_info *shmem_info) {
+
+    std::lock_guard<std::mutex> lock(global_lock);
+#ifdef WIN32
+    const char *szName = "StandardValidationFileMappingObject";
+    bool mapping_already_exists = false;
+
+    shmem_info->mapped_file_handle = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, buffer_size, szName);
+    if (shmem_info->mapped_file_handle == NULL) {
+        printf("Could not create file mapping object (%d).\n", GetLastError());
+        return VK_ERROR_MEMORY_MAP_FAILED;
+    }
+
+    uint32_t last_error = GetLastError();
+    if (last_error != ERROR_ALREADY_EXISTS) {
+        mapping_already_exists = true;
+    }
+
+    shmem_info->buffer = MapViewOfFile(shmem_info->mapped_file_handle, FILE_MAP_ALL_ACCESS, 0, 0, buffer_size);
+    if (shmem_info->buffer == NULL) {
+        printf("Could not map view of file (%d).\n", GetLastError());
+        CloseHandle(shmem_info->mapped_file_handle);
+        return VK_ERROR_MEMORY_MAP_FAILED;
+    }
+#else  // WIN32
+    shmem_info->buffer = reinterpret_cast<void*>(&layer_shared_memory_object);
+#endif // WIN32
+    // Keep track of the number of layers using this mapping
+    layer_shared_data *shared_data = reinterpret_cast<layer_shared_data *>(shmem_info->buffer);
+    shared_data->reference_count++;
+    return VK_SUCCESS;
+}
+
+// Disable and clean up shared memory for a layer
+// Thread-safety of this routine is the responsibility of the caller
+void DisableLayerSharedMemory(layer_shared_memory_info *shmem_info) {
+    layer_shared_data *shared_data = reinterpret_cast<layer_shared_data *>(shmem_info->buffer);
+    shared_data->reference_count--;
+#ifdef WIN32
+    UnmapViewOfFile(shmem_info->buffer);
+    CloseHandle(shmem_info->mapped_file_handle);
+#endif // WIN32
 }
 
 // Debug callbacks get created in three ways:

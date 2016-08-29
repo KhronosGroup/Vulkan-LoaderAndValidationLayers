@@ -210,6 +210,7 @@ template <typename T> class counter {
 struct layer_data {
     VkInstance instance;
 
+    layer_shared_memory_info shared_memory_info;
     debug_report_data *report_data;
     std::vector<VkDebugReportCallbackEXT> logging_callback;
     VkLayerDispatchTable *device_dispatch_table;

@@ -48,6 +48,7 @@ static uint64_t global_unique_id = 1;
 struct layer_data {
     VkInstance instance;
 
+    layer_shared_memory_info shared_memory_info;
     bool wsi_enabled;
     std::unordered_map<uint64_t, uint64_t> unique_id_mapping; // Map uniqueID to actual object handle
     VkPhysicalDevice gpu;
@@ -157,6 +158,8 @@ VkResult explicit_CreateInstance(const VkInstanceCreateInfo *pCreateInfo, const 
 
     checkInstanceRegisterExtensions(pCreateInfo, *pInstance);
 
+    InitializeLayerSharedMemory(&my_data->shared_memory_info);
+
     return result;
 }
 
@@ -165,6 +168,8 @@ void explicit_DestroyInstance(VkInstance instance, const VkAllocationCallbacks *
     VkLayerInstanceDispatchTable *pDisp = get_dispatch_table(unique_objects_instance_table_map, instance);
     instanceExtMap.erase(pDisp);
     pDisp->DestroyInstance(instance, pAllocator);
+    layer_data *my_data = get_my_data_ptr(get_dispatch_key(instance), layer_data_map);
+    DisableLayerSharedMemory(&my_data->shared_memory_info);
     layer_data_map.erase(key);
 }
 

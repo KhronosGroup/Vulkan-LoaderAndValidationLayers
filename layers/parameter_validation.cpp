@@ -58,6 +58,8 @@ struct layer_data {
     debug_report_data *report_data;
     std::vector<VkDebugReportCallbackEXT> logging_callback;
 
+    layer_shared_memory_info shared_memory_info;
+
     // The following are for keeping track of the temporary callbacks that can
     // be used in vkCreateInstance and vkDestroyInstance:
     uint32_t num_tmp_callbacks;
@@ -108,7 +110,7 @@ debug_report_data *mdd(void *object) {
 }
 
 static void init_parameter_validation(layer_data *my_data, const VkAllocationCallbacks *pAllocator) {
-
+    InitializeLayerSharedMemory(&my_data->shared_memory_info);
     layer_debug_actions(my_data->report_data, my_data->logging_callback, pAllocator, "lunarg_parameter_validation");
 }
 
@@ -1415,6 +1417,7 @@ VKAPI_ATTR void VKAPI_CALL DestroyInstance(VkInstance instance, const VkAllocati
         }
 
         layer_debug_report_destroy_instance(mid(instance));
+        DisableLayerSharedMemory(&my_data->shared_memory_info);
         layer_data_map.erase(pTable);
 
         pc_instance_table_map.erase(key);

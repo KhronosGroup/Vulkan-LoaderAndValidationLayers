@@ -34,6 +34,8 @@ extern "C" {
 #endif
 
 #define VK_LAYER_API_VERSION VK_MAKE_VERSION(1, 0, VK_HEADER_VERSION)
+
+
 typedef enum VkFormatCompatibilityClass {
     VK_FORMAT_COMPATIBILITY_CLASS_NONE_BIT = 0,
     VK_FORMAT_COMPATIBILITY_CLASS_8_BIT = 1,
@@ -90,8 +92,35 @@ typedef enum VkStringErrorFlagBits {
 } VkStringErrorFlagBits;
 typedef VkFlags VkStringErrorFlags;
 
+// Structure of data shared between layers
+struct layer_shared_data {
+    bool debug_message_initialized;
+    uint32_t reference_count;
+    layer_shared_data() {};
+};
+
+static uint32_t shared_memory_size_granularity = 1024;
+
+// Size of memory buffer shared between the standard_validation layers
+static uint32_t buffer_size = (static_cast<uint32_t>(sizeof(layer_shared_data)) + (shared_memory_size_granularity - 1)) &
+                              ~(shared_memory_size_granularity - 1);
+
+// Layer's shared memory information structure
+struct layer_shared_memory_info {
+    void *mapped_file_handle;
+    void *buffer;
+    layer_shared_memory_info(){};
+};
+
+#ifndef WIN32
+static layer_shared_memory_info layer_shared_memory_object;
+#endif // WIN32
+
 void layer_debug_actions(debug_report_data* report_data, std::vector<VkDebugReportCallbackEXT> &logging_callback,
     const VkAllocationCallbacks *pAllocator, const char* layer_identifier);
+
+VkResult InitializeLayerSharedMemory(layer_shared_memory_info *shared_memory_info);
+void DisableLayerSharedMemory(layer_shared_memory_info *shared_memory_info);
 
 static inline bool vk_format_is_undef(VkFormat format) { return (format == VK_FORMAT_UNDEFINED); }
 

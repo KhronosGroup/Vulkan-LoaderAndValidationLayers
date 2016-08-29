@@ -27,7 +27,7 @@
 #include "swapchain.h"
 #include "vk_layer_extension_utils.h"
 #include "vk_enum_string_helper.h"
-#include "vk_layer_utils.h"
+
 
 namespace swapchain {
 
@@ -162,7 +162,7 @@ static void checkInstanceRegisterExtensions(const VkInstanceCreateInfo *pCreateI
 
 #include "vk_dispatch_table_helper.h"
 static void init_swapchain(layer_data *my_data, const VkAllocationCallbacks *pAllocator) {
-
+    InitializeLayerSharedMemory(&my_data->shared_memory_info);
     layer_debug_actions(my_data->report_data, my_data->logging_callback, pAllocator, "lunarg_swapchain");
 }
 
@@ -310,6 +310,7 @@ VKAPI_ATTR void VKAPI_CALL DestroyInstance(VkInstance instance, const VkAllocati
         my_data->logging_callback.pop_back();
     }
     layer_debug_report_destroy_instance(my_data->report_data);
+    DisableLayerSharedMemory(&my_data->shared_memory_info);
 
     delete my_data->instance_dispatch_table;
     layer_data_map.erase(key);

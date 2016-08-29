@@ -86,6 +86,8 @@ struct layer_data {
     VkInstance instance;
     VkPhysicalDevice physical_device;
 
+    layer_shared_memory_info shared_memory_info;
+
     uint64_t num_objects[VK_DEBUG_REPORT_OBJECT_TYPE_RANGE_SIZE_EXT + 1];
     uint64_t num_total_objects;
 
