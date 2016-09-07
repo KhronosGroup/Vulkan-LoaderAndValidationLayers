@@ -94,4 +94,4 @@ set_target_properties(vk_loader_validation_tests
 target_link_libraries(vk_loader_validation_tests ${LIBVK} gtest gtest_main VkLayer_utils ${GLSLANG_LIBRARIES})
 
 add_subdirectory(gtest-1.7.0)
-add_subdirectory(layers)
+#add_subdirectory(layers)

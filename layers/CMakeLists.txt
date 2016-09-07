@@ -32,12 +32,21 @@ set(LAYER_JSON_FILES
 
 if (WIN32)
     if (NOT (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_CURRENT_BINARY_DIR))
+        add_custom_target(create-json-path ALL
+            COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>
+            )
         if (CMAKE_GENERATOR MATCHES "^Visual Studio.*")
+            #add_custom_target(create-json-path ALL
+            #    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>
+            #    )
             foreach (config_file ${LAYER_JSON_FILES})
                 FILE(TO_NATIVE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/windows/${config_file}.json src_json)
                 FILE(TO_NATIVE_PATH ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIGURATION>/${config_file}.json dst_json)
+				#message(depends: ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>)
                 add_custom_target(${config_file}-json ALL
-                    COMMAND copy ${src_json} ${dst_json}
+                    #COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/$<CONFIG>
+					COMMAND copy ${src_json} ${dst_json}
+                    DEPENDS create-json-path
                     VERBATIM
                     )
             endforeach(config_file)
@@ -46,6 +55,7 @@ if (WIN32)
                 FILE(TO_NATIVE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/windows/${config_file}.json src_json)
                 FILE(TO_NATIVE_PATH ${CMAKE_CURRENT_BINARY_DIR}/${config_file}.json dst_json)
                 add_custom_target(${config_file}-json ALL
+				    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/windows
                     COMMAND copy ${src_json} ${dst_json}
                     VERBATIM
                     )

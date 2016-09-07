@@ -18,6 +18,7 @@ if (WIN32)
             endif()
             add_custom_target(${config_file}-json ALL
                 COMMAND copy ${src_json} ${dst_json}
+                DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIGURATION>
                 VERBATIM
                 )
         endforeach(config_file)
