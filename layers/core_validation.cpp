@@ -462,6 +462,8 @@ static const char *object_type_to_string(VkDebugReportObjectTypeEXT type) {
         return "pipeline";
     case VK_DEBUG_REPORT_OBJECT_TYPE_SAMPLER_EXT:
         return "sampler";
+    case VK_DEBUG_REPORT_OBJECT_TYPE_SEMAPHORE_EXT:
+        return "semaphore";
     default:
         return "unknown";
     }
@@ -4491,7 +4493,7 @@ static bool ValidateCmdBufImageLayouts(layer_data *dev_data, GLOBAL_CB_NODE *pCB
 
 // Loop through bound objects and increment their in_use counts
 //  For any unknown objects, flag an error
-static bool ValidateAndIncrementBoundObjects(layer_data const *dev_data, GLOBAL_CB_NODE const *cb_node) {
+static bool ValidateAndIncrementBoundObjects(layer_data *dev_data, GLOBAL_CB_NODE const *cb_node) {
     bool skip_call = false;
     for (auto obj : cb_node->object_bindings) {
         switch (obj.type) {
@@ -4515,6 +4517,61 @@ static bool ValidateAndIncrementBoundObjects(layer_data const *dev_data, GLOBAL_
                                      "Cannot submit cmd buffer using deleted sampler 0x%" PRIx64 ".", obj.handle);
             } else {
                 sampler_node->in_use.fetch_add(1);
+            }
+            break;
+        }
+        case VK_DEBUG_REPORT_OBJECT_TYPE_QUERY_POOL_EXT: {
+            auto qp_node = getQueryPoolNode(dev_data, reinterpret_cast<VkQueryPool &>(obj.handle));
+            if (!qp_node) {
+                skip_call |= log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT,
+                                     VK_DEBUG_REPORT_OBJECT_TYPE_QUERY_POOL_EXT, obj.handle, __LINE__, MEMTRACK_INVALID_OBJECT,
+                                     "DS", "Cannot submit cmd buffer using deleted query pool 0x%" PRIx64 ".", obj.handle);
+            } else {
+                qp_node->in_use.fetch_add(1);
+            }
+            break;
+        }
+        case VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT: {
+            auto pipe_node = getPipeline(dev_data, reinterpret_cast<VkPipeline &>(obj.handle));
+            if (!pipe_node) {
+                skip_call |= log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT,
+                                     obj.handle, __LINE__, DRAWSTATE_INVALID_PIPELINE, "DS",
+                                     "Cannot submit cmd buffer using deleted pipeline 0x%" PRIx64 ".", obj.handle);
+            } else {
+                pipe_node->in_use.fetch_add(1);
+            }
+            break;
+        }
+        case VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_EXT: {
+            auto buff_node = getBufferNode(dev_data, reinterpret_cast<VkBuffer &>(obj.handle));
+            if (!buff_node) {
+                skip_call |= log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_EXT,
+                                     obj.handle, __LINE__, DRAWSTATE_INVALID_BUFFER, "DS",
+                                     "Cannot submit cmd buffer using deleted buffer 0x%" PRIx64 ".", obj.handle);
+            } else {
+                buff_node->in_use.fetch_add(1);
+            }
+            break;
+        }
+        case VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT: {
+            auto image_node = getImageNode(dev_data, reinterpret_cast<VkImage &>(obj.handle));
+            if (!image_node) {
+                skip_call |= log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_EXT,
+                                     obj.handle, __LINE__, DRAWSTATE_INVALID_IMAGE, "DS",
+                                     "Cannot submit cmd buffer using deleted image 0x%" PRIx64 ".", obj.handle);
+            } else {
+                image_node->in_use.fetch_add(1);
+            }
+            break;
+        }
+        case VK_DEBUG_REPORT_OBJECT_TYPE_EVENT_EXT: {
+            auto event_node = getEventNode(dev_data, reinterpret_cast<VkEvent &>(obj.handle));
+            if (!event_node) {
+                skip_call |= log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_EVENT_EXT,
+                                     obj.handle, __LINE__, DRAWSTATE_INVALID_EVENT, "DS",
+                                     "Cannot submit cmd buffer using deleted event 0x%" PRIx64 ".", obj.handle);
+            } else {
+                event_node->in_use.fetch_add(1);
             }
             break;
         }
@@ -4548,17 +4605,6 @@ static bool validateAndIncrementResources(layer_data *dev_data, GLOBAL_CB_NODE *
             } else {
                 buffer_node->in_use.fetch_add(1);
             }
-        }
-    }
-    for (auto event : cb_node->events) {
-        auto event_node = getEventNode(dev_data, event);
-        if (!event_node) {
-            skip_call |=
-                log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_DESCRIPTOR_SET_EXT,
-                        reinterpret_cast<uint64_t &>(event), __LINE__, DRAWSTATE_INVALID_EVENT, "DS",
-                        "Cannot submit cmd buffer using deleted event 0x%" PRIx64 ".", reinterpret_cast<uint64_t &>(event));
-        } else {
-            event_node->in_use.fetch_add(1);
         }
     }
     for (auto event : cb_node->writeEventsBeforeWait) {
@@ -4603,7 +4649,7 @@ static inline void removeInFlightCmdBuffer(layer_data *dev_data, VkCommandBuffer
 }
 
 // Decrement in-use count for objects bound to command buffer
-static void DecrementBoundResources(layer_data const *dev_data, GLOBAL_CB_NODE const *cb_node) {
+static void DecrementBoundResources(layer_data *dev_data, GLOBAL_CB_NODE const *cb_node) {
     for (auto obj : cb_node->object_bindings) {
         switch (obj.type) {
         case VK_DEBUG_REPORT_OBJECT_TYPE_DESCRIPTOR_SET_EXT: {
@@ -4617,6 +4663,41 @@ static void DecrementBoundResources(layer_data const *dev_data, GLOBAL_CB_NODE c
             auto sampler_node = getSamplerNode(dev_data, reinterpret_cast<VkSampler &>(obj.handle));
             if (sampler_node) {
                 sampler_node->in_use.fetch_sub(1);
+            }
+            break;
+        }
+        case VK_DEBUG_REPORT_OBJECT_TYPE_QUERY_POOL_EXT: {
+            auto qp_node = getQueryPoolNode(dev_data, reinterpret_cast<VkQueryPool &>(obj.handle));
+            if (qp_node) {
+                qp_node->in_use.fetch_sub(1);
+            }
+            break;
+        }
+        case VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT: {
+            auto pipe_node = getPipeline(dev_data, reinterpret_cast<VkPipeline &>(obj.handle));
+            if (pipe_node) {
+                pipe_node->in_use.fetch_sub(1);
+            }
+            break;
+        }
+        case VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_EXT: {
+            auto buff_node = getBufferNode(dev_data, reinterpret_cast<VkBuffer &>(obj.handle));
+            if (buff_node) {
+                buff_node->in_use.fetch_sub(1);
+            }
+            break;
+        }
+        case VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT: {
+            auto image_node = getImageNode(dev_data, reinterpret_cast<VkImage &>(obj.handle));
+            if (image_node) {
+                image_node->in_use.fetch_sub(1);
+            }
+            break;
+        }
+        case VK_DEBUG_REPORT_OBJECT_TYPE_EVENT_EXT: {
+            auto event_node = getEventNode(dev_data, reinterpret_cast<VkEvent &>(obj.handle));
+            if (event_node) {
+                event_node->in_use.fetch_sub(1);
             }
             break;
         }
@@ -4658,12 +4739,6 @@ static bool RetireWorkOnQueue(layer_data *dev_data, QUEUE_NODE *pQueue, uint64_t
                     if (buffer_node) {
                         buffer_node->in_use.fetch_sub(1);
                     }
-                }
-            }
-            for (auto event : cb_node->events) {
-                auto eventNode = dev_data->eventMap.find(event);
-                if (eventNode != dev_data->eventMap.end()) {
-                    eventNode->second.in_use.fetch_sub(1);
                 }
             }
             for (auto event : cb_node->writeEventsBeforeWait) {
@@ -5249,65 +5324,69 @@ VKAPI_ATTR void VKAPI_CALL DestroyFence(VkDevice device, VkFence fence, const Vk
         dev_data->device_dispatch_table->DestroyFence(device, fence, pAllocator);
 }
 
+// For given obj node, if it is use, flag a validation error and return callback result, else return false
+bool ValidateObjectNotInUse(const layer_data *dev_data, BASE_NODE *obj_node, VK_OBJECT obj_struct) {
+    bool skip = false;
+    if (obj_node->in_use.load()) {
+        skip |= log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, obj_struct.type, obj_struct.handle, __LINE__,
+                        DRAWSTATE_OBJECT_INUSE, "DS", "Cannot delete %s 0x%" PRIx64 " that is currently in use by a command buffer.",
+                        object_type_to_string(obj_struct.type), obj_struct.handle);
+    }
+    return skip;
+}
+
 VKAPI_ATTR void VKAPI_CALL
 DestroySemaphore(VkDevice device, VkSemaphore semaphore, const VkAllocationCallbacks *pAllocator) {
     layer_data *dev_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
-
-    bool skip_call = false;
+    bool skip = false;
     std::unique_lock<std::mutex> lock(global_lock);
-    auto item = dev_data->semaphoreMap.find(semaphore);
-    if (item != dev_data->semaphoreMap.end()) {
-        if (item->second.in_use.load()) {
-            skip_call |= log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_SEMAPHORE_EXT,
-                                 reinterpret_cast<uint64_t &>(semaphore), __LINE__, DRAWSTATE_OBJECT_INUSE, "DS",
-                                 "Cannot delete semaphore 0x%" PRIx64 " which is in use.", reinterpret_cast<uint64_t &>(semaphore));
-        }
-        if (!skip_call) {
-            dev_data->semaphoreMap.erase(semaphore);
-        }
+    auto sema_node = getSemaphoreNode(dev_data, semaphore);
+    if (sema_node) {
+        skip |= ValidateObjectNotInUse(dev_data, sema_node,
+                                       {reinterpret_cast<uint64_t &>(semaphore), VK_DEBUG_REPORT_OBJECT_TYPE_SEMAPHORE_EXT});
     }
-    lock.unlock();
-    if (!skip_call) {
+    if (!skip) {
+        dev_data->semaphoreMap.erase(semaphore);
+        lock.unlock();
         dev_data->device_dispatch_table->DestroySemaphore(device, semaphore, pAllocator);
     }
 }
 
 VKAPI_ATTR void VKAPI_CALL DestroyEvent(VkDevice device, VkEvent event, const VkAllocationCallbacks *pAllocator) {
     layer_data *dev_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
-    bool skip_call = false;
+    bool skip = false;
     std::unique_lock<std::mutex> lock(global_lock);
     auto event_node = getEventNode(dev_data, event);
     if (event_node) {
-        if (event_node->in_use.load()) {
-            skip_call |= log_msg(
-                dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_DESCRIPTOR_SET_EXT,
-                reinterpret_cast<uint64_t &>(event), __LINE__, DRAWSTATE_OBJECT_INUSE, "DS",
-                "Cannot delete event 0x%" PRIx64 " which is in use by a command buffer.", reinterpret_cast<uint64_t &>(event));
-        }
+        VK_OBJECT obj_struct = {reinterpret_cast<uint64_t &>(event), VK_DEBUG_REPORT_OBJECT_TYPE_EVENT_EXT};
+        skip |= ValidateObjectNotInUse(dev_data, event_node, obj_struct);
         // Any bound cmd buffers are now invalid
-        invalidateCommandBuffers(event_node->cb_bindings,
-                                 {reinterpret_cast<uint64_t &>(event), VK_DEBUG_REPORT_OBJECT_TYPE_EVENT_EXT});
-        dev_data->eventMap.erase(event);
+        invalidateCommandBuffers(event_node->cb_bindings, obj_struct);
     }
-    lock.unlock();
-    if (!skip_call)
+    if (!skip) {
+        dev_data->eventMap.erase(event);
+        lock.unlock();
         dev_data->device_dispatch_table->DestroyEvent(device, event, pAllocator);
+    }
 }
 
 VKAPI_ATTR void VKAPI_CALL
 DestroyQueryPool(VkDevice device, VkQueryPool queryPool, const VkAllocationCallbacks *pAllocator) {
     layer_data *dev_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
-    // TODO : Add detection for an in-flight queryPool
+    bool skip = false;
     std::unique_lock<std::mutex> lock(global_lock);
     auto qp_node = getQueryPoolNode(dev_data, queryPool);
     if (qp_node) {
+        VK_OBJECT obj_struct = {reinterpret_cast<uint64_t &>(queryPool), VK_DEBUG_REPORT_OBJECT_TYPE_QUERY_POOL_EXT};
+        skip |= ValidateObjectNotInUse(dev_data, qp_node, obj_struct);
         // Any bound cmd buffers are now invalid
-        invalidateCommandBuffers(qp_node->cb_bindings,
-                                 {reinterpret_cast<uint64_t &>(queryPool), VK_DEBUG_REPORT_OBJECT_TYPE_QUERY_POOL_EXT});
-        dev_data->queryPoolMap.erase(queryPool);
+        invalidateCommandBuffers(qp_node->cb_bindings, obj_struct);
     }
-    lock.unlock();
-    dev_data->device_dispatch_table->DestroyQueryPool(device, queryPool, pAllocator);
+    if (!skip) {
+        dev_data->queryPoolMap.erase(queryPool);
+        lock.unlock();
+        dev_data->device_dispatch_table->DestroyQueryPool(device, queryPool, pAllocator);
+    }
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL GetQueryPoolResults(VkDevice device, VkQueryPool queryPool, uint32_t firstQuery,
@@ -5733,17 +5812,20 @@ DestroyShaderModule(VkDevice device, VkShaderModule shaderModule, const VkAlloca
 VKAPI_ATTR void VKAPI_CALL
 DestroyPipeline(VkDevice device, VkPipeline pipeline, const VkAllocationCallbacks *pAllocator) {
     layer_data *dev_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
-    // TODO : Add detection for in-flight pipeline
+    bool skip = false;
     std::unique_lock<std::mutex> lock(global_lock);
     auto pipe_node = getPipeline(dev_data, pipeline);
     if (pipe_node) {
+        VK_OBJECT obj_struct = {reinterpret_cast<uint64_t &>(pipeline), VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT};
+        skip |= ValidateObjectNotInUse(dev_data, pipe_node, obj_struct);
         // Any bound cmd buffers are now invalid
-        invalidateCommandBuffers(pipe_node->cb_bindings,
-                                 {reinterpret_cast<uint64_t &>(pipeline), VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT});
-        dev_data->pipelineMap.erase(pipeline);
+        invalidateCommandBuffers(pipe_node->cb_bindings, obj_struct);
     }
-    lock.unlock();
-    dev_data->device_dispatch_table->DestroyPipeline(device, pipeline, pAllocator);
+    if (!skip) {
+        dev_data->pipelineMap.erase(pipeline);
+        lock.unlock();
+        dev_data->device_dispatch_table->DestroyPipeline(device, pipeline, pAllocator);
+    }
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -5759,17 +5841,20 @@ DestroyPipelineLayout(VkDevice device, VkPipelineLayout pipelineLayout, const Vk
 VKAPI_ATTR void VKAPI_CALL
 DestroySampler(VkDevice device, VkSampler sampler, const VkAllocationCallbacks *pAllocator) {
     layer_data *dev_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
-    // TODO : Add detection for in-flight sampler
+    bool skip = false;
     std::unique_lock<std::mutex> lock(global_lock);
     auto sampler_node = getSamplerNode(dev_data, sampler);
     if (sampler_node) {
+        VK_OBJECT obj_struct = {reinterpret_cast<uint64_t &>(sampler), VK_DEBUG_REPORT_OBJECT_TYPE_SAMPLER_EXT};
+        skip |= ValidateObjectNotInUse(dev_data, sampler_node, obj_struct);
         // Any bound cmd buffers are now invalid
-        invalidateCommandBuffers(sampler_node->cb_bindings,
-                                 {reinterpret_cast<uint64_t &>(sampler), VK_DEBUG_REPORT_OBJECT_TYPE_SAMPLER_EXT});
-        dev_data->samplerMap.erase(sampler);
+        invalidateCommandBuffers(sampler_node->cb_bindings, obj_struct);
     }
-    lock.unlock();
-    dev_data->device_dispatch_table->DestroySampler(device, sampler, pAllocator);
+    if (!skip) {
+        dev_data->samplerMap.erase(sampler);
+        lock.unlock();
+        dev_data->device_dispatch_table->DestroySampler(device, sampler, pAllocator);
+    }
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -5882,7 +5967,9 @@ VKAPI_ATTR VkResult VKAPI_CALL CreateQueryPool(VkDevice device, const VkQueryPoo
     VkResult result = dev_data->device_dispatch_table->CreateQueryPool(device, pCreateInfo, pAllocator, pQueryPool);
     if (result == VK_SUCCESS) {
         std::lock_guard<std::mutex> lock(global_lock);
-        dev_data->queryPoolMap[*pQueryPool].createInfo = *pCreateInfo;
+        QUERY_POOL_NODE *qp_node = &dev_data->queryPoolMap[*pQueryPool];
+        qp_node->createInfo = *pCreateInfo;
+        qp_node->in_use.store(0);
     }
     return result;
 }
