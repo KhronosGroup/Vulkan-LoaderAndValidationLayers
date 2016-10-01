@@ -100,7 +100,7 @@ struct shader_module;
 struct layer_data {
     VkInstance instance;
     unique_ptr<INSTANCE_STATE> instance_state;
-
+    uint64_t enabledLevels;
 
     debug_report_data *report_data;
     std::vector<VkDebugReportCallbackEXT> logging_callback;
@@ -4312,6 +4312,15 @@ CreateInstance(const VkInstanceCreateInfo *pCreateInfo, const VkAllocationCallba
     layer_data *instance_data = get_my_data_ptr(get_dispatch_key(*pInstance), layer_data_map);
     instance_data->instance = *pInstance;
     instance_data->instance_dispatch_table = new VkLayerInstanceDispatchTable;
+    instance_data->enabledLevels = 0x7FFFFFFF;
+    const VkLayerInstanceLevelInfo *levelInfo = reinterpret_cast<const VkLayerInstanceLevelInfo*>(pCreateInfo->pNext);
+    while (levelInfo) {
+        if (levelInfo->sType == VK_STRUCTURE_TYPE_LAYER_INSTANCE_LEVEL_INFO) {
+            instance_data->enabledLevels = levelInfo->enabledLevels;
+            break;
+        }
+        levelInfo = reinterpret_cast<const VkLayerInstanceLevelInfo*>(levelInfo->pNext);
+    }
     layer_init_instance_dispatch_table(*pInstance, instance_data->instance_dispatch_table, fpGetInstanceProcAddr);
 
     instance_data->report_data =

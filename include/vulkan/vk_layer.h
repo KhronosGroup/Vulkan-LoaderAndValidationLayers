@@ -308,3 +308,9 @@ typedef struct {
     } u;
 } VkLayerDeviceCreateInfo;
 
+typedef struct {
+    VkStructureType sType; // VK_STRUCTURE_TYPE_LAYER_INSTANCE_LEVEL_INFO
+    const void *pNext;
+    uint64_t enabledLevels;
+} VkLayerInstanceLevelInfo;
+
