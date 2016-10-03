@@ -5,30 +5,24 @@
 # Copyright (c) 2015-2016 LunarG, Inc.
 # Copyright (c) 2015-2016 Google Inc.
 #
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and/or associated documentation files (the "Materials"), to
-# deal in the Materials without restriction, including without limitation the
-# rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
-# sell copies of the Materials, and to permit persons to whom the Materials
-# are furnished to do so, subject to the following conditions:
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# The above copyright notice(s) and this permission notice shall be included
-# in all copies or substantial portions of the Materials.
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
-# THE MATERIALS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-#
-# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-# DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-# OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE MATERIALS OR THE
-# USE OR OTHER DEALINGS IN THE MATERIALS
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Author: Chia-I Wu <olv@lunarg.com>
 # Author: Jon Ashburn <jon@lunarg.com>
 # Author: Courtney Goeltzenleuchter <courtney@LunarG.com>
 # Author: Tobin Ehlis <tobin@lunarg.com>
 # Author: Tony Barbour <tony@LunarG.com>
+# Author: Gwan-gyeong Mun <kk.moon@samsung.com>
 
 class Param(object):
     """A function parameter."""
@@ -165,11 +159,12 @@ class Proto(object):
                 (self.ret, self.name, param_str)
 
 class Extension(object):
-    def __init__(self, name, headers, objects, protos):
+    def __init__(self, name, headers, objects, protos, ifdef = None):
         self.name = name
         self.headers = headers
         self.objects = objects
         self.protos = protos
+        self.ifdef = ifdef
 
     def __repr__(self):
         lines = []
@@ -889,7 +884,7 @@ core = Extension(
              Param("VkBuffer", "dstBuffer"),
              Param("VkDeviceSize", "dstOffset"),
              Param("VkDeviceSize", "dataSize"),
-             Param("const uint32_t*", "pData")]),
+             Param("const void*", "pData")]),
 
         Proto("void", "CmdFillBuffer",
             [Param("VkCommandBuffer", "commandBuffer"),
@@ -1025,6 +1020,62 @@ core = Extension(
     ],
 )
 
+ext_amd_draw_indirect_count = Extension(
+    name="VK_AMD_draw_indirect_count",
+    headers=["vulkan/vulkan.h"],
+    objects=[],
+    protos=[
+        Proto("void", "CmdDrawIndirectCountAMD",
+            [Param("VkCommandBuffer", "commandBuffer"),
+             Param("VkBuffer", "buffer"),
+             Param("VkDeviceSize", "offset"),
+             Param("VkBuffer", "countBuffer"),
+             Param("VkDeviceSize", "countBufferOffset"),
+             Param("uint32_t", "maxDrawCount"),
+             Param("uint32_t", "stride")]),
+
+        Proto("void", "CmdDrawIndexedIndirectCountAMD",
+            [Param("VkCommandBuffer", "commandBuffer"),
+             Param("VkBuffer", "buffer"),
+             Param("VkDeviceSize", "offset"),
+             Param("VkBuffer", "countBuffer"),
+             Param("VkDeviceSize", "countBufferOffset"),
+             Param("uint32_t", "maxDrawCount"),
+             Param("uint32_t", "stride")]),
+    ],
+)
+
+ext_nv_external_memory_capabilities = Extension(
+    name="VK_NV_external_memory_capabilities",
+    headers=["vulkan/vulkan.h"],
+    objects=[],
+    protos=[
+        Proto("VkResult", "GetPhysicalDeviceExternalImageFormatPropertiesNV",
+            [Param("VkPhysicalDevice", "physicalDevice"),
+             Param("VkFormat", "format"),
+             Param("VkImageType", "type"),
+             Param("VkImageTiling", "tiling"),
+             Param("VkImageUsageFlags", "usage"),
+             Param("VkImageCreateFlags", "flags"),
+             Param("VkExternalMemoryHandleTypeFlagsNV", "externalHandleType"),
+             Param("VkExternalImageFormatPropertiesNV*", "pExternalImageFormatProperties")]),
+    ],
+)
+
+ext_nv_external_memory_win32 = Extension(
+    name="VK_NV_external_memory_win32",
+    headers=["vulkan/vulkan.h"],
+    objects=[],
+    ifdef="VK_USE_PLATFORM_WIN32_KHR",
+    protos=[
+        Proto("VkResult", "GetMemoryWin32HandleNV",
+            [Param("VkDevice", "device"),
+             Param("VkDeviceMemory", "memory"),
+             Param("VkExternalMemoryHandleTypeFlagsNV", "handleType"),
+             Param("HANDLE*", "pHandle")]),
+    ],
+)
+
 ext_khr_surface = Extension(
     name="VK_KHR_surface",
     headers=["vulkan/vulkan.h"],
@@ -1043,20 +1094,68 @@ ext_khr_surface = Extension(
 
         Proto("VkResult", "GetPhysicalDeviceSurfaceCapabilitiesKHR",
             [Param("VkPhysicalDevice", "physicalDevice"),
-	     Param("VkSurfaceKHR", "surface"),
+             Param("VkSurfaceKHR", "surface"),
              Param("VkSurfaceCapabilitiesKHR*", "pSurfaceCapabilities")]),
 
         Proto("VkResult", "GetPhysicalDeviceSurfaceFormatsKHR",
             [Param("VkPhysicalDevice", "physicalDevice"),
-	     Param("VkSurfaceKHR", "surface"),
-	     Param("uint32_t*", "pSurfaceFormatCount"),
+             Param("VkSurfaceKHR", "surface"),
+             Param("uint32_t*", "pSurfaceFormatCount"),
              Param("VkSurfaceFormatKHR*", "pSurfaceFormats")]),
 
         Proto("VkResult", "GetPhysicalDeviceSurfacePresentModesKHR",
             [Param("VkPhysicalDevice", "physicalDevice"),
-	     Param("VkSurfaceKHR", "surface"),
-	     Param("uint32_t*", "pPresentModeCount"),
+             Param("VkSurfaceKHR", "surface"),
+             Param("uint32_t*", "pPresentModeCount"),
              Param("VkPresentModeKHR*", "pPresentModes")]),
+    ],
+)
+
+ext_khr_display = Extension(
+    name="VK_KHR_display",
+    headers=["vulkan/vulkan.h"],
+    objects=['VkSurfaceKHR', 'VkDisplayModeKHR'],
+    protos=[
+        Proto("VkResult", "GetPhysicalDeviceDisplayPropertiesKHR",
+            [Param("VkPhysicalDevice", "physicalDevice"),
+             Param("uint32_t*", "pPropertyCount"),
+             Param("VkDisplayPropertiesKHR*", "pProperties")]),
+
+        Proto("VkResult", "GetPhysicalDeviceDisplayPlanePropertiesKHR",
+            [Param("VkPhysicalDevice", "physicalDevice"),
+             Param("uint32_t*", "pPropertyCount"),
+             Param("VkDisplayPlanePropertiesKHR*", "pProperties")]),
+
+        Proto("VkResult", "GetDisplayPlaneSupportedDisplaysKHR",
+            [Param("VkPhysicalDevice", "physicalDevice"),
+             Param("uint32_t", "planeIndex"),
+             Param("uint32_t*", "pDisplayCount"),
+             Param("VkDisplayKHR*", "pDisplays")]),
+
+        Proto("VkResult", "GetDisplayModePropertiesKHR",
+            [Param("VkPhysicalDevice", "physicalDevice"),
+             Param("VkDisplayKHR", "display"),
+             Param("uint32_t*", "pPropertyCount"),
+             Param("VkDisplayModePropertiesKHR*", "pProperties")]),
+
+        Proto("VkResult", "CreateDisplayModeKHR",
+            [Param("VkPhysicalDevice", "physicalDevice"),
+             Param("VkDisplayKHR", "display"),
+             Param("const VkDisplayModeCreateInfoKHR*", "pCreateInfo"),
+             Param("const VkAllocationCallbacks*", "pAllocator"),
+             Param("VkDisplayModeKHR*", "pMode")]),
+
+        Proto("VkResult", "GetDisplayPlaneCapabilitiesKHR",
+            [Param("VkPhysicalDevice", "physicalDevice"),
+             Param("VkDisplayModeKHR", "mode"),
+             Param("uint32_t", "planeIndex"),
+             Param("VkDisplayPlaneCapabilitiesKHR*", "pCapabilities")]),
+
+        Proto("VkResult", "CreateDisplayPlaneSurfaceKHR",
+            [Param("VkInstance", "instance"),
+             Param("const VkDisplaySurfaceCreateInfoKHR*", "pCreateInfo"),
+             Param("const VkAllocationCallbacks*", "pAllocator"),
+             Param("VkSurfaceKHR*", "pSurface")]),
     ],
 )
 
@@ -1078,8 +1177,8 @@ ext_khr_device_swapchain = Extension(
 
         Proto("VkResult", "GetSwapchainImagesKHR",
             [Param("VkDevice", "device"),
-	     Param("VkSwapchainKHR", "swapchain"),
-	     Param("uint32_t*", "pSwapchainImageCount"),
+         Param("VkSwapchainKHR", "swapchain"),
+         Param("uint32_t*", "pSwapchainImageCount"),
              Param("VkImage*", "pSwapchainImages")]),
 
         Proto("VkResult", "AcquireNextImageKHR",
@@ -1093,6 +1192,20 @@ ext_khr_device_swapchain = Extension(
         Proto("VkResult", "QueuePresentKHR",
             [Param("VkQueue", "queue"),
              Param("const VkPresentInfoKHR*", "pPresentInfo")]),
+    ],
+)
+
+ext_khr_display_swapchain = Extension(
+    name="VK_KHR_display_swapchain",
+    headers=["vulkan/vulkan.h"],
+    objects=["VkDisplayPresentInfoKHR"],
+    protos=[
+        Proto("VkResult", "CreateSharedSwapchainsKHR",
+            [Param("VkDevice", "device"),
+             Param("uint32_t", "swapchainCount"),
+             Param("const VkSwapchainCreateInfoKHR*", "pCreateInfos"),
+             Param("const VkAllocationCallbacks*", "pAllocator"),
+             Param("VkSwapchainKHR*", "pSwapchains")]),
     ],
 )
 
@@ -1112,6 +1225,59 @@ ext_khr_xcb_surface = Extension(
              Param("uint32_t", "queueFamilyIndex"),
              Param("xcb_connection_t*", "connection"),
              Param("xcb_visualid_t", "visual_id")]),
+    ],
+)
+ext_khr_xlib_surface = Extension(
+    name="VK_KHR_xlib_surface",
+    headers=["vulkan/vulkan.h"],
+    objects=[],
+    ifdef="VK_USE_PLATFORM_XLIB_KHR",
+    protos=[
+        Proto("VkResult", "CreateXlibSurfaceKHR",
+            [Param("VkInstance", "instance"),
+             Param("const VkXlibSurfaceCreateInfoKHR*", "pCreateInfo"),
+             Param("const VkAllocationCallbacks*", "pAllocator"),
+             Param("VkSurfaceKHR*", "pSurface")]),
+
+        Proto("VkBool32", "GetPhysicalDeviceXlibPresentationSupportKHR",
+            [Param("VkPhysicalDevice", "physicalDevice"),
+             Param("uint32_t", "queueFamilyIndex"),
+             Param("Display*", "dpy"),
+             Param("VisualID", "visualID")]),
+    ],
+)
+ext_khr_wayland_surface = Extension(
+    name="VK_KHR_wayland_surface",
+    headers=["vulkan/vulkan.h"],
+    objects=[],
+    protos=[
+        Proto("VkResult", "CreateWaylandSurfaceKHR",
+            [Param("VkInstance", "instance"),
+             Param("const VkWaylandSurfaceCreateInfoKHR*", "pCreateInfo"),
+             Param("const VkAllocationCallbacks*", "pAllocator"),
+             Param("VkSurfaceKHR*", "pSurface")]),
+
+        Proto("VkBool32", "GetPhysicalDeviceWaylandPresentationSupportKHR",
+            [Param("VkPhysicalDevice", "physicalDevice"),
+             Param("uint32_t", "queueFamilyIndex"),
+             Param("struct wl_display*", "display")]),
+    ],
+)
+ext_khr_mir_surface = Extension(
+    name="VK_KHR_mir_surface",
+    headers=["vulkan/vulkan.h"],
+    objects=[],
+    protos=[
+        Proto("VkResult", "CreateMirSurfaceKHR",
+            [Param("VkInstance", "instance"),
+             Param("const VkMirSurfaceCreateInfoKHR*", "pCreateInfo"),
+             Param("const VkAllocationCallbacks*", "pAllocator"),
+             Param("VkSurfaceKHR*", "pSurface")]),
+
+        Proto("VkBool32", "GetPhysicalDeviceMirPresentationSupportKHR",
+            [Param("VkPhysicalDevice", "physicalDevice"),
+             Param("uint32_t", "queueFamilyIndex"),
+             Param("MirConnection*", "connection")]),
     ],
 )
 ext_khr_android_surface = Extension(
@@ -1142,7 +1308,7 @@ ext_khr_win32_surface = Extension(
              Param("uint32_t", "queueFamilyIndex")]),
     ],
 )
-lunarg_debug_report = Extension(
+ext_debug_report = Extension(
     name="VK_EXT_debug_report",
     headers=["vulkan/vulkan.h"],
     objects=[
@@ -1171,41 +1337,98 @@ lunarg_debug_report = Extension(
              Param("const char *", "pMsg")]),
     ],
 )
-lunarg_debug_marker = Extension(
-    name="VK_LUNARG_DEBUG_MARKER",
-    headers=["vulkan/vk_lunarg_debug_marker.h"],
-    objects=[],
+ext_debug_marker = Extension(
+    name="VK_EXT_debug_marker",
+    headers=["vulkan/vulkan.h"],
+    objects=[
+        "VkDebugMarkerObjectNameInfoEXT",
+        "VkDebugMarkerObjectTagInfoEXT",
+        "VkDebugMarkerMarkerInfoEXT"
+    ],
     protos=[
-        Proto("void", "CmdDbgMarkerBegin",
-            [Param("VkCommandBuffer", "commandBuffer"),
-             Param("const char*", "pMarker")]),
+        Proto("VkResult", "DebugMarkerSetObjectTagEXT",
+            [Param("VkDevice", "device"),
+             Param("VkDebugMarkerObjectTagInfoEXT*", "pTagInfo")]),
 
-        Proto("void", "CmdDbgMarkerEnd",
+        Proto("VkResult", "DebugMarkerSetObjectNameEXT",
+            [Param("VkDevice", "device"),
+             Param("VkDebugMarkerObjectNameInfoEXT*", "pNameInfo")]),
+
+        Proto("void", "CmdDebugMarkerBeginEXT",
+            [Param("VkCommandBuffer", "commandBuffer"),
+             Param("VkDebugMarkerMarkerInfoEXT*", "pMarkerInfo")]),
+
+        Proto("void", "CmdDebugMarkerEndEXT",
             [Param("VkCommandBuffer", "commandBuffer")]),
 
-        Proto("VkResult", "DbgSetObjectTag",
-            [Param("VkDevice", "device"),
-             Param("VkDebugReportObjectTypeEXT", "objType"),
-             Param("uint64_t", "object"),
-             Param("size_t", "tagSize"),
-             Param("const void*", "pTag")]),
-
-        Proto("VkResult", "DbgSetObjectName",
-            [Param("VkDevice", "device"),
-             Param("VkDebugReportObjectTypeEXT", "objType"),
-             Param("uint64_t", "object"),
-             Param("size_t", "nameSize"),
-             Param("const char*", "pName")]),
+        Proto("void", "CmdDebugMarkerInsertEXT",
+            [Param("VkCommandBuffer", "commandBuffer"),
+             Param("VkDebugMarkerMarkerInfoEXT*", "pMarkerInfo")]),
     ],
 )
 
 import sys
-if sys.platform.startswith('win32'):
-    extensions = [core, ext_khr_surface, ext_khr_device_swapchain, ext_khr_win32_surface]
-    extensions_all = [core, ext_khr_surface, ext_khr_device_swapchain, ext_khr_win32_surface, lunarg_debug_report, lunarg_debug_marker]
-else: # linux & android
-    extensions = [core, ext_khr_surface, ext_khr_device_swapchain, ext_khr_xcb_surface, ext_khr_android_surface]
-    extensions_all = [core, ext_khr_surface, ext_khr_device_swapchain, ext_khr_xcb_surface, ext_khr_android_surface, lunarg_debug_report, lunarg_debug_marker]
+
+if sys.argv[1] == 'AllPlatforms':
+    extensions = [core, ext_khr_surface, ext_khr_device_swapchain, ext_khr_win32_surface, ext_khr_xcb_surface,
+                         ext_khr_xlib_surface, ext_khr_wayland_surface, ext_khr_mir_surface, ext_khr_display,
+                         ext_khr_android_surface, ext_khr_display_swapchain]
+    extensions_all = [core, ext_khr_surface, ext_khr_device_swapchain, ext_khr_win32_surface,
+                             ext_khr_xcb_surface, ext_khr_xlib_surface, ext_khr_wayland_surface, ext_khr_mir_surface,
+                             ext_khr_display, ext_khr_android_surface, ext_amd_draw_indirect_count,
+                             ext_nv_external_memory_capabilities, ext_nv_external_memory_win32,
+                             ext_khr_display_swapchain, ext_debug_report, ext_debug_marker]
+else :
+    if len(sys.argv) > 3:
+        if (sys.platform.startswith('win32') or sys.platform.startswith('msys')) and sys.argv[1] != 'Android':
+            extensions = [core, ext_khr_surface, ext_khr_device_swapchain, ext_khr_win32_surface,
+                                 ext_khr_display, ext_khr_display_swapchain]
+            extensions_all = [core, ext_khr_surface, ext_khr_device_swapchain, ext_khr_win32_surface,
+                                      ext_khr_display, ext_amd_draw_indirect_count,
+                                      ext_nv_external_memory_capabilities, ext_nv_external_memory_win32,
+                                      ext_khr_display_swapchain, ext_debug_report, ext_debug_marker]
+        elif sys.platform.startswith('linux') and sys.argv[1] != 'Android':
+            extensions = [core, ext_khr_surface, ext_khr_device_swapchain, ext_khr_xcb_surface,
+                                 ext_khr_xlib_surface, ext_khr_wayland_surface, ext_khr_mir_surface, ext_khr_display,
+                                 ext_khr_display_swapchain]
+            extensions_all = [core, ext_khr_surface, ext_khr_device_swapchain, ext_khr_xcb_surface,
+                                      ext_khr_xlib_surface, ext_khr_wayland_surface, ext_khr_mir_surface,
+                                      ext_khr_display, ext_amd_draw_indirect_count,
+                                      ext_nv_external_memory_capabilities, ext_khr_display_swapchain,
+                                      ext_debug_report, ext_debug_marker]
+        else: # android
+            extensions = [core, ext_khr_surface, ext_khr_device_swapchain, ext_khr_android_surface,
+                                 ext_khr_display_swapchain]
+            extensions_all = [core, ext_khr_surface, ext_khr_device_swapchain, ext_khr_android_surface,
+                                      ext_amd_draw_indirect_count, ext_nv_external_memory_capabilities,
+                                      ext_khr_display_swapchain, ext_debug_report, ext_debug_marker]
+    else :
+        if sys.argv[1] == 'Win32' or sys.argv[1] == 'msys':
+            extensions = [core, ext_khr_surface, ext_khr_device_swapchain, ext_khr_win32_surface,
+                                 ext_khr_display, ext_khr_display_swapchain]
+            extensions_all = [core, ext_khr_surface, ext_khr_device_swapchain, ext_khr_win32_surface,
+                                      ext_khr_display, ext_amd_draw_indirect_count,
+                                      ext_nv_external_memory_capabilities, ext_nv_external_memory_win32,
+                                      ext_khr_display_swapchain, ext_debug_report, ext_debug_marker]
+        elif sys.argv[1] == 'Android':
+            extensions = [core, ext_khr_surface, ext_khr_device_swapchain, ext_khr_android_surface,
+                                 ext_khr_display_swapchain]
+            extensions_all = [core, ext_khr_surface, ext_khr_device_swapchain, ext_khr_android_surface,
+                                      ext_amd_draw_indirect_count, ext_nv_external_memory_capabilities,
+                                      ext_khr_display_swapchain, ext_debug_report, ext_debug_marker]
+        elif sys.argv[1] == 'Xcb' or sys.argv[1] == 'Xlib' or sys.argv[1] == 'Wayland' or sys.argv[1] == 'Mir' or sys.argv[1] == 'Display':
+            extensions = [core, ext_khr_surface, ext_khr_device_swapchain, ext_khr_xcb_surface,
+                                 ext_khr_xlib_surface, ext_khr_wayland_surface, ext_khr_mir_surface,
+                                 ext_khr_display, ext_khr_display_swapchain]
+            extensions_all = [core, ext_khr_surface, ext_khr_device_swapchain, ext_khr_xcb_surface,
+                                      ext_khr_xlib_surface, ext_khr_wayland_surface, ext_khr_mir_surface,
+                                      ext_khr_display, ext_amd_draw_indirect_count,
+                                      ext_nv_external_memory_capabilities, ext_khr_display_swapchain,
+                                      ext_debug_report, ext_debug_marker]
+        else:
+            print('Error: Undefined DisplayServer')
+            extensions = []
+            extensions_all = []
 
 object_dispatch_list = [
     "VkInstance",
@@ -1239,6 +1462,8 @@ object_non_dispatch_list = [
     "VkSwapchainKHR",
     "VkSurfaceKHR",
     "VkDebugReportCallbackEXT",
+    "VkDisplayKHR",
+    "VkDisplayModeKHR",
 ]
 
 object_type_list = object_dispatch_list + object_non_dispatch_list
@@ -1252,6 +1477,16 @@ for ext in extensions:
     protos.extend(ext.protos)
 
 proto_names = [proto.name for proto in protos]
+
+headers_all = []
+objects_all = []
+protos_all = []
+for ext in extensions_all:
+    headers_all.extend(ext.headers)
+    objects_all.extend(ext.objects)
+    protos_all.extend(ext.protos)
+
+proto_all_names = [proto.name for proto in protos_all]
 
 def parse_vk_h(filename):
     # read object and protoype typedefs

@@ -19,18 +19,16 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-if (NOT WIN32)
-    set (CMAKE_CXX_FLAGS "-std=c++11")
-endif()
 include_directories(
 	${CMAKE_CURRENT_SOURCE_DIR}
 	${CMAKE_CURRENT_SOURCE_DIR}/../../loader
 	${CMAKE_CURRENT_SOURCE_DIR}/../../include/vulkan
 	)
 
-add_library(vkjson STATIC vkjson.cc vkjson_device.cc ../../loader/cJSON.c)
+add_library(vkjson STATIC vkjson.cc vkjson_instance.cc ../../loader/cJSON.c)
 
 if(UNIX)
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-sign-compare")
     add_executable(vkjson_unittest vkjson_unittest.cc)
     add_executable(vkjson_info vkjson_info.cc)
 else()

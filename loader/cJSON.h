@@ -57,9 +57,8 @@ typedef struct cJSON {
     int valueint;       /* The item's number, if type==cJSON_Number */
     double valuedouble; /* The item's number, if type==cJSON_Number */
 
-    char *
-        string; /* The item's name string, if this item is the child of, or is
-                   in the list of subitems of an object. */
+    char *string; /* The item's name string, if this item is the child of, or is
+                     in the list of subitems of an object. */
 } cJSON;
 
 typedef struct cJSON_Hooks {
@@ -85,6 +84,8 @@ extern char *cJSON_PrintUnformatted(cJSON *item);
 extern char *cJSON_PrintBuffered(cJSON *item, int prebuffer, int fmt);
 /* Delete a cJSON entity and all subentities. */
 extern void cJSON_Delete(cJSON *c);
+/* Delete an item allocated inside the JSON parser*/
+extern void cJSON_Free(void *p);
 
 /* Returns the number of items in an array (or object). */
 extern int cJSON_GetArraySize(cJSON *array);

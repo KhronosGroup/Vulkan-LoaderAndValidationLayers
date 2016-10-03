@@ -5,24 +5,17 @@
 // Copyright (c) 2015-2016 LunarG, Inc.
 // Copyright (c) 2015-2016 Google, Inc.
 //
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and/or associated documentation files (the "Materials"), to
-// deal in the Materials without restriction, including without limitation the
-// rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
-// sell copies of the Materials, and to permit persons to whom the Materials are
-// furnished to do so, subject to the following conditions:
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// The above copyright notice(s) and this permission notice shall be included in
-// all copies or substantial portions of the Materials.
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
-// THE MATERIALS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-//
-// IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE MATERIALS OR THE
-// USE OR OTHER DEALINGS IN THE MATERIALS.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "vkjson.h"
@@ -39,8 +32,8 @@
 #include <type_traits>
 #include <utility>
 
-#include "cJSON.h"
-#include "vk_sdk_platform.h"
+#include <cJSON.h>
+#include <vulkan/vk_sdk_platform.h>
 
 namespace {
 
@@ -334,17 +327,28 @@ inline bool Iterate(Visitor* visitor, VkFormatProperties* properties) {
 }
 
 template <typename Visitor>
-inline bool Iterate(Visitor* visitor, VkJsonAllProperties* properties) {
-  return
-    visitor->Visit("properties", &properties->properties) &&
-    visitor->Visit("features", &properties->features) &&
-    visitor->Visit("memory", &properties->memory) &&
-    visitor->Visit("queues", &properties->queues) &&
-    visitor->Visit("extensions", &properties->extensions) &&
-    visitor->Visit("layers", &properties->layers) &&
-    visitor->Visit("formats", &properties->formats);
+inline bool Iterate(Visitor* visitor, VkJsonLayer* layer) {
+  return visitor->Visit("properties", &layer->properties) &&
+         visitor->Visit("extensions", &layer->extensions);
 }
 
+template <typename Visitor>
+inline bool Iterate(Visitor* visitor, VkJsonDevice* device) {
+  return visitor->Visit("properties", &device->properties) &&
+         visitor->Visit("features", &device->features) &&
+         visitor->Visit("memory", &device->memory) &&
+         visitor->Visit("queues", &device->queues) &&
+         visitor->Visit("extensions", &device->extensions) &&
+         visitor->Visit("layers", &device->layers) &&
+         visitor->Visit("formats", &device->formats);
+}
+
+template <typename Visitor>
+inline bool Iterate(Visitor* visitor, VkJsonInstance* instance) {
+  return visitor->Visit("layers", &instance->layers) &&
+         visitor->Visit("extensions", &instance->extensions) &&
+         visitor->Visit("devices", &instance->devices);
+}
 
 template <typename T>
 using EnableForArithmetic =
@@ -456,7 +460,7 @@ inline void VisitForWrite(Visitor* visitor, const T& t) {
   Iterate(visitor, const_cast<T*>(&t));
 }
 
-template <typename T, typename = EnableForStruct<T>, typename = void>
+template <typename T, typename /*= EnableForStruct<T>*/, typename /*= void*/>
 cJSON* ToJsonValue(const T& value) {
   JsonWriterVisitor visitor;
   VisitForWrite(&visitor, value);
@@ -634,7 +638,7 @@ class JsonReaderVisitor {
   std::string* errors_;
 };
 
-template <typename T, typename = EnableForStruct<T>>
+template <typename T, typename /*= EnableForStruct<T>*/>
 bool AsValue(cJSON* json_value, T* t) {
   if (json_value->type != cJSON_Object)
     return false;
@@ -670,15 +674,24 @@ template <typename T> bool VkTypeFromJson(const std::string& json,
 
 }  // anonymous namespace
 
-std::string VkJsonAllPropertiesToJson(
-    const VkJsonAllProperties& properties) {
-  return VkTypeToJson(properties);
+std::string VkJsonInstanceToJson(const VkJsonInstance& instance) {
+  return VkTypeToJson(instance);
 }
 
-bool VkJsonAllPropertiesFromJson(
-    const std::string& json, VkJsonAllProperties* properties,
-    std::string* errors) {
-  return VkTypeFromJson(json, properties, errors);
+bool VkJsonInstanceFromJson(const std::string& json,
+                            VkJsonInstance* instance,
+                            std::string* errors) {
+  return VkTypeFromJson(json, instance, errors);
+}
+
+std::string VkJsonDeviceToJson(const VkJsonDevice& device) {
+  return VkTypeToJson(device);
+}
+
+bool VkJsonDeviceFromJson(const std::string& json,
+                          VkJsonDevice* device,
+                          std::string* errors) {
+  return VkTypeFromJson(json, device, errors);
 };
 
 std::string VkJsonImageFormatPropertiesToJson(

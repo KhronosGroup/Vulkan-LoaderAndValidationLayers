@@ -1,5 +1,13 @@
 if(NOT WIN32)
-    find_package(XCB REQUIRED)
+    if (BUILD_WSI_XCB_SUPPORT)
+        find_package(XCB REQUIRED)
+    endif()
+    if (BUILD_WSI_XLIB_SUPPORT)
+        find_package(X11 REQUIRED)
+    endif()
+    if (BUILD_WSI_WAYLAND_SUPPORT)
+        find_package(Wayland REQUIRED)
+    endif()
 endif()
 
 file(GLOB TEXTURES
@@ -27,56 +35,53 @@ if(WIN32)
         set (BUILDTGT_DIR build32)
     endif()
 
-    add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/demos/tri-vert.spv
-       COMMAND ${GLSLANG_PREFIX}/${BUILDTGT_DIR}/install/bin/glslangValidator -s -V ${PROJECT_SOURCE_DIR}/demos/tri.vert
-       COMMAND move vert.spv ${CMAKE_BINARY_DIR}/demos/tri-vert.spv
-       DEPENDS tri.vert ${GLSLANG_PREFIX}/${BUILDTGT_DIR}/install/bin/glslangValidator
-       )
-    add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/demos/tri-frag.spv
-       COMMAND ${GLSLANG_PREFIX}/${BUILDTGT_DIR}/install/bin/glslangValidator -s -V ${PROJECT_SOURCE_DIR}/demos/tri.frag
-       COMMAND move frag.spv ${CMAKE_BINARY_DIR}/demos/tri-frag.spv
-       DEPENDS tri.frag ${GLSLANG_PREFIX}/${BUILDTGT_DIR}/install/bin/glslangValidator
-       )
+    # Use static MSVCRT libraries
+    foreach(configuration in CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELEASE CMAKE_C_FLAGS_RELWITHDEBINFO
+                             CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELEASE CMAKE_CXX_FLAGS_RELWITHDEBINFO)
+        if(${configuration} MATCHES "/MD")
+            string(REGEX REPLACE "/MD" "/MT" ${configuration} "${${configuration}}")
+        endif()
+    endforeach()
+
     add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/demos/cube-vert.spv
-       COMMAND ${GLSLANG_PREFIX}/${BUILDTGT_DIR}/install/bin/glslangValidator -s -V ${PROJECT_SOURCE_DIR}/demos/cube.vert
-       COMMAND move vert.spv ${CMAKE_BINARY_DIR}/demos/cube-vert.spv
-       DEPENDS cube.vert ${GLSLANG_PREFIX}/${BUILDTGT_DIR}/install/bin/glslangValidator
+       COMMAND ${GLSLANG_VALIDATOR} -s -V -o ${CMAKE_BINARY_DIR}/demos/cube-vert.spv ${PROJECT_SOURCE_DIR}/demos/cube.vert
+       DEPENDS cube.vert ${GLSLANG_VALIDATOR}
        )
     add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/demos/cube-frag.spv
-       COMMAND ${GLSLANG_PREFIX}/${BUILDTGT_DIR}/install/bin/glslangValidator -s -V ${PROJECT_SOURCE_DIR}/demos/cube.frag
-       COMMAND move frag.spv ${CMAKE_BINARY_DIR}/demos/cube-frag.spv
-       DEPENDS cube.frag ${GLSLANG_PREFIX}/${BUILDTGT_DIR}/install/bin/glslangValidator
+       COMMAND ${GLSLANG_VALIDATOR} -s -V -o ${CMAKE_BINARY_DIR}/demos/cube-frag.spv ${PROJECT_SOURCE_DIR}/demos/cube.frag
+       DEPENDS cube.frag ${GLSLANG_VALIDATOR}
        )
    file(COPY cube.vcxproj.user DESTINATION ${CMAKE_BINARY_DIR}/demos)
-   file(COPY tri.vcxproj.user DESTINATION ${CMAKE_BINARY_DIR}/demos)
    file(COPY vulkaninfo.vcxproj.user DESTINATION ${CMAKE_BINARY_DIR}/demos)
 else()
-    add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/demos/tri-vert.spv
-       COMMAND ${GLSLANG_PREFIX}/build/install/bin/glslangValidator -s -V -o tri-vert.spv ${PROJECT_SOURCE_DIR}/demos/tri.vert 
-       DEPENDS tri.vert ${GLSLANG_PREFIX}/build/install/bin/glslangValidator
-       )
-    add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/demos/tri-frag.spv
-       COMMAND ${GLSLANG_PREFIX}/build/install/bin/glslangValidator -s -V -o tri-frag.spv ${PROJECT_SOURCE_DIR}/demos/tri.frag
-       DEPENDS tri.frag ${GLSLANG_PREFIX}/build/install/bin/glslangValidator
-       )
-    add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/demos/cube-vert.spv
-       COMMAND ${GLSLANG_PREFIX}/build/install/bin/glslangValidator -s -V -o cube-vert.spv ${PROJECT_SOURCE_DIR}/demos/cube.vert
-       DEPENDS cube.vert ${GLSLANG_PREFIX}/build/install/bin/glslangValidator
-       )
-
-    add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/demos/cube-frag.spv
-       COMMAND ${GLSLANG_PREFIX}/build/install/bin/glslangValidator -s -V -o cube-frag.spv ${PROJECT_SOURCE_DIR}/demos/cube.frag
-       DEPENDS cube.frag ${GLSLANG_PREFIX}/build/install/bin/glslangValidator
-       )
+    if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL ${CMAKE_HOST_SYSTEM_PROCESSOR})
+        add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/demos/cube-vert.spv
+            COMMAND ${GLSLANG_VALIDATOR} -s -V -o cube-vert.spv ${PROJECT_SOURCE_DIR}/demos/cube.vert
+            DEPENDS cube.vert ${GLSLANG_VALIDATOR}
+            )
+        add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/demos/cube-frag.spv
+            COMMAND ${GLSLANG_VALIDATOR} -s -V -o cube-frag.spv ${PROJECT_SOURCE_DIR}/demos/cube.frag
+            DEPENDS cube.frag ${GLSLANG_VALIDATOR}
+            )
+    endif()         
 endif()
 
 if(NOT WIN32)
-    include_directories (
-       ${XCB_INCLUDE_DIRS}
-       "${PROJECT_SOURCE_DIR}/icd/common"
-       )
+    if(BUILD_WSI_XCB_SUPPORT)
+        include_directories(${XCB_INCLUDE_DIRS})
+        link_libraries(${XCB_LIBRARIES})
+    endif()
+    if(BUILD_WSI_XLIB_SUPPORT)
+        include_directories(${X11_INCLUDE_DIR})
+        link_libraries(${X11_LIBRARIES})
+    endif()
+    if(BUILD_WSI_WAYLAND_SUPPORT)
+        include_directories(${WAYLAND_CLIENT_INCLUDE_DIR})
+        link_libraries(${WAYLAND_CLIENT_LIBRARIES})
+    endif()
 
-    link_libraries(${XCB_LIBRARIES} vulkan m)
+    include_directories ("${PROJECT_SOURCE_DIR}/icd/common")
+    link_libraries(vulkan m)
 endif()
 if(WIN32)
     include_directories (
@@ -87,23 +92,14 @@ if(WIN32)
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_CRT_SECURE_NO_WARNINGS -D_USE_MATH_DEFINES")
 endif()
 
-if(UNIX)
-    add_executable(vulkaninfo vulkaninfo.c)
-else()
-    add_executable(vulkaninfo WIN32 vulkaninfo.c)
-endif()
+add_executable(vulkaninfo vulkaninfo.c)
 target_link_libraries(vulkaninfo ${LIBRARIES})
 
-if(UNIX)
-    add_executable(tri tri.c ${CMAKE_BINARY_DIR}/demos/tri-vert.spv ${CMAKE_BINARY_DIR}/demos/tri-frag.spv)
-else()
-    add_executable(tri WIN32 tri.c ${CMAKE_BINARY_DIR}/demos/tri-vert.spv ${CMAKE_BINARY_DIR}/demos/tri-frag.spv)
-endif()
-target_link_libraries(tri ${LIBRARIES})
-
 if(NOT WIN32)
-    add_executable(cube cube.c ${CMAKE_BINARY_DIR}/demos/cube-vert.spv ${CMAKE_BINARY_DIR}/demos/cube-frag.spv)
-    target_link_libraries(cube ${LIBRARIES})
+    if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL ${CMAKE_HOST_SYSTEM_PROCESSOR})
+        add_executable(cube cube.c ${CMAKE_BINARY_DIR}/demos/cube-vert.spv ${CMAKE_BINARY_DIR}/demos/cube-frag.spv)
+        target_link_libraries(cube ${LIBRARIES})
+    endif()
 else()
     if (CMAKE_CL_64)
         set (LIB_DIR "Win64")
@@ -113,4 +109,8 @@ else()
 
     add_executable(cube WIN32 cube.c ${CMAKE_BINARY_DIR}/demos/cube-vert.spv ${CMAKE_BINARY_DIR}/demos/cube-frag.spv)
     target_link_libraries(cube ${LIBRARIES} )
+endif()
+
+if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL ${CMAKE_HOST_SYSTEM_PROCESSOR})
+    add_subdirectory(smoke)
 endif()

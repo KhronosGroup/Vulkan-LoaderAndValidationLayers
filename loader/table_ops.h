@@ -5,24 +5,17 @@
  * Copyright (c) 2015-2016 LunarG, Inc.
  * Copyright (C) 2016 Google Inc.
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and/or associated documentation files (the "Materials"), to
- * deal in the Materials without restriction, including without limitation the
- * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
- * sell copies of the Materials, and to permit persons to whom the Materials are
- * furnished to do so, subject to the following conditions:
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * The above copyright notice(s) and this permission notice shall be included in
- * all copies or substantial portions of the Materials.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * THE MATERIALS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
- *
- * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
- * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
- * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE MATERIALS OR THE
- * USE OR OTHER DEALINGS IN THE MATERIALS.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * Author: Courtney Goeltzenleuchter <courtney@lunarg.com>
  * Author: Jon Ashburn <jon@lunarg.com>
@@ -38,7 +31,7 @@
 
 static VkResult vkDevExtError(VkDevice dev) {
     struct loader_device *found_dev;
-    struct loader_icd *icd = loader_get_icd_and_device(dev, &found_dev);
+    struct loader_icd *icd = loader_get_icd_and_device(dev, &found_dev, NULL);
 
     if (icd)
         loader_log(icd->this_instance, VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
@@ -52,7 +45,7 @@ loader_init_device_dispatch_table(struct loader_dev_dispatch_table *dev_table,
                                   PFN_vkGetDeviceProcAddr gpa, VkDevice dev) {
     VkLayerDispatchTable *table = &dev_table->core_dispatch;
     for (uint32_t i = 0; i < MAX_NUM_DEV_EXTS; i++)
-        dev_table->ext_dispatch.DevExt[i] = (PFN_vkDevExt)vkDevExtError;
+        dev_table->ext_dispatch.dev_ext[i] = (PFN_vkDevExt)vkDevExtError;
 
     table->GetDeviceProcAddr =
         (PFN_vkGetDeviceProcAddr)gpa(dev, "vkGetDeviceProcAddr");
@@ -274,6 +267,27 @@ static inline void loader_init_device_extension_dispatch_table(
         (PFN_vkGetSwapchainImagesKHR)gpa(dev, "vkGetSwapchainImagesKHR");
     table->QueuePresentKHR =
         (PFN_vkQueuePresentKHR)gpa(dev, "vkQueuePresentKHR");
+    table->CmdDrawIndirectCountAMD =
+        (PFN_vkCmdDrawIndirectCountAMD)gpa(dev, "vkCmdDrawIndirectCountAMD");
+    table->CmdDrawIndexedIndirectCountAMD =
+        (PFN_vkCmdDrawIndexedIndirectCountAMD)gpa(
+            dev, "vkCmdDrawIndexedIndirectCountAMD");
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+    table->GetMemoryWin32HandleNV =
+        (PFN_vkGetMemoryWin32HandleNV)gpa(dev, "vkGetMemoryWin32HandleNV");
+#endif // VK_USE_PLATFORM_WIN32_KHR
+    table->CreateSharedSwapchainsKHR =
+        (PFN_vkCreateSharedSwapchainsKHR)gpa(dev, "vkCreateSharedSwapchainsKHR");
+    table->DebugMarkerSetObjectTagEXT =
+        (PFN_vkDebugMarkerSetObjectTagEXT)gpa(dev, "vkDebugMarkerSetObjectTagEXT");
+    table->DebugMarkerSetObjectNameEXT =
+        (PFN_vkDebugMarkerSetObjectNameEXT)gpa(dev, "vkDebugMarkerSetObjectNameEXT");
+    table->CmdDebugMarkerBeginEXT =
+        (PFN_vkCmdDebugMarkerBeginEXT)gpa(dev, "vkCmdDebugMarkerBeginEXT");
+    table->CmdDebugMarkerEndEXT =
+        (PFN_vkCmdDebugMarkerEndEXT)gpa(dev, "vkCmdDebugMarkerEndEXT");
+    table->CmdDebugMarkerInsertEXT =
+        (PFN_vkCmdDebugMarkerInsertEXT)gpa(dev, "vkCmdDebugMarkerInsertEXT");
 }
 
 static inline void *
@@ -526,6 +540,20 @@ loader_lookup_device_dispatch_table(const VkLayerDispatchTable *table,
     if (!strcmp(name, "CmdExecuteCommands"))
         return (void *)table->CmdExecuteCommands;
 
+    if (!strcmp(name, "CreateSwapchainKHR")) {
+        // For CreateSwapChainKHR we need to use trampoline and terminator
+        // functions to properly unwrap the SurfaceKHR object.
+        return (void *)vkCreateSwapchainKHR;
+    }
+    if (!strcmp(name, "DestroySwapchainKHR"))
+        return (void *)table->DestroySwapchainKHR;
+    if (!strcmp(name, "GetSwapchainImagesKHR"))
+        return (void *)table->GetSwapchainImagesKHR;
+    if (!strcmp(name, "AcquireNextImageKHR"))
+        return (void *)table->AcquireNextImageKHR;
+    if (!strcmp(name, "QueuePresentKHR"))
+        return (void *)table->QueuePresentKHR;
+
     return NULL;
 }
 
@@ -591,6 +619,9 @@ static inline void loader_init_instance_extension_dispatch_table(
     table->GetPhysicalDeviceSurfacePresentModesKHR =
         (PFN_vkGetPhysicalDeviceSurfacePresentModesKHR)gpa(
             inst, "vkGetPhysicalDeviceSurfacePresentModesKHR");
+    table->GetPhysicalDeviceExternalImageFormatPropertiesNV =
+        (PFN_vkGetPhysicalDeviceExternalImageFormatPropertiesNV)gpa(
+            inst, "vkGetPhysicalDeviceExternalImageFormatPropertiesNV");
 #ifdef VK_USE_PLATFORM_MIR_KHR
     table->CreateMirSurfaceKHR =
         (PFN_vkCreateMirSurfaceKHR)gpa(inst, "vkCreateMirSurfaceKHR");
@@ -626,14 +657,36 @@ static inline void loader_init_instance_extension_dispatch_table(
         (PFN_vkGetPhysicalDeviceXlibPresentationSupportKHR)gpa(
             inst, "vkGetPhysicalDeviceXlibPresentationSupportKHR");
 #endif
+    table->GetPhysicalDeviceDisplayPropertiesKHR =
+        (PFN_vkGetPhysicalDeviceDisplayPropertiesKHR)gpa(
+            inst, "vkGetPhysicalDeviceDisplayPropertiesKHR");
+    table->GetPhysicalDeviceDisplayPlanePropertiesKHR =
+        (PFN_vkGetPhysicalDeviceDisplayPlanePropertiesKHR)gpa(
+            inst, "vkGetPhysicalDeviceDisplayPlanePropertiesKHR");
+    table->GetDisplayPlaneSupportedDisplaysKHR =
+        (PFN_vkGetDisplayPlaneSupportedDisplaysKHR)gpa(
+            inst, "vkGetDisplayPlaneSupportedDisplaysKHR");
+    table->GetDisplayModePropertiesKHR = (PFN_vkGetDisplayModePropertiesKHR)gpa(
+        inst, "vkGetDisplayModePropertiesKHR");
+    table->CreateDisplayModeKHR =
+        (PFN_vkCreateDisplayModeKHR)gpa(inst, "vkCreateDisplayModeKHR");
+    table->GetDisplayPlaneCapabilitiesKHR =
+        (PFN_vkGetDisplayPlaneCapabilitiesKHR)gpa(
+            inst, "vkGetDisplayPlaneCapabilitiesKHR");
+    table->CreateDisplayPlaneSurfaceKHR =
+        (PFN_vkCreateDisplayPlaneSurfaceKHR)gpa(
+            inst, "vkCreateDisplayPlaneSurfaceKHR");
 }
 
 static inline void *
 loader_lookup_instance_dispatch_table(const VkLayerInstanceDispatchTable *table,
-                                      const char *name) {
-    if (!name || name[0] != 'v' || name[1] != 'k')
+                                      const char *name, bool *found_name) {
+    if (!name || name[0] != 'v' || name[1] != 'k') {
+        *found_name = false;
         return NULL;
+    }
 
+    *found_name = true;
     name += 2;
     if (!strcmp(name, "DestroyInstance"))
         return (void *)table->DestroyInstance;
@@ -669,6 +722,8 @@ loader_lookup_instance_dispatch_table(const VkLayerInstanceDispatchTable *table,
         return (void *)table->GetPhysicalDeviceSurfaceFormatsKHR;
     if (!strcmp(name, "GetPhysicalDeviceSurfacePresentModesKHR"))
         return (void *)table->GetPhysicalDeviceSurfacePresentModesKHR;
+    if (!strcmp(name, "GetPhysicalDeviceExternalImageFormatPropertiesNV"))
+        return (void *)table->GetPhysicalDeviceExternalImageFormatPropertiesNV;
 #ifdef VK_USE_PLATFORM_MIR_KHR
     if (!strcmp(name, "CreateMirSurfaceKHR"))
         return (void *)table->CreateMirSurfaceKHR;
@@ -699,6 +754,21 @@ loader_lookup_instance_dispatch_table(const VkLayerInstanceDispatchTable *table,
     if (!strcmp(name, "GetPhysicalDeviceXlibPresentationSupportKHR"))
         return (void *)table->GetPhysicalDeviceXlibPresentationSupportKHR;
 #endif
+    if (!strcmp(name, "GetPhysicalDeviceDisplayPropertiesKHR"))
+        return (void *)table->GetPhysicalDeviceDisplayPropertiesKHR;
+    if (!strcmp(name, "GetPhysicalDeviceDisplayPlanePropertiesKHR"))
+        return (void *)table->GetPhysicalDeviceDisplayPlanePropertiesKHR;
+    if (!strcmp(name, "GetDisplayPlaneSupportedDisplaysKHR"))
+        return (void *)table->GetDisplayPlaneSupportedDisplaysKHR;
+    if (!strcmp(name, "GetDisplayModePropertiesKHR"))
+        return (void *)table->GetDisplayModePropertiesKHR;
+    if (!strcmp(name, "CreateDisplayModeKHR"))
+        return (void *)table->CreateDisplayModeKHR;
+    if (!strcmp(name, "GetDisplayPlaneCapabilitiesKHR"))
+        return (void *)table->GetDisplayPlaneCapabilitiesKHR;
+    if (!strcmp(name, "CreateDisplayPlaneSurfaceKHR"))
+        return (void *)table->CreateDisplayPlaneSurfaceKHR;
+
     if (!strcmp(name, "CreateDebugReportCallbackEXT"))
         return (void *)table->CreateDebugReportCallbackEXT;
     if (!strcmp(name, "DestroyDebugReportCallbackEXT"))
@@ -706,5 +776,6 @@ loader_lookup_instance_dispatch_table(const VkLayerInstanceDispatchTable *table,
     if (!strcmp(name, "DebugReportMessageEXT"))
         return (void *)table->DebugReportMessageEXT;
 
+    *found_name = false;
     return NULL;
 }

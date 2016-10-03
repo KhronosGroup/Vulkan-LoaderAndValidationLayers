@@ -1,0 +1,10 @@
+include ':core_validation',
+        ':image',
+        ':object_tracker',
+        ':parameter_validation',
+        ':swapchain',
+        ':threading',
+        ':unique_objects'
+
+
+

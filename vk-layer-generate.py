@@ -7,24 +7,17 @@
 # Copyright (c) 2015-2016 LunarG, Inc.
 # Copyright (c) 2015-2016 Google Inc.
 #
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and/or associated documentation files (the "Materials"), to
-# deal in the Materials without restriction, including without limitation the
-# rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
-# sell copies of the Materials, and to permit persons to whom the Materials
-# are furnished to do so, subject to the following conditions:
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# The above copyright notice(s) and this permission notice shall be included
-# in all copies or substantial portions of the Materials.
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
-# THE MATERIALS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-#
-# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-# DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-# OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE MATERIALS OR THE
-# USE OR OTHER DEALINGS IN THE MATERIALS
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Author: Tobin Ehlis <tobine@google.com>
 # Author: Courtney Goeltzenleuchter <courtneygo@google.com>
@@ -33,6 +26,7 @@
 # Author: Mike Stroyan <stroyan@google.com>
 # Author: Tony Barbour <tony@LunarG.com>
 # Author: Chia-I Wu <olv@google.com>
+# Author: Gwan-gyeong Mun <kk.moon@samsung.com>
 
 import sys
 import os
@@ -60,7 +54,14 @@ def proto_is_global(proto):
         "GetPhysicalDeviceMirPresentationSupportKHR",
         "CreateAndroidSurfaceKHR",
         "CreateWin32SurfaceKHR",
-        "GetPhysicalDeviceWin32PresentationSupportKHR"
+        "GetPhysicalDeviceWin32PresentationSupportKHR",
+        "GetPhysicalDeviceDisplayPropertiesKHR",
+        "GetPhysicalDeviceDisplayPlanePropertiesKHR",
+        "GetDisplayPlaneSupportedDisplaysKHR",
+        "GetDisplayModePropertiesKHR",
+        "CreateDisplayModeKHR",
+        "GetDisplayPlaneCapabilitiesKHR",
+        "CreateDisplayPlaneSurfaceKHR"
     ]
     if proto.params[0].ty == "VkInstance" or proto.params[0].ty == "VkPhysicalDevice" or proto.name in global_function_names:
        return True
@@ -170,16 +171,21 @@ def get_object_uses(obj_list, params):
     return (obj_uses, local_decls)
 
 class Subcommand(object):
-    def __init__(self, argv):
-        self.argv = argv
+    def __init__(self, outfile):
+        self.outfile = outfile
         self.headers = vulkan.headers
         self.protos = vulkan.protos
         self.no_addr = False
         self.layer_name = ""
         self.lineinfo = sourcelineinfo()
+        self.wsi = sys.argv[1]
 
     def run(self):
-        print(self.generate())
+        if self.outfile:
+            with open(self.outfile, "w") as outfile:
+                outfile.write(self.generate())
+        else:
+            print(self.generate())
 
     def generate(self):
         copyright = self.generate_copyright()
@@ -206,26 +212,19 @@ class Subcommand(object):
  * Copyright (c) 2015-2016 The Khronos Group Inc.
  * Copyright (c) 2015-2016 Valve Corporation
  * Copyright (c) 2015-2016 LunarG, Inc.
- * Copyright (c) 2015 Google, Inc.
+ * Copyright (c) 2015-2016 Google, Inc.
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and/or associated documentation files (the "Materials"), to
- * deal in the Materials without restriction, including without limitation the
- * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
- * sell copies of the Materials, and to permit persons to whom the Materials
- * are furnished to do so, subject to the following conditions:
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * The above copyright notice(s) and this permission notice shall be included
- * in all copies or substantial portions of the Materials.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * THE MATERIALS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
- *
- * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
- * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
- * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE MATERIALS OR THE
- * USE OR OTHER DEALINGS IN THE MATERIALS
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * Author: Tobin Ehlis <tobine@google.com>
  * Author: Courtney Goeltzenleuchter <courtneygo@google.com>
@@ -280,36 +279,37 @@ class Subcommand(object):
                 if 'pUserData' == name:
                     return ("%i", "((pUserData == 0) ? 0 : *(pUserData))")
                 if 'const' in vk_type.lower():
-                    return ("%p", "(void*)(%s)" % name)
+                    return ("0x%p", "(void*)(%s)" % name)
                 return ("%i", "*(%s)" % name)
             return ("%i", name)
         # TODO : This is special-cased as there's only one "format" param currently and it's nice to expand it
         if "VkFormat" == vk_type:
             if cpp:
-                return ("%p", "&%s" % name)
+                return ("0x%p", "&%s" % name)
             return ("{%s.channelFormat = %%s, %s.numericFormat = %%s}" % (name, name), "string_VK_COLOR_COMPONENT_FORMAT(%s.channelFormat), string_VK_FORMAT_RANGE_SIZE(%s.numericFormat)" % (name, name))
         if output_param:
-            return ("%p", "(void*)*%s" % name)
+            return ("0x%p", "(void*)*%s" % name)
         if vk_helper.is_type(vk_type, 'struct') and '*' not in vk_type:
-            return ("%p", "(void*)(&%s)" % name)
-        return ("%p", "(void*)(%s)" % name)
+            return ("0x%p", "(void*)(&%s)" % name)
+        return ("0x%p", "(void*)(%s)" % name)
 
     def _gen_create_msg_callback(self):
         r_body = []
         r_body.append('%s' % self.lineinfo.get())
-        r_body.append('VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkCreateDebugReportCallbackEXT(')
+        r_body.append('VKAPI_ATTR VkResult VKAPI_CALL CreateDebugReportCallbackEXT(')
         r_body.append('        VkInstance                                   instance,')
         r_body.append('        const VkDebugReportCallbackCreateInfoEXT*    pCreateInfo,')
         r_body.append('        const VkAllocationCallbacks*                 pAllocator,')
         r_body.append('        VkDebugReportCallbackEXT*                    pCallback)')
         r_body.append('{')
         # Switch to this code section for the new per-instance storage and debug callbacks
-        if self.layer_name in ['object_tracker', 'threading', 'unique_objects']:
+        if self.layer_name in ['unique_objects']:
             r_body.append('    VkLayerInstanceDispatchTable *pInstanceTable = get_dispatch_table(%s_instance_table_map, instance);' % self.layer_name )
             r_body.append('    VkResult result = pInstanceTable->CreateDebugReportCallbackEXT(instance, pCreateInfo, pAllocator, pCallback);')
             r_body.append('    if (VK_SUCCESS == result) {')
             r_body.append('        layer_data *my_data = get_my_data_ptr(get_dispatch_key(instance), layer_data_map);')
             r_body.append('        result = layer_create_msg_callback(my_data->report_data,')
+            r_body.append('                                           false,')
             r_body.append('                                           pCreateInfo,')
             r_body.append('                                           pAllocator,')
             r_body.append('                                           pCallback);')
@@ -319,7 +319,7 @@ class Subcommand(object):
             r_body.append('    VkResult result = instance_dispatch_table(instance)->CreateDebugReportCallbackEXT(instance, pCreateInfo, pAllocator, pCallback);')
             r_body.append('    if (VK_SUCCESS == result) {')
             r_body.append('        layer_data *my_data = get_my_data_ptr(get_dispatch_key(instance), layer_data_map);')
-            r_body.append('        result = layer_create_msg_callback(my_data->report_data, pCreateInfo, pAllocator, pCallback);')
+            r_body.append('        result = layer_create_msg_callback(my_data->report_data, false, pCreateInfo, pAllocator, pCallback);')
             r_body.append('    }')
             r_body.append('    return result;')
         r_body.append('}')
@@ -328,10 +328,10 @@ class Subcommand(object):
     def _gen_destroy_msg_callback(self):
         r_body = []
         r_body.append('%s' % self.lineinfo.get())
-        r_body.append('VK_LAYER_EXPORT VKAPI_ATTR void VKAPI_CALL vkDestroyDebugReportCallbackEXT(VkInstance instance, VkDebugReportCallbackEXT msgCallback, const VkAllocationCallbacks *pAllocator)')
+        r_body.append('VKAPI_ATTR void VKAPI_CALL DestroyDebugReportCallbackEXT(VkInstance instance, VkDebugReportCallbackEXT msgCallback, const VkAllocationCallbacks *pAllocator)')
         r_body.append('{')
         # Switch to this code section for the new per-instance storage and debug callbacks
-        if self.layer_name in ['object_tracker', 'threading', 'unique_objects']:
+        if self.layer_name in ['unique_objects']:
             r_body.append('    VkLayerInstanceDispatchTable *pInstanceTable = get_dispatch_table(%s_instance_table_map, instance);' % self.layer_name )
         else:
             r_body.append('    VkLayerInstanceDispatchTable *pInstanceTable = instance_dispatch_table(instance);')
@@ -344,90 +344,82 @@ class Subcommand(object):
     def _gen_debug_report_msg(self):
         r_body = []
         r_body.append('%s' % self.lineinfo.get())
-        r_body.append('VK_LAYER_EXPORT VKAPI_ATTR void VKAPI_CALL vkDebugReportMessageEXT(VkInstance instance, VkDebugReportFlagsEXT    flags, VkDebugReportObjectTypeEXT objType, uint64_t object, size_t location, int32_t msgCode, const char *pLayerPrefix, const char *pMsg)')
+        r_body.append('VKAPI_ATTR void VKAPI_CALL DebugReportMessageEXT(VkInstance instance, VkDebugReportFlagsEXT    flags, VkDebugReportObjectTypeEXT objType, uint64_t object, size_t location, int32_t msgCode, const char *pLayerPrefix, const char *pMsg)')
         r_body.append('{')
         # Switch to this code section for the new per-instance storage and debug callbacks
-        if self.layer_name == 'object_tracker' or self.layer_name == 'threading':
-            r_body.append('    VkLayerInstanceDispatchTable *pInstanceTable = get_dispatch_table(%s_instance_table_map, instance);' % self.layer_name )
-        else:
-            r_body.append('    VkLayerInstanceDispatchTable *pInstanceTable = instance_dispatch_table(instance);')
+        r_body.append('    VkLayerInstanceDispatchTable *pInstanceTable = instance_dispatch_table(instance);')
         r_body.append('    pInstanceTable->DebugReportMessageEXT(instance, flags, objType, object, location, msgCode, pLayerPrefix, pMsg);')
         r_body.append('}')
         return "\n".join(r_body)
 
-    def _gen_layer_get_global_extension_props(self, layer="object_tracker"):
-        ggep_body = []
-        # generated layers do not provide any global extensions
-        ggep_body.append('%s' % self.lineinfo.get())
+    def _gen_layer_logging_workaround(self):
+        body = []
+        body.append('%s' % self.lineinfo.get())
+        body.append('// vk_layer_logging.h expects these to be defined')
+        body.append('')
+        body.append('VKAPI_ATTR VkResult VKAPI_CALL')
+        body.append('vkCreateDebugReportCallbackEXT(VkInstance instance, const VkDebugReportCallbackCreateInfoEXT *pCreateInfo,')
+        body.append('                               const VkAllocationCallbacks *pAllocator, VkDebugReportCallbackEXT *pMsgCallback) {')
+        body.append('    return %s::CreateDebugReportCallbackEXT(instance, pCreateInfo, pAllocator, pMsgCallback);' % self.layer_name)
+        body.append('}')
+        body.append('')
+        body.append('VKAPI_ATTR void VKAPI_CALL vkDestroyDebugReportCallbackEXT(VkInstance instance,')
+        body.append('                                                                           VkDebugReportCallbackEXT msgCallback,')
+        body.append('                                                                           const VkAllocationCallbacks *pAllocator) {')
+        body.append('    %s::DestroyDebugReportCallbackEXT(instance, msgCallback, pAllocator);' % self.layer_name)
+        body.append('}')
+        body.append('')
+        body.append('VKAPI_ATTR void VKAPI_CALL')
+        body.append('vkDebugReportMessageEXT(VkInstance instance, VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT objType, uint64_t object,')
+        body.append('                        size_t location, int32_t msgCode, const char *pLayerPrefix, const char *pMsg) {')
+        body.append('    %s::DebugReportMessageEXT(instance, flags, objType, object, location, msgCode, pLayerPrefix, pMsg);' % self.layer_name)
+        body.append('}')
 
-        ggep_body.append('')
-        if self.layer_name == 'object_tracker' or self.layer_name == 'threading':
-            ggep_body.append('static const VkExtensionProperties instance_extensions[] = {')
-            ggep_body.append('    {')
-            ggep_body.append('        VK_EXT_DEBUG_REPORT_EXTENSION_NAME,')
-            ggep_body.append('        VK_EXT_DEBUG_REPORT_SPEC_VERSION')
-            ggep_body.append('    }')
-            ggep_body.append('};')
-        ggep_body.append('VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateInstanceExtensionProperties(const char *pLayerName, uint32_t *pCount,  VkExtensionProperties* pProperties)')
-        ggep_body.append('{')
-        if self.layer_name == 'object_tracker' or self.layer_name == 'threading':
-          ggep_body.append('    return util_GetExtensionProperties(1, instance_extensions, pCount, pProperties);')
-        else:
-          ggep_body.append('    return util_GetExtensionProperties(0, NULL, pCount, pProperties);')
-        ggep_body.append('}')
-        return "\n".join(ggep_body)
+        return "\n".join(body)
 
-    def _gen_layer_get_global_layer_props(self, layer="object_tracker"):
-        ggep_body = []
-        layer_name = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', layer)
-        layer_name = re.sub('([a-z0-9])([A-Z])', r'\1_\2', layer_name).lower()
-        ggep_body.append('%s' % self.lineinfo.get())
-        ggep_body.append('static const VkLayerProperties globalLayerProps[] = {')
-        ggep_body.append('    {')
-        if self.layer_name in ['threading', 'unique_objects']:
-          ggep_body.append('        "VK_LAYER_GOOGLE_%s",' % layer)
-          ggep_body.append('        VK_API_VERSION, // specVersion')
-          ggep_body.append('        1, // implementationVersion')
-          ggep_body.append('        "Google Validation Layer"')
-        else:
-          ggep_body.append('        "VK_LAYER_LUNARG_%s",' % layer)
-          ggep_body.append('        VK_API_VERSION, // specVersion')
-          ggep_body.append('        1, // implementationVersion')
-          ggep_body.append('        "LunarG Validation Layer"')
-        ggep_body.append('    }')
-        ggep_body.append('};')
-        ggep_body.append('')
-        ggep_body.append('%s' % self.lineinfo.get())
-        ggep_body.append('')
-        ggep_body.append('VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateInstanceLayerProperties(uint32_t *pCount,  VkLayerProperties* pProperties)')
-        ggep_body.append('{')
-        ggep_body.append('    return util_GetLayerProperties(ARRAY_SIZE(globalLayerProps), globalLayerProps, pCount, pProperties);')
-        ggep_body.append('}')
-        return "\n".join(ggep_body)
+    def _gen_layer_interface_v0_functions(self):
+        body = []
+        body.append('%s' % self.lineinfo.get())
+        body.append('// loader-layer interface v0, just wrappers since there is only a layer')
+        body.append('')
 
-    def _gen_layer_get_physical_device_layer_props(self, layer="object_tracker"):
-        gpdlp_body = []
-        gpdlp_body.append('%s' % self.lineinfo.get())
-        gpdlp_body.append('static const VkLayerProperties deviceLayerProps[] = {')
-        gpdlp_body.append('    {')
-        if self.layer_name in ['threading', 'unique_objects']:
-          gpdlp_body.append('        "VK_LAYER_GOOGLE_%s",' % layer)
-          gpdlp_body.append('        VK_API_VERSION, // specVersion')
-          gpdlp_body.append('        1, // implementationVersion')
-          gpdlp_body.append('        "Google Validation Layer"')
-        else:
-          gpdlp_body.append('        "VK_LAYER_LUNARG_%s",' % layer)
-          gpdlp_body.append('        VK_API_VERSION, // specVersion')
-          gpdlp_body.append('        1, // implementationVersion')
-          gpdlp_body.append('        "LunarG Validation Layer"')
-        gpdlp_body.append('    }')
-        gpdlp_body.append('};')
-        gpdlp_body.append('VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateDeviceLayerProperties(VkPhysicalDevice physicalDevice, uint32_t *pCount, VkLayerProperties* pProperties)')
-        gpdlp_body.append('{')
-        gpdlp_body.append('    return util_GetLayerProperties(ARRAY_SIZE(deviceLayerProps), deviceLayerProps, pCount, pProperties);')
-        gpdlp_body.append('}')
-        gpdlp_body.append('')
-        return "\n".join(gpdlp_body)
+        body.append('VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateInstanceExtensionProperties(const char *pLayerName, uint32_t *pCount,  VkExtensionProperties* pProperties)')
+        body.append('{')
+        body.append('    return %s::EnumerateInstanceExtensionProperties(pLayerName, pCount, pProperties);' % self.layer_name)
+        body.append('}')
+        body.append('')
+        body.append('VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateInstanceLayerProperties(uint32_t *pCount,  VkLayerProperties* pProperties)')
+        body.append('{')
+        body.append('    return %s::EnumerateInstanceLayerProperties(pCount, pProperties);' % self.layer_name)
+        body.append('}')
+        body.append('')
+        body.append('VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateDeviceLayerProperties(VkPhysicalDevice physicalDevice, uint32_t *pCount, VkLayerProperties* pProperties)')
+        body.append('{')
+        body.append('    // the layer command handles VK_NULL_HANDLE just fine internally')
+        body.append('    assert(physicalDevice == VK_NULL_HANDLE);')
+        body.append('    return %s::EnumerateDeviceLayerProperties(VK_NULL_HANDLE, pCount, pProperties);' % self.layer_name)
+        body.append('}')
+        body.append('')
+        body.append('VK_LAYER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetDeviceProcAddr(VkDevice dev, const char *funcName)')
+        body.append('{')
+        body.append('    return %s::GetDeviceProcAddr(dev, funcName);' % self.layer_name)
+        body.append('}')
+        body.append('')
+        body.append('VK_LAYER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr(VkInstance instance, const char *funcName)')
+        body.append('{')
+        body.append('    return %s::GetInstanceProcAddr(instance, funcName);' % self.layer_name)
+        body.append('}')
+        body.append('')
+        body.append('VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateDeviceExtensionProperties(VkPhysicalDevice physicalDevice,')
+        body.append('                                                                                    const char *pLayerName, uint32_t *pCount,')
+        body.append('                                                                                    VkExtensionProperties *pProperties)')
+        body.append('{')
+        body.append('    // the layer command handles VK_NULL_HANDLE just fine internally')
+        body.append('    assert(physicalDevice == VK_NULL_HANDLE);')
+        body.append('    return %s::EnumerateDeviceExtensionProperties(VK_NULL_HANDLE, pLayerName, pCount, pProperties);' % self.layer_name)
+        body.append('}')
+
+        return "\n".join(body)
 
     def _generate_dispatch_entrypoints(self, qual=""):
         if qual:
@@ -436,8 +428,13 @@ class Subcommand(object):
         funcs = []
         intercepted = []
         for proto in self.protos:
-            if proto.name == "GetDeviceProcAddr" or proto.name == "GetInstanceProcAddr":
-                continue
+            if proto.name in ["EnumerateInstanceExtensionProperties",
+                              "EnumerateInstanceLayerProperties",
+                              "EnumerateDeviceLayerProperties",
+                              "GetDeviceProcAddr",
+                              "GetInstanceProcAddr"]:
+                funcs.append(proto.c_func(attr="VKAPI") + ';')
+                intercepted.append(proto)
             else:
                 intercept = self.generate_intercept(proto, qual)
                 if intercept is None:
@@ -450,58 +447,41 @@ class Subcommand(object):
                         intercept = self._gen_debug_report_msg()
                     elif 'CreateDevice' == proto.name:
                         funcs.append('/* CreateDevice HERE */')
-                    elif 'EnumerateInstanceExtensionProperties' == proto.name:
-                        intercept = self._gen_layer_get_global_extension_props(self.layer_name)
-                    elif 'EnumerateInstanceLayerProperties' == proto.name:
-                        intercept = self._gen_layer_get_global_layer_props(self.layer_name)
-                    elif 'EnumerateDeviceLayerProperties' == proto.name:
-                        intercept = self._gen_layer_get_physical_device_layer_props(self.layer_name)
 
                 if intercept is not None:
                     funcs.append(intercept)
                     if not "KHR" in proto.name:
                         intercepted.append(proto)
 
-        prefix="vk"
-        lookups = []
+        instance_lookups = []
+        device_lookups = []
         for proto in intercepted:
-            lookups.append("if (!strcmp(name, \"%s\"))" % proto.name)
-            lookups.append("    return (PFN_vkVoidFunction) %s%s;" %
-                    (prefix, proto.name))
+            if proto_is_global(proto):
+                instance_lookups.append("if (!strcmp(name, \"%s\"))" % proto.name)
+                instance_lookups.append("    return (PFN_vkVoidFunction) %s;" % (proto.name))
+            else:
+                device_lookups.append("if (!strcmp(name, \"%s\"))" % proto.name)
+                device_lookups.append("    return (PFN_vkVoidFunction) %s;" % (proto.name))
 
-        # add customized layer_intercept_proc
+        # add customized intercept_core_device_command
         body = []
         body.append('%s' % self.lineinfo.get())
-        body.append("static inline PFN_vkVoidFunction layer_intercept_proc(const char *name)")
+        body.append("static inline PFN_vkVoidFunction intercept_core_device_command(const char *name)")
         body.append("{")
         body.append(generate_get_proc_addr_check("name"))
         body.append("")
         body.append("    name += 2;")
-        body.append("    %s" % "\n    ".join(lookups))
+        body.append("    %s" % "\n    ".join(device_lookups))
         body.append("")
         body.append("    return NULL;")
         body.append("}")
-        # add layer_intercept_instance_proc
-        lookups = []
-        for proto in self.protos:
-            if not proto_is_global(proto):
-                continue
-
-            if not proto in intercepted:
-                continue
-            if proto.name == "CreateInstance":
-                continue
-            if proto.name == "CreateDevice":
-                continue
-            lookups.append("if (!strcmp(name, \"%s\"))" % proto.name)
-            lookups.append("    return (PFN_vkVoidFunction) %s%s;" % (prefix, proto.name))
-
-        body.append("static inline PFN_vkVoidFunction layer_intercept_instance_proc(const char *name)")
+        # add intercept_core_instance_command
+        body.append("static inline PFN_vkVoidFunction intercept_core_instance_command(const char *name)")
         body.append("{")
         body.append(generate_get_proc_addr_check("name"))
         body.append("")
         body.append("    name += 2;")
-        body.append("    %s" % "\n    ".join(lookups))
+        body.append("    %s" % "\n    ".join(instance_lookups))
         body.append("")
         body.append("    return NULL;")
         body.append("}")
@@ -517,86 +497,145 @@ class Subcommand(object):
         exts.append(self._gen_debug_report_msg())
         return "\n".join(exts)
 
+    def _generate_layer_introspection_function(self):
+        body = []
+        body.append('%s' % self.lineinfo.get())
+        body.append('static const VkLayerProperties globalLayerProps = {')
+        body.append('    "VK_LAYER_GOOGLE_%s",' % self.layer_name)
+        body.append('    VK_LAYER_API_VERSION, // specVersion')
+        body.append('    1, // implementationVersion')
+        body.append('    "Google Validation Layer"')
+        body.append('};')
+        body.append('')
+
+        body.append('VKAPI_ATTR VkResult VKAPI_CALL EnumerateInstanceLayerProperties(uint32_t *pCount,  VkLayerProperties* pProperties)')
+        body.append('{')
+        body.append('    return util_GetLayerProperties(1, &globalLayerProps, pCount, pProperties);')
+        body.append('}')
+        body.append('')
+        body.append('VKAPI_ATTR VkResult VKAPI_CALL EnumerateDeviceLayerProperties(VkPhysicalDevice physicalDevice, uint32_t *pCount, VkLayerProperties* pProperties)')
+        body.append('{')
+        body.append('    return util_GetLayerProperties(1, &globalLayerProps, pCount, pProperties);')
+        body.append('}')
+        body.append('')
+        body.append('VKAPI_ATTR VkResult VKAPI_CALL EnumerateInstanceExtensionProperties(const char *pLayerName, uint32_t *pCount,  VkExtensionProperties* pProperties)')
+        body.append('{')
+        body.append('    if (pLayerName && !strcmp(pLayerName, globalLayerProps.layerName))')
+        body.append('        return util_GetExtensionProperties(0, NULL, pCount, pProperties);')
+        body.append('')
+        body.append('    return VK_ERROR_LAYER_NOT_PRESENT;')
+        body.append('}')
+        body.append('')
+        body.append('VKAPI_ATTR VkResult VKAPI_CALL EnumerateDeviceExtensionProperties(VkPhysicalDevice physicalDevice,')
+        body.append('                                                                  const char *pLayerName, uint32_t *pCount,')
+        body.append('                                                                  VkExtensionProperties *pProperties)')
+        body.append('{')
+        body.append('    if (pLayerName && !strcmp(pLayerName, globalLayerProps.layerName))')
+        body.append('        return util_GetExtensionProperties(0, nullptr, pCount, pProperties);')
+        body.append('')
+        body.append('    assert(physicalDevice);')
+        body.append('    VkLayerInstanceDispatchTable* pTable = get_dispatch_table(%s_instance_table_map, physicalDevice);' % self.layer_name)
+        body.append('    return pTable->EnumerateDeviceExtensionProperties(physicalDevice, NULL, pCount, pProperties);')
+        body.append('}')
+
+        return "\n".join(body)
+
     def _generate_layer_gpa_function(self, extensions=[], instance_extensions=[]):
         func_body = []
 #
 # New style of GPA Functions for the new layer_data/layer_logging changes
 #
-        if self.layer_name in ['object_tracker', 'threading', 'unique_objects']:
-            func_body.append("VK_LAYER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetDeviceProcAddr(VkDevice device, const char* funcName)\n"
+        if self.layer_name in ['unique_objects']:
+            for ext_enable, ext_list in extensions:
+                func_body.append('%s' % self.lineinfo.get())
+                func_body.append('static inline PFN_vkVoidFunction intercept_%s_command(const char *name, VkDevice dev)' % ext_enable)
+                func_body.append('{')
+                func_body.append('    if (dev) {')
+                func_body.append('        layer_data *my_data = get_my_data_ptr(get_dispatch_key(dev), layer_data_map);')
+                func_body.append('        if (!my_data->%s)' % ext_enable)
+                func_body.append('            return nullptr;')
+                func_body.append('    }\n')
+
+                for ext_name in ext_list:
+                    func_body.append('    if (!strcmp("%s", name))\n'
+                                     '        return reinterpret_cast<PFN_vkVoidFunction>(%s);' % (ext_name, ext_name[2:]))
+                func_body.append('\n    return nullptr;')
+                func_body.append('}\n')
+
+            func_body.append("VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetDeviceProcAddr(VkDevice device, const char* funcName)\n"
                              "{\n"
                              "    PFN_vkVoidFunction addr;\n"
-                             "    if (!strcmp(\"vkGetDeviceProcAddr\", funcName)) {\n"
-                             "        return (PFN_vkVoidFunction) vkGetDeviceProcAddr;\n"
-                             "    }\n\n"
-                             "    addr = layer_intercept_proc(funcName);\n"
+                             "    addr = intercept_core_device_command(funcName);\n"
                              "    if (addr)\n"
                              "        return addr;\n"
-                             "    if (device == VK_NULL_HANDLE) {\n"
-                             "        return NULL;\n"
-                             "    }\n")
-            if 0 != len(extensions):
-                func_body.append('%s' % self.lineinfo.get())
-                func_body.append('    layer_data *my_device_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);')
-                for (ext_enable, ext_list) in extensions:
-                    extra_space = ""
-                    if 0 != len(ext_enable):
-                        func_body.append('    if (my_device_data->%s) {' % ext_enable)
-                        extra_space = "    "
-                    for ext_name in ext_list:
-                        func_body.append('    %sif (!strcmp("%s", funcName))\n'
-                                         '        %sreturn reinterpret_cast<PFN_vkVoidFunction>(%s);' % (extra_space, ext_name, extra_space, ext_name))
-                    if 0 != len(ext_enable):
-                        func_body.append('    }\n')
+                             "    assert(device);\n")
+            for ext_enable, _ in extensions:
+                func_body.append('    addr = intercept_%s_command(funcName, device);' % ext_enable)
+                func_body.append('    if (addr)\n'
+                                 '        return addr;')
             func_body.append("\n    if (get_dispatch_table(%s_device_table_map, device)->GetDeviceProcAddr == NULL)\n"
                              "        return NULL;\n"
                              "    return get_dispatch_table(%s_device_table_map, device)->GetDeviceProcAddr(device, funcName);\n"
                              "}\n" % (self.layer_name, self.layer_name))
-            func_body.append("VK_LAYER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr(VkInstance instance, const char* funcName)\n"
+
+            # The WSI-related extensions have independent extension enables
+            wsi_sub_enables = {'WIN32': 'win32_enabled',
+                               'XLIB': 'xlib_enabled',
+                               'XCB': 'xcb_enabled',
+                               'MIR': 'mir_enabled',
+                               'WAYLAND': 'wayland_enabled',
+                               'ANDROID': 'android_enabled'}
+
+            for ext_enable, ext_list in instance_extensions:
+                func_body.append('%s' % self.lineinfo.get())
+                func_body.append('static inline PFN_vkVoidFunction intercept_%s_command(const char *name, VkInstance instance)' % ext_enable)
+                func_body.append('{')
+                if ext_enable == 'msg_callback_get_proc_addr':
+                    func_body.append("    layer_data *my_data = get_my_data_ptr(get_dispatch_key(instance), layer_data_map);\n"
+                                     "    return debug_report_get_instance_proc_addr(my_data->report_data, name);")
+                else:
+                    func_body.append("    VkLayerInstanceDispatchTable* pTable = get_dispatch_table(%s_instance_table_map, instance);" % self.layer_name)
+                    func_body.append('    if (instanceExtMap.size() == 0 || !instanceExtMap[pTable].%s)' % ext_enable)
+                    func_body.append('        return nullptr;\n')
+
+                    for ext_name in ext_list:
+                        if wsi_name(ext_name):
+                            func_body.append('%s' % wsi_ifdef(ext_name))
+                            if wsi_sub_enables[wsi_name(ext_name)]:
+                                func_body.append('    if ((instanceExtMap[pTable].%s == true) && !strcmp("%s", name))\n'
+                                                 '        return reinterpret_cast<PFN_vkVoidFunction>(%s);' % (wsi_sub_enables[wsi_name(ext_name)], ext_name, ext_name[2:]))
+                        else:
+                            func_body.append('    if (!strcmp("%s", name))\n'
+                                             '        return reinterpret_cast<PFN_vkVoidFunction>(%s);' % (ext_name, ext_name[2:]))
+                        if wsi_name(ext_name):
+                            func_body.append('%s' % wsi_endif(ext_name))
+
+                    func_body.append('\n    return nullptr;')
+                func_body.append('}\n')
+
+            func_body.append("VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetInstanceProcAddr(VkInstance instance, const char* funcName)\n"
                              "{\n"
                              "    PFN_vkVoidFunction addr;\n"
-                             "    if (!strcmp(funcName, \"vkGetInstanceProcAddr\"))\n"
-                             "        return (PFN_vkVoidFunction) vkGetInstanceProcAddr;\n"
-                             "    if (!strcmp(funcName, \"vkCreateInstance\"))\n"
-                             "        return (PFN_vkVoidFunction) vkCreateInstance;\n"
-                             "    if (!strcmp(funcName, \"vkCreateDevice\"))\n"
-                             "        return (PFN_vkVoidFunction) vkCreateDevice;\n"
-                             "    addr = layer_intercept_instance_proc(funcName);\n"
-                             "    if (addr) {\n"
-                             "        return addr;"
+                             "    addr = intercept_core_instance_command(funcName);\n"
+                             "    if (!addr) {\n"
+                             "        addr = intercept_core_device_command(funcName);\n"
+                             "    }")
+
+            for ext_enable, _ in extensions:
+                func_body.append("    if (!addr) {\n"
+                                 "        addr = intercept_%s_command(funcName, VkDevice(VK_NULL_HANDLE));\n"
+                                 "    }" % ext_enable)
+
+            func_body.append("    if (addr) {\n"
+                             "        return addr;\n"
                              "    }\n"
-                             "    if (instance == VK_NULL_HANDLE) {\n"
-                             "        return NULL;\n"
-                             "    }\n"
+                             "    assert(instance);\n"
                              )
 
-            table_declared = False
-            if 0 != len(instance_extensions):
-                for (ext_enable, ext_list) in instance_extensions:
-                    extra_space = ""
-                    if 0 != len(ext_enable):
-                        if ext_enable == 'msg_callback_get_proc_addr':
-                            func_body.append("    layer_data *my_data = get_my_data_ptr(get_dispatch_key(instance), layer_data_map);\n"
-                                     "    addr = debug_report_get_instance_proc_addr(my_data->report_data, funcName);\n"
-                                     "    if (addr) {\n"
-                                     "        return addr;\n"
-                                     "    }\n")
-                        else:
-                            if table_declared == False:
-                                func_body.append("    VkLayerInstanceDispatchTable* pTable = get_dispatch_table(%s_instance_table_map, instance);" % self.layer_name)
-                                table_declared = True
-                            func_body.append('    if (instanceExtMap.size() != 0 && instanceExtMap[pTable].%s)' % ext_enable)
-                            func_body.append('    {')
-                            extra_space = "    "
-                            for ext_name in ext_list:
-                                if wsi_name(ext_name):
-                                    func_body.append('%s' % wsi_ifdef(ext_name))
-                                func_body.append('    %sif (!strcmp("%s", funcName))\n'
-                                                 '            return reinterpret_cast<PFN_vkVoidFunction>(%s);' % (extra_space, ext_name, ext_name))
-                                if wsi_name(ext_name):
-                                    func_body.append('%s' % wsi_endif(ext_name))
-                            if 0 != len(ext_enable):
-                               func_body.append('    }\n')
+            for ext_enable, _ in instance_extensions:
+                func_body.append('    addr = intercept_%s_command(funcName, instance);' % ext_enable)
+                func_body.append('    if (addr)\n'
+                                 '        return addr;\n')
 
             func_body.append("    if (get_dispatch_table(%s_instance_table_map, instance)->GetInstanceProcAddr == NULL) {\n"
                              "        return NULL;\n"
@@ -606,20 +645,15 @@ class Subcommand(object):
             return "\n".join(func_body)
         else:
             func_body.append('%s' % self.lineinfo.get())
-            func_body.append("VK_LAYER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetDeviceProcAddr(VkDevice device, const char* funcName)\n"
+            func_body.append("VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetDeviceProcAddr(VkDevice device, const char* funcName)\n"
                              "{\n"
                              "    PFN_vkVoidFunction addr;\n")
             func_body.append("\n"
                              "    loader_platform_thread_once(&initOnce, init%s);\n\n"
-                             "    if (!strcmp(\"vkGetDeviceProcAddr\", funcName)) {\n"
-                             "        return (PFN_vkVoidFunction) vkGetDeviceProcAddr;\n"
-                             "    }\n\n"
-                             "    addr = layer_intercept_proc(funcName);\n"
+                             "    addr = intercept_core_device_command(funcName);\n"
                              "    if (addr)\n"
                              "        return addr;" % self.layer_name)
-            func_body.append("    if (device == VK_NULL_HANDLE) {\n"
-                             "        return NULL;\n"
-                             "    }\n")
+            func_body.append("    assert(device);\n")
             func_body.append('')
             func_body.append('    VkLayerDispatchTable *pDisp =  device_dispatch_table(device);')
             if 0 != len(extensions):
@@ -642,24 +676,16 @@ class Subcommand(object):
                              "    }\n"
                              "}\n")
             func_body.append('%s' % self.lineinfo.get())
-            func_body.append("VK_LAYER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr(VkInstance instance, const char* funcName)\n"
+            func_body.append("VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetInstanceProcAddr(VkInstance instance, const char* funcName)\n"
                              "{\n"
                              "    PFN_vkVoidFunction addr;\n"
-                             "    if (!strcmp(funcName, \"vkGetInstanceProcAddr\"))\n"
-                             "        return (PFN_vkVoidFunction) vkGetInstanceProcAddr;\n"
-                             "    if (!strcmp(funcName, \"vkCreateInstance\"))\n"
-                             "        return (PFN_vkVoidFunction) vkCreateInstance;\n"
-                             "    if (!strcmp(funcName, \"vkCreateDevice\"))\n"
-                             "        return (PFN_vkVoidFunction) vkCreateDevice;\n"
                              )
             func_body.append(
                              "    loader_platform_thread_once(&initOnce, init%s);\n\n"
-                             "    addr = layer_intercept_instance_proc(funcName);\n"
+                             "    addr = intercept_core_instance_command(funcName);\n"
                              "    if (addr)\n"
                              "        return addr;" % self.layer_name)
-            func_body.append("    if (instance == VK_NULL_HANDLE) {\n"
-                             "        return NULL;\n"
-                             "    }\n")
+            func_body.append("    assert(instance);\n")
             func_body.append("")
             func_body.append("    VkLayerInstanceDispatchTable* pTable = instance_dispatch_table(instance);\n")
             if 0 != len(instance_extensions):
@@ -700,27 +726,8 @@ class Subcommand(object):
                          '{\n' % self.layer_name)
         if init_opts:
             func_body.append('%s' % self.lineinfo.get())
-            func_body.append('    uint32_t report_flags = 0;')
-            func_body.append('    uint32_t debug_action = 0;')
-            func_body.append('    FILE *log_output = NULL;')
-            func_body.append('    const char *option_str;\n')
-            func_body.append('    // initialize %s options' % self.layer_name)
-            func_body.append('    report_flags = getLayerOptionFlags("%sReportFlags", 0);' % self.layer_name)
-            func_body.append('    getLayerOptionEnum("%sDebugAction", (uint32_t *) &debug_action);' % self.layer_name)
             func_body.append('')
-            func_body.append('    if (debug_action & VK_DBG_LAYER_ACTION_LOG_MSG)')
-            func_body.append('    {')
-            func_body.append('        option_str = getLayerOption("%sLogFilename");' % self.layer_name)
-            func_body.append('        log_output = getLayerLogOutput(option_str,"%s");' % self.layer_name)
-            func_body.append('        VkDebugReportCallbackCreateInfoEXT dbgCreateInfo;')
-            func_body.append('        memset(&dbgCreateInfo, 0, sizeof(dbgCreateInfo));')
-            func_body.append('        dbgCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;')
-            func_body.append('        dbgCreateInfo.flags = report_flags;')
-            func_body.append('        dbgCreateInfo.pfnCallback = log_callback;')
-            func_body.append('        dbgCreateInfo.pUserData = NULL;')
-            func_body.append('        layer_create_msg_callback(my_data->report_data, &dbgCreateInfo, pAllocator,')
-            func_body.append('                                  &my_data->logging_callback);')
-            func_body.append('    }')
+            func_body.append('    layer_debug_actions(my_data->report_data, my_data->logging_callback, pAllocator, "lunarg_%s");' % self.layer_name)
             func_body.append('')
         if lockname is not None:
             func_body.append('%s' % self.lineinfo.get())
@@ -735,704 +742,6 @@ class Subcommand(object):
         func_body.append("}\n")
         func_body.append('')
         return "\n".join(func_body)
-
-    def _generate_new_layer_initialization(self, init_opts=False, prefix='vk', lockname=None, condname=None):
-        func_body = ["#include \"vk_dispatch_table_helper.h\""]
-        func_body.append('%s' % self.lineinfo.get())
-        func_body.append('static void init_%s(layer_data *my_data, const VkAllocationCallbacks *pAllocator)\n'
-                         '{\n' % self.layer_name)
-        if init_opts:
-            func_body.append('%s' % self.lineinfo.get())
-            func_body.append('    uint32_t report_flags = 0;')
-            func_body.append('    uint32_t debug_action = 0;')
-            func_body.append('    FILE *log_output = NULL;')
-            func_body.append('    const char *strOpt;')
-            func_body.append('    // initialize %s options' % self.layer_name)
-            func_body.append('    report_flags = getLayerOptionFlags("%sReportFlags", 0);' % self.layer_name)
-            func_body.append('    getLayerOptionEnum("%sDebugAction", (uint32_t *) &debug_action);' % self.layer_name)
-            func_body.append('')
-            func_body.append('    if (debug_action & VK_DBG_LAYER_ACTION_LOG_MSG)')
-            func_body.append('    {')
-            func_body.append('        strOpt = getLayerOption("%sLogFilename");' % self.layer_name)
-            func_body.append('        log_output = getLayerLogOutput(strOpt, "%s");' % self.layer_name)
-            func_body.append('        VkDebugReportCallbackCreateInfoEXT dbgCreateInfo;')
-            func_body.append('        memset(&dbgCreateInfo, 0, sizeof(dbgCreateInfo));')
-            func_body.append('        dbgCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;')
-            func_body.append('        dbgCreateInfo.flags = report_flags;')
-            func_body.append('        dbgCreateInfo.pfnCallback = log_callback;')
-            func_body.append('        dbgCreateInfo.pUserData = log_output;')
-            func_body.append('        layer_create_msg_callback(my_data->report_data, &dbgCreateInfo, pAllocator,')
-            func_body.append('                                  &my_data->logging_callback);')
-            func_body.append('    }')
-            func_body.append('')
-        if lockname is not None:
-            func_body.append('%s' % self.lineinfo.get())
-            func_body.append("    if (!%sLockInitialized)" % lockname)
-            func_body.append("    {")
-            func_body.append("        // TODO/TBD: Need to delete this mutex sometime.  How???")
-            func_body.append("        loader_platform_thread_create_mutex(&%sLock);" % lockname)
-            if condname is not None:
-                func_body.append("        loader_platform_thread_init_cond(&%sCond);" % condname)
-            func_body.append("        %sLockInitialized = 1;" % lockname)
-            func_body.append("    }")
-        func_body.append("}\n")
-        func_body.append('')
-        return "\n".join(func_body)
-
-class ObjectTrackerSubcommand(Subcommand):
-    def generate_header(self):
-        header_txt = []
-        header_txt.append('%s' % self.lineinfo.get())
-        header_txt.append('#include <stdio.h>')
-        header_txt.append('#include <stdlib.h>')
-        header_txt.append('#include <string.h>')
-        header_txt.append('#include <inttypes.h>')
-        header_txt.append('')
-        header_txt.append('#include "vulkan/vulkan.h"')
-        header_txt.append('#include "vk_loader_platform.h"')
-        header_txt.append('')
-        header_txt.append('#include <unordered_map>')
-        header_txt.append('using namespace std;')
-        header_txt.append('#include "vulkan/vk_layer.h"')
-        header_txt.append('#include "vk_layer_config.h"')
-        header_txt.append('#include "vk_layer_table.h"')
-        header_txt.append('#include "vk_layer_data.h"')
-        header_txt.append('#include "vk_layer_logging.h"')
-        header_txt.append('')
-#       NOTE:  The non-autoGenerated code is in the object_tracker.h header file
-        header_txt.append('#include "object_tracker.h"')
-        header_txt.append('')
-        return "\n".join(header_txt)
-
-    def generate_maps(self):
-        maps_txt = []
-        for o in vulkan.object_type_list:
-            maps_txt.append('unordered_map<uint64_t, OBJTRACK_NODE*> %sMap;' % (o))
-        return "\n".join(maps_txt)
-
-    def _gather_object_uses(self, obj_list, struct_type, obj_set):
-    # for each member of struct_type
-    #     add objs in obj_list to obj_set
-    #     call self for structs
-        for m in vk_helper.struct_dict[struct_type]:
-            if vk_helper.struct_dict[struct_type][m]['type'] in obj_list:
-                obj_set.add(vk_helper.struct_dict[struct_type][m]['type'])
-            elif vk_helper.is_type(vk_helper.struct_dict[struct_type][m]['type'], 'struct'):
-                obj_set = obj_set.union(self._gather_object_uses(obj_list, vk_helper.struct_dict[struct_type][m]['type'], obj_set))
-        return obj_set
-
-    def generate_procs(self):
-        procs_txt = []
-        # First parse through funcs and gather dict of all objects seen by each call
-        obj_use_dict = {}
-        proto_list = vulkan.core.protos + vulkan.ext_khr_surface.protos + vulkan.ext_khr_surface.protos + vulkan.ext_khr_win32_surface.protos + vulkan.ext_khr_device_swapchain.protos
-        for proto in proto_list:
-            disp_obj = proto.params[0].ty.strip('*').replace('const ', '')
-            if disp_obj in vulkan.object_dispatch_list:
-                if disp_obj not in obj_use_dict:
-                    obj_use_dict[disp_obj] = set()
-                for p in proto.params[1:]:
-                    base_type = p.ty.strip('*').replace('const ', '')
-                    if base_type in vulkan.object_type_list:
-                        obj_use_dict[disp_obj].add(base_type)
-                    if vk_helper.is_type(base_type, 'struct'):
-                        obj_use_dict[disp_obj] = self._gather_object_uses(vulkan.object_type_list, base_type, obj_use_dict[disp_obj])
-        #for do in obj_use_dict:
-        #    print "Disp obj %s has uses for objs: %s" % (do, ', '.join(obj_use_dict[do]))
-
-        for o in vulkan.object_type_list:# vulkan.core.objects:
-            procs_txt.append('%s' % self.lineinfo.get())
-            name = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', o)
-            name = re.sub('([a-z0-9])([A-Z])', r'\1_\2', name).lower()[3:]
-            if o in vulkan.object_dispatch_list:
-                procs_txt.append('static void create_%s(%s dispatchable_object, %s vkObj, VkDebugReportObjectTypeEXT objType)' % (name, o, o))
-            else:
-                procs_txt.append('static void create_%s(VkDevice dispatchable_object, %s vkObj, VkDebugReportObjectTypeEXT objType)' % (name, o))
-            procs_txt.append('{')
-            procs_txt.append('    log_msg(mdd(dispatchable_object), VK_DEBUG_REPORT_INFORMATION_BIT_EXT, objType,(uint64_t)(vkObj), __LINE__, OBJTRACK_NONE, "OBJTRACK",')
-            procs_txt.append('        "OBJ[%llu] : CREATE %s object 0x%" PRIxLEAST64 , object_track_index++, string_VkDebugReportObjectTypeEXT(objType),')
-            procs_txt.append('        (uint64_t)(vkObj));')
-            procs_txt.append('')
-            procs_txt.append('    OBJTRACK_NODE* pNewObjNode = new OBJTRACK_NODE;')
-            procs_txt.append('    pNewObjNode->objType = objType;')
-            procs_txt.append('    pNewObjNode->status  = OBJSTATUS_NONE;')
-            procs_txt.append('    pNewObjNode->vkObj  = (uint64_t)(vkObj);')
-            procs_txt.append('    %sMap[(uint64_t)vkObj] = pNewObjNode;' % (o))
-            procs_txt.append('    uint32_t objIndex = objTypeToIndex(objType);')
-            procs_txt.append('    numObjs[objIndex]++;')
-            procs_txt.append('    numTotalObjs++;')
-            procs_txt.append('}')
-            procs_txt.append('')
-            procs_txt.append('%s' % self.lineinfo.get())
-            if o in vulkan.object_dispatch_list:
-                procs_txt.append('static void destroy_%s(%s dispatchable_object, %s object)' % (name, o, o))
-            else:
-                procs_txt.append('static void destroy_%s(VkDevice dispatchable_object, %s object)' % (name, o))
-            procs_txt.append('{')
-            procs_txt.append('    uint64_t object_handle = (uint64_t)(object);')
-            procs_txt.append('    if (%sMap.find(object_handle) != %sMap.end()) {' % (o, o))
-            procs_txt.append('        OBJTRACK_NODE* pNode = %sMap[(uint64_t)object];' % (o))
-            procs_txt.append('        uint32_t objIndex = objTypeToIndex(pNode->objType);')
-            procs_txt.append('        assert(numTotalObjs > 0);')
-            procs_txt.append('        numTotalObjs--;')
-            procs_txt.append('        assert(numObjs[objIndex] > 0);')
-            procs_txt.append('        numObjs[objIndex]--;')
-            procs_txt.append('        log_msg(mdd(dispatchable_object), VK_DEBUG_REPORT_INFORMATION_BIT_EXT, pNode->objType, object_handle, __LINE__, OBJTRACK_NONE, "OBJTRACK",')
-            procs_txt.append('           "OBJ_STAT Destroy %s obj 0x%" PRIxLEAST64 " (%" PRIu64 " total objs remain & %" PRIu64 " %s objs).",')
-            procs_txt.append('            string_VkDebugReportObjectTypeEXT(pNode->objType), (uint64_t)(object), numTotalObjs, numObjs[objIndex],')
-            procs_txt.append('            string_VkDebugReportObjectTypeEXT(pNode->objType));')
-            procs_txt.append('        delete pNode;')
-            procs_txt.append('        %sMap.erase(object_handle);' % (o))
-            procs_txt.append('    } else {')
-            procs_txt.append('        log_msg(mdd(dispatchable_object), VK_DEBUG_REPORT_ERROR_BIT_EXT, (VkDebugReportObjectTypeEXT ) 0, object_handle, __LINE__, OBJTRACK_NONE, "OBJTRACK",')
-            procs_txt.append('            "Unable to remove obj 0x%" PRIxLEAST64 ". Was it created? Has it already been destroyed?",')
-            procs_txt.append('           object_handle);')
-            procs_txt.append('    }')
-            procs_txt.append('}')
-            procs_txt.append('')
-            procs_txt.append('%s' % self.lineinfo.get())
-            if o in vulkan.object_dispatch_list:
-                procs_txt.append('static VkBool32 set_%s_status(%s dispatchable_object, %s object, VkDebugReportObjectTypeEXT objType, ObjectStatusFlags status_flag)' % (name, o, o))
-            else:
-                procs_txt.append('static VkBool32 set_%s_status(VkDevice dispatchable_object, %s object, VkDebugReportObjectTypeEXT objType, ObjectStatusFlags status_flag)' % (name, o))
-            procs_txt.append('{')
-            procs_txt.append('    if (object != VK_NULL_HANDLE) {')
-            procs_txt.append('        uint64_t object_handle = (uint64_t)(object);')
-            procs_txt.append('        if (%sMap.find(object_handle) != %sMap.end()) {' % (o, o))
-            procs_txt.append('            OBJTRACK_NODE* pNode = %sMap[object_handle];' % (o))
-            procs_txt.append('            pNode->status |= status_flag;')
-            procs_txt.append('        }')
-            procs_txt.append('        else {')
-            procs_txt.append('            // If we do not find it print an error')
-            procs_txt.append('            return log_msg(mdd(dispatchable_object), VK_DEBUG_REPORT_ERROR_BIT_EXT, (VkDebugReportObjectTypeEXT ) 0, object_handle, __LINE__, OBJTRACK_NONE, "OBJTRACK",')
-            procs_txt.append('                "Unable to set status for non-existent object 0x%" PRIxLEAST64 " of %s type",')
-            procs_txt.append('                object_handle, string_VkDebugReportObjectTypeEXT(objType));')
-            procs_txt.append('        }')
-            procs_txt.append('    }')
-            procs_txt.append('    return VK_FALSE;')
-            procs_txt.append('}')
-            procs_txt.append('')
-            procs_txt.append('%s' % self.lineinfo.get())
-            procs_txt.append('static VkBool32 validate_%s_status(' % (name))
-            if o in vulkan.object_dispatch_list:
-                procs_txt.append('%s dispatchable_object, %s object,' % (o, o))
-            else:
-                procs_txt.append('VkDevice dispatchable_object, %s object,' % (o))
-            procs_txt.append('    VkDebugReportObjectTypeEXT     objType,')
-            procs_txt.append('    ObjectStatusFlags   status_mask,')
-            procs_txt.append('    ObjectStatusFlags   status_flag,')
-            procs_txt.append('    VkFlags             msg_flags,')
-            procs_txt.append('    OBJECT_TRACK_ERROR  error_code,')
-            procs_txt.append('    const char         *fail_msg)')
-            procs_txt.append('{')
-            procs_txt.append('    uint64_t object_handle = (uint64_t)(object);')
-            procs_txt.append('    if (%sMap.find(object_handle) != %sMap.end()) {' % (o, o))
-            procs_txt.append('        OBJTRACK_NODE* pNode = %sMap[object_handle];' % (o))
-            procs_txt.append('        if ((pNode->status & status_mask) != status_flag) {')
-            procs_txt.append('            log_msg(mdd(dispatchable_object), msg_flags, pNode->objType, object_handle, __LINE__, OBJTRACK_UNKNOWN_OBJECT, "OBJTRACK",')
-            procs_txt.append('                "OBJECT VALIDATION WARNING: %s object 0x%" PRIxLEAST64 ": %s", string_VkDebugReportObjectTypeEXT(objType),')
-            procs_txt.append('                 object_handle, fail_msg);')
-            procs_txt.append('            return VK_FALSE;')
-            procs_txt.append('        }')
-            procs_txt.append('        return VK_TRUE;')
-            procs_txt.append('    }')
-            procs_txt.append('    else {')
-            procs_txt.append('        // If we do not find it print an error')
-            procs_txt.append('        log_msg(mdd(dispatchable_object), msg_flags, (VkDebugReportObjectTypeEXT) 0, object_handle, __LINE__, OBJTRACK_UNKNOWN_OBJECT, "OBJTRACK",')
-            procs_txt.append('            "Unable to obtain status for non-existent object 0x%" PRIxLEAST64 " of %s type",')
-            procs_txt.append('            object_handle, string_VkDebugReportObjectTypeEXT(objType));')
-            procs_txt.append('        return VK_FALSE;')
-            procs_txt.append('    }')
-            procs_txt.append('}')
-            procs_txt.append('')
-            procs_txt.append('%s' % self.lineinfo.get())
-            if o in vulkan.object_dispatch_list:
-                procs_txt.append('static VkBool32 reset_%s_status(%s dispatchable_object, %s object, VkDebugReportObjectTypeEXT objType, ObjectStatusFlags status_flag)' % (name, o, o))
-            else:
-                procs_txt.append('static VkBool32 reset_%s_status(VkDevice dispatchable_object, %s object, VkDebugReportObjectTypeEXT objType, ObjectStatusFlags status_flag)' % (name, o))
-            procs_txt.append('{')
-            procs_txt.append('    uint64_t object_handle = (uint64_t)(object);')
-            procs_txt.append('    if (%sMap.find(object_handle) != %sMap.end()) {' % (o, o))
-            procs_txt.append('        OBJTRACK_NODE* pNode = %sMap[object_handle];' % (o))
-            procs_txt.append('        pNode->status &= ~status_flag;')
-            procs_txt.append('    }')
-            procs_txt.append('    else {')
-            procs_txt.append('        // If we do not find it print an error')
-            procs_txt.append('        return log_msg(mdd(dispatchable_object), VK_DEBUG_REPORT_ERROR_BIT_EXT, objType, object_handle, __LINE__, OBJTRACK_UNKNOWN_OBJECT, "OBJTRACK",')
-            procs_txt.append('            "Unable to reset status for non-existent object 0x%" PRIxLEAST64 " of %s type",')
-            procs_txt.append('            object_handle, string_VkDebugReportObjectTypeEXT(objType));')
-            procs_txt.append('    }')
-            procs_txt.append('    return VK_FALSE;')
-            procs_txt.append('}')
-            procs_txt.append('')
-        procs_txt.append('%s' % self.lineinfo.get())
-        # Generate the permutations of validate_* functions where for each
-        #  dispatchable object type, we have a corresponding validate_* function
-        #  for that object and all non-dispatchable objects that are used in API
-        #  calls with that dispatchable object.
-        procs_txt.append('//%s' % str(obj_use_dict))
-        for do in obj_use_dict:
-            name = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', do)
-            name = re.sub('([a-z0-9])([A-Z])', r'\1_\2', name).lower()[3:]
-            # First create validate_* func for disp obj
-            procs_txt.append('%s' % self.lineinfo.get())
-            procs_txt.append('static VkBool32 validate_%s(%s dispatchable_object, %s object, VkDebugReportObjectTypeEXT objType, bool null_allowed)' % (name, do, do))
-            procs_txt.append('{')
-            procs_txt.append('    if (null_allowed && (object == VK_NULL_HANDLE))')
-            procs_txt.append('        return VK_FALSE;')
-            procs_txt.append('    if (%sMap.find((uint64_t)object) == %sMap.end()) {' % (do, do))
-            procs_txt.append('        return log_msg(mdd(dispatchable_object), VK_DEBUG_REPORT_ERROR_BIT_EXT, objType, (uint64_t)(object), __LINE__, OBJTRACK_INVALID_OBJECT, "OBJTRACK",')
-            procs_txt.append('            "Invalid %s Object 0x%%" PRIx64 ,(uint64_t)(object));' % do)
-            procs_txt.append('    }')
-            procs_txt.append('    return VK_FALSE;')
-            procs_txt.append('}')
-            procs_txt.append('')
-            for o in obj_use_dict[do]:
-                if o == do: # We already generated this case above so skip here
-                    continue
-                name = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', o)
-                name = re.sub('([a-z0-9])([A-Z])', r'\1_\2', name).lower()[3:]
-                procs_txt.append('%s' % self.lineinfo.get())
-                procs_txt.append('static VkBool32 validate_%s(%s dispatchable_object, %s object, VkDebugReportObjectTypeEXT objType, bool null_allowed)' % (name, do, o))
-                procs_txt.append('{')
-                procs_txt.append('    if (null_allowed && (object == VK_NULL_HANDLE))')
-                procs_txt.append('        return VK_FALSE;')
-                if o == "VkImage":
-                    procs_txt.append('    // We need to validate normal image objects and those from the swapchain')
-                    procs_txt.append('    if ((%sMap.find((uint64_t)object) == %sMap.end()) &&' % (o, o))
-                    procs_txt.append('        (swapchainImageMap.find((uint64_t)object) == swapchainImageMap.end())) {')
-                else:
-                    procs_txt.append('    if (%sMap.find((uint64_t)object) == %sMap.end()) {' % (o, o))
-                procs_txt.append('        return log_msg(mdd(dispatchable_object), VK_DEBUG_REPORT_ERROR_BIT_EXT, objType, (uint64_t)(object), __LINE__, OBJTRACK_INVALID_OBJECT, "OBJTRACK",')
-                procs_txt.append('            "Invalid %s Object 0x%%" PRIx64, (uint64_t)(object));' % o)
-                procs_txt.append('    }')
-                procs_txt.append('    return VK_FALSE;')
-                procs_txt.append('}')
-            procs_txt.append('')
-        procs_txt.append('')
-        return "\n".join(procs_txt)
-
-    def generate_destroy_instance(self):
-        gedi_txt = []
-        gedi_txt.append('%s' % self.lineinfo.get())
-        gedi_txt.append('VK_LAYER_EXPORT VKAPI_ATTR void VKAPI_CALL vkDestroyInstance(')
-        gedi_txt.append('VkInstance instance,')
-        gedi_txt.append('const VkAllocationCallbacks* pAllocator)')
-        gedi_txt.append('{')
-        gedi_txt.append('    loader_platform_thread_lock_mutex(&objLock);')
-        gedi_txt.append('    validate_instance(instance, instance, VK_DEBUG_REPORT_OBJECT_TYPE_INSTANCE_EXT, false);')
-        gedi_txt.append('')
-        gedi_txt.append('    destroy_instance(instance, instance);')
-        gedi_txt.append('    // Report any remaining objects in LL')
-        for o in vulkan.core.objects:
-            if o in ['VkInstance', 'VkPhysicalDevice', 'VkQueue']:
-                continue
-            gedi_txt.append('    for (auto it = %sMap.begin(); it != %sMap.end(); ++it) {' % (o, o))
-            gedi_txt.append('        OBJTRACK_NODE* pNode = it->second;')
-            gedi_txt.append('        log_msg(mid(instance), VK_DEBUG_REPORT_ERROR_BIT_EXT, pNode->objType, pNode->vkObj, __LINE__, OBJTRACK_OBJECT_LEAK, "OBJTRACK",')
-            gedi_txt.append('                "OBJ ERROR : %s object 0x%" PRIxLEAST64 " has not been destroyed.", string_VkDebugReportObjectTypeEXT(pNode->objType),')
-            gedi_txt.append('                pNode->vkObj);')
-            gedi_txt.append('    }')
-            gedi_txt.append('    %sMap.clear();' % (o))
-            gedi_txt.append('')
-        gedi_txt.append('    dispatch_key key = get_dispatch_key(instance);')
-        gedi_txt.append('    VkLayerInstanceDispatchTable *pInstanceTable = get_dispatch_table(object_tracker_instance_table_map, instance);')
-        gedi_txt.append('    pInstanceTable->DestroyInstance(instance, pAllocator);')
-        gedi_txt.append('')
-        gedi_txt.append('    // Clean up logging callback, if any')
-        gedi_txt.append('    layer_data *my_data = get_my_data_ptr(key, layer_data_map);')
-        gedi_txt.append('    if (my_data->logging_callback) {')
-        gedi_txt.append('        layer_destroy_msg_callback(my_data->report_data, my_data->logging_callback, pAllocator);')
-        gedi_txt.append('    }')
-        gedi_txt.append('')
-        gedi_txt.append('    layer_debug_report_destroy_instance(mid(instance));')
-        gedi_txt.append('    layer_data_map.erase(pInstanceTable);')
-        gedi_txt.append('')
-        gedi_txt.append('    instanceExtMap.erase(pInstanceTable);')
-        gedi_txt.append('    loader_platform_thread_unlock_mutex(&objLock);')
-        # The loader holds a mutex that protects this from other threads
-        gedi_txt.append('    object_tracker_instance_table_map.erase(key);')
-        gedi_txt.append('    if (object_tracker_instance_table_map.empty()) {')
-        gedi_txt.append('        // Release mutex when destroying last instance.')
-        gedi_txt.append('        loader_platform_thread_delete_mutex(&objLock);')
-        gedi_txt.append('        objLockInitialized = 0;')
-        gedi_txt.append('    }')
-        gedi_txt.append('}')
-        gedi_txt.append('')
-        return "\n".join(gedi_txt)
-
-    def generate_destroy_device(self):
-        gedd_txt = []
-        gedd_txt.append('%s' % self.lineinfo.get())
-        gedd_txt.append('VK_LAYER_EXPORT VKAPI_ATTR void VKAPI_CALL vkDestroyDevice(')
-        gedd_txt.append('VkDevice device,')
-        gedd_txt.append('const VkAllocationCallbacks* pAllocator)')
-        gedd_txt.append('{')
-        gedd_txt.append('    loader_platform_thread_lock_mutex(&objLock);')
-        gedd_txt.append('    validate_device(device, device, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_EXT, false);')
-        gedd_txt.append('')
-        gedd_txt.append('    destroy_device(device, device);')
-        gedd_txt.append('    // Report any remaining objects in LL')
-        for o in vulkan.core.objects:
-            # DescriptorSets and Command Buffers are destroyed through their pools, not explicitly
-            if o in ['VkInstance', 'VkPhysicalDevice', 'VkQueue', 'VkDevice', 'VkDescriptorSet', 'VkCommandBuffer']:
-                continue
-            gedd_txt.append('    for (auto it = %sMap.begin(); it != %sMap.end(); ++it) {' % (o, o))
-            gedd_txt.append('        OBJTRACK_NODE* pNode = it->second;')
-            gedd_txt.append('        log_msg(mdd(device), VK_DEBUG_REPORT_ERROR_BIT_EXT, pNode->objType, pNode->vkObj, __LINE__, OBJTRACK_OBJECT_LEAK, "OBJTRACK",')
-            gedd_txt.append('                "OBJ ERROR : %s object 0x%" PRIxLEAST64 " has not been destroyed.", string_VkDebugReportObjectTypeEXT(pNode->objType),')
-            gedd_txt.append('                pNode->vkObj);')
-            gedd_txt.append('    }')
-            gedd_txt.append('    %sMap.clear();' % (o))
-            gedd_txt.append('')
-        gedd_txt.append("    // Clean up Queue's MemRef Linked Lists")
-        gedd_txt.append('    destroyQueueMemRefLists();')
-        gedd_txt.append('')
-        gedd_txt.append('    loader_platform_thread_unlock_mutex(&objLock);')
-        gedd_txt.append('')
-        gedd_txt.append('    dispatch_key key = get_dispatch_key(device);')
-        gedd_txt.append('    VkLayerDispatchTable *pDisp = get_dispatch_table(object_tracker_device_table_map, device);')
-        gedd_txt.append('    pDisp->DestroyDevice(device, pAllocator);')
-        gedd_txt.append('    object_tracker_device_table_map.erase(key);')
-        gedd_txt.append('')
-        gedd_txt.append('}')
-        gedd_txt.append('')
-        return "\n".join(gedd_txt)
-
-    # Special-case validating some objects -- they may be non-NULL but should
-    # only be validated upon meeting some condition specified below.
-    def _dereference_conditionally(self, indent, prefix, type_name, name):
-        s_code = ''
-        if type_name == 'pBufferInfo':
-            s_code += '%sif ((%sdescriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)         ||\n'    % (indent, prefix)
-            s_code += '%s    (%sdescriptorType == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)         ||\n'    % (indent, prefix)
-            s_code += '%s    (%sdescriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC) ||\n'    % (indent, prefix)
-            s_code += '%s    (%sdescriptorType == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC)   ) {\n' % (indent, prefix)
-        elif type_name == 'pImageInfo':
-            s_code += '%sif ((%sdescriptorType == VK_DESCRIPTOR_TYPE_SAMPLER)                ||\n'    % (indent, prefix)
-            s_code += '%s    (%sdescriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) ||\n'    % (indent, prefix)
-            s_code += '%s    (%sdescriptorType == VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT)       ||\n'    % (indent, prefix)
-            s_code += '%s    (%sdescriptorType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)          ||\n'    % (indent, prefix)
-            s_code += '%s    (%sdescriptorType == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)            ) {\n' % (indent, prefix)
-        elif type_name == 'pTexelBufferView':
-            s_code += '%sif ((%sdescriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER) ||\n'      % (indent, prefix)
-            s_code += '%s    (%sdescriptorType == VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER)   ) {\n'   % (indent, prefix)
-        elif name == 'pBeginInfo->pInheritanceInfo':
-            s_code += '%sOBJTRACK_NODE* pNode = VkCommandBufferMap[(uint64_t)commandBuffer];\n'       % (indent)
-            s_code += '%sif ((%s) && (pNode->status & OBJSTATUS_COMMAND_BUFFER_SECONDARY)) {\n'       % (indent, name)
-        else:
-            s_code += '%sif (%s) {\n' % (indent, name)
-        return s_code
-
-    def _gen_obj_validate_code(self, struct_uses, obj_type_mapping, func_name, valid_null_dict, param0_name, indent, prefix, array_index):
-        pre_code = ''
-        for obj in sorted(struct_uses):
-            name = obj
-            array = ''
-            type_name = ''
-            if '[' in obj:
-                (name, array) = obj.split('[')
-                type_name = name
-                array = array.strip(']')
-            if isinstance(struct_uses[obj], dict):
-                local_prefix = ''
-                name = '%s%s' % (prefix, name)
-                ptr_type = False
-                if 'p' == obj[0]:
-                    ptr_type = True
-                    tmp_pre = self._dereference_conditionally(indent, prefix, type_name, name)
-                    pre_code += tmp_pre
-                    indent += '    '
-                if array != '':
-                    idx = 'idx%s' % str(array_index)
-                    array_index += 1
-                    pre_code += '%s\n' % self.lineinfo.get()
-                    pre_code += '%sfor (uint32_t %s=0; %s<%s%s; ++%s) {\n' % (indent, idx, idx, prefix, array, idx)
-                    indent += '    '
-                    local_prefix = '%s[%s].' % (name, idx)
-                elif ptr_type:
-                    local_prefix = '%s->' % (name)
-                else:
-                    local_prefix = '%s.' % (name)
-                tmp_pre = self._gen_obj_validate_code(struct_uses[obj], obj_type_mapping, func_name, valid_null_dict, param0_name, indent, local_prefix, array_index)
-                pre_code += tmp_pre
-                if array != '':
-                    indent = indent[4:]
-                    pre_code += '%s}\n' % (indent)
-                if ptr_type:
-                    indent = indent[4:]
-                    pre_code += '%s}\n' % (indent)
-            else:
-                ptype = struct_uses[obj]
-                dbg_obj_type = obj_type_mapping[ptype]
-                fname = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', ptype)
-                fname = re.sub('([a-z0-9])([A-Z])', r'\1_\2', fname).lower()[3:]
-                full_name = '%s%s' % (prefix, name)
-                null_obj_ok = 'false'
-                # If a valid null param is defined for this func and we have a match, allow NULL
-                if func_name in valid_null_dict and True in [name in pn for pn in valid_null_dict[func_name]]:
-                    null_obj_ok = 'true'
-                if (array_index > 0) or '' != array:
-                    tmp_pre = self._dereference_conditionally(indent, prefix, type_name, full_name)
-                    pre_code += tmp_pre
-                    indent += '    '
-                    if array != '':
-                        idx = 'idx%s' % str(array_index)
-                        array_index += 1
-                        pre_code += '%sfor (uint32_t %s=0; %s<%s%s; ++%s) {\n' % (indent, idx, idx, prefix, array, idx)
-                        indent += '    '
-                        full_name = '%s[%s]' % (full_name, idx)
-                    pre_code += '%s\n' % self.lineinfo.get()
-                    pre_code += '%sskipCall |= validate_%s(%s, %s, %s, %s);\n' %(indent, fname, param0_name, full_name, dbg_obj_type, null_obj_ok)
-                    if array != '':
-                        indent = indent[4:]
-                        pre_code += '%s}\n' % (indent)
-                    indent = indent[4:]
-                    pre_code += '%s}\n' % (indent)
-                else:
-                    pre_code += '%s\n' % self.lineinfo.get()
-                    pre_code += '%sskipCall |= validate_%s(%s, %s, %s, %s);\n' %(indent, fname, param0_name, full_name, dbg_obj_type, null_obj_ok)
-        return pre_code
-
-    def generate_intercept(self, proto, qual):
-        if proto.name in [ 'CreateDebugReportCallbackEXT', 'EnumerateInstanceLayerProperties', 'EnumerateInstanceExtensionProperties','EnumerateDeviceLayerProperties', 'EnumerateDeviceExtensionProperties' ]:
-            # use default version
-            return None
-
-        # Create map of object names to object type enums of the form VkName : VkObjectTypeName
-        obj_type_mapping = {base_t : base_t.replace("Vk", "VkDebugReportObjectType") for base_t in vulkan.object_type_list}
-        # Convert object type enum names from UpperCamelCase to UPPER_CASE_WITH_UNDERSCORES
-        for objectName, objectTypeEnum in obj_type_mapping.items():
-            obj_type_mapping[objectName] = ucc_to_U_C_C(objectTypeEnum) + '_EXT';
-        # Command Buffer Object doesn't follow the rule.
-        obj_type_mapping['VkCommandBuffer'] = "VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT"
-        obj_type_mapping['VkShaderModule'] = "VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT"
-
-        explicit_object_tracker_functions = [
-            "CreateInstance",
-            "EnumeratePhysicalDevices",
-            "GetPhysicalDeviceQueueFamilyProperties",
-            "CreateDevice",
-            "GetDeviceQueue",
-            "QueueBindSparse",
-            "AllocateDescriptorSets",
-            "FreeDescriptorSets",
-            "CreateGraphicsPipelines",
-            "CreateComputePipelines",
-            "AllocateCommandBuffers",
-            "FreeCommandBuffers",
-            "DestroyDescriptorPool",
-            "DestroyCommandPool",
-            "MapMemory",
-            "UnmapMemory",
-            "FreeMemory",
-            "DestroySwapchainKHR",
-            "GetSwapchainImagesKHR"
-        ]
-        decl = proto.c_func(prefix="vk", attr="VKAPI")
-        param0_name = proto.params[0].name
-        using_line = ''
-        create_line = ''
-        destroy_line = ''
-        # Dict below tracks params that are vk objects. Dict is "loop count"->["params w/ that loop count"] where '0' is params that aren't in an array
-        # TODO : Should integrate slightly better code for this purpose from unique_objects layer
-        loop_params = defaultdict(list) # Dict uses loop count as key to make final code generation cleaner so params shared in single loop where needed
-        loop_types = defaultdict(list)
-        # TODO : For now skipping objs that can be NULL. Really should check these and have special case that allows them to be NULL
-        #  or better yet, these should be encoded into an API json definition and we generate checks from there
-        #  Until then, this is a dict where each func name is a list of object params that can be null (so don't need to be validated)
-        #   param names may be directly passed to the function, or may be a field in a struct param
-        valid_null_object_names = {'CreateGraphicsPipelines' : ['basePipelineHandle'],
-                                   'CreateComputePipelines' : ['basePipelineHandle'],
-                                   'BeginCommandBuffer' : ['renderPass', 'framebuffer'],
-                                   'QueueSubmit' : ['fence'],
-                                   'AcquireNextImageKHR' : ['fence', 'semaphore' ],
-                                   'UpdateDescriptorSets' : ['pTexelBufferView'],
-                                   'CreateSwapchainKHR' : ['oldSwapchain'],
-                                  }
-        param_count = 'NONE' # keep track of arrays passed directly into API functions
-        for p in proto.params:
-            base_type = p.ty.replace('const ', '').strip('*')
-            if 'count' in p.name.lower():
-                param_count = p.name
-            if base_type in vulkan.core.objects:
-                # This is an object to potentially check for validity. First see if it's an array
-                if '*' in p.ty and 'const' in p.ty and param_count != 'NONE':
-                    loop_params[param_count].append(p.name)
-                    loop_types[param_count].append(str(p.ty[6:-1]))
-                # Not an array, check for just a base Object that's not in exceptions
-                elif '*' not in p.ty and (proto.name not in valid_null_object_names or p.name not in valid_null_object_names[proto.name]):
-                    loop_params[0].append(p.name)
-                    loop_types[0].append(str(p.ty))
-            elif vk_helper.is_type(base_type, 'struct'):
-                struct_type = base_type
-                if vk_helper.typedef_rev_dict[struct_type] in vk_helper.struct_dict:
-                    struct_type = vk_helper.typedef_rev_dict[struct_type]
-                # Parse elements of this struct param to identify objects and/or arrays of objects
-                for m in sorted(vk_helper.struct_dict[struct_type]):
-                    if vk_helper.struct_dict[struct_type][m]['type'] in vulkan.core.objects and vk_helper.struct_dict[struct_type][m]['type'] not in ['VkPhysicalDevice', 'VkQueue', 'VkFence', 'VkImage', 'VkDeviceMemory']:
-                        if proto.name not in valid_null_object_names or vk_helper.struct_dict[struct_type][m]['name'] not in valid_null_object_names[proto.name]:
-                            # This is not great, but gets the job done for now, but If we have a count and this param is a ptr w/
-                            #  last letter 's' OR non-'count' string of count is in the param name, then this is a dynamically sized array param
-                            param_array = False
-                            if param_count != 'NONE':
-                                if '*' in p.ty:
-                                    if 's' == p.name[-1] or param_count.lower().replace('count', '') in p.name.lower():
-                                        param_array = True
-                            if param_array:
-                                param_name = '%s[i].%s' % (p.name, vk_helper.struct_dict[struct_type][m]['name'])
-                            else:
-                                param_name = '%s->%s' % (p.name, vk_helper.struct_dict[struct_type][m]['name'])
-                            if vk_helper.struct_dict[struct_type][m]['dyn_array']:
-                                if param_count != 'NONE': # this will be a double-embedded loop, use comma delineated 'count,name' for param_name
-                                    loop_count = '%s[i].%s' % (p.name, vk_helper.struct_dict[struct_type][m]['array_size'])
-                                    loop_params[param_count].append('%s,%s' % (loop_count, param_name))
-                                    loop_types[param_count].append('%s' % (vk_helper.struct_dict[struct_type][m]['type']))
-                                else:
-                                    loop_count = '%s->%s' % (p.name, vk_helper.struct_dict[struct_type][m]['array_size'])
-                                    loop_params[loop_count].append(param_name)
-                                    loop_types[loop_count].append('%s' % (vk_helper.struct_dict[struct_type][m]['type']))
-                            else:
-                                if '[' in param_name: # dynamic array param, set size
-                                    loop_params[param_count].append(param_name)
-                                    loop_types[param_count].append('%s' % (vk_helper.struct_dict[struct_type][m]['type']))
-                                else:
-                                    loop_params[0].append(param_name)
-                                    loop_types[0].append('%s' % (vk_helper.struct_dict[struct_type][m]['type']))
-        last_param_index = None
-        create_func = False
-        if True in [create_txt in proto.name for create_txt in ['Create', 'Allocate']]:
-            create_func = True
-            last_param_index = -1 # For create funcs don't validate last object
-        (struct_uses, local_decls) = get_object_uses(vulkan.object_type_list, proto.params[:last_param_index])
-        funcs = []
-        mutex_unlock = False
-        funcs.append('%s\n' % self.lineinfo.get())
-        if proto.name in explicit_object_tracker_functions:
-            funcs.append('%s%s\n'
-                     '{\n'
-                     '    return explicit_%s;\n'
-                     '}' % (qual, decl, proto.c_call()))
-            return "".join(funcs)
-        # Temporarily prevent  DestroySurface call from being generated until WSI layer support is fleshed out
-        elif 'DestroyInstance' in proto.name or 'DestroyDevice' in proto.name:
-            return ""
-        else:
-            if create_func:
-                typ = proto.params[-1].ty.strip('*').replace('const ', '');
-                name = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', typ)
-                name = re.sub('([a-z0-9])([A-Z])', r'\1_\2', name).lower()[3:]
-                create_line =  '    loader_platform_thread_lock_mutex(&objLock);\n'
-                create_line += '    if (result == VK_SUCCESS) {\n'
-                create_line += '        create_%s(%s, *%s, %s);\n' % (name, param0_name, proto.params[-1].name, obj_type_mapping[typ])
-                create_line += '    }\n'
-                create_line += '    loader_platform_thread_unlock_mutex(&objLock);\n'
-            if 'FreeCommandBuffers' in proto.name:
-                typ = proto.params[-1].ty.strip('*').replace('const ', '');
-                name = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', typ)
-                name = re.sub('([a-z0-9])([A-Z])', r'\1_\2', name).lower()[3:]
-                funcs.append('%s\n' % self.lineinfo.get())
-                destroy_line =  '    loader_platform_thread_lock_mutex(&objLock);\n'
-                destroy_line += '    for (uint32_t i = 0; i < commandBufferCount; i++) {\n'
-                destroy_line += '        destroy_%s(%s[i], %s[i]);\n' % (name, proto.params[-1].name, proto.params[-1].name)
-                destroy_line += '    }\n'
-                destroy_line += '    loader_platform_thread_unlock_mutex(&objLock);\n'
-            if 'Destroy' in proto.name:
-                typ = proto.params[-2].ty.strip('*').replace('const ', '');
-                name = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', typ)
-                name = re.sub('([a-z0-9])([A-Z])', r'\1_\2', name).lower()[3:]
-                funcs.append('%s\n' % self.lineinfo.get())
-                destroy_line =  '    loader_platform_thread_lock_mutex(&objLock);\n'
-                destroy_line += '    destroy_%s(%s, %s);\n' % (name, param0_name, proto.params[-2].name)
-                destroy_line += '    loader_platform_thread_unlock_mutex(&objLock);\n'
-            indent = '    '
-            if len(struct_uses) > 0:
-                using_line += '%sVkBool32 skipCall = VK_FALSE;\n' % (indent)
-                if not mutex_unlock:
-                    using_line += '%sloader_platform_thread_lock_mutex(&objLock);\n' % (indent)
-                    mutex_unlock = True
-                using_line += '// objects to validate: %s\n' % str(struct_uses)
-                using_line += self._gen_obj_validate_code(struct_uses, obj_type_mapping, proto.name, valid_null_object_names, param0_name, '    ', '', 0)
-            if mutex_unlock:
-                using_line += '%sloader_platform_thread_unlock_mutex(&objLock);\n' % (indent)
-            if len(struct_uses) > 0:
-                using_line += '    if (skipCall)\n'
-                if proto.ret != "void":
-                    using_line += '        return VK_ERROR_VALIDATION_FAILED_EXT;\n'
-                else:
-                    using_line += '        return;\n'
-            ret_val = ''
-            stmt = ''
-            if proto.ret != "void":
-                ret_val = "%s result = " % proto.ret
-                stmt = "    return result;\n"
-
-            dispatch_param = proto.params[0].name
-            if 'CreateInstance' in proto.name:
-               dispatch_param = '*' + proto.params[1].name
-
-            # Must use 'instance' table for these APIs, 'device' table otherwise
-            table_type = ""
-            if proto_is_global(proto):
-                table_type = "instance"
-            else:
-                table_type = "device"
-            if wsi_name(proto.name):
-                funcs.append('%s' % wsi_ifdef(proto.name))
-            funcs.append('%s%s\n'
-                     '{\n'
-                     '%s'
-                     '%s'
-                     '    %sget_dispatch_table(object_tracker_%s_table_map, %s)->%s;\n'
-                     '%s'
-                     '%s'
-                     '}' % (qual, decl, using_line, destroy_line, ret_val, table_type, dispatch_param, proto.c_call(), create_line, stmt))
-            if wsi_name(proto.name):
-                funcs.append('%s' % wsi_endif(proto.name))
-        return "\n\n".join(funcs)
-
-    def generate_body(self):
-        self.layer_name = "object_tracker"
-        extensions=[('wsi_enabled',
-                     ['vkCreateSwapchainKHR',
-                      'vkDestroySwapchainKHR', 'vkGetSwapchainImagesKHR',
-                      'vkAcquireNextImageKHR', 'vkQueuePresentKHR'])]
-        if sys.platform.startswith('win32'):
-            instance_extensions=[('msg_callback_get_proc_addr', []),
-                                  ('wsi_enabled',
-                                  ['vkGetPhysicalDeviceSurfaceSupportKHR',
-                                   'vkGetPhysicalDeviceSurfaceCapabilitiesKHR',
-                                   'vkGetPhysicalDeviceSurfaceFormatsKHR',
-                                   'vkGetPhysicalDeviceSurfacePresentModesKHR',
-                                   'vkCreateWin32SurfaceKHR',
-                                   'vkGetPhysicalDeviceWin32PresentationSupportKHR'])]
-        elif sys.platform.startswith('linux'):
-            instance_extensions=[('msg_callback_get_proc_addr', []),
-                                  ('wsi_enabled',
-                                  ['vkGetPhysicalDeviceSurfaceSupportKHR',
-                                   'vkGetPhysicalDeviceSurfaceCapabilitiesKHR',
-                                   'vkGetPhysicalDeviceSurfaceFormatsKHR',
-                                   'vkGetPhysicalDeviceSurfacePresentModesKHR',
-                                   'vkCreateXcbSurfaceKHR',
-                                   'vkCreateAndroidSurfaceKHR',
-                                   'vkGetPhysicalDeviceXcbPresentationSupportKHR'])]
-        # TODO: Add cases for Mir, Wayland and Xlib
-        else: # android
-            instance_extensions=[('msg_callback_get_proc_addr', []),
-                                  ('wsi_enabled',
-                                  ['vkGetPhysicalDeviceSurfaceSupportKHR',
-                                   'vkGetPhysicalDeviceSurfaceCapabilitiesKHR',
-                                   'vkGetPhysicalDeviceSurfaceFormatsKHR',
-                                   'vkGetPhysicalDeviceSurfacePresentModesKHR'])]
-        body = [self.generate_maps(),
-                self.generate_procs(),
-                self.generate_destroy_instance(),
-                self.generate_destroy_device(),
-                self._generate_dispatch_entrypoints("VK_LAYER_EXPORT"),
-                self._generate_extensions(),
-                self._generate_layer_gpa_function(extensions,
-                                                  instance_extensions)]
-        return "\n\n".join(body)
 
 class UniqueObjectsSubcommand(Subcommand):
     def generate_header(self):
@@ -1456,7 +765,7 @@ class UniqueObjectsSubcommand(Subcommand):
                 (name, array) = obj.split('[')
                 array = array.strip(']')
             ptr_type = False
-            if 'p' == obj[0] and obj[1] != obj[1].lower(): # TODO : Not idea way to determine ptr
+            if 'p' == obj[0] and obj[1] != obj[1].lower(): # TODO : Not ideal way to determine ptr
                 ptr_type = True
             if isinstance(struct_uses[obj], dict):
                 local_prefix = ''
@@ -1468,13 +777,17 @@ class UniqueObjectsSubcommand(Subcommand):
                         pre_code += '%sif (local_%s) {\n' % (indent, name)
                     indent += '    '
                 if array != '':
+                    if 'p' == array[0] and array[1] != array[1].lower(): # TODO : Not ideal way to determine ptr
+                        count_prefix = '*'
+                    else:
+                        count_prefix = ''
                     idx = 'idx%s' % str(array_index)
                     array_index += 1
                     if first_level_param and name in param_type:
-                        pre_code += '%slocal_%s = new safe_%s[%s];\n' % (indent, name, param_type[name].strip('*'), array)
+                        pre_code += '%slocal_%s = new safe_%s[%s%s];\n' % (indent, name, param_type[name].strip('*'), count_prefix, array)
                         post_code += '    if (local_%s)\n' % (name)
                         post_code += '        delete[] local_%s;\n' % (name)
-                    pre_code += '%sfor (uint32_t %s=0; %s<%s%s; ++%s) {\n' % (indent, idx, idx, prefix, array, idx)
+                    pre_code += '%sfor (uint32_t %s=0; %s<%s%s%s; ++%s) {\n' % (indent, idx, idx, count_prefix, prefix, array, idx)
                     indent += '    '
                     if first_level_param:
                         pre_code += '%slocal_%s[%s].initialize(&%s[%s]);\n' % (indent, name, idx, name, idx)
@@ -1501,7 +814,7 @@ class UniqueObjectsSubcommand(Subcommand):
             else:
                 if (array_index > 0) or array != '': # TODO : This is not ideal, really want to know if we're anywhere under an array
                     if first_level_param:
-                        pre_code += '%s%s* local_%s = NULL;\n' % (indent, struct_uses[obj], name)
+                        decls += '%s%s* local_%s = NULL;\n' % (indent, struct_uses[obj], name)
                     if array != '' and not first_level_param: # ptrs under structs will have been initialized so use local_*
                         pre_code += '%sif (local_%s%s) {\n' %(indent, prefix, name)
                     else:
@@ -1517,10 +830,9 @@ class UniqueObjectsSubcommand(Subcommand):
                         pre_code += '%sfor (uint32_t %s=0; %s<%s%s; ++%s) {\n' % (indent, idx, idx, prefix, array, idx)
                         indent += '    '
                         name = '%s[%s]' % (name, idx)
-                    pName = 'p%s' % (struct_uses[obj][2:])
                     if name not in vector_name_set:
                         vector_name_set.add(name)
-                    pre_code += '%slocal_%s%s = (%s)((VkUniqueObject*)%s%s)->actualObject;\n' % (indent, prefix, name, struct_uses[obj], prefix, name)
+                    pre_code += '%slocal_%s%s = (%s)my_map_data->unique_id_mapping[reinterpret_cast<const uint64_t &>(%s%s)];\n' % (indent, prefix, name, struct_uses[obj], prefix, name)
                     if array != '':
                         indent = indent[4:]
                         pre_code += '%s}\n' % (indent)
@@ -1528,18 +840,10 @@ class UniqueObjectsSubcommand(Subcommand):
                     pre_code += '%s}\n' % (indent)
                 else:
                     pre_code += '%s\n' % (self.lineinfo.get())
-                    pre_code += '%sif (%s%s) {\n' %(indent, prefix, name)
-                    indent += '    '
-                    deref_txt = '&'
-                    if ptr_type:
-                        deref_txt = ''
                     if '->' in prefix: # need to update local struct
-                        pre_code += '%slocal_%s%s = (%s)((VkUniqueObject*)%s%s)->actualObject;\n' % (indent, prefix, name, struct_uses[obj], prefix, name)
+                        pre_code += '%slocal_%s%s = (%s)my_map_data->unique_id_mapping[reinterpret_cast<const uint64_t &>(%s%s)];\n' % (indent, prefix, name, struct_uses[obj], prefix, name)
                     else:
-                        pre_code += '%s%s* p%s = (%s*)%s%s%s;\n' % (indent, struct_uses[obj], name, struct_uses[obj], deref_txt, prefix, name)
-                        pre_code += '%s*p%s = (%s)((VkUniqueObject*)%s%s)->actualObject;\n' % (indent, name, struct_uses[obj], prefix, name)
-                    indent = indent[4:]
-                    pre_code += '%s}\n' % (indent)
+                        pre_code += '%s%s = (%s)my_map_data->unique_id_mapping[reinterpret_cast<uint64_t &>(%s)];\n' % (indent, name, struct_uses[obj], name)
         return decls, pre_code, post_code
 
     def generate_intercept(self, proto, qual):
@@ -1550,22 +854,34 @@ class UniqueObjectsSubcommand(Subcommand):
         post_call_txt = '' # code following call down chain such to wrap newly created ndos, or destroy local wrap struct
         funcs = []
         indent = '    ' # indent level for generated code
-        decl = proto.c_func(prefix="vk", attr="VKAPI")
+        decl = proto.c_func(attr="VKAPI")
         # A few API cases that are manual code
         # TODO : Special case Create*Pipelines funcs to handle creating multiple unique objects
-        explicit_object_tracker_functions = ['GetSwapchainImagesKHR',
+        explicit_unique_objects_functions = ['GetSwapchainImagesKHR',
+                                             'CreateSwapchainKHR',
                                              'CreateInstance',
+                                             'DestroyInstance',
                                              'CreateDevice',
+                                             'DestroyDevice',
+                                             'AllocateMemory',
                                              'CreateComputePipelines',
-                                             'CreateGraphicsPipelines'
+                                             'CreateGraphicsPipelines',
+                                             'GetPhysicalDeviceDisplayPropertiesKHR',
+                                             'GetDisplayPlaneSupportedDisplaysKHR',
+                                             'GetDisplayModePropertiesKHR'
                                              ]
         # TODO : This is hacky, need to make this a more general-purpose solution for all layers
-        ifdef_dict = {'CreateXcbSurfaceKHR': 'VK_USE_PLATFORM_XCB_KHR', 'CreateAndroidSurfaceKHR': 'VK_USE_PLATFORM_ANDROID_KHR'}
+        ifdef_dict = {'CreateXcbSurfaceKHR': 'VK_USE_PLATFORM_XCB_KHR',
+                      'CreateAndroidSurfaceKHR': 'VK_USE_PLATFORM_ANDROID_KHR',
+                      'CreateWin32SurfaceKHR': 'VK_USE_PLATFORM_WIN32_KHR',
+                      'CreateXlibSurfaceKHR': 'VK_USE_PLATFORM_XLIB_KHR',
+                      'CreateWaylandSurfaceKHR': 'VK_USE_PLATFORM_WAYLAND_KHR',
+                      'CreateMirSurfaceKHR': 'VK_USE_PLATFORM_MIR_KHR'}
         # Give special treatment to create functions that return multiple new objects
         # This dict stores array name and size of array
         custom_create_dict = {'pDescriptorSets' : 'pAllocateInfo->descriptorSetCount'}
         pre_call_txt += '%s\n' % (self.lineinfo.get())
-        if proto.name in explicit_object_tracker_functions:
+        if proto.name in explicit_unique_objects_functions:
             funcs.append('%s%s\n'
                      '{\n'
                      '    return explicit_%s;\n'
@@ -1582,21 +898,33 @@ class UniqueObjectsSubcommand(Subcommand):
         # First thing we need to do is gather uses of non-dispatchable-objects (ndos)
         (struct_uses, local_decls) = get_object_uses(vulkan.object_non_dispatch_list, proto.params[1:last_param_index])
 
+        dispatch_param = proto.params[0].name
+        if 'CreateInstance' in proto.name:
+           dispatch_param = '*' + proto.params[1].name
+        pre_call_txt += '%slayer_data *my_map_data = get_my_data_ptr(get_dispatch_key(%s), layer_data_map);\n' % (indent, dispatch_param)
         if len(struct_uses) > 0:
-            pre_call_txt += '// STRUCT USES:%s\n' % struct_uses
+            pre_call_txt += '// STRUCT USES:%s\n' % sorted(struct_uses)
             if len(local_decls) > 0:
-                pre_call_txt += '//LOCAL DECLS:%s\n' % local_decls
+                pre_call_txt += '//LOCAL DECLS:%s\n' % sorted(local_decls)
             if destroy_func: # only one object
-                for del_obj in struct_uses:
-                    pre_call_txt += '%s%s local_%s = %s;\n' % (indent, struct_uses[del_obj], del_obj, del_obj)
-            (pre_decl, pre_code, post_code) = self._gen_obj_code(struct_uses, local_decls, '    ', '', 0, set(), True)
+                pre_call_txt += '%sstd::unique_lock<std::mutex> lock(global_lock);\n' % (indent)
+                for del_obj in sorted(struct_uses):
+                    pre_call_txt += '%suint64_t local_%s = reinterpret_cast<uint64_t &>(%s);\n' % (indent, del_obj, del_obj)
+                    pre_call_txt += '%s%s = (%s)my_map_data->unique_id_mapping[local_%s];\n' % (indent, del_obj, struct_uses[del_obj], del_obj)
+                pre_call_txt += '%smy_map_data->unique_id_mapping.erase(local_%s);\n' % (indent, proto.params[-2].name)
+                pre_call_txt += '%slock.unlock();\n' % (indent)
+                (pre_decl, pre_code, post_code) = ('', '', '')
+            else:
+                (pre_decl, pre_code, post_code) = self._gen_obj_code(struct_uses, local_decls, '    ', '', 0, set(), True)
             # This is a bit hacky but works for now. Need to decl local versions of top-level structs
-            for ld in local_decls:
+            for ld in sorted(local_decls):
                 init_null_txt = 'NULL';
                 if '*' not in local_decls[ld]:
                     init_null_txt = '{}';
                 if local_decls[ld].strip('*') not in vulkan.object_non_dispatch_list:
                     pre_decl += '    safe_%s local_%s = %s;\n' % (local_decls[ld], ld, init_null_txt)
+            if pre_code != '': # lock around map uses
+                pre_code = '%s{\n%sstd::lock_guard<std::mutex> lock(global_lock);\n%s%s}\n' % (indent, indent, pre_code, indent)
             pre_call_txt += '%s%s' % (pre_decl, pre_code)
             post_call_txt += '%s' % (post_code)
         elif create_func:
@@ -1611,9 +939,6 @@ class UniqueObjectsSubcommand(Subcommand):
         if proto.ret != "void":
             ret_val = "%s result = " % proto.ret
             ret_stmt = "    return result;\n"
-        dispatch_param = proto.params[0].name
-        if 'CreateInstance' in proto.name:
-           dispatch_param = '*' + proto.params[1].name
         if create_func:
             obj_type = proto.params[-1].ty.strip('*')
             obj_name = proto.params[-1].name
@@ -1621,42 +946,33 @@ class UniqueObjectsSubcommand(Subcommand):
                 local_name = "unique%s" % obj_type[2:]
                 post_call_txt += '%sif (VK_SUCCESS == result) {\n' % (indent)
                 indent += '    '
+                post_call_txt += '%sstd::lock_guard<std::mutex> lock(global_lock);\n' % (indent)
                 if obj_name in custom_create_dict:
                     post_call_txt += '%s\n' % (self.lineinfo.get())
                     local_name = '%ss' % (local_name) # add 's' to end for vector of many
-                    post_call_txt += '%sstd::vector<VkUniqueObject*> %s = {};\n' % (indent, local_name)
                     post_call_txt += '%sfor (uint32_t i=0; i<%s; ++i) {\n' % (indent, custom_create_dict[obj_name])
                     indent += '    '
-                    post_call_txt += '%s%s.push_back(new VkUniqueObject());\n' % (indent, local_name)
-                    post_call_txt += '%s%s[i]->actualObject = (uint64_t)%s[i];\n' % (indent, local_name, obj_name)
-                    post_call_txt += '%s%s[i] = (%s)%s[i];\n' % (indent, obj_name, obj_type, local_name)
+                    post_call_txt += '%suint64_t unique_id = global_unique_id++;\n' % (indent)
+                    post_call_txt += '%smy_map_data->unique_id_mapping[unique_id] = reinterpret_cast<uint64_t &>(%s[i]);\n' % (indent, obj_name)
+                    post_call_txt += '%s%s[i] = reinterpret_cast<%s&>(unique_id);\n' % (indent, obj_name, obj_type)
                     indent = indent[4:]
                     post_call_txt += '%s}\n' % (indent)
                 else:
                     post_call_txt += '%s\n' % (self.lineinfo.get())
-                    post_call_txt += '%sVkUniqueObject* %s = new VkUniqueObject();\n' % (indent, local_name)
-                    post_call_txt += '%s%s->actualObject = (uint64_t)*%s;\n' % (indent, local_name, obj_name)
-                    post_call_txt += '%s*%s = (%s)%s;\n' % (indent, obj_name, obj_type, local_name)
+                    post_call_txt += '%suint64_t unique_id = global_unique_id++;\n' % (indent)
+                    post_call_txt += '%smy_map_data->unique_id_mapping[unique_id] = reinterpret_cast<uint64_t &>(*%s);\n' % (indent, obj_name)
+                    post_call_txt += '%s*%s = reinterpret_cast<%s&>(unique_id);\n' % (indent, obj_name, obj_type)
                 indent = indent[4:]
                 post_call_txt += '%s}\n' % (indent)
-        elif destroy_func:
-            del_obj = proto.params[-2].name
-            if 'count' in del_obj.lower():
-                post_call_txt += '%s\n' % (self.lineinfo.get())
-                post_call_txt += '%sfor (uint32_t i=0; i<%s; ++i) {\n' % (indent, del_obj)
-                del_obj = proto.params[-1].name
-                indent += '    '
-                post_call_txt += '%sdelete (VkUniqueObject*)%s[i];\n' % (indent, del_obj)
-                indent = indent[4:]
-                post_call_txt += '%s}\n' % (indent)
-            else:
-                post_call_txt += '%s\n' % (self.lineinfo.get())
-                post_call_txt = '%sdelete (VkUniqueObject*)local_%s;\n' % (indent, proto.params[-2].name)
 
         call_sig = proto.c_call()
         # Replace default params with any custom local params
         for ld in local_decls:
-            call_sig = call_sig.replace(ld, '(const %s)local_%s' % (local_decls[ld], ld))
+            const_qualifier = ''
+            for p in proto.params:
+                if ld == p.name and 'const' in p.ty:
+                    const_qualifier = 'const'
+            call_sig = call_sig.replace(ld, '(%s %s)local_%s' % (const_qualifier, local_decls[ld], ld))
         if proto_is_global(proto):
             table_type = "instance"
         else:
@@ -1684,337 +1000,72 @@ class UniqueObjectsSubcommand(Subcommand):
                      ['vkCreateSwapchainKHR',
                       'vkDestroySwapchainKHR', 'vkGetSwapchainImagesKHR',
                       'vkAcquireNextImageKHR', 'vkQueuePresentKHR'])]
-        if sys.platform.startswith('win32'):
-            instance_extensions=[('wsi_enabled',
-                                  ['vkGetPhysicalDeviceSurfaceSupportKHR',
-                                   'vkGetPhysicalDeviceSurfaceCapabilitiesKHR',
-                                   'vkGetPhysicalDeviceSurfaceFormatsKHR',
-                                   'vkGetPhysicalDeviceSurfacePresentModesKHR',
-                                   'vkCreateWin32SurfaceKHR'
-                                   ])]
-        elif sys.platform.startswith('linux'):
-            instance_extensions=[('wsi_enabled',
-                                  ['vkGetPhysicalDeviceSurfaceSupportKHR',
-                                   'vkGetPhysicalDeviceSurfaceCapabilitiesKHR',
-                                   'vkGetPhysicalDeviceSurfaceFormatsKHR',
-                                   'vkGetPhysicalDeviceSurfacePresentModesKHR',
-                                   'vkCreateXcbSurfaceKHR',
-                                   'vkCreateAndroidSurfaceKHR'
-                                   ])]
-        # TODO: Add cases for Mir, Wayland and Xlib
-        else: # android
-            instance_extensions=[('wsi_enabled',
-                                  ['vkGetPhysicalDeviceSurfaceSupportKHR',
-                                   'vkGetPhysicalDeviceSurfaceCapabilitiesKHR',
-                                   'vkGetPhysicalDeviceSurfaceFormatsKHR',
-                                   'vkGetPhysicalDeviceSurfacePresentModesKHR'])]
-        body = [self._generate_dispatch_entrypoints("VK_LAYER_EXPORT"),
+        surface_wsi_instance_exts = [
+                      'vkDestroySurfaceKHR',
+                      'vkGetPhysicalDeviceSurfaceSupportKHR',
+                      'vkGetPhysicalDeviceSurfaceCapabilitiesKHR',
+                      'vkGetPhysicalDeviceSurfaceFormatsKHR',
+                      'vkGetPhysicalDeviceSurfacePresentModesKHR']
+        display_wsi_instance_exts = [
+                      'vkGetPhysicalDeviceDisplayPropertiesKHR',
+                      'vkGetPhysicalDeviceDisplayPlanePropertiesKHR',
+                      'vkGetDisplayPlaneSupportedDisplaysKHR',
+                      'vkGetDisplayModePropertiesKHR',
+                      'vkCreateDisplayModeKHR',
+                      'vkGetDisplayPlaneCapabilitiesKHR',
+                      'vkCreateDisplayPlaneSurfaceKHR']
+        if self.wsi == 'Win32':
+            instance_extensions=[('wsi_enabled', surface_wsi_instance_exts),
+                                 ('display_enabled', display_wsi_instance_exts),
+                                 ('win32_enabled', ['vkCreateWin32SurfaceKHR'])]
+        elif self.wsi == 'Android':
+            instance_extensions=[('wsi_enabled', surface_wsi_instance_exts),
+                                 ('android_enabled', ['vkCreateAndroidSurfaceKHR'])]
+        elif self.wsi == 'Xcb' or self.wsi == 'Xlib' or self.wsi == 'Wayland' or self.wsi == 'Mir':
+            instance_extensions=[('wsi_enabled', surface_wsi_instance_exts),
+                                 ('display_enabled', display_wsi_instance_exts),
+                                 ('xcb_enabled', ['vkCreateXcbSurfaceKHR']),
+                                 ('xlib_enabled', ['vkCreateXlibSurfaceKHR']),
+                                 ('wayland_enabled',  ['vkCreateWaylandSurfaceKHR']),
+                                 ('mir_enabled', ['vkCreateMirSurfaceKHR'])]
+        elif self.wsi == 'Display':
+            instance_extensions=[('wsi_enabled', surface_wsi_instance_exts),
+                                 ('display_enabled', display_wsi_instance_exts)]
+        else:
+            print('Error: Undefined DisplayServer')
+            instance_extensions=[]
+
+        body = ["namespace %s {" % self.layer_name,
+                self._generate_dispatch_entrypoints(),
+                self._generate_layer_introspection_function(),
                 self._generate_layer_gpa_function(extensions,
-                                                  instance_extensions)]
-        return "\n\n".join(body)
-
-class ThreadingSubcommand(Subcommand):
-    thread_check_dispatchable_objects = [
-        "VkQueue",
-        "VkCommandBuffer",
-    ]
-    thread_check_nondispatchable_objects = [
-        "VkDeviceMemory",
-        "VkBuffer",
-        "VkImage",
-        "VkDescriptorSet",
-        "VkDescriptorPool",
-        "VkSemaphore"
-    ]
-    thread_check_object_types = {
-        'VkInstance' : 'VK_DEBUG_REPORT_OBJECT_TYPE_INSTANCE_EXT',
-        'VkPhysicalDevice' : 'VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT',
-        'VkDevice' : 'VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_EXT',
-        'VkQueue' : 'VK_DEBUG_REPORT_OBJECT_TYPE_QUEUE_EXT',
-        'VkCommandBuffer' : 'VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT',
-        'VkFence' : 'VK_DEBUG_REPORT_OBJECT_TYPE_FENCE_EXT',
-        'VkDeviceMemory' : 'VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_MEMORY_EXT',
-        'VkBuffer' : 'VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_EXT',
-        'VkImage' : 'VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT',
-        'VkSemaphore' : 'VK_DEBUG_REPORT_OBJECT_TYPE_SEMAPHORE_EXT',
-        'VkEvent' : 'VK_DEBUG_REPORT_OBJECT_TYPE_EVENT_EXT',
-        'VkQueryPool' : 'VK_DEBUG_REPORT_OBJECT_TYPE_QUERY_POOL_EXT',
-        'VkBufferView' : 'VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_VIEW_EXT',
-        'VkImageView' : 'VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_VIEW_EXT',
-        'VkShaderModule' : 'VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT',
-        'VkShader' : 'VK_DEBUG_REPORT_OBJECT_TYPE_SHADER',
-        'VkPipelineCache' : 'VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_CACHE_EXT',
-        'VkPipelineLayout' : 'VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_LAYOUT_EXT',
-        'VkRenderPass' : 'VK_DEBUG_REPORT_OBJECT_TYPE_RENDER_PASS_EXT',
-        'VkPipeline' : 'VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT',
-        'VkDescriptorSetLayout' : 'VK_DEBUG_REPORT_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT_EXT',
-        'VkSampler' : 'VK_DEBUG_REPORT_OBJECT_TYPE_SAMPLER_EXT',
-        'VkDescriptorPool' : 'VK_DEBUG_REPORT_OBJECT_TYPE_DESCRIPTOR_POOL_EXT',
-        'VkDescriptorSet' : 'VK_DEBUG_REPORT_OBJECT_TYPE_DESCRIPTOR_SET_EXT',
-        'VkFramebuffer' : 'VK_DEBUG_REPORT_OBJECT_TYPE_FRAMEBUFFER_EXT',
-        'VkCommandPool' : 'VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_POOL_EXT',
-    }
-    def generate_useObject(self, ty):
-        obj_type = self.thread_check_object_types[ty]
-        key = "object"
-        msg_object = "(uint64_t)(object)"
-        header_txt = []
-        header_txt.append('%s' % self.lineinfo.get())
-        header_txt.append('static void use%s(const void* dispatchable_object, %s object)' % (ty, ty))
-        header_txt.append('{')
-        header_txt.append('    loader_platform_thread_id tid = loader_platform_get_thread_id();')
-        header_txt.append('    loader_platform_thread_lock_mutex(&threadingLock);')
-        header_txt.append('    if (%sObjectsInUse.find(%s) == %sObjectsInUse.end()) {' % (ty, key, ty))
-        header_txt.append('        %sObjectsInUse[%s] = tid;' % (ty, key))
-        header_txt.append('    } else {')
-        header_txt.append('        if (%sObjectsInUse[%s] != tid) {' % (ty, key))
-        header_txt.append('            log_msg(mdd(dispatchable_object), VK_DEBUG_REPORT_ERROR_BIT_EXT, %s, %s,' % (obj_type, msg_object))
-        header_txt.append('                __LINE__, THREADING_CHECKER_MULTIPLE_THREADS, "THREADING",')
-        header_txt.append('                "THREADING ERROR : object of type %s is simultaneously used in thread %%ld and thread %%ld",' % (ty))
-        header_txt.append('                %sObjectsInUse[%s], tid);' % (ty, key))
-        header_txt.append('            // Wait for thread-safe access to object')
-        header_txt.append('            while (%sObjectsInUse.find(%s) != %sObjectsInUse.end()) {' % (ty, key, ty))
-        header_txt.append('                loader_platform_thread_cond_wait(&threadingCond, &threadingLock);')
-        header_txt.append('            }')
-        header_txt.append('            %sObjectsInUse[%s] = tid;' % (ty, key))
-        header_txt.append('        } else {')
-        header_txt.append('            log_msg(mdd(dispatchable_object), VK_DEBUG_REPORT_ERROR_BIT_EXT, %s, %s,' % (obj_type, msg_object))
-        header_txt.append('                __LINE__, THREADING_CHECKER_MULTIPLE_THREADS, "THREADING",')
-        header_txt.append('                "THREADING ERROR : object of type %s is recursively used in thread %%ld",' % (ty))
-        header_txt.append('                tid);')
-        header_txt.append('        }')
-        header_txt.append('    }')
-        header_txt.append('    loader_platform_thread_unlock_mutex(&threadingLock);')
-        header_txt.append('}')
-        return "\n".join(header_txt)
-    def generate_finishUsingObject(self, ty):
-        key = "object"
-        header_txt = []
-        header_txt.append('%s' % self.lineinfo.get())
-        header_txt.append('static void finishUsing%s(%s object)' % (ty, ty))
-        header_txt.append('{')
-        header_txt.append('    // Object is no longer in use')
-        header_txt.append('    loader_platform_thread_lock_mutex(&threadingLock);')
-        header_txt.append('    %sObjectsInUse.erase(%s);' % (ty, key))
-        header_txt.append('    loader_platform_thread_cond_broadcast(&threadingCond);')
-        header_txt.append('    loader_platform_thread_unlock_mutex(&threadingLock);')
-        header_txt.append('}')
-        return "\n".join(header_txt)
-    def generate_header(self):
-        header_txt = []
-        header_txt.append('%s' % self.lineinfo.get())
-        header_txt.append('#include <stdio.h>')
-        header_txt.append('#include <stdlib.h>')
-        header_txt.append('#include <string.h>')
-        header_txt.append('#include <unordered_map>')
-        header_txt.append('#include "vk_loader_platform.h"')
-        header_txt.append('#include "vulkan/vk_layer.h"')
-        header_txt.append('#include "threading.h"')
-        header_txt.append('#include "vk_layer_config.h"')
-        header_txt.append('#include "vk_layer_extension_utils.h"')
-        header_txt.append('#include "vk_enum_validate_helper.h"')
-        header_txt.append('#include "vk_struct_validate_helper.h"')
-        header_txt.append('#include "vk_layer_table.h"')
-        header_txt.append('#include "vk_layer_logging.h"')
-        header_txt.append('')
-        header_txt.append('')
-        header_txt.append('static LOADER_PLATFORM_THREAD_ONCE_DECLARATION(initOnce);')
-        header_txt.append('')
-        header_txt.append('using namespace std;')
-        for ty in self.thread_check_dispatchable_objects:
-            header_txt.append('static unordered_map<%s, loader_platform_thread_id> %sObjectsInUse;' % (ty, ty))
-        for ty in self.thread_check_nondispatchable_objects:
-            header_txt.append('static unordered_map<%s, loader_platform_thread_id> %sObjectsInUse;' % (ty, ty))
-        header_txt.append('static int threadingLockInitialized = 0;')
-        header_txt.append('static loader_platform_thread_mutex threadingLock;')
-        header_txt.append('static loader_platform_thread_cond threadingCond;')
-        header_txt.append('%s' % self.lineinfo.get())
-        for ty in self.thread_check_dispatchable_objects + self.thread_check_nondispatchable_objects:
-            header_txt.append(self.generate_useObject(ty))
-            header_txt.append(self.generate_finishUsingObject(ty))
-        header_txt.append('%s' % self.lineinfo.get())
-        return "\n".join(header_txt)
-
-    def generate_intercept(self, proto, qual):
-        if proto.name in [ 'CreateDebugReportCallbackEXT' ]:
-            # use default version
-            return None
-        decl = proto.c_func(prefix="vk", attr="VKAPI")
-        ret_val = ''
-        stmt = ''
-        funcs = []
-        table = 'device'
-        if proto.ret != "void":
-            ret_val = "%s result = " % proto.ret
-            stmt = "    return result;\n"
-        if proto_is_global(proto):
-           table = 'instance'
-
-        # Memory range calls are special in needed thread checking within structs
-        if proto.name in ["FlushMappedMemoryRanges","InvalidateMappedMemoryRanges"]:
-            funcs.append('%s' % self.lineinfo.get())
-            funcs.append('%s%s\n' % (qual, decl) +
-                     '{\n'
-                     '    for (uint32_t i=0; i<memoryRangeCount; i++) {\n'
-                     '        useVkDeviceMemory((const void *) %s, pMemoryRanges[i].memory);\n' % proto.params[0].name +
-                     '    }\n'
-                     '    VkLayerDispatchTable *pDeviceTable = get_dispatch_table(threading_%s_table_map, %s);\n' % (table, proto.params[0].name) +
-                     '    %s pDeviceTable->%s;\n' % (ret_val, proto.c_call()) +
-                     '    for (uint32_t i=0; i<memoryRangeCount; i++) {\n'
-                     '        finishUsingVkDeviceMemory(pMemoryRanges[i].memory);\n'
-                     '    }\n'
-                     '%s' % (stmt) +
-                     '}')
-            return "\n".join(funcs)
-        # All functions that do a Get are thread safe
-        if 'Get' in proto.name:
-            return None
-        # All WSI functions are thread safe
-        if 'KHR' in proto.name:
-            return None
-        # Initialize in early calls
-        if proto.name == "CreateDevice":
-            funcs.append('%s' % self.lineinfo.get())
-            funcs.append('%s%s\n' % (qual, decl) +
-                     '{\n'
-                     '    VkLayerDeviceCreateInfo *chain_info = get_chain_info(pCreateInfo, VK_LAYER_LINK_INFO);\n'
-                     '    PFN_vkGetInstanceProcAddr fpGetInstanceProcAddr = chain_info->u.pLayerInfo->pfnNextGetInstanceProcAddr;\n'
-                     '    PFN_vkGetDeviceProcAddr fpGetDeviceProcAddr = chain_info->u.pLayerInfo->pfnNextGetDeviceProcAddr;\n'
-                     '    PFN_vkCreateDevice fpCreateDevice = (PFN_vkCreateDevice) fpGetInstanceProcAddr(NULL, "vkCreateDevice");\n'
-                     '    if (fpCreateDevice == NULL) {\n'
-                     '        return VK_ERROR_INITIALIZATION_FAILED;\n'
-                     '    }\n'
-                     '    // Advance the link info for the next element on the chain\n'
-                     '    chain_info->u.pLayerInfo = chain_info->u.pLayerInfo->pNext;\n'
-                     '    VkResult result = fpCreateDevice(physicalDevice, pCreateInfo, pAllocator, pDevice);\n'
-                     '    if (result != VK_SUCCESS) {\n'
-                     '        return result;\n'
-                     '    }\n'
-                     '    layer_data *my_instance_data = get_my_data_ptr(get_dispatch_key(physicalDevice), layer_data_map);\n'
-                     '    layer_data *my_device_data = get_my_data_ptr(get_dispatch_key(*pDevice), layer_data_map);\n'
-                     '    initDeviceTable(*pDevice, fpGetDeviceProcAddr, threading_device_table_map);\n'
-                     '    my_device_data->report_data = layer_debug_report_create_device(my_instance_data->report_data, *pDevice);\n'
-                     '    return result;\n'
-                     '}\n')
-            return "\n".join(funcs)
-        elif proto.params[0].ty == "VkPhysicalDevice":
-            return None
-        # Functions changing command buffers need thread safe use of first parameter
-        if proto.params[0].ty == "VkCommandBuffer":
-            funcs.append('%s' % self.lineinfo.get())
-            funcs.append('%s%s\n' % (qual, decl) +
-                     '{\n'
-                     '    use%s((const void *) %s, %s);\n' % (proto.params[0].ty, proto.params[0].name, proto.params[0].name) +
-                     '    VkLayerDispatchTable *pDeviceTable = get_dispatch_table(threading_%s_table_map, %s);\n' % (table, proto.params[0].name) +
-                     '    %spDeviceTable->%s;\n' % (ret_val, proto.c_call()) +
-                     '    finishUsing%s(%s);\n' % (proto.params[0].ty, proto.params[0].name) +
-                     '%s' % stmt +
-                     '}')
-            return "\n".join(funcs)
-        # Non-Cmd functions that do a Wait are thread safe
-        if 'Wait' in proto.name:
-            return None
-        # Watch use of certain types of objects passed as any parameter
-        checked_params = []
-        for param in proto.params:
-            if param.ty in self.thread_check_dispatchable_objects or param.ty in self.thread_check_nondispatchable_objects:
-                checked_params.append(param)
-        if proto.name == "DestroyDevice":
-            funcs.append('%s%s\n' % (qual, decl) +
-                         '{\n'
-                         '    dispatch_key key = get_dispatch_key(device);\n'
-                         '    VkLayerDispatchTable *pDeviceTable = get_dispatch_table(threading_%s_table_map, %s);\n' % (table, proto.params[0].name) +
-                         '    %spDeviceTable->%s;\n' % (ret_val, proto.c_call()) +
-                         '    threading_device_table_map.erase(key);\n'
-                         '}\n')
-            return "\n".join(funcs);
-        elif proto.name == "DestroyInstance":
-            funcs.append('%s%s\n' % (qual, decl) +
-                         '{\n'
-                         '    dispatch_key key = get_dispatch_key(instance);\n'
-                         '    VkLayerInstanceDispatchTable *pInstanceTable = get_dispatch_table(threading_instance_table_map, %s);\n' % proto.params[0].name +
-                         '    %spInstanceTable->%s;\n' % (ret_val, proto.c_call()) +
-                         '    destroy_dispatch_table(threading_instance_table_map, key);\n'
-                         '\n'
-                         '    // Clean up logging callback, if any\n'
-                         '    layer_data *my_data = get_my_data_ptr(key, layer_data_map);\n'
-                         '    if (my_data->logging_callback) {\n'
-                         '        layer_destroy_msg_callback(my_data->report_data, my_data->logging_callback, pAllocator);\n'
-                         '    }\n'
-                         '\n'
-                         '    layer_debug_report_destroy_instance(my_data->report_data);\n'
-                         '    layer_data_map.erase(pInstanceTable);\n'
-                         '\n'
-                         '    threading_instance_table_map.erase(key);\n'
-                         '}\n')
-            return "\n".join(funcs);
-        elif proto.name == "CreateInstance":
-            funcs.append('%s%s\n'
-                         '{\n'
-                         '    VkLayerInstanceCreateInfo *chain_info = get_chain_info(pCreateInfo, VK_LAYER_LINK_INFO);\n'
-                         '    PFN_vkGetInstanceProcAddr fpGetInstanceProcAddr = chain_info->u.pLayerInfo->pfnNextGetInstanceProcAddr;\n'
-                         '    PFN_vkCreateInstance fpCreateInstance = (PFN_vkCreateInstance) fpGetInstanceProcAddr(NULL, "vkCreateInstance");\n'
-                         '    if (fpCreateInstance == NULL) {\n'
-                         '        return VK_ERROR_INITIALIZATION_FAILED;\n'
-                         '    }\n'
-                         '    // Advance the link info for the next element on the chain\n'
-                         '    chain_info->u.pLayerInfo = chain_info->u.pLayerInfo->pNext;\n'
-                         '    VkResult result = fpCreateInstance(pCreateInfo, pAllocator, pInstance);\n'
-                         '    if (result != VK_SUCCESS) {\n'
-                         '        return result;\n'
-                         '    }\n'
-                         '    VkLayerInstanceDispatchTable *pTable = initInstanceTable(*pInstance, fpGetInstanceProcAddr, threading_instance_table_map);\n'
-                         '    layer_data *my_data = get_my_data_ptr(get_dispatch_key(*pInstance), layer_data_map);\n'
-                         '    my_data->report_data = debug_report_create_instance(\n'
-                         '            pTable,\n'
-                         '            *pInstance,\n'
-                         '            pCreateInfo->enabledExtensionCount,\n'
-                         '            pCreateInfo->ppEnabledExtensionNames);\n'
-                         '    init_threading(my_data, pAllocator);\n'
-                         '    return result;\n'
-                         '}\n' % (qual, decl))
-            return "\n".join(funcs);
-        if len(checked_params) == 0:
-            return None
-        # Surround call with useObject and finishUsingObject for each checked_param
-        funcs.append('%s' % self.lineinfo.get())
-        funcs.append('%s%s' % (qual, decl))
-        funcs.append('{')
-        for param in checked_params:
-            funcs.append('    use%s((const void *) %s, %s);' % (param.ty, proto.params[0].name, param.name))
-        funcs.append('    VkLayerDispatchTable *pDeviceTable = get_dispatch_table(threading_%s_table_map, %s);' % (table, proto.params[0].name));
-        funcs.append('    %spDeviceTable->%s;' % (ret_val, proto.c_call()))
-        for param in checked_params:
-            funcs.append('    finishUsing%s(%s);' % (param.ty, param.name))
-        funcs.append('%s'
-                 '}' % stmt)
-        return "\n".join(funcs)
-
-    def generate_body(self):
-        self.layer_name = "threading"
-        body = [self._generate_new_layer_initialization(True, lockname='threading', condname='threading'),
-                self._generate_dispatch_entrypoints("VK_LAYER_EXPORT"),
-                self._generate_layer_gpa_function(extensions=[],
-                                                  instance_extensions=[('msg_callback_get_proc_addr', [])]),
-                self._gen_create_msg_callback(),
-                self._gen_destroy_msg_callback(),
-                self._gen_debug_report_msg()]
+                                                  instance_extensions),
+                "} // namespace %s" % self.layer_name,
+                self._gen_layer_interface_v0_functions()]
         return "\n\n".join(body)
 
 def main():
+    wsi = {
+            "Win32",
+            "Android",
+            "Xcb",
+            "Xlib",
+            "Wayland",
+            "Mir",
+            "Display",
+    }
+
     subcommands = {
-            "object_tracker" : ObjectTrackerSubcommand,
-            "threading" : ThreadingSubcommand,
             "unique_objects" : UniqueObjectsSubcommand,
     }
 
-    if len(sys.argv) < 3 or sys.argv[1] not in subcommands or not os.path.exists(sys.argv[2]):
-        print("Usage: %s <subcommand> <input_header> [options]" % sys.argv[0])
+    if len(sys.argv) < 4 or sys.argv[1] not in wsi or sys.argv[2] not in subcommands or not os.path.exists(sys.argv[3]):
+        print("Usage: %s <wsi> <subcommand> <input_header> [outdir]" % sys.argv[0])
         print
         print("Available subcommands are: %s" % " ".join(subcommands))
         exit(1)
 
-    hfp = vk_helper.HeaderFileParser(sys.argv[2])
+    hfp = vk_helper.HeaderFileParser(sys.argv[3])
     hfp.parse()
     vk_helper.enum_val_dict = hfp.get_enum_val_dict()
     vk_helper.enum_type_dict = hfp.get_enum_type_dict()
@@ -2023,7 +1074,11 @@ def main():
     vk_helper.typedef_rev_dict = hfp.get_typedef_rev_dict()
     vk_helper.types_dict = hfp.get_types_dict()
 
-    subcmd = subcommands[sys.argv[1]](sys.argv[2:])
+    outfile = None
+    if len(sys.argv) >= 5:
+        outfile = sys.argv[4]
+
+    subcmd = subcommands[sys.argv[2]](outfile)
     subcmd.run()
 
 if __name__ == "__main__":

@@ -4,24 +4,17 @@
 # Copyright (c) 2015-2016 Valve Corporation
 # Copyright (c) 2015-2016 LunarG, Inc.
 #
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and/or associated documentation files (the "Materials"), to
-# deal in the Materials without restriction, including without limitation the
-# rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
-# sell copies of the Materials, and to permit persons to whom the Materials are
-# furnished to do so, subject to the following conditions:
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# The above copyright notice(s) and this permission notice shall be included in
-# all copies or substantial portions of the Materials.
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
-# THE MATERIALS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-#
-# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-# DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-# OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE MATERIALS OR THE
-# USE OR OTHER DEALINGS IN THE MATERIALS.Copyright (C) 2015 Valve Corporation
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Author: Jon Ashburn <jon@lunarg.com>
 #
@@ -49,7 +42,7 @@ class Subcommand(object):
         print(self.generate())
 
     def _requires_special_trampoline_code(self, name):
-        # Dont be cute trying to use a general rule to programmatically populate this list
+        # Don't be cute trying to use a general rule to programmatically populate this list
         # it just obsfucates what is going on!
         wsi_creates_dispatchable_object = ["CreateSwapchainKHR"]
         creates_dispatchable_object = ["CreateDevice", "GetDeviceQueue", "AllocateCommandBuffers"] + wsi_creates_dispatchable_object
@@ -96,24 +89,17 @@ class Subcommand(object):
  * Copyright (c) 2015-2016 Valve Corporation
  * Copyright (c) 2015-2016 LunarG, Inc.
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and/or associated documentation files (the "Materials"), to
- * deal in the Materials without restriction, including without limitation the
- * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
- * sell copies of the Materials, and to permit persons to whom the Materials are
- * furnished to do so, subject to the following conditions:
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * The above copyright notice(s) and this permission notice shall be included in
- * all copies or substantial portions of the Materials.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * THE MATERIALS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
- *
- * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
- * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
- * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE MATERIALS OR THE
- * USE OR OTHER DEALINGS IN THE MATERIALS.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * Author: Jon Ashburn <jon@lunarg.com>
  * Author: Chia-I Wu <olv@lunarg.com>
@@ -350,24 +336,17 @@ class WinDefFileSubcommand(Subcommand):
 ; Copyright (c) 2015-2016 Valve Corporation
 ; Copyright (c) 2015-2016 LunarG, Inc.
 ;
-; Permission is hereby granted, free of charge, to any person obtaining a copy
-; of this software and/or associated documentation files (the "Materials"), to
-; deal in the Materials without restriction, including without limitation the
-; rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
-; sell copies of the Materials, and to permit persons to whom the Materials are
-; furnished to do so, subject to the following conditions:
+; Licensed under the Apache License, Version 2.0 (the "License");
+; you may not use this file except in compliance with the License.
+; You may obtain a copy of the License at
 ;
-; The above copyright notice(s) and this permission notice shall be included in
-; all copies or substantial portions of the Materials.
+;     http://www.apache.org/licenses/LICENSE-2.0
 ;
-; THE MATERIALS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-;
-; IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-; DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-; OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE MATERIALS OR THE
-; USE OR OTHER DEALINGS IN THE MATERIALS.
+; Unless required by applicable law or agreed to in writing, software
+; distributed under the License is distributed on an "AS IS" BASIS,
+; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+; See the License for the specific language governing permissions and
+; limitations under the License.
 ;
 ;
 ;  Author: Jon Ashburn <jon@lunarg.com>
@@ -453,6 +432,16 @@ class LoaderGetProcAddrSubcommand(Subcommand):
         return "\n".join(body)
 
 def main():
+
+    wsi = {
+            "Win32",
+            "Android",
+            "Xcb",
+            "Xlib",
+            "Wayland",
+            "Mir"
+    }
+
     subcommands = {
             "dev-ext-trampoline": DevExtTrampolineSubcommand,
             "loader-entrypoints": LoaderEntrypointsSubcommand,
@@ -461,13 +450,14 @@ def main():
             "loader-get-proc-addr": LoaderGetProcAddrSubcommand,
     }
 
-    if len(sys.argv) < 2 or sys.argv[1] not in subcommands:
-        print("Usage: %s <subcommand> [options]" % sys.argv[0])
+    if len(sys.argv) < 3 or sys.argv[1] not in wsi or sys.argv[2] not in subcommands:
+        print("Usage: %s <wsi> <subcommand> [options]" % sys.argv[0])
         print
-        print("Available sucommands are: %s" % " ".join(subcommands))
+        print("Available wsi (displayservers) are: %s" % " ".join(wsi))
+        print("Available subcommands are: %s" % " ".join(subcommands))
         exit(1)
 
-    subcmd = subcommands[sys.argv[1]](sys.argv[2:])
+    subcmd = subcommands[sys.argv[2]](sys.argv[3:])
     subcmd.run()
 
 if __name__ == "__main__":
