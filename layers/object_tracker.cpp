@@ -244,9 +244,9 @@ static void CreateSwapchainImageObject(VkDevice dispatchable_object, VkImage swa
 }
 
 template <typename T1, typename T2>
-static void CreateObject(T1 dispatchable_object, T2 object, VkDebugReportObjectTypeEXT object_type, bool custom_allocator) {
+static void CreateObject(T1 dispatchable_object, T2 object, VkDebugReportObjectTypeEXT object_type, const VkAllocationCallbacks *pAllocator) {
     layer_data *instance_data = get_my_data_ptr(get_dispatch_key(dispatchable_object), layer_data_map);
-
+    bool custom_allocator = (pAllocator == nullptr) ? false : true;
     auto object_handle = std::is_pointer<T2>::value
         ? reinterpret_cast<uint64_t>(object)
         : reinterpret_cast<uint64_t &>(object);
@@ -265,9 +265,9 @@ static void CreateObject(T1 dispatchable_object, T2 object, VkDebugReportObjectT
 }
 
 template <typename T1, typename T2>
-static void DestroyObject(T1 dispatchable_object, T2 object, VkDebugReportObjectTypeEXT object_type, bool custom_allocator) {
+static void DestroyObject(T1 dispatchable_object, T2 object, VkDebugReportObjectTypeEXT object_type, const VkAllocationCallbacks *pAllocator) {
     layer_data *device_data = get_my_data_ptr(get_dispatch_key(dispatchable_object), layer_data_map);
-
+    bool custom_allocator = (pAllocator == nullptr) ? false : true;
     auto object_handle = std::is_pointer<T2>::value
         ? reinterpret_cast<uint64_t>(object)
         : reinterpret_cast<uint64_t &>(object);
@@ -287,7 +287,7 @@ static void DestroyObject(T1 dispatchable_object, T2 object, VkDebugReportObject
                 object_name[pNode->object_type], reinterpret_cast<uint64_t &>(object), device_data->num_total_objects,
                 device_data->num_objects[pNode->object_type], object_name[pNode->object_type]);
 
-        auto allocated_with_custom = pNode->status & OBJSTATUS_CUSTOM_ALLOCATOR;
+        auto allocated_with_custom = (pNode->status & OBJSTATUS_CUSTOM_ALLOCATOR) ? true : false;
         if (custom_allocator ^ allocated_with_custom) {
             log_msg(device_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, object_type, object_handle, __LINE__,
                     OBJTRACK_ALLOCATOR_MISMATCH, LayerName,
