@@ -27,9 +27,206 @@
 #include "extensions.h"
 #include <vulkan/vk_icd.h>
 
+// Definitions for the VK_KHR_get_physical_device_properties2 extension
+VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceFeatures2KHR(
+    VkPhysicalDevice physicalDevice, VkPhysicalDeviceFeatures2KHR *pFeatures) {
+    const VkLayerInstanceDispatchTable *disp;
+    VkPhysicalDevice unwrapped_phys_dev =
+        loader_unwrap_physical_device(physicalDevice);
+    disp = loader_get_instance_dispatch(physicalDevice);
+
+    disp->GetPhysicalDeviceFeatures2KHR(unwrapped_phys_dev, pFeatures);
+}
+
+VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceFeatures2KHR(
+    VkPhysicalDevice physicalDevice, VkPhysicalDeviceFeatures2KHR *pFeatures) {
+    struct loader_physical_device *phys_dev =
+        (struct loader_physical_device *)physicalDevice;
+    struct loader_icd *icd = phys_dev->this_icd;
+    if (NULL == icd->GetPhysicalDeviceFeatures2KHR) {
+        loader_log(phys_dev->this_icd->this_instance,
+                   VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
+                   "ICD associated with VkPhysicalDevice does not support "
+                   "vkGetPhysicalDeviceFeatures2KHR");
+    }
+    icd->GetPhysicalDeviceFeatures2KHR(phys_dev->phys_dev, pFeatures);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+vkGetPhysicalDeviceProperties2KHR(VkPhysicalDevice physicalDevice,
+                                  VkPhysicalDeviceProperties2KHR *pProperties) {
+    const VkLayerInstanceDispatchTable *disp;
+    VkPhysicalDevice unwrapped_phys_dev =
+        loader_unwrap_physical_device(physicalDevice);
+    disp = loader_get_instance_dispatch(physicalDevice);
+
+    disp->GetPhysicalDeviceProperties2KHR(unwrapped_phys_dev, pProperties);
+}
+
+VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceProperties2KHR(
+    VkPhysicalDevice physicalDevice,
+    VkPhysicalDeviceProperties2KHR *pProperties) {
+    struct loader_physical_device *phys_dev =
+        (struct loader_physical_device *)physicalDevice;
+    struct loader_icd *icd = phys_dev->this_icd;
+    if (NULL == icd->GetPhysicalDeviceProperties2KHR) {
+        loader_log(phys_dev->this_icd->this_instance,
+                   VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
+                   "ICD associated with VkPhysicalDevice does not support "
+                   "vkGetPhysicalDeviceProperties2KHR");
+    }
+    icd->GetPhysicalDeviceProperties2KHR(phys_dev->phys_dev, pProperties);
+}
+
+VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceFormatProperties2KHR(
+    VkPhysicalDevice physicalDevice, VkFormat format,
+    VkFormatProperties2KHR *pFormatProperties) {
+    const VkLayerInstanceDispatchTable *disp;
+    VkPhysicalDevice unwrapped_phys_dev =
+        loader_unwrap_physical_device(physicalDevice);
+    disp = loader_get_instance_dispatch(physicalDevice);
+
+    disp->GetPhysicalDeviceFormatProperties2KHR(unwrapped_phys_dev, format,
+                                                pFormatProperties);
+}
+
+VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceFormatProperties2KHR(
+    VkPhysicalDevice physicalDevice, VkFormat format,
+    VkFormatProperties2KHR *pFormatProperties) {
+    struct loader_physical_device *phys_dev =
+        (struct loader_physical_device *)physicalDevice;
+    struct loader_icd *icd = phys_dev->this_icd;
+    if (NULL == icd->GetPhysicalDeviceFormatProperties2KHR) {
+        loader_log(phys_dev->this_icd->this_instance,
+                   VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
+                   "ICD associated with VkPhysicalDevice does not support "
+                   "vkGetPhysicalDeviceFormatProperties2KHR");
+    }
+    icd->GetPhysicalDeviceFormatProperties2KHR(phys_dev->phys_dev, format,
+                                               pFormatProperties);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL vkGetPhysicalDeviceImageFormatProperties2KHR(
+    VkPhysicalDevice physicalDevice,
+    const VkPhysicalDeviceImageFormatInfo2KHR *pImageFormatInfo,
+    VkImageFormatProperties2KHR *pImageFormatProperties) {
+    const VkLayerInstanceDispatchTable *disp;
+    VkPhysicalDevice unwrapped_phys_dev =
+        loader_unwrap_physical_device(physicalDevice);
+    disp = loader_get_instance_dispatch(physicalDevice);
+
+    return disp->GetPhysicalDeviceImageFormatProperties2KHR(
+        unwrapped_phys_dev, pImageFormatInfo, pImageFormatProperties);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+terminator_GetPhysicalDeviceImageFormatProperties2KHR(
+    VkPhysicalDevice physicalDevice,
+    const VkPhysicalDeviceImageFormatInfo2KHR *pImageFormatInfo,
+    VkImageFormatProperties2KHR *pImageFormatProperties) {
+    struct loader_physical_device *phys_dev =
+        (struct loader_physical_device *)physicalDevice;
+    struct loader_icd *icd = phys_dev->this_icd;
+    if (NULL == icd->GetPhysicalDeviceImageFormatProperties2KHR) {
+        loader_log(phys_dev->this_icd->this_instance,
+                   VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
+                   "ICD associated with VkPhysicalDevice does not support "
+                   "vkGetPhysicalDeviceImageFormatProperties2KHR");
+    }
+    return icd->GetPhysicalDeviceImageFormatProperties2KHR(
+        phys_dev->phys_dev, pImageFormatInfo, pImageFormatProperties);
+}
+
+VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceQueueFamilyProperties2KHR(
+    VkPhysicalDevice physicalDevice, uint32_t *pQueueFamilyPropertyCount,
+    VkQueueFamilyProperties2KHR *pQueueFamilyProperties) {
+    const VkLayerInstanceDispatchTable *disp;
+    VkPhysicalDevice unwrapped_phys_dev =
+        loader_unwrap_physical_device(physicalDevice);
+    disp = loader_get_instance_dispatch(physicalDevice);
+
+    disp->GetPhysicalDeviceQueueFamilyProperties2KHR(
+        unwrapped_phys_dev, pQueueFamilyPropertyCount, pQueueFamilyProperties);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+terminator_GetPhysicalDeviceQueueFamilyProperties2KHR(
+    VkPhysicalDevice physicalDevice, uint32_t *pQueueFamilyPropertyCount,
+    VkQueueFamilyProperties2KHR *pQueueFamilyProperties) {
+    struct loader_physical_device *phys_dev =
+        (struct loader_physical_device *)physicalDevice;
+    struct loader_icd *icd = phys_dev->this_icd;
+    if (NULL == icd->GetPhysicalDeviceQueueFamilyProperties2KHR) {
+        loader_log(phys_dev->this_icd->this_instance,
+                   VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
+                   "ICD associated with VkPhysicalDevice does not support "
+                   "vkGetPhysicalDeviceQueueFamilyProperties2KHR");
+    }
+    icd->GetPhysicalDeviceQueueFamilyProperties2KHR(
+        phys_dev->phys_dev, pQueueFamilyPropertyCount, pQueueFamilyProperties);
+}
+
+VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceMemoryProperties2KHR(
+    VkPhysicalDevice physicalDevice,
+    VkPhysicalDeviceMemoryProperties2KHR *pMemoryProperties) {
+    const VkLayerInstanceDispatchTable *disp;
+    VkPhysicalDevice unwrapped_phys_dev =
+        loader_unwrap_physical_device(physicalDevice);
+    disp = loader_get_instance_dispatch(physicalDevice);
+
+    disp->GetPhysicalDeviceMemoryProperties2KHR(unwrapped_phys_dev,
+                                                pMemoryProperties);
+}
+VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceMemoryProperties2KHR(
+    VkPhysicalDevice physicalDevice,
+    VkPhysicalDeviceMemoryProperties2KHR *pMemoryProperties) {
+    struct loader_physical_device *phys_dev =
+        (struct loader_physical_device *)physicalDevice;
+    struct loader_icd *icd = phys_dev->this_icd;
+    if (NULL == icd->GetPhysicalDeviceMemoryProperties2KHR) {
+        loader_log(phys_dev->this_icd->this_instance,
+                   VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
+                   "ICD associated with VkPhysicalDevice does not support "
+                   "vkGetPhysicalDeviceMemoryProperties2KHR");
+    }
+    icd->GetPhysicalDeviceMemoryProperties2KHR(phys_dev->phys_dev,
+                                               pMemoryProperties);
+}
+
+VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceSparseImageFormatProperties2KHR(
+    VkPhysicalDevice physicalDevice,
+    const VkPhysicalDeviceSparseImageFormatInfo2KHR *pFormatInfo,
+    uint32_t *pPropertyCount, VkSparseImageFormatProperties2KHR *pProperties) {
+    const VkLayerInstanceDispatchTable *disp;
+    VkPhysicalDevice unwrapped_phys_dev =
+        loader_unwrap_physical_device(physicalDevice);
+    disp = loader_get_instance_dispatch(physicalDevice);
+
+    disp->GetPhysicalDeviceSparseImageFormatProperties2KHR(
+        unwrapped_phys_dev, pFormatInfo, pPropertyCount, pProperties);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+terminator_GetPhysicalDeviceSparseImageFormatProperties2KHR(
+    VkPhysicalDevice physicalDevice,
+    const VkPhysicalDeviceSparseImageFormatInfo2KHR *pFormatInfo,
+    uint32_t *pPropertyCount, VkSparseImageFormatProperties2KHR *pProperties) {
+    struct loader_physical_device *phys_dev =
+        (struct loader_physical_device *)physicalDevice;
+    struct loader_icd *icd = phys_dev->this_icd;
+    if (NULL == icd->GetPhysicalDeviceSparseImageFormatProperties2KHR) {
+        loader_log(phys_dev->this_icd->this_instance,
+                   VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
+                   "ICD associated with VkPhysicalDevice does not support "
+                   "vkGetPhysicalDeviceSparseImageFormatProperties2KHR");
+    }
+    icd->GetPhysicalDeviceSparseImageFormatProperties2KHR(
+        phys_dev->phys_dev, pFormatInfo, pPropertyCount, pProperties);
+}
+
 // Definitions for the VK_NV_external_memory_capabilities extension
 
-LOADER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL
+VKAPI_ATTR VkResult VKAPI_CALL
 vkGetPhysicalDeviceExternalImageFormatPropertiesNV(
     VkPhysicalDevice physicalDevice, VkFormat format, VkImageType type,
     VkImageTiling tiling, VkImageUsageFlags usage, VkImageCreateFlags flags,
@@ -112,14 +309,64 @@ VKAPI_ATTR VkResult VKAPI_CALL vkGetMemoryWin32HandleNV(
 
 #endif // VK_USE_PLATFORM_WIN32_KHR
 
-// GPA helpers for non-KHR extensions
+// GPA helpers for extensions
 
 bool extension_instance_gpa(struct loader_instance *ptr_instance,
                             const char *name, void **addr) {
     *addr = NULL;
 
-    // Functions for the VK_NV_external_memory_capabilities extension
+    // Functions for the VK_KHR_get_physical_device_properties2 extension
+    if (!strcmp("vkGetPhysicalDeviceFeatures2KHR", name)) {
+        *addr = (ptr_instance->enabled_known_extensions
+                     .khr_get_physical_device_properties2 == 1)
+                    ? (void *)vkGetPhysicalDeviceFeatures2KHR
+                    : NULL;
+        return true;
+    }
+    if (!strcmp("vkGetPhysicalDeviceProperties2KHR", name)) {
+        *addr = (ptr_instance->enabled_known_extensions
+                     .khr_get_physical_device_properties2 == 1)
+                    ? (void *)vkGetPhysicalDeviceProperties2KHR
+                    : NULL;
+        return true;
+    }
+    if (!strcmp("vkGetPhysicalDeviceFormatProperties2KHR", name)) {
+        *addr = (ptr_instance->enabled_known_extensions
+                     .khr_get_physical_device_properties2 == 1)
+                    ? (void *)vkGetPhysicalDeviceFormatProperties2KHR
+                    : NULL;
+        return true;
+    }
+    if (!strcmp("vkGetPhysicalDeviceImageFormatProperties2KHR", name)) {
+        *addr = (ptr_instance->enabled_known_extensions
+                     .khr_get_physical_device_properties2 == 1)
+                    ? (void *)vkGetPhysicalDeviceImageFormatProperties2KHR
+                    : NULL;
+        return true;
+    }
+    if (!strcmp("vkGetPhysicalDeviceQueueFamilyProperties2KHR", name)) {
+        *addr = (ptr_instance->enabled_known_extensions
+                     .khr_get_physical_device_properties2 == 1)
+                    ? (void *)vkGetPhysicalDeviceQueueFamilyProperties2KHR
+                    : NULL;
+        return true;
+    }
+    if (!strcmp("vkGetPhysicalDeviceMemoryProperties2KHR", name)) {
+        *addr = (ptr_instance->enabled_known_extensions
+                     .khr_get_physical_device_properties2 == 1)
+                    ? (void *)vkGetPhysicalDeviceMemoryProperties2KHR
+                    : NULL;
+        return true;
+    }
+    if (!strcmp("vkGetPhysicalDeviceSparseImageFormatProperties2KHR", name)) {
+        *addr = (ptr_instance->enabled_known_extensions
+                     .khr_get_physical_device_properties2 == 1)
+                    ? (void *)vkGetPhysicalDeviceSparseImageFormatProperties2KHR
+                    : NULL;
+        return true;
+    }
 
+    // Functions for the VK_NV_external_memory_capabilities extension
     if (!strcmp("vkGetPhysicalDeviceExternalImageFormatPropertiesNV", name)) {
         *addr = (ptr_instance->enabled_known_extensions
                      .nv_external_memory_capabilities == 1)
@@ -129,7 +376,6 @@ bool extension_instance_gpa(struct loader_instance *ptr_instance,
     }
 
     // Functions for the VK_AMD_draw_indirect_count extension
-
     if (!strcmp("vkCmdDrawIndirectCountAMD", name)) {
         *addr = (void *)vkCmdDrawIndirectCountAMD;
         return true;
@@ -143,7 +389,6 @@ bool extension_instance_gpa(struct loader_instance *ptr_instance,
 #ifdef VK_USE_PLATFORM_WIN32_KHR
 
     // Functions for the VK_NV_external_memory_win32 extension
-
     if (!strcmp("vkGetMemoryWin32HandleNV", name)) {
         *addr = (void *)vkGetMemoryWin32HandleNV;
         return true;
@@ -159,11 +404,15 @@ void extensions_create_instance(struct loader_instance *ptr_instance,
     ptr_instance->enabled_known_extensions.nv_external_memory_capabilities = 0;
 
     for (uint32_t i = 0; i < pCreateInfo->enabledExtensionCount; i++) {
-        if (strcmp(pCreateInfo->ppEnabledExtensionNames[i],
-                   VK_NV_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME) == 0) {
+        if (0 ==
+            strcmp(pCreateInfo->ppEnabledExtensionNames[i],
+                   VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME)) {
+            ptr_instance->enabled_known_extensions
+                .khr_get_physical_device_properties2 = 1;
+        } else if (0 == strcmp(pCreateInfo->ppEnabledExtensionNames[i],
+                        VK_NV_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME)) {
             ptr_instance->enabled_known_extensions
                 .nv_external_memory_capabilities = 1;
-            return;
         }
     }
 }

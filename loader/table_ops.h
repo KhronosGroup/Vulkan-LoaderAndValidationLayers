@@ -597,16 +597,9 @@ loader_init_instance_core_dispatch_table(VkLayerInstanceDispatchTable *table,
 static inline void loader_init_instance_extension_dispatch_table(
     VkLayerInstanceDispatchTable *table, PFN_vkGetInstanceProcAddr gpa,
     VkInstance inst) {
+    // WSI extensions
     table->DestroySurfaceKHR =
         (PFN_vkDestroySurfaceKHR)gpa(inst, "vkDestroySurfaceKHR");
-    table->CreateDebugReportCallbackEXT =
-        (PFN_vkCreateDebugReportCallbackEXT)gpa(
-            inst, "vkCreateDebugReportCallbackEXT");
-    table->DestroyDebugReportCallbackEXT =
-        (PFN_vkDestroyDebugReportCallbackEXT)gpa(
-            inst, "vkDestroyDebugReportCallbackEXT");
-    table->DebugReportMessageEXT =
-        (PFN_vkDebugReportMessageEXT)gpa(inst, "vkDebugReportMessageEXT");
     table->GetPhysicalDeviceSurfaceSupportKHR =
         (PFN_vkGetPhysicalDeviceSurfaceSupportKHR)gpa(
             inst, "vkGetPhysicalDeviceSurfaceSupportKHR");
@@ -619,9 +612,6 @@ static inline void loader_init_instance_extension_dispatch_table(
     table->GetPhysicalDeviceSurfacePresentModesKHR =
         (PFN_vkGetPhysicalDeviceSurfacePresentModesKHR)gpa(
             inst, "vkGetPhysicalDeviceSurfacePresentModesKHR");
-    table->GetPhysicalDeviceExternalImageFormatPropertiesNV =
-        (PFN_vkGetPhysicalDeviceExternalImageFormatPropertiesNV)gpa(
-            inst, "vkGetPhysicalDeviceExternalImageFormatPropertiesNV");
 #ifdef VK_USE_PLATFORM_MIR_KHR
     table->CreateMirSurfaceKHR =
         (PFN_vkCreateMirSurfaceKHR)gpa(inst, "vkCreateMirSurfaceKHR");
@@ -676,6 +666,41 @@ static inline void loader_init_instance_extension_dispatch_table(
     table->CreateDisplayPlaneSurfaceKHR =
         (PFN_vkCreateDisplayPlaneSurfaceKHR)gpa(
             inst, "vkCreateDisplayPlaneSurfaceKHR");
+    // KHR_get_physical_device_properties2
+    table->GetPhysicalDeviceFeatures2KHR =
+        (PFN_vkGetPhysicalDeviceFeatures2KHR)gpa(
+            inst, "vkGetPhysicalDeviceFeatures2KHR");
+    table->GetPhysicalDeviceProperties2KHR =
+        (PFN_vkGetPhysicalDeviceProperties2KHR)gpa(
+            inst, "vkGetPhysicalDeviceProperties2KHR");
+    table->GetPhysicalDeviceFormatProperties2KHR =
+        (PFN_vkGetPhysicalDeviceFormatProperties2KHR)gpa(
+            inst, "vkGetPhysicalDeviceFormatProperties2KHR");
+    table->GetPhysicalDeviceImageFormatProperties2KHR =
+        (PFN_vkGetPhysicalDeviceImageFormatProperties2KHR)gpa(
+            inst, "vkGetPhysicalDeviceImageFormatProperties2KHR");
+    table->GetPhysicalDeviceQueueFamilyProperties2KHR =
+        (PFN_vkGetPhysicalDeviceQueueFamilyProperties2KHR)gpa(
+            inst, "vkGetPhysicalDeviceQueueFamilyProperties2KHR");
+    table->GetPhysicalDeviceMemoryProperties2KHR =
+        (PFN_vkGetPhysicalDeviceMemoryProperties2KHR)gpa(
+            inst, "vkGetPhysicalDeviceMemoryProperties2KHR");
+    table->GetPhysicalDeviceSparseImageFormatProperties2KHR =
+        (PFN_vkGetPhysicalDeviceSparseImageFormatProperties2KHR)gpa(
+            inst, "vkGetPhysicalDeviceSparseImageFormatProperties2KHR");
+    // EXT_debug_report
+    table->CreateDebugReportCallbackEXT =
+        (PFN_vkCreateDebugReportCallbackEXT)gpa(
+            inst, "vkCreateDebugReportCallbackEXT");
+    table->DestroyDebugReportCallbackEXT =
+        (PFN_vkDestroyDebugReportCallbackEXT)gpa(
+            inst, "vkDestroyDebugReportCallbackEXT");
+    table->DebugReportMessageEXT =
+        (PFN_vkDebugReportMessageEXT)gpa(inst, "vkDebugReportMessageEXT");
+    // NV_external_memory_capabilities
+    table->GetPhysicalDeviceExternalImageFormatPropertiesNV =
+        (PFN_vkGetPhysicalDeviceExternalImageFormatPropertiesNV)gpa(
+            inst, "vkGetPhysicalDeviceExternalImageFormatPropertiesNV");
 }
 
 static inline void *
@@ -722,8 +747,6 @@ loader_lookup_instance_dispatch_table(const VkLayerInstanceDispatchTable *table,
         return (void *)table->GetPhysicalDeviceSurfaceFormatsKHR;
     if (!strcmp(name, "GetPhysicalDeviceSurfacePresentModesKHR"))
         return (void *)table->GetPhysicalDeviceSurfacePresentModesKHR;
-    if (!strcmp(name, "GetPhysicalDeviceExternalImageFormatPropertiesNV"))
-        return (void *)table->GetPhysicalDeviceExternalImageFormatPropertiesNV;
 #ifdef VK_USE_PLATFORM_MIR_KHR
     if (!strcmp(name, "CreateMirSurfaceKHR"))
         return (void *)table->CreateMirSurfaceKHR;
@@ -769,12 +792,31 @@ loader_lookup_instance_dispatch_table(const VkLayerInstanceDispatchTable *table,
     if (!strcmp(name, "CreateDisplayPlaneSurfaceKHR"))
         return (void *)table->CreateDisplayPlaneSurfaceKHR;
 
+    // KHR_get_physical_device_properties2
+    if (!strcmp(name, "GetPhysicalDeviceFeatures2KHR"))
+        return (void *)table->GetPhysicalDeviceFeatures2KHR;
+    if (!strcmp(name, "GetPhysicalDeviceProperties2KHR"))
+        return (void *)table->GetPhysicalDeviceProperties2KHR;
+    if (!strcmp(name, "GetPhysicalDeviceFormatProperties2KHR"))
+        return (void *)table->GetPhysicalDeviceFormatProperties2KHR;
+    if (!strcmp(name, "GetPhysicalDeviceImageFormatProperties2KHR"))
+        return (void *)table->GetPhysicalDeviceImageFormatProperties2KHR;
+    if (!strcmp(name, "GetPhysicalDeviceQueueFamilyProperties2KHR"))
+        return (void *)table->GetPhysicalDeviceQueueFamilyProperties2KHR;
+    if (!strcmp(name, "GetPhysicalDeviceMemoryProperties2KHR"))
+        return (void *)table->GetPhysicalDeviceMemoryProperties2KHR;
+    if (!strcmp(name, "GetPhysicalDeviceSparseImageFormatProperties2KHR"))
+        return (void *)table->GetPhysicalDeviceSparseImageFormatProperties2KHR;
+    // EXT_debug_report
     if (!strcmp(name, "CreateDebugReportCallbackEXT"))
         return (void *)table->CreateDebugReportCallbackEXT;
     if (!strcmp(name, "DestroyDebugReportCallbackEXT"))
         return (void *)table->DestroyDebugReportCallbackEXT;
     if (!strcmp(name, "DebugReportMessageEXT"))
         return (void *)table->DebugReportMessageEXT;
+    // NV_external_memory_capabilities
+    if (!strcmp(name, "GetPhysicalDeviceExternalImageFormatPropertiesNV"))
+        return (void *)table->GetPhysicalDeviceExternalImageFormatPropertiesNV;
 
     *found_name = false;
     return NULL;

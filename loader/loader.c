@@ -115,11 +115,6 @@ const VkLayerInstanceDispatchTable instance_disp = {
         terminator_GetPhysicalDeviceSurfaceFormatsKHR,
     .GetPhysicalDeviceSurfacePresentModesKHR =
         terminator_GetPhysicalDeviceSurfacePresentModesKHR,
-    .CreateDebugReportCallbackEXT = terminator_CreateDebugReportCallback,
-    .DestroyDebugReportCallbackEXT = terminator_DestroyDebugReportCallback,
-    .DebugReportMessageEXT = terminator_DebugReportMessage,
-    .GetPhysicalDeviceExternalImageFormatPropertiesNV =
-        terminator_GetPhysicalDeviceExternalImageFormatPropertiesNV,
 #ifdef VK_USE_PLATFORM_MIR_KHR
     .CreateMirSurfaceKHR = terminator_CreateMirSurfaceKHR,
     .GetPhysicalDeviceMirPresentationSupportKHR =
@@ -158,6 +153,28 @@ const VkLayerInstanceDispatchTable instance_disp = {
     .CreateDisplayModeKHR = terminator_CreateDisplayModeKHR,
     .GetDisplayPlaneCapabilitiesKHR = terminator_GetDisplayPlaneCapabilitiesKHR,
     .CreateDisplayPlaneSurfaceKHR = terminator_CreateDisplayPlaneSurfaceKHR,
+    // KHR_get_physical_device_properties2
+    .GetPhysicalDeviceFeatures2KHR = terminator_GetPhysicalDeviceFeatures2KHR,
+    .GetPhysicalDeviceProperties2KHR =
+        terminator_GetPhysicalDeviceProperties2KHR,
+    .GetPhysicalDeviceFormatProperties2KHR =
+        terminator_GetPhysicalDeviceFormatProperties2KHR,
+    .GetPhysicalDeviceImageFormatProperties2KHR =
+        terminator_GetPhysicalDeviceImageFormatProperties2KHR,
+    .GetPhysicalDeviceQueueFamilyProperties2KHR =
+        terminator_GetPhysicalDeviceQueueFamilyProperties2KHR,
+    .GetPhysicalDeviceMemoryProperties2KHR =
+        terminator_GetPhysicalDeviceMemoryProperties2KHR,
+    .GetPhysicalDeviceSparseImageFormatProperties2KHR =
+        terminator_GetPhysicalDeviceSparseImageFormatProperties2KHR,
+    // EXT_debug_report
+    .CreateDebugReportCallbackEXT = terminator_CreateDebugReportCallback,
+    .DestroyDebugReportCallbackEXT = terminator_DestroyDebugReportCallback,
+    .DebugReportMessageEXT = terminator_DebugReportMessage,
+    // NV_external_memory_capabilities
+    .GetPhysicalDeviceExternalImageFormatPropertiesNV =
+        terminator_GetPhysicalDeviceExternalImageFormatPropertiesNV,
+
 };
 
 LOADER_PLATFORM_THREAD_ONCE_DECLARATION(once_init);
@@ -1628,8 +1645,6 @@ static bool loader_icd_init_entrys(struct loader_icd *icd, VkInstance inst,
     LOOKUP_GIPA(GetPhysicalDeviceQueueFamilyProperties, true);
     LOOKUP_GIPA(EnumerateDeviceExtensionProperties, true);
     LOOKUP_GIPA(GetPhysicalDeviceSparseImageFormatProperties, true);
-    LOOKUP_GIPA(CreateDebugReportCallbackEXT, false);
-    LOOKUP_GIPA(DestroyDebugReportCallbackEXT, false);
     LOOKUP_GIPA(GetPhysicalDeviceSurfaceSupportKHR, false);
     LOOKUP_GIPA(GetPhysicalDeviceSurfaceCapabilitiesKHR, false);
     LOOKUP_GIPA(GetPhysicalDeviceSurfaceFormatsKHR, false);
@@ -1663,6 +1678,18 @@ static bool loader_icd_init_entrys(struct loader_icd *icd, VkInstance inst,
     LOOKUP_GIPA(CreateWaylandSurfaceKHR, false);
     LOOKUP_GIPA(GetPhysicalDeviceWaylandPresentationSupportKHR, false);
 #endif
+    // KHR_get_physical_device_properties2
+    LOOKUP_GIPA(GetPhysicalDeviceFeatures2KHR, false);
+    LOOKUP_GIPA(GetPhysicalDeviceProperties2KHR, false);
+    LOOKUP_GIPA(GetPhysicalDeviceFormatProperties2KHR, false);
+    LOOKUP_GIPA(GetPhysicalDeviceImageFormatProperties2KHR, false);
+    LOOKUP_GIPA(GetPhysicalDeviceQueueFamilyProperties2KHR, false);
+    LOOKUP_GIPA(GetPhysicalDeviceMemoryProperties2KHR, false);
+    LOOKUP_GIPA(GetPhysicalDeviceSparseImageFormatProperties2KHR, false);
+    // EXT_debug_report
+    LOOKUP_GIPA(CreateDebugReportCallbackEXT, false);
+    LOOKUP_GIPA(DestroyDebugReportCallbackEXT, false);
+    // NV_external_memory_capabilities
     LOOKUP_GIPA(GetPhysicalDeviceExternalImageFormatPropertiesNV, false);
 
 #undef LOOKUP_GIPA

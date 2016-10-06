@@ -198,9 +198,6 @@ typedef struct VkLayerInstanceDispatchTable_ {
     PFN_vkGetPhysicalDeviceSurfaceFormatsKHR GetPhysicalDeviceSurfaceFormatsKHR;
     PFN_vkGetPhysicalDeviceSurfacePresentModesKHR
         GetPhysicalDeviceSurfacePresentModesKHR;
-    PFN_vkCreateDebugReportCallbackEXT CreateDebugReportCallbackEXT;
-    PFN_vkDestroyDebugReportCallbackEXT DestroyDebugReportCallbackEXT;
-    PFN_vkDebugReportMessageEXT DebugReportMessageEXT;
 #ifdef VK_USE_PLATFORM_MIR_KHR
     PFN_vkCreateMirSurfaceKHR CreateMirSurfaceKHR;
     PFN_vkGetPhysicalDeviceMirPresentationSupportKHR
@@ -243,6 +240,24 @@ typedef struct VkLayerInstanceDispatchTable_ {
         GetDisplayPlaneCapabilitiesKHR;
     PFN_vkCreateDisplayPlaneSurfaceKHR
         CreateDisplayPlaneSurfaceKHR;
+    // KHR_get_physical_device_properties2
+    PFN_vkGetPhysicalDeviceFeatures2KHR GetPhysicalDeviceFeatures2KHR;
+    PFN_vkGetPhysicalDeviceProperties2KHR GetPhysicalDeviceProperties2KHR;
+    PFN_vkGetPhysicalDeviceFormatProperties2KHR
+        GetPhysicalDeviceFormatProperties2KHR;
+    PFN_vkGetPhysicalDeviceImageFormatProperties2KHR
+        GetPhysicalDeviceImageFormatProperties2KHR;
+    PFN_vkGetPhysicalDeviceQueueFamilyProperties2KHR
+        GetPhysicalDeviceQueueFamilyProperties2KHR;
+    PFN_vkGetPhysicalDeviceMemoryProperties2KHR
+        GetPhysicalDeviceMemoryProperties2KHR;
+    PFN_vkGetPhysicalDeviceSparseImageFormatProperties2KHR
+        GetPhysicalDeviceSparseImageFormatProperties2KHR;
+    // EXT_debug_report
+    PFN_vkCreateDebugReportCallbackEXT CreateDebugReportCallbackEXT;
+    PFN_vkDestroyDebugReportCallbackEXT DestroyDebugReportCallbackEXT;
+    PFN_vkDebugReportMessageEXT DebugReportMessageEXT;
+    // NV_external_memory_capabilities
     PFN_vkGetPhysicalDeviceExternalImageFormatPropertiesNV
         GetPhysicalDeviceExternalImageFormatPropertiesNV;
 } VkLayerInstanceDispatchTable;

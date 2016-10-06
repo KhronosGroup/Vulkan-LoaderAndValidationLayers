@@ -197,17 +197,13 @@ struct loader_icd {
     PFN_vkEnumerateDeviceExtensionProperties EnumerateDeviceExtensionProperties;
     PFN_vkGetPhysicalDeviceSparseImageFormatProperties
         GetPhysicalDeviceSparseImageFormatProperties;
-    PFN_vkCreateDebugReportCallbackEXT CreateDebugReportCallbackEXT;
-    PFN_vkDestroyDebugReportCallbackEXT DestroyDebugReportCallbackEXT;
-    PFN_vkDebugReportMessageEXT DebugReportMessageEXT;
+    // WSI extensions
     PFN_vkGetPhysicalDeviceSurfaceSupportKHR GetPhysicalDeviceSurfaceSupportKHR;
     PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR
         GetPhysicalDeviceSurfaceCapabilitiesKHR;
     PFN_vkGetPhysicalDeviceSurfaceFormatsKHR GetPhysicalDeviceSurfaceFormatsKHR;
     PFN_vkGetPhysicalDeviceSurfacePresentModesKHR
         GetPhysicalDeviceSurfacePresentModesKHR;
-    PFN_vkGetPhysicalDeviceExternalImageFormatPropertiesNV
-        GetPhysicalDeviceExternalImageFormatPropertiesNV;
 #ifdef VK_USE_PLATFORM_WIN32_KHR
     PFN_vkCreateWin32SurfaceKHR CreateWin32SurfaceKHR;
     PFN_vkGetPhysicalDeviceWin32PresentationSupportKHR
@@ -245,6 +241,26 @@ struct loader_icd {
     PFN_vkCreateDisplayPlaneSurfaceKHR CreateDisplayPlaneSurfaceKHR;
     PFN_vkDestroySurfaceKHR DestroySurfaceKHR;
     PFN_vkCreateSwapchainKHR CreateSwapchainKHR;
+    // KHR_get_physical_device_properties2
+    PFN_vkGetPhysicalDeviceFeatures2KHR GetPhysicalDeviceFeatures2KHR;
+    PFN_vkGetPhysicalDeviceProperties2KHR GetPhysicalDeviceProperties2KHR;
+    PFN_vkGetPhysicalDeviceFormatProperties2KHR
+        GetPhysicalDeviceFormatProperties2KHR;
+    PFN_vkGetPhysicalDeviceImageFormatProperties2KHR
+        GetPhysicalDeviceImageFormatProperties2KHR;
+    PFN_vkGetPhysicalDeviceQueueFamilyProperties2KHR
+        GetPhysicalDeviceQueueFamilyProperties2KHR;
+    PFN_vkGetPhysicalDeviceMemoryProperties2KHR
+        GetPhysicalDeviceMemoryProperties2KHR;
+    PFN_vkGetPhysicalDeviceSparseImageFormatProperties2KHR
+        GetPhysicalDeviceSparseImageFormatProperties2KHR;
+    // EXT_debug_report
+    PFN_vkCreateDebugReportCallbackEXT CreateDebugReportCallbackEXT;
+    PFN_vkDestroyDebugReportCallbackEXT DestroyDebugReportCallbackEXT;
+    PFN_vkDebugReportMessageEXT DebugReportMessageEXT;
+    // NV_external_memory_capabilities
+    PFN_vkGetPhysicalDeviceExternalImageFormatPropertiesNV
+        GetPhysicalDeviceExternalImageFormatPropertiesNV;
     struct loader_icd *next;
 };
 
@@ -257,8 +273,9 @@ struct loader_icd_libs {
 
 union loader_instance_extension_enables {
     struct {
-        uint8_t ext_debug_report                : 1;
-        uint8_t nv_external_memory_capabilities : 1;
+        uint8_t khr_get_physical_device_properties2 : 1;
+        uint8_t ext_debug_report                    : 1;
+        uint8_t nv_external_memory_capabilities     : 1;
     };
     uint64_t padding[4];
 };

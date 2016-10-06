@@ -28,8 +28,34 @@ bool extension_instance_gpa(struct loader_instance *ptr_instance,
 void extensions_create_instance(struct loader_instance *ptr_instance,
                                 const VkInstanceCreateInfo *pCreateInfo);
 
-// Definitions for the VK_NV_external_memory_capabilities extension
+// Instance extension terminators
+VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceFeatures2KHR(
+    VkPhysicalDevice physicalDevice, VkPhysicalDeviceFeatures2KHR *pFeatures);
+VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceProperties2KHR(
+    VkPhysicalDevice physicalDevice,
+    VkPhysicalDeviceProperties2KHR *pProperties);
+VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceFormatProperties2KHR(
+    VkPhysicalDevice physicalDevice, VkFormat format,
+    VkFormatProperties2KHR *pFormatProperties);
+VKAPI_ATTR VkResult VKAPI_CALL
+terminator_GetPhysicalDeviceImageFormatProperties2KHR(
+    VkPhysicalDevice physicalDevice,
+    const VkPhysicalDeviceImageFormatInfo2KHR *pImageFormatInfo,
+    VkImageFormatProperties2KHR *pImageFormatProperties);
+VKAPI_ATTR void VKAPI_CALL
+terminator_GetPhysicalDeviceQueueFamilyProperties2KHR(
+    VkPhysicalDevice physicalDevice, uint32_t *pQueueFamilyPropertyCount,
+    VkQueueFamilyProperties2KHR *pQueueFamilyProperties);
+VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceMemoryProperties2KHR(
+    VkPhysicalDevice physicalDevice,
+    VkPhysicalDeviceMemoryProperties2KHR *pMemoryProperties);
+VKAPI_ATTR void VKAPI_CALL
+terminator_GetPhysicalDeviceSparseImageFormatProperties2KHR(
+    VkPhysicalDevice physicalDevice,
+    const VkPhysicalDeviceSparseImageFormatInfo2KHR *pFormatInfo,
+    uint32_t *pPropertyCount, VkSparseImageFormatProperties2KHR *pProperties);
 
+// VK_NV_external_memory_capabilities extension
 VKAPI_ATTR VkResult VKAPI_CALL
 terminator_GetPhysicalDeviceExternalImageFormatPropertiesNV(
     VkPhysicalDevice physicalDevice, VkFormat format, VkImageType type,
