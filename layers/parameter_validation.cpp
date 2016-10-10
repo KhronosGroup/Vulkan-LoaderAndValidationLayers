@@ -73,12 +73,22 @@ struct layer_data {
     VkPhysicalDeviceFeatures physical_device_features;
     VkPhysicalDevice physical_device;
 
-    bool wsi_enabled;
-    bool wsi_display_swapchain_enabled;
+    union loader_device_extension_enables {
+        struct {
+            uint8_t wsi_enabled : 1;
+            uint8_t wsi_display_swapchain_enabled : 1;
+            uint8_t khr_maintenance1 : 1;
+            uint8_t khx_device_group : 1;
+            uint8_t khx_push_descriptor : 1;
+            uint8_t ext_debug_marker : 1;
+            uint8_t nv_external_memory : 1;
+        };
+        uint64_t padding[4];
+    } enables;
 
     layer_data()
         : report_data(nullptr), num_tmp_callbacks(0), tmp_dbg_create_infos(nullptr), tmp_callbacks(nullptr), device_limits{},
-          physical_device_features{}, physical_device{}, wsi_enabled(false), wsi_display_swapchain_enabled(false) {};
+        physical_device_features{}, physical_device{}, enables{0} {};
 };
 
 static std::unordered_map<void *, struct instance_extension_enables> instance_extension_map;
@@ -1634,15 +1644,22 @@ static void CheckInstanceRegisterExtensions(const VkInstanceCreateInfo *pCreateI
 
 static void CheckDeviceRegisterExtensions(const VkDeviceCreateInfo *pCreateInfo, VkDevice device) {
     layer_data *device_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
-    device_data->wsi_enabled = false;
-    device_data->wsi_display_swapchain_enabled = false;
 
     for (uint32_t i = 0; i < pCreateInfo->enabledExtensionCount; i++) {
         if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_KHR_SWAPCHAIN_EXTENSION_NAME) == 0) {
-            device_data->wsi_enabled = true;
-        }
-        if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_KHR_DISPLAY_SWAPCHAIN_EXTENSION_NAME) == 0) {
-            device_data->wsi_display_swapchain_enabled = true;
+            device_data->enables.wsi_enabled = true;
+        } else if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_KHR_DISPLAY_SWAPCHAIN_EXTENSION_NAME) == 0) {
+            device_data->enables.wsi_display_swapchain_enabled = true;
+        } else if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_KHR_MAINTENANCE1_EXTENSION_NAME) == 0) {
+            device_data->enables.khr_maintenance1 = true;
+        } else if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_KHX_DEVICE_GROUP_EXTENSION_NAME) == 0) {
+            device_data->enables.khx_device_group = true;
+        } else if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_KHX_PUSH_DESCRIPTOR_EXTENSION_NAME) == 0) {
+            device_data->enables.khx_push_descriptor = true;
+        } else if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_EXT_DEBUG_MARKER_EXTENSION_NAME) == 0) {
+            device_data->enables.ext_debug_marker = true;
+        } else if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_NV_EXTERNAL_MEMORY_EXTENSION_NAME) == 0) {
+            device_data->enables.nv_external_memory = true;
         }
     }
 }
@@ -5336,6 +5353,171 @@ VKAPI_ATTR void VKAPI_CALL GetPhysicalDeviceSparseImageFormatProperties2KHR(
     }
 }
 
+// Definitions for the VK_KHR_maintenance1 extension
+
+VKAPI_ATTR void VKAPI_CALL TrimCommandPoolKHR(VkDevice device, VkCommandPool commandPool, VkCommandPoolTrimFlagsKHR flags) {
+    bool skip_call = false;
+    layer_data *my_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
+    assert(my_data != NULL);
+
+    skip_call |= parameter_validation_vkTrimCommandPoolKHR(my_data->report_data, commandPool, flags);
+
+    if (!skip_call) {
+        get_dispatch_table(pc_device_table_map, device)->TrimCommandPoolKHR(device, commandPool, flags);
+    }
+}
+
+// Definitions for the VK_KHX_device_group_creation extension
+
+VKAPI_ATTR VkResult VKAPI_CALL EnumeratePhysicalDeviceGroupsKHX(
+    VkInstance instance, uint32_t *pPhysicalDeviceGroupCount, VkPhysicalDeviceGroupPropertiesKHX *pPhysicalDeviceGroupProperties) {
+    VkResult result = VK_ERROR_VALIDATION_FAILED_EXT;
+    bool skip_call = false;
+    layer_data *my_data = get_my_data_ptr(get_dispatch_key(instance), layer_data_map);
+    assert(my_data != NULL);
+
+    skip_call |= parameter_validation_vkEnumeratePhysicalDeviceGroupsKHX(my_data->report_data, pPhysicalDeviceGroupCount,
+                                                                         pPhysicalDeviceGroupProperties);
+
+    if (!skip_call) {
+        result = get_dispatch_table(pc_instance_table_map, instance)
+                     ->EnumeratePhysicalDeviceGroupsKHX(instance, pPhysicalDeviceGroupCount, pPhysicalDeviceGroupProperties);
+
+        validate_result(my_data->report_data, "vkEnumeratePhysicalDeviceGroupsKHX", result);
+        if ((result == VK_SUCCESS) && (NULL != pPhysicalDeviceGroupProperties)) {
+            for (uint32_t group = 0; group < *pPhysicalDeviceGroupCount; group++) {
+                for (uint32_t device = 0; device < pPhysicalDeviceGroupProperties[group].physicalDeviceCount; device++) {
+                    VkPhysicalDevice phys_dev = pPhysicalDeviceGroupProperties[group].physicalDevices[device];
+                    layer_data *phy_dev_data = get_my_data_ptr(get_dispatch_key(phys_dev), layer_data_map);
+                    // Save the supported features for each physical device
+                    VkLayerInstanceDispatchTable *disp_table = get_dispatch_table(pc_instance_table_map, phys_dev);
+                    disp_table->GetPhysicalDeviceFeatures(phys_dev, &(phy_dev_data->physical_device_features));
+                }
+            }
+        }
+    }
+    return result;
+}
+
+// Definitions for the VK_KHX_device_group extension
+
+VKAPI_ATTR void VKAPI_CALL GetDeviceGroupPeerMemoryFeaturesKHX(VkDevice device, uint32_t heapIndex, uint32_t localDeviceIndex,
+                                                               uint32_t remoteDeviceIndex,
+                                                               VkPeerMemoryFeatureFlagsKHX *pPeerMemoryFeatures) {
+    bool skip_call = false;
+    layer_data *my_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
+    assert(my_data != NULL);
+
+    skip_call |= parameter_validation_vkGetDeviceGroupPeerMemoryFeaturesKHX(my_data->report_data, heapIndex, localDeviceIndex,
+                                                                            remoteDeviceIndex, pPeerMemoryFeatures);
+
+    if (!skip_call) {
+        get_dispatch_table(pc_device_table_map, device)
+            ->GetDeviceGroupPeerMemoryFeaturesKHX(device, heapIndex, localDeviceIndex, remoteDeviceIndex, pPeerMemoryFeatures);
+    }
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL BindBufferMemory2KHX(VkDevice device, uint32_t bindInfoCount,
+                                                    const VkBindBufferMemoryInfoKHX *pBindInfos) {
+    VkResult result = VK_ERROR_VALIDATION_FAILED_EXT;
+    bool skip_call = false;
+    layer_data *my_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
+    assert(my_data != NULL);
+
+    skip_call |= parameter_validation_vkBindBufferMemory2KHX(my_data->report_data, bindInfoCount, pBindInfos);
+
+    if (!skip_call) {
+        result = get_dispatch_table(pc_device_table_map, device)->BindBufferMemory2KHX(device, bindInfoCount, pBindInfos);
+    }
+
+    return result;
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL BindImageMemory2KHX(VkDevice device, uint32_t bindInfoCount,
+                                                   const VkBindImageMemoryInfoKHX *pBindInfos) {
+    VkResult result = VK_ERROR_VALIDATION_FAILED_EXT;
+    bool skip_call = false;
+    layer_data *my_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
+    assert(my_data != NULL);
+
+    skip_call |= parameter_validation_vkBindImageMemory2KHX(my_data->report_data, bindInfoCount, pBindInfos);
+
+    if (!skip_call) {
+        result = get_dispatch_table(pc_device_table_map, device)->BindImageMemory2KHX(device, bindInfoCount, pBindInfos);
+    }
+
+    return result;
+}
+
+// No functionality to validate for vkCmdSetDeviceMaskKHX
+
+VKAPI_ATTR VkResult VKAPI_CALL
+GetDeviceGroupPresentCapabilitiesKHX(VkDevice device, VkDeviceGroupPresentCapabilitiesKHX *pDeviceGroupPresentCapabilities) {
+    VkResult result = VK_ERROR_VALIDATION_FAILED_EXT;
+    bool skip_call = false;
+    layer_data *my_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
+    assert(my_data != NULL);
+
+    skip_call |= parameter_validation_vkGetDeviceGroupPresentCapabilitiesKHX(my_data->report_data, pDeviceGroupPresentCapabilities);
+
+    if (!skip_call) {
+        result = get_dispatch_table(pc_device_table_map, device)
+                     ->GetDeviceGroupPresentCapabilitiesKHX(device, pDeviceGroupPresentCapabilities);
+    }
+
+    return result;
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL GetDeviceGroupSurfacePresentModesKHX(VkDevice device, VkSurfaceKHR surface,
+                                                                    VkDeviceGroupPresentModeFlagsKHX *pModes) {
+    VkResult result = VK_ERROR_VALIDATION_FAILED_EXT;
+    bool skip_call = false;
+    layer_data *my_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
+    assert(my_data != NULL);
+
+    skip_call |= parameter_validation_vkGetDeviceGroupSurfacePresentModesKHX(my_data->report_data, surface, pModes);
+
+    if (!skip_call) {
+        result = get_dispatch_table(pc_device_table_map, device)->GetDeviceGroupSurfacePresentModesKHX(device, surface, pModes);
+    }
+
+    return result;
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL AcquireNextImage2KHX(VkDevice device, const VkAcquireNextImageInfoKHX *pAcquireInfo,
+                                                    uint32_t *pImageIndex) {
+    VkResult result = VK_ERROR_VALIDATION_FAILED_EXT;
+    bool skip_call = false;
+    layer_data *my_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
+    assert(my_data != NULL);
+
+    skip_call |= parameter_validation_vkAcquireNextImage2KHX(my_data->report_data, pAcquireInfo, pImageIndex);
+
+    if (!skip_call) {
+        result = get_dispatch_table(pc_device_table_map, device)->AcquireNextImage2KHX(device, pAcquireInfo, pImageIndex);
+    }
+
+    return result;
+}
+
+// Definitions for the VK_KHX_push_descriptor extension
+
+VKAPI_ATTR void VKAPI_CALL CmdPushDescriptorSetKHX(VkCommandBuffer commandBuffer, VkPipelineBindPoint pipelineBindPoint,
+                                                   VkPipelineLayout layout, uint32_t set, uint32_t descriptorWriteCount,
+                                                   const VkWriteDescriptorSet *pDescriptorWrites) {
+    bool skip_call = false;
+    layer_data *my_data = get_my_data_ptr(get_dispatch_key(commandBuffer), layer_data_map);
+    assert(my_data != NULL);
+
+    skip_call |= parameter_validation_vkCmdPushDescriptorSetKHX(my_data->report_data, pipelineBindPoint, layout, set,
+                                                                descriptorWriteCount, pDescriptorWrites);
+
+    if (!skip_call) {
+        get_dispatch_table(pc_device_table_map, commandBuffer)
+            ->CmdPushDescriptorSetKHX(commandBuffer, pipelineBindPoint, layout, set, descriptorWriteCount, pDescriptorWrites);
+    }
+}
+
 static PFN_vkVoidFunction intercept_core_instance_command(const char *name);
 
 static PFN_vkVoidFunction intercept_core_device_command(const char *name);
@@ -5343,6 +5525,10 @@ static PFN_vkVoidFunction intercept_core_device_command(const char *name);
 static PFN_vkVoidFunction InterceptWsiEnabledCommand(const char *name, VkDevice device);
 
 static PFN_vkVoidFunction InterceptWsiEnabledCommand(const char *name, VkInstance instance);
+
+static PFN_vkVoidFunction intercept_extension_instance_command(const char *name, VkInstance instance);
+
+static PFN_vkVoidFunction intercept_extension_device_command(const char *name, VkDevice device);
 
 VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetDeviceProcAddr(VkDevice device, const char *funcName) {
     assert(device);
@@ -5358,6 +5544,10 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetDeviceProcAddr(VkDevice device, cons
         return proc;
 
     proc = InterceptWsiEnabledCommand(funcName, device);
+    if (proc)
+        return proc;
+
+    proc = intercept_extension_device_command(funcName, device);
     if (proc)
         return proc;
 
@@ -5384,6 +5574,9 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetInstanceProcAddr(VkInstance instance
     proc = debug_report_get_instance_proc_addr(data->report_data, funcName);
     if (!proc)
         proc = InterceptWsiEnabledCommand(funcName, instance);
+
+    if (!proc)
+        proc = intercept_extension_instance_command(funcName, instance);
 
     if (proc)
         return proc;
@@ -5415,14 +5608,6 @@ static PFN_vkVoidFunction intercept_core_instance_command(const char *name) {
         {"vkEnumerateDeviceLayerProperties", reinterpret_cast<PFN_vkVoidFunction>(EnumerateDeviceLayerProperties)},
         {"vkEnumerateInstanceExtensionProperties", reinterpret_cast<PFN_vkVoidFunction>(EnumerateInstanceExtensionProperties)},
         {"vkEnumerateDeviceExtensionProperties", reinterpret_cast<PFN_vkVoidFunction>(EnumerateDeviceExtensionProperties)},
-        {"vkGetPhysicalDeviceExternalImageFormatPropertiesNV", reinterpret_cast<PFN_vkVoidFunction>(GetPhysicalDeviceExternalImageFormatPropertiesNV)},
-        {"vkGetPhysicalDeviceFeatures2KHR", reinterpret_cast<PFN_vkVoidFunction>(GetPhysicalDeviceFeatures2KHR)},
-        {"vkGetPhysicalDeviceProperties2KHR", reinterpret_cast<PFN_vkVoidFunction>(GetPhysicalDeviceProperties2KHR)},
-        {"vkGetPhysicalDeviceFormatProperties2KHR", reinterpret_cast<PFN_vkVoidFunction>(GetPhysicalDeviceFormatProperties2KHR)},
-        {"vkGetPhysicalDeviceImageFormatProperties2KHR", reinterpret_cast<PFN_vkVoidFunction>(GetPhysicalDeviceImageFormatProperties2KHR)},
-        {"vkGetPhysicalDeviceQueueFamilyProperties2KHR", reinterpret_cast<PFN_vkVoidFunction>(GetPhysicalDeviceQueueFamilyProperties2KHR)},
-        {"vkGetPhysicalDeviceMemoryProperties2KHR", reinterpret_cast<PFN_vkVoidFunction>(GetPhysicalDeviceMemoryProperties2KHR)},
-        {"vkGetPhysicalDeviceSparseImageFormatProperties2KHR", reinterpret_cast<PFN_vkVoidFunction>(GetPhysicalDeviceSparseImageFormatProperties2KHR)},
     };
 
     for (size_t i = 0; i < ARRAY_SIZE(core_instance_commands); i++) {
@@ -5555,15 +5740,7 @@ static PFN_vkVoidFunction intercept_core_device_command(const char *name) {
         {"vkCmdNextSubpass", reinterpret_cast<PFN_vkVoidFunction>(CmdNextSubpass)},
         {"vkCmdExecuteCommands", reinterpret_cast<PFN_vkVoidFunction>(CmdExecuteCommands)},
         {"vkCmdEndRenderPass", reinterpret_cast<PFN_vkVoidFunction>(CmdEndRenderPass)},
-        {"vkDebugMarkerSetObjectTagEXT", reinterpret_cast<PFN_vkVoidFunction>(DebugMarkerSetObjectTagEXT) },
-        {"vkDebugMarkerSetObjectNameEXT", reinterpret_cast<PFN_vkVoidFunction>(DebugMarkerSetObjectNameEXT) },
-        {"vkCmdDebugMarkerBeginEXT", reinterpret_cast<PFN_vkVoidFunction>(CmdDebugMarkerBeginEXT) },
-        {"vkCmdDebugMarkerInsertEXT", reinterpret_cast<PFN_vkVoidFunction>(CmdDebugMarkerInsertEXT) },
-#ifdef VK_USE_PLATFORM_WIN32_KHR
-        {"vkGetMemoryWin32HandleNV", reinterpret_cast<PFN_vkVoidFunction>(GetMemoryWin32HandleNV) },
-#endif // VK_USE_PLATFORM_WIN32_KHR
-};
-
+    };
 
     for (size_t i = 0; i < ARRAY_SIZE(core_device_commands); i++) {
         if (!strcmp(core_device_commands[i].name, name))
@@ -5587,14 +5764,14 @@ static PFN_vkVoidFunction InterceptWsiEnabledCommand(const char *name, VkDevice 
     if (device) {
         layer_data *device_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
 
-        if (device_data->wsi_enabled) {
+        if (device_data->enables.wsi_enabled) {
             for (size_t i = 0; i < ARRAY_SIZE(wsi_device_commands); i++) {
                 if (!strcmp(wsi_device_commands[i].name, name))
                     return wsi_device_commands[i].proc;
             }
         }
 
-        if (device_data->wsi_display_swapchain_enabled) {
+        if (device_data->enables.wsi_display_swapchain_enabled) {
             if (!strcmp("vkCreateSharedSwapchainsKHR", name)) {
                 return reinterpret_cast<PFN_vkVoidFunction>(CreateSharedSwapchainsKHR);
             }
@@ -5659,6 +5836,93 @@ static PFN_vkVoidFunction InterceptWsiEnabledCommand(const char *name, VkInstanc
     if ((instance_extension_map[pTable].android_enabled == true) && !strcmp("vkCreateAndroidSurfaceKHR", name))
         return reinterpret_cast<PFN_vkVoidFunction>(CreateAndroidSurfaceKHR);
 #endif // VK_USE_PLATFORM_ANDROID_KHR
+
+    return nullptr;
+}
+
+static PFN_vkVoidFunction intercept_extension_instance_command(const char *name, VkInstance instance) {
+    static const struct {
+        const char *name;
+        PFN_vkVoidFunction proc;
+    } extension_instance_commands[] = {
+        {"vkGetPhysicalDeviceExternalImageFormatPropertiesNV",
+         reinterpret_cast<PFN_vkVoidFunction>(GetPhysicalDeviceExternalImageFormatPropertiesNV)},
+        {"vkGetPhysicalDeviceFeatures2KHR", reinterpret_cast<PFN_vkVoidFunction>(GetPhysicalDeviceFeatures2KHR)},
+        {"vkGetPhysicalDeviceProperties2KHR", reinterpret_cast<PFN_vkVoidFunction>(GetPhysicalDeviceProperties2KHR)},
+        {"vkGetPhysicalDeviceFormatProperties2KHR", reinterpret_cast<PFN_vkVoidFunction>(GetPhysicalDeviceFormatProperties2KHR)},
+        {"vkGetPhysicalDeviceImageFormatProperties2KHR", reinterpret_cast<PFN_vkVoidFunction>(GetPhysicalDeviceImageFormatProperties2KHR)},
+        {"vkGetPhysicalDeviceQueueFamilyProperties2KHR", reinterpret_cast<PFN_vkVoidFunction>(GetPhysicalDeviceQueueFamilyProperties2KHR)},
+        {"vkGetPhysicalDeviceMemoryProperties2KHR", reinterpret_cast<PFN_vkVoidFunction>(GetPhysicalDeviceMemoryProperties2KHR)},
+        {"vkGetPhysicalDeviceSparseImageFormatProperties2KHR", reinterpret_cast<PFN_vkVoidFunction>(GetPhysicalDeviceSparseImageFormatProperties2KHR)},
+        {"vkEnumeratePhysicalDeviceGroupsKHX", reinterpret_cast<PFN_vkVoidFunction>(EnumeratePhysicalDeviceGroupsKHX)},
+    };
+
+    for (size_t i = 0; i < ARRAY_SIZE(extension_instance_commands); i++) {
+        if (!strcmp(extension_instance_commands[i].name, name))
+            return extension_instance_commands[i].proc;
+    }
+
+    return nullptr;
+}
+
+static PFN_vkVoidFunction intercept_extension_device_command(const char *name, VkDevice device) {
+    struct ExtProc {
+        const char *name;
+        PFN_vkVoidFunction proc;
+    };
+    struct ExtProc ext_debug_marker[] = {
+        {"vkDebugMarkerSetObjectTagEXT", reinterpret_cast<PFN_vkVoidFunction>(DebugMarkerSetObjectTagEXT) },
+        {"vkDebugMarkerSetObjectNameEXT", reinterpret_cast<PFN_vkVoidFunction>(DebugMarkerSetObjectNameEXT) },
+        {"vkCmdDebugMarkerBeginEXT", reinterpret_cast<PFN_vkVoidFunction>(CmdDebugMarkerBeginEXT) },
+        {"vkCmdDebugMarkerInsertEXT", reinterpret_cast<PFN_vkVoidFunction>(CmdDebugMarkerInsertEXT) },
+    };
+    struct ExtProc khx_device_group[] = {
+        {"vkGetDeviceGroupPeerMemoryFeaturesKHX", reinterpret_cast<PFN_vkVoidFunction>(GetDeviceGroupPeerMemoryFeaturesKHX)},
+        {"vkBindBufferMemory2KHX", reinterpret_cast<PFN_vkVoidFunction>(BindBufferMemory2KHX)},
+        {"vkBindImageMemory2KHX", reinterpret_cast<PFN_vkVoidFunction>(BindImageMemory2KHX)},
+        // Nothing to validate: {"vkCmdSetDeviceMaskKHX", reinterpret_cast<PFN_vkVoidFunction>(vkCmdSetDeviceMaskKHX) },
+        {"vkGetDeviceGroupPresentCapabilitiesKHX", reinterpret_cast<PFN_vkVoidFunction>(GetDeviceGroupPresentCapabilitiesKHX)},
+        {"vkGetDeviceGroupSurfacePresentModesKHX", reinterpret_cast<PFN_vkVoidFunction>(GetDeviceGroupSurfacePresentModesKHX)},
+        {"vkAcquireNextImage2KHX", reinterpret_cast<PFN_vkVoidFunction>(AcquireNextImage2KHX)},
+    };
+
+    if (device) {
+        layer_data *device_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
+
+        if (device_data->enables.khr_maintenance1) {
+            if (!strcmp("vkTrimCommandPoolKHR", name)) {
+                return reinterpret_cast<PFN_vkVoidFunction>(TrimCommandPoolKHR);
+            }
+        }
+
+        if (device_data->enables.khx_device_group) {
+            for (size_t i = 0; i < ARRAY_SIZE(khx_device_group); i++) {
+                if (!strcmp(khx_device_group[i].name, name))
+                    return khx_device_group[i].proc;
+            }
+        }
+
+        if (device_data->enables.khx_push_descriptor) {
+            if (!strcmp("vkCmdPushDescriptorSetKHX", name)) {
+                return reinterpret_cast<PFN_vkVoidFunction>(CmdPushDescriptorSetKHX);
+            }
+        }
+
+        if (device_data->enables.ext_debug_marker) {
+            for (size_t i = 0; i < ARRAY_SIZE(ext_debug_marker); i++) {
+                if (!strcmp(ext_debug_marker[i].name, name))
+                    return ext_debug_marker[i].proc;
+            }
+        }
+
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+        if (device_data->enables.nv_external_memory) {
+            if (!strcmp("vkGetMemoryWin32HandleNV", name)) {
+                return reinterpret_cast<PFN_vkVoidFunction>(GetMemoryWin32HandleNV);
+            }
+        }
+#endif // VK_USE_PLATFORM_WIN32_KHR
+    }
 
     return nullptr;
 }

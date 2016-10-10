@@ -173,6 +173,21 @@ typedef struct VkLayerDispatchTable_ {
     PFN_vkCmdDebugMarkerBeginEXT CmdDebugMarkerBeginEXT;
     PFN_vkCmdDebugMarkerEndEXT CmdDebugMarkerEndEXT;
     PFN_vkCmdDebugMarkerInsertEXT CmdDebugMarkerInsertEXT;
+    // KHR_maintenance1
+    PFN_vkTrimCommandPoolKHR TrimCommandPoolKHR;
+    // KHX_device_group
+    PFN_vkGetDeviceGroupPeerMemoryFeaturesKHX
+        GetDeviceGroupPeerMemoryFeaturesKHX;
+    PFN_vkBindBufferMemory2KHX BindBufferMemory2KHX;
+    PFN_vkBindImageMemory2KHX BindImageMemory2KHX;
+    PFN_vkCmdSetDeviceMaskKHX CmdSetDeviceMaskKHX;
+    PFN_vkGetDeviceGroupPresentCapabilitiesKHX
+        GetDeviceGroupPresentCapabilitiesKHX;
+    PFN_vkGetDeviceGroupSurfacePresentModesKHX
+        GetDeviceGroupSurfacePresentModesKHX;
+    PFN_vkAcquireNextImage2KHX AcquireNextImage2KHX;
+    // KHX_push_descriptor
+    PFN_vkCmdPushDescriptorSetKHX CmdPushDescriptorSetKHX;
 } VkLayerDispatchTable;
 
 typedef struct VkLayerInstanceDispatchTable_ {
@@ -260,6 +275,8 @@ typedef struct VkLayerInstanceDispatchTable_ {
     // NV_external_memory_capabilities
     PFN_vkGetPhysicalDeviceExternalImageFormatPropertiesNV
         GetPhysicalDeviceExternalImageFormatPropertiesNV;
+    // KHX_device_group - Instance portion
+    PFN_vkEnumeratePhysicalDeviceGroupsKHX EnumeratePhysicalDeviceGroupsKHX;
 } VkLayerInstanceDispatchTable;
 
 // ------------------------------------------------------------------------------------------------

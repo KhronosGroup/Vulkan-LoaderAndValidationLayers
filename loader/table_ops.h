@@ -277,8 +277,39 @@ static inline void loader_init_device_extension_dispatch_table(
     table->GetMemoryWin32HandleNV =
         (PFN_vkGetMemoryWin32HandleNV)gpa(dev, "vkGetMemoryWin32HandleNV");
 #endif // VK_USE_PLATFORM_WIN32_KHR
+
+    // KHR_display_swapchain
     table->CreateSharedSwapchainsKHR =
         (PFN_vkCreateSharedSwapchainsKHR)gpa(dev, "vkCreateSharedSwapchainsKHR");
+
+    // KHR_maintenance1
+    table->TrimCommandPoolKHR =
+        (PFN_vkTrimCommandPoolKHR)gpa(dev, "vkTrimCommandPoolKHR");
+
+    // KHX_device_group
+    table->GetDeviceGroupPeerMemoryFeaturesKHX =
+        (PFN_vkGetDeviceGroupPeerMemoryFeaturesKHX)gpa(
+            dev, "vkGetDeviceGroupPeerMemoryFeaturesKHX");
+    table->BindBufferMemory2KHX =
+        (PFN_vkBindBufferMemory2KHX)gpa(dev, "vkBindBufferMemory2KHX");
+    table->BindImageMemory2KHX =
+        (PFN_vkBindImageMemory2KHX)gpa(dev, "vkBindImageMemory2KHX");
+    table->CmdSetDeviceMaskKHX =
+        (PFN_vkCmdSetDeviceMaskKHX)gpa(dev, "vkCmdSetDeviceMaskKHX");
+    table->GetDeviceGroupPresentCapabilitiesKHX =
+        (PFN_vkGetDeviceGroupPresentCapabilitiesKHX)gpa(
+            dev, "vkGetDeviceGroupPresentCapabilitiesKHX");
+    table->GetDeviceGroupSurfacePresentModesKHX =
+        (PFN_vkGetDeviceGroupSurfacePresentModesKHX)gpa(
+            dev, "vkGetDeviceGroupSurfacePresentModesKHX");
+    table->AcquireNextImage2KHX =
+        (PFN_vkAcquireNextImage2KHX)gpa(dev, "vkAcquireNextImage2KHX");
+
+    // KHX_push_descriptor
+    table->CmdPushDescriptorSetKHX =
+        (PFN_vkCmdPushDescriptorSetKHX)gpa(dev, "vkCmdPushDescriptorSetKHX");
+
+    // EXT_debug_marker
     table->DebugMarkerSetObjectTagEXT =
         (PFN_vkDebugMarkerSetObjectTagEXT)gpa(dev, "vkDebugMarkerSetObjectTagEXT");
     table->DebugMarkerSetObjectNameEXT =
@@ -545,7 +576,13 @@ loader_lookup_device_dispatch_table(const VkLayerDispatchTable *table,
         // For CreateSwapChainKHR we need to use trampoline and terminator
         // functions to properly unwrap the SurfaceKHR object.
         return (void *)vkCreateSwapchainKHR;
+    } else if (!strcmp(name, "GetDeviceGroupSurfacePresentModesKHX")) {
+        // For GetDeviceGroupSurfacePresentModesKHX we need to use
+        // trampoline and terminator functions to properly unwrap the
+        // SurfaceKHR object.
+        return (void *)vkGetDeviceGroupSurfacePresentModesKHX;
     }
+
     if (!strcmp(name, "DestroySwapchainKHR"))
         return (void *)table->DestroySwapchainKHR;
     if (!strcmp(name, "GetSwapchainImagesKHR"))
@@ -667,6 +704,7 @@ static inline void loader_init_instance_extension_dispatch_table(
     table->CreateDisplayPlaneSurfaceKHR =
         (PFN_vkCreateDisplayPlaneSurfaceKHR)gpa(
             inst, "vkCreateDisplayPlaneSurfaceKHR");
+
     // KHR_get_physical_device_properties2
     table->GetPhysicalDeviceFeatures2KHR =
         (PFN_vkGetPhysicalDeviceFeatures2KHR)gpa(
@@ -689,6 +727,7 @@ static inline void loader_init_instance_extension_dispatch_table(
     table->GetPhysicalDeviceSparseImageFormatProperties2KHR =
         (PFN_vkGetPhysicalDeviceSparseImageFormatProperties2KHR)gpa(
             inst, "vkGetPhysicalDeviceSparseImageFormatProperties2KHR");
+
     // EXT_debug_report
     table->CreateDebugReportCallbackEXT =
         (PFN_vkCreateDebugReportCallbackEXT)gpa(
@@ -698,10 +737,16 @@ static inline void loader_init_instance_extension_dispatch_table(
             inst, "vkDestroyDebugReportCallbackEXT");
     table->DebugReportMessageEXT =
         (PFN_vkDebugReportMessageEXT)gpa(inst, "vkDebugReportMessageEXT");
+
     // NV_external_memory_capabilities
     table->GetPhysicalDeviceExternalImageFormatPropertiesNV =
         (PFN_vkGetPhysicalDeviceExternalImageFormatPropertiesNV)gpa(
             inst, "vkGetPhysicalDeviceExternalImageFormatPropertiesNV");
+
+    // KHX_device_group_creation
+    table->EnumeratePhysicalDeviceGroupsKHX =
+        (PFN_vkEnumeratePhysicalDeviceGroupsKHX)gpa(
+            inst, "vkEnumeratePhysicalDeviceGroupsKHX");
 }
 
 static inline void *
@@ -808,6 +853,7 @@ loader_lookup_instance_dispatch_table(const VkLayerInstanceDispatchTable *table,
         return (void *)table->GetPhysicalDeviceMemoryProperties2KHR;
     if (!strcmp(name, "GetPhysicalDeviceSparseImageFormatProperties2KHR"))
         return (void *)table->GetPhysicalDeviceSparseImageFormatProperties2KHR;
+
     // EXT_debug_report
     if (!strcmp(name, "CreateDebugReportCallbackEXT"))
         return (void *)table->CreateDebugReportCallbackEXT;
@@ -815,9 +861,14 @@ loader_lookup_instance_dispatch_table(const VkLayerInstanceDispatchTable *table,
         return (void *)table->DestroyDebugReportCallbackEXT;
     if (!strcmp(name, "DebugReportMessageEXT"))
         return (void *)table->DebugReportMessageEXT;
+
     // NV_external_memory_capabilities
     if (!strcmp(name, "GetPhysicalDeviceExternalImageFormatPropertiesNV"))
         return (void *)table->GetPhysicalDeviceExternalImageFormatPropertiesNV;
+
+    // KHX_device_group_creation
+    if (!strcmp(name, "EnumeratePhysicalDeviceGroupsKHX"))
+        return (void *)table->EnumeratePhysicalDeviceGroupsKHX;
 
     *found_name = false;
     return NULL;

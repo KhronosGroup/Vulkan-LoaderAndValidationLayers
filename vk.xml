@@ -104,7 +104,7 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
         <type category="define">// Vulkan 1.0 version number
 #define <name>VK_API_VERSION_1_0</name> <type>VK_MAKE_VERSION</type>(1, 0, 0)</type>    <!-- The patch version here should never be set to anything other than 0 -->
         <type category="define">// Version of this file
-#define <name>VK_HEADER_VERSION</name> 31</type>
+#define <name>VK_HEADER_VERSION</name> 32</type>
 
         <type category="define">
 #define <name>VK_DEFINE_HANDLE</name>(object) typedef struct object##_T* object;</type>
@@ -153,7 +153,7 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
         <type                                             category="bitmask">typedef <type>VkFlags</type> <name>VkPipelineInputAssemblyStateCreateFlags</name>;</type><!-- creation flags -->
         <type                                             category="bitmask">typedef <type>VkFlags</type> <name>VkPipelineVertexInputStateCreateFlags</name>;</type>  <!-- creation flags -->
         <type                                             category="bitmask">typedef <type>VkFlags</type> <name>VkPipelineShaderStageCreateFlags</name>;</type>       <!-- creation flags -->
-        <type                                             category="bitmask">typedef <type>VkFlags</type> <name>VkDescriptorSetLayoutCreateFlags</name>;</type>       <!-- creation flags -->
+        <type requires="VkDescriptorSetLayoutCreateFlagBits" category="bitmask">typedef <type>VkFlags</type> <name>VkDescriptorSetLayoutCreateFlags</name>;</type>       <!-- creation flags -->
         <type                                             category="bitmask">typedef <type>VkFlags</type> <name>VkBufferViewCreateFlags</name>;</type>                <!-- creation flags -->
         <type                                             category="bitmask">typedef <type>VkFlags</type> <name>VkInstanceCreateFlags</name>;</type>                  <!-- creation flags -->
         <type                                             category="bitmask">typedef <type>VkFlags</type> <name>VkDeviceCreateFlags</name>;</type>                    <!-- creation flags -->
@@ -199,7 +199,7 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
         <type requires="VkCompositeAlphaFlagBitsKHR"      category="bitmask">typedef <type>VkFlags</type> <name>VkCompositeAlphaFlagsKHR</name>;</type>
         <type requires="VkDisplayPlaneAlphaFlagBitsKHR"   category="bitmask">typedef <type>VkFlags</type> <name>VkDisplayPlaneAlphaFlagsKHR</name>;</type>
         <type requires="VkSurfaceTransformFlagBitsKHR"    category="bitmask">typedef <type>VkFlags</type> <name>VkSurfaceTransformFlagsKHR</name>;</type>
-        <type                                             category="bitmask">typedef <type>VkFlags</type> <name>VkSwapchainCreateFlagsKHR</name>;</type>          <!-- creation flags -->
+        <type requires="VkSwapchainCreateFlagBitsKHR"     category="bitmask">typedef <type>VkFlags</type> <name>VkSwapchainCreateFlagsKHR</name>;</type>          <!-- creation flags -->
         <type                                             category="bitmask">typedef <type>VkFlags</type> <name>VkDisplayModeCreateFlagsKHR</name>;</type>        <!-- creation flags -->
         <type                                             category="bitmask">typedef <type>VkFlags</type> <name>VkDisplaySurfaceCreateFlagsKHR</name>;</type>     <!-- creation flags -->
         <type                                             category="bitmask">typedef <type>VkFlags</type> <name>VkAndroidSurfaceCreateFlagsKHR</name>;</type>     <!-- creation flags -->
@@ -208,10 +208,14 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
         <type                                             category="bitmask">typedef <type>VkFlags</type> <name>VkWin32SurfaceCreateFlagsKHR</name>;</type>       <!-- creation flags -->
         <type                                             category="bitmask">typedef <type>VkFlags</type> <name>VkXlibSurfaceCreateFlagsKHR</name>;</type>        <!-- creation flags -->
         <type                                             category="bitmask">typedef <type>VkFlags</type> <name>VkXcbSurfaceCreateFlagsKHR</name>;</type>         <!-- creation flags -->
+        <type requires="VkPeerMemoryFeatureFlagBitsKHX"   category="bitmask">typedef <type>VkFlags</type> <name>VkPeerMemoryFeatureFlagsKHX</name>;</type>        <!-- Peer memory feature flags -->
+        <type requires="VkMemoryAllocateFlagBitsKHX"      category="bitmask">typedef <type>VkFlags</type> <name>VkMemoryAllocateFlagsKHX</name>;</type>           <!-- Memory allocation flags -->
+        <type requires="VkDeviceGroupPresentModeFlagBitsKHX" category="bitmask">typedef <type>VkFlags</type> <name>VkDeviceGroupPresentModeFlagsKHX</name>;</type><!-- Device group present mode flags -->
 
         <type requires="VkDebugReportFlagBitsEXT"      category="bitmask">typedef <type>VkFlags</type> <name>VkDebugReportFlagsEXT</name>;</type>
         <type requires="VkExternalMemoryHandleTypeFlagBitsNV" category="bitmask">typedef <type>VkFlags</type> <name>VkExternalMemoryHandleTypeFlagsNV</name>;</type>
         <type requires="VkExternalMemoryFeatureFlagBitsNV" category="bitmask">typedef <type>VkFlags</type> <name>VkExternalMemoryFeatureFlagsNV</name>;</type>
+        <type                                             category="bitmask">typedef <type>VkFlags</type> <name>VkCommandPoolTrimFlagsKHR</name>;</type>
 
         <!-- Types which can be void pointers or class pointers, selected at compile time -->
         <type category="handle"><type>VK_DEFINE_HANDLE</type>(<name>VkInstance</name>)</type>
@@ -347,6 +351,10 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
         <type name="VkExternalMemoryHandleTypeFlagBitsNV" category="enum"/>
         <type name="VkExternalMemoryFeatureFlagBitsNV" category="enum"/>
         <type name="VkValidationCheckEXT" category="enum"/>
+        <type name="VkPeerMemoryFeatureFlagBitsKHX" category="enum"/>
+        <type name="VkMemoryAllocateFlagBitsKHX" category="enum"/>
+        <type name="VkDeviceGroupPresentModeFlagBitsKHX" category="enum"/>
+        <type name="VkSwapchainCreateFlagBitsKHR" category="enum"/>
 
         <!-- The PFN_vk*Function types are used by VkAllocationCallbacks below -->
         <type category="funcpointer">typedef void (VKAPI_PTR *<name>PFN_vkInternalAllocationNotification</name>)(
@@ -482,7 +490,7 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
         </type>
         <type category="struct" name="VkDeviceCreateInfo">
             <member values="VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO"><type>VkStructureType</type> <name>sType</name></member>
-            <member validextensionstructs="VkPhysicalDeviceFeatures2KHR">const <type>void</type>*     <name>pNext</name></member>                          <!-- Pointer to next structure -->
+            <member validextensionstructs="VkPhysicalDeviceFeatures2KHR,VkDeviceGroupDeviceCreateInfoKHX">const <type>void</type>*     <name>pNext</name></member>                          <!-- Pointer to next structure -->
             <member optional="true"><type>VkDeviceCreateFlags</type>    <name>flags</name></member>                   <!-- Reserved -->
             <member><type>uint32_t</type>        <name>queueCreateInfoCount</name></member>
             <member len="queueCreateInfoCount">const <type>VkDeviceQueueCreateInfo</type>* <name>pQueueCreateInfos</name></member>
@@ -516,7 +524,7 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
         </type>
         <type category="struct" name="VkMemoryAllocateInfo">
             <member values="VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO"><type>VkStructureType</type> <name>sType</name></member>
-            <member validextensionstructs="VkDedicatedAllocationMemoryAllocateInfoNV">const <type>void</type>*            <name>pNext</name></member>                          <!-- Pointer to next structure -->
+            <member validextensionstructs="VkDedicatedAllocationMemoryAllocateInfoNV,VkMemoryAllocateFlagsInfoKHX">const <type>void</type>*            <name>pNext</name></member>                          <!-- Pointer to next structure -->
             <member><type>VkDeviceSize</type>           <name>allocationSize</name></member>                 <!-- Size of memory allocation -->
             <member><type>uint32_t</type>               <name>memoryTypeIndex</name></member>                <!-- Index of the of the memory type to allocate from -->
         </type>
@@ -665,7 +673,7 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
         </type>
         <type category="struct" name="VkImageCreateInfo">
             <member values="VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO"><type>VkStructureType</type> <name>sType</name></member>
-            <member validextensionstructs="VkDedicatedAllocationImageCreateInfoNV">const <type>void</type>*            <name>pNext</name></member>                          <!-- Pointer to next structure. -->
+            <member validextensionstructs="VkDedicatedAllocationImageCreateInfoNV,VkImageSwapchainCreateInfoKHX">const <type>void</type>*            <name>pNext</name></member>                          <!-- Pointer to next structure. -->
             <member optional="true"><type>VkImageCreateFlags</type>     <name>flags</name></member>                          <!-- Image creation flags -->
             <member><type>VkImageType</type>            <name>imageType</name></member>
             <member><type>VkFormat</type>               <name>format</name></member>
@@ -734,7 +742,7 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
         </type>
         <type category="struct" name="VkBindSparseInfo">
             <member values="VK_STRUCTURE_TYPE_BIND_SPARSE_INFO"><type>VkStructureType</type> <name>sType</name></member>
-            <member>const <type>void</type>*            <name>pNext</name></member>                          <!-- Pointer to next structure. -->
+            <member validextensionstructs="VkDeviceGroupBindSparseInfoKHX">const <type>void</type>*            <name>pNext</name></member>                          <!-- Pointer to next structure. -->
             <member optional="true"><type>uint32_t</type>               <name>waitSemaphoreCount</name></member>
             <member len="waitSemaphoreCount">const <type>VkSemaphore</type>*     <name>pWaitSemaphores</name></member>
             <member optional="true"><type>uint32_t</type>               <name>bufferBindCount</name></member>
@@ -1048,13 +1056,13 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
         </type>
         <type category="struct" name="VkCommandBufferBeginInfo">
             <member values="VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO"><type>VkStructureType</type> <name>sType</name></member>
-            <member>const <type>void</type>*            <name>pNext</name></member>                          <!-- Pointer to next structure -->
+            <member validextensionstructs="VkDeviceGroupCommandBufferBeginInfoKHX">const <type>void</type>*            <name>pNext</name></member>                          <!-- Pointer to next structure -->
             <member optional="true"><type>VkCommandBufferUsageFlags</type>  <name>flags</name></member>                          <!-- Command buffer usage flags -->
             <member optional="true" noautovalidity="true">const <type>VkCommandBufferInheritanceInfo</type>*       <name>pInheritanceInfo</name></member>                          <!-- Pointer to inheritance info for secondary command buffers -->
         </type>
         <type category="struct" name="VkRenderPassBeginInfo">
             <member values="VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO"><type>VkStructureType</type> <name>sType</name></member>
-            <member>const <type>void</type>*            <name>pNext</name></member>                          <!-- Pointer to next structure -->
+            <member validextensionstructs="VkDeviceGroupRenderPassBeginInfoKHX">const <type>void</type>*            <name>pNext</name></member>                          <!-- Pointer to next structure -->
             <member><type>VkRenderPass</type>           <name>renderPass</name></member>
             <member><type>VkFramebuffer</type>          <name>framebuffer</name></member>
             <member><type>VkRect2D</type>               <name>renderArea</name></member>
@@ -1361,7 +1369,7 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
         </type>
         <type category="struct" name="VkSubmitInfo">
             <member values="VK_STRUCTURE_TYPE_SUBMIT_INFO"><type>VkStructureType</type> <name>sType</name></member>
-            <member>const <type>void</type>*            <name>pNext</name></member>                          <!-- Pointer to next structure -->
+            <member validextensionstructs="VkDeviceGroupSubmitInfoKHX">const <type>void</type>*            <name>pNext</name></member>                          <!-- Pointer to next structure -->
             <member optional="true"><type>uint32_t</type>       <name>waitSemaphoreCount</name></member>
             <member len="waitSemaphoreCount">const <type>VkSemaphore</type>*     <name>pWaitSemaphores</name></member>
             <member len="waitSemaphoreCount">const <type>VkPipelineStageFlags</type>*           <name>pWaitDstStageMask</name></member>
@@ -1507,7 +1515,7 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
         </type>
         <type category="struct" name="VkPresentInfoKHR">
             <member values="VK_STRUCTURE_TYPE_PRESENT_INFO_KHR"><type>VkStructureType</type> <name>sType</name></member>
-            <member>const <type>void</type>*                      <name>pNext</name></member>                    <!-- Pointer to next structure -->
+            <member validextensionstructs="VkDeviceGroupPresentInfoKHX">const <type>void</type>*                      <name>pNext</name></member>                    <!-- Pointer to next structure -->
             <member optional="true"><type>uint32_t</type>         <name>waitSemaphoreCount</name></member>       <!-- Number of semaphores to wait for before presenting -->
             <member optional="true" len="waitSemaphoreCount">const <type>VkSemaphore</type>* <name>pWaitSemaphores</name></member> <!-- Semaphores to wait for before presenting -->
             <member><type>uint32_t</type>                         <name>swapchainCount</name></member>           <!-- Number of swap chains to present in this call -->
@@ -1617,7 +1625,7 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
         </type>
         <type category="struct" name="VkPhysicalDeviceProperties2KHR" returnedonly="true">
             <member values="VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2_KHR"><type>VkStructureType</type> <name>sType</name></member>
-            <member><type>void</type>*                            <name>pNext</name></member>                    <!-- Pointer to next structure -->
+            <member validextensionstructs="VkPhysicalDevicePushDescriptorPropertiesKHX"><type>void</type>*                            <name>pNext</name></member>                    <!-- Pointer to next structure -->
             <member><type>VkPhysicalDeviceProperties</type>       <name>properties</name></member>
         </type>
         <type category="struct" name="VkFormatProperties2KHR" returnedonly="true">
@@ -1663,6 +1671,111 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
             <member><type>VkImageUsageFlags</type>                <name>usage</name></member>
             <member><type>VkImageTiling</type>                    <name>tiling</name></member>
         </type>
+        <type category="struct" name="VkPhysicalDevicePushDescriptorPropertiesKHX">
+            <member values="VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PUSH_DESCRIPTOR_PROPERTIES_KHX"><type>VkStructureType</type> <name>sType</name></member>
+            <member><type>void</type>*                            <name>pNext</name></member>                    <!-- Pointer to next structure -->
+            <member><type>uint32_t</type>                         <name>maxPushDescriptors</name></member>
+        </type>
+        <type category="struct" name="VkPhysicalDeviceGroupPropertiesKHX" returnedonly="true">
+            <member values="VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GROUP_PROPERTIES_KHX"><type>VkStructureType</type> <name>sType</name></member>
+            <member>const <type>void</type>*                      <name>pNext</name></member>                    <!-- Pointer to next structure -->
+            <member><type>uint32_t</type>                         <name>physicalDeviceCount</name></member>
+            <member><type>VkPhysicalDevice</type>                 <name>physicalDevices</name>[<enum>VK_MAX_DEVICE_GROUP_SIZE_KHX</enum>]</member>
+            <member><type>VkBool32</type>                         <name>unicastAllocation</name></member>
+        </type>
+        <type category="struct" name="VkMemoryAllocateFlagsInfoKHX">
+            <member values="VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO_KHX"><type>VkStructureType</type> <name>sType</name></member>
+            <member>const <type>void</type>*                      <name>pNext</name></member>                    <!-- Pointer to next structure -->
+            <member optional="true"><type>VkMemoryAllocateFlagsKHX</type> <name>flags</name></member>
+            <member><type>uint32_t</type>                         <name>deviceMask</name></member>
+        </type>
+        <type category="struct" name="VkBindBufferMemoryInfoKHX">
+            <member values="VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_INFO_KHX"><type>VkStructureType</type> <name>sType</name></member>
+            <member>const <type>void</type>*                      <name>pNext</name></member>                    <!-- Pointer to next structure -->
+            <member><type>VkBuffer</type>                         <name>buffer</name></member>
+            <member><type>VkDeviceMemory</type>                   <name>memory</name></member>
+            <member><type>VkDeviceSize</type>                     <name>memoryOffset</name></member>
+            <member optional="true"><type>uint32_t</type>         <name>deviceIndexCount</name></member>
+            <member len="deviceIndexCount">const <type>uint32_t</type>*  <name>pDeviceIndices</name></member>
+        </type>
+        <type category="struct" name="VkBindImageMemoryInfoKHX">
+            <member values="VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_INFO_KHX"><type>VkStructureType</type> <name>sType</name></member>
+            <member validextensionstructs="VkBindImageMemorySwapchainInfoKHX">const <type>void</type>*                      <name>pNext</name></member>                    <!-- Pointer to next structure -->
+            <member><type>VkImage</type>                          <name>image</name></member>
+            <member><type>VkDeviceMemory</type>                   <name>memory</name></member>
+            <member><type>VkDeviceSize</type>                     <name>memoryOffset</name></member>
+            <member optional="true"><type>uint32_t</type>         <name>deviceIndexCount</name></member>
+            <member len="deviceIndexCount">const <type>uint32_t</type>*  <name>pDeviceIndices</name></member>
+            <member optional="true"><type>uint32_t</type>         <name>SFRRectCount</name></member>
+            <member len="SFRRectCount">const <type>VkRect2D</type>*  <name>pSFRRects</name></member>
+        </type>
+        <type category="struct" name="VkDeviceGroupRenderPassBeginInfoKHX">
+            <member values="VK_STRUCTURE_TYPE_DEVICE_GROUP_RENDER_PASS_BEGIN_INFO_KHX"><type>VkStructureType</type> <name>sType</name></member>
+            <member>const <type>void</type>*                      <name>pNext</name></member>                          <!-- Pointer to next structure -->
+            <member><type>uint32_t</type>                         <name>deviceMask</name></member>
+            <member optional="true"><type>uint32_t</type>         <name>deviceRenderAreaCount</name></member>
+            <member len="deviceRenderAreaCount">const <type>VkRect2D</type>*  <name>pDeviceRenderAreas</name></member>
+        </type>
+        <type category="struct" name="VkDeviceGroupCommandBufferBeginInfoKHX">
+            <member values="VK_STRUCTURE_TYPE_DEVICE_GROUP_COMMAND_BUFFER_BEGIN_INFO_KHX"><type>VkStructureType</type> <name>sType</name></member>
+            <member>const <type>void</type>*                      <name>pNext</name></member>                          <!-- Pointer to next structure -->
+            <member><type>uint32_t</type>                         <name>deviceMask</name></member>
+        </type>
+        <type category="struct" name="VkDeviceGroupSubmitInfoKHX">
+            <member values="VK_STRUCTURE_TYPE_DEVICE_GROUP_SUBMIT_INFO_KHX"><type>VkStructureType</type> <name>sType</name></member>
+            <member>const <type>void</type>*                      <name>pNext</name></member>                          <!-- Pointer to next structure -->
+            <member optional="true"><type>uint32_t</type>         <name>waitSemaphoreCount</name></member>
+            <member len="waitSemaphoreCount">const <type>uint32_t</type>*    <name>pWaitSemaphoreDeviceIndices</name></member>
+            <member optional="true"><type>uint32_t</type>         <name>commandBufferCount</name></member>
+            <member len="commandBufferCount">const <type>uint32_t</type>*    <name>pCommandBufferDeviceMasks</name></member>
+            <member optional="true"><type>uint32_t</type>         <name>signalSemaphoreCount</name></member>
+            <member len="signalSemaphoreCount">const <type>uint32_t</type>*  <name>pSignalSemaphoreDeviceIndices</name></member>
+        </type>
+        <type category="struct" name="VkDeviceGroupBindSparseInfoKHX">
+            <member values="VK_STRUCTURE_TYPE_DEVICE_GROUP_BIND_SPARSE_INFO_KHX"><type>VkStructureType</type> <name>sType</name></member>
+            <member>const <type>void</type>*                      <name>pNext</name></member>                          <!-- Pointer to next structure -->
+            <member><type>uint32_t</type>                         <name>resourceDeviceIndex</name></member>
+            <member><type>uint32_t</type>                         <name>memoryDeviceIndex</name></member>
+        </type>
+        <type category="struct" name="VkDeviceGroupPresentCapabilitiesKHX" returnedonly="true">
+            <member values="VK_STRUCTURE_TYPE_DEVICE_GROUP_PRESENT_CAPABILITIES_KHX"><type>VkStructureType</type> <name>sType</name></member>
+            <member>const <type>void</type>*                      <name>pNext</name></member>                    <!-- Pointer to next structure -->
+            <member><type>uint32_t</type>                         <name>presentMask</name>[<enum>VK_MAX_DEVICE_GROUP_SIZE_KHX</enum>]</member>
+            <member><type>VkDeviceGroupPresentModeFlagsKHX</type> <name>modes</name></member>
+        </type>
+        <type category="struct" name="VkImageSwapchainCreateInfoKHX">
+            <member values="VK_STRUCTURE_TYPE_IMAGE_SWAPCHAIN_CREATE_INFO_KHX"><type>VkStructureType</type> <name>sType</name></member>
+            <member>const <type>void</type>*                      <name>pNext</name></member>                    <!-- Pointer to next structure -->
+            <member optional="true"><type>VkSwapchainKHR</type>   <name>swapchain</name></member>
+        </type>
+        <type category="struct" name="VkBindImageMemorySwapchainInfoKHX">
+            <member values="VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_SWAPCHAIN_INFO_KHX"><type>VkStructureType</type> <name>sType</name></member>
+            <member>const <type>void</type>*                      <name>pNext</name></member>                    <!-- Pointer to next structure -->
+            <member externsync="true"><type>VkSwapchainKHR</type> <name>swapchain</name></member>
+            <member><type>uint32_t</type>                         <name>imageIndex</name></member>
+        </type>
+        <type category="struct" name="VkAcquireNextImageInfoKHX">
+            <member values="VK_STRUCTURE_TYPE_ACQUIRE_NEXT_IMAGE_INFO_KHX"><type>VkStructureType</type> <name>sType</name></member>
+            <member>const <type>void</type>*                      <name>pNext</name></member>                    <!-- Pointer to next structure -->
+            <member externsync="true"><type>VkSwapchainKHR</type> <name>swapchain</name></member>
+            <member><type>uint64_t</type>                         <name>timeout</name></member>
+            <member optional="true" externsync="true"><type>VkSemaphore</type> <name>semaphore</name></member>
+            <member optional="true" externsync="true"><type>VkFence</type> <name>fence</name></member>
+            <member><type>uint32_t</type>                         <name>deviceMask</name></member>
+        </type>
+        <type category="struct" name="VkDeviceGroupPresentInfoKHX">
+            <member values="VK_STRUCTURE_TYPE_DEVICE_GROUP_PRESENT_INFO_KHX"><type>VkStructureType</type> <name>sType</name></member>
+            <member>const <type>void</type>*                      <name>pNext</name></member>                    <!-- Pointer to next structure -->
+            <member optional="true"><type>uint32_t</type>         <name>swapchainCount</name></member>
+            <member len="swapchainCount">const <type>uint32_t</type>* <name>pDeviceMasks</name></member>
+            <member><type>VkDeviceGroupPresentModeFlagBitsKHX</type> <name>mode</name></member>
+        </type>
+        <type category="struct" name="VkDeviceGroupDeviceCreateInfoKHX">
+            <member values="VK_STRUCTURE_TYPE_DEVICE_GROUP_DEVICE_CREATE_INFO_KHX"><type>VkStructureType</type> <name>sType</name></member>
+            <member>const <type>void</type>*                      <name>pNext</name></member>                          <!-- Pointer to next structure -->
+            <member optional="true"><type>uint32_t</type>                         <name>physicalDeviceCount</name></member>
+            <member len="physicalDeviceCount">const <type>VkPhysicalDevice</type>*  <name>pPhysicalDevices</name></member>
+        </type>
     </types>
 
     <!-- SECTION: Vulkan enumerant (token) definitions. -->
@@ -1684,6 +1797,7 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
         <enum value="0"     name="VK_FALSE"/>
         <enum value="(~0U)" name="VK_QUEUE_FAMILY_IGNORED"/>
         <enum value="(~0U)" name="VK_SUBPASS_EXTERNAL"/>
+        <enum value="32"    name="VK_MAX_DEVICE_GROUP_SIZE_KHX"/>
     </enums>
 
     <!-- Unlike OpenGL, most tokens in Vulkan are actual typed enumerants in
@@ -2487,6 +2601,24 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
         <enum value="0" name="VK_VALIDATION_CHECK_ALL_EXT"/>
         <!-- Placeholder for validation enums to be defined for VK_EXT_Validation_flags extension -->
     </enums>
+    <enums name="VkDescriptorSetLayoutCreateFlagBits" type="bitmask">
+    </enums>
+    <enums name="VkPeerMemoryFeatureFlagBitsKHX" type="bitmask">
+        <enum bitpos="0"    name="VK_PEER_MEMORY_FEATURE_COPY_SRC_BIT_KHX"           comment="Can read with vkCmdCopy commands"/>
+        <enum bitpos="1"    name="VK_PEER_MEMORY_FEATURE_COPY_DST_BIT_KHX"           comment="Can write with vkCmdCopy commands"/>
+        <enum bitpos="2"    name="VK_PEER_MEMORY_FEATURE_GENERIC_SRC_BIT_KHX"        comment="Can read with any access type/command"/>
+        <enum bitpos="3"    name="VK_PEER_MEMORY_FEATURE_GENERIC_DST_BIT_KHX"        comment="Can write with and access type/command"/>
+    </enums>
+    <enums name="VkMemoryAllocateFlagBitsKHX" type="bitmask">
+        <enum bitpos="0"    name="VK_MEMORY_ALLOCATE_DEVICE_MASK_BIT_KHX"            comment="Force allocation on specific devices"/>
+    </enums>
+    <enums name="VkDeviceGroupPresentModeFlagBitsKHX" type="bitmask">
+        <enum bitpos="0"    name="VK_DEVICE_GROUP_PRESENT_MODE_LOCAL_BIT_KHX"        comment="Present from local memory"/>
+        <enum bitpos="1"    name="VK_DEVICE_GROUP_PRESENT_MODE_REMOTE_BIT_KHX"       comment="Present from remote memory"/>
+        <enum bitpos="2"    name="VK_DEVICE_GROUP_PRESENT_MODE_SUM_BIT_KHX"          comment="Present sum of local and/or remote memory"/>
+    </enums>
+    <enums name="VkSwapchainCreateFlagBitsKHR" type="bitmask">
+    </enums>
 
     <!-- SECTION: Vulkan command definitions -->
     <commands>
@@ -2992,7 +3124,7 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
                 <param>any sname:VkDescriptorSet objects allocated from pname:descriptorPool</param>
             </implicitexternsyncparams>
         </command>
-        <command successcodes="VK_SUCCESS" errorcodes="VK_ERROR_OUT_OF_HOST_MEMORY,VK_ERROR_OUT_OF_DEVICE_MEMORY,VK_ERROR_FRAGMENTED_POOL">
+        <command successcodes="VK_SUCCESS" errorcodes="VK_ERROR_OUT_OF_HOST_MEMORY,VK_ERROR_OUT_OF_DEVICE_MEMORY,VK_ERROR_FRAGMENTED_POOL,VK_ERROR_OUT_OF_POOL_MEMORY_KHR">
             <proto><type>VkResult</type> <name>vkAllocateDescriptorSets</name></proto>
             <param><type>VkDevice</type> <name>device</name></param>
             <param externsync="pAllocateInfo::descriptorPool">const <type>VkDescriptorSetAllocateInfo</type>* <name>pAllocateInfo</name></param>
@@ -3214,9 +3346,9 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
         <command queues="compute" renderpass="outside" cmdbufferlevel="primary,secondary">
             <proto><type>void</type> <name>vkCmdDispatch</name></proto>
             <param externsync="true"><type>VkCommandBuffer</type> <name>commandBuffer</name></param>
-            <param><type>uint32_t</type> <name>x</name></param>
-            <param><type>uint32_t</type> <name>y</name></param>
-            <param><type>uint32_t</type> <name>z</name></param>
+            <param><type>uint32_t</type> <name>groupCountX</name></param>
+            <param><type>uint32_t</type> <name>groupCountY</name></param>
+            <param><type>uint32_t</type> <name>groupCountZ</name></param>
         </command>
         <command queues="compute" renderpass="outside" cmdbufferlevel="primary,secondary">
             <proto><type>void</type> <name>vkCmdDispatchIndirect</name></proto>
@@ -3279,7 +3411,11 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
             <param><type>VkDeviceSize</type> <name>dataSize</name></param>
             <param len="dataSize">const <type>void</type>* <name>pData</name></param>
         </command>
-        <command queues="graphics,compute" renderpass="outside" cmdbufferlevel="primary,secondary">
+        <!--
+             NOTE: "transfer" support for vkCmdFillBuffer is only available when VK_KHR_maintenance1 is enabled.
+                   Documented in the valid usage language in the spec.
+         -->
+        <command queues="transfer,graphics,compute" renderpass="outside" cmdbufferlevel="primary,secondary">
             <proto><type>void</type> <name>vkCmdFillBuffer</name></proto>
             <param externsync="true"><type>VkCommandBuffer</type> <name>commandBuffer</name></param>
             <param><type>VkBuffer</type> <name>dstBuffer</name></param>
@@ -3751,6 +3887,79 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
             <param>const <type>VkPhysicalDeviceSparseImageFormatInfo2KHR</type>* <name>pFormatInfo</name></param>
             <param optional="false,true"><type>uint32_t</type>* <name>pPropertyCount</name></param>
             <param optional="true" len="pPropertyCount"><type>VkSparseImageFormatProperties2KHR</type>* <name>pProperties</name></param>
+        </command>
+        <command queues="graphics,compute" renderpass="both" cmdbufferlevel="primary,secondary">
+            <proto><type>void</type> <name>vkCmdPushDescriptorSetKHX</name></proto>
+            <param externsync="true"><type>VkCommandBuffer</type> <name>commandBuffer</name></param>
+            <param><type>VkPipelineBindPoint</type> <name>pipelineBindPoint</name></param>
+            <param><type>VkPipelineLayout</type> <name>layout</name></param>
+            <param><type>uint32_t</type> <name>set</name></param>
+            <param><type>uint32_t</type> <name>descriptorWriteCount</name></param>
+            <param len="descriptorWriteCount">const <type>VkWriteDescriptorSet</type>* <name>pDescriptorWrites</name></param>
+        </command>
+        <command>
+             <proto><type>void</type> <name>vkTrimCommandPoolKHR</name></proto>
+             <param><type>VkDevice</type> <name>device</name></param>
+             <param externsync="true"><type>VkCommandPool</type> <name>commandPool</name></param>
+             <param optional="true"><type>VkCommandPoolTrimFlagsKHR</type> <name>flags</name></param>
+        </command>
+        <command successcodes="VK_SUCCESS,VK_INCOMPLETE" errorcodes="VK_ERROR_OUT_OF_HOST_MEMORY,VK_ERROR_OUT_OF_DEVICE_MEMORY,VK_ERROR_INITIALIZATION_FAILED">
+            <proto><type>VkResult</type> <name>vkEnumeratePhysicalDeviceGroupsKHX</name></proto>
+            <param><type>VkInstance</type> <name>instance</name></param>
+            <param optional="false,true"><type>uint32_t</type>* <name>pPhysicalDeviceGroupCount</name></param>
+            <param optional="true" len="pPhysicalDeviceGroupCount"><type>VkPhysicalDeviceGroupPropertiesKHX</type>* <name>pPhysicalDeviceGroupProperties</name></param>
+        </command>
+        <command>
+            <proto><type>void</type> <name>vkGetDeviceGroupPeerMemoryFeaturesKHX</name></proto>
+            <param><type>VkDevice</type> <name>device</name></param>
+            <param><type>uint32_t</type> <name>heapIndex</name></param>
+            <param><type>uint32_t</type> <name>localDeviceIndex</name></param>
+            <param><type>uint32_t</type> <name>remoteDeviceIndex</name></param>
+            <param><type>VkPeerMemoryFeatureFlagsKHX</type>* <name>pPeerMemoryFeatures</name></param>
+        </command>
+        <command successcodes="VK_SUCCESS" errorcodes="VK_ERROR_OUT_OF_HOST_MEMORY,VK_ERROR_OUT_OF_DEVICE_MEMORY">
+            <proto><type>VkResult</type> <name>vkBindBufferMemory2KHX</name></proto>
+            <param><type>VkDevice</type> <name>device</name></param>
+            <param><type>uint32_t</type> <name>bindInfoCount</name></param>
+            <param len="bindInfoCount">const <type>VkBindBufferMemoryInfoKHX</type>* <name>pBindInfos</name></param>
+        </command>
+        <command successcodes="VK_SUCCESS" errorcodes="VK_ERROR_OUT_OF_HOST_MEMORY,VK_ERROR_OUT_OF_DEVICE_MEMORY">
+            <proto><type>VkResult</type> <name>vkBindImageMemory2KHX</name></proto>
+            <param><type>VkDevice</type> <name>device</name></param>
+            <param><type>uint32_t</type> <name>bindInfoCount</name></param>
+            <param len="bindInfoCount">const <type>VkBindImageMemoryInfoKHX</type>* <name>pBindInfos</name></param>
+        </command>
+        <command queues="graphics,compute,transfer" renderpass="both" cmdbufferlevel="primary,secondary">
+            <proto><type>void</type> <name>vkCmdSetDeviceMaskKHX</name></proto>
+            <param externsync="true"><type>VkCommandBuffer</type> <name>commandBuffer</name></param>
+            <param><type>uint32_t</type> <name>deviceMask</name></param>
+        </command>
+        <command successcodes="VK_SUCCESS,VK_INCOMPLETE" errorcodes="VK_ERROR_OUT_OF_HOST_MEMORY,VK_ERROR_OUT_OF_DEVICE_MEMORY">
+            <proto><type>VkResult</type> <name>vkGetDeviceGroupPresentCapabilitiesKHX</name></proto>
+            <param><type>VkDevice</type> <name>device</name></param>
+            <param><type>VkDeviceGroupPresentCapabilitiesKHX</type>* <name>pDeviceGroupPresentCapabilities</name></param>
+        </command>
+        <command successcodes="VK_SUCCESS" errorcodes="VK_ERROR_OUT_OF_HOST_MEMORY,VK_ERROR_OUT_OF_DEVICE_MEMORY,VK_ERROR_SURFACE_LOST_KHR">
+            <proto><type>VkResult</type> <name>vkGetDeviceGroupSurfacePresentModesKHX</name></proto>
+            <param><type>VkDevice</type> <name>device</name></param>
+            <param externsync="true"><type>VkSurfaceKHR</type> <name>surface</name></param>
+            <param><type>VkDeviceGroupPresentModeFlagsKHX</type>* <name>pModes</name></param>
+        </command>
+        <command successcodes="VK_SUCCESS,VK_TIMEOUT,VK_NOT_READY,VK_SUBOPTIMAL_KHR" errorcodes="VK_ERROR_OUT_OF_HOST_MEMORY,VK_ERROR_OUT_OF_DEVICE_MEMORY,VK_ERROR_DEVICE_LOST,VK_ERROR_OUT_OF_DATE_KHR,VK_ERROR_SURFACE_LOST_KHR">
+            <proto><type>VkResult</type> <name>vkAcquireNextImage2KHX</name></proto>
+            <param><type>VkDevice</type> <name>device</name></param>
+            <param>const <type>VkAcquireNextImageInfoKHX</type>* <name>pAcquireInfo</name></param>
+            <param><type>uint32_t</type>* <name>pImageIndex</name></param>
+        </command>
+        <command queues="compute" renderpass="outside" cmdbufferlevel="primary,secondary">
+            <proto><type>void</type> <name>vkCmdDispatchBaseKHX</name></proto>
+            <param externsync="true"><type>VkCommandBuffer</type> <name>commandBuffer</name></param>
+            <param><type>uint32_t</type> <name>baseGroupX</name></param>
+            <param><type>uint32_t</type> <name>baseGroupY</name></param>
+            <param><type>uint32_t</type> <name>baseGroupZ</name></param>
+            <param><type>uint32_t</type> <name>groupCountX</name></param>
+            <param><type>uint32_t</type> <name>groupCountY</name></param>
+            <param><type>uint32_t</type> <name>groupCountZ</name></param>
         </command>
     </commands>
 
@@ -4501,10 +4710,52 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
                 <command name="vkGetPhysicalDeviceSparseImageFormatProperties2KHR"/>
             </require>
         </extension>
-        <extension name="VK_KHR_extension_61" number="61" author="KHR" contact="Jeff Bolz @jbolz" supported="disabled">
+        <extension name="VK_KHX_device_group" number="61" type="device" author="KHX" contact="Jeff Bolz @jbolz" supported="vulkan">
             <require>
-                <enum value="0"                                         name="VK_KHR_EXTENSION_61_SPEC_VERSION"/>
-                <enum value="&quot;VK_KHR_extension_61&quot;"           name="VK_KHR_EXTENSION_61_EXTENSION_NAME"/>
+                <enum value="1"                                         name="VK_KHX_DEVICE_GROUP_SPEC_VERSION"/>
+                <enum value="&quot;VK_KHX_device_group&quot;"           name="VK_KHX_DEVICE_GROUP_EXTENSION_NAME"/>
+                <enum offset="0" extends="VkStructureType"              name="VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO_KHX"/>
+                <enum offset="1" extends="VkStructureType"              name="VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_INFO_KHX"/>
+                <enum offset="2" extends="VkStructureType"              name="VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_INFO_KHX"/>
+                <enum offset="3" extends="VkStructureType"              name="VK_STRUCTURE_TYPE_DEVICE_GROUP_RENDER_PASS_BEGIN_INFO_KHX"/>
+                <enum offset="4" extends="VkStructureType"              name="VK_STRUCTURE_TYPE_DEVICE_GROUP_COMMAND_BUFFER_BEGIN_INFO_KHX"/>
+                <enum offset="5" extends="VkStructureType"              name="VK_STRUCTURE_TYPE_DEVICE_GROUP_SUBMIT_INFO_KHX"/>
+                <enum offset="6" extends="VkStructureType"              name="VK_STRUCTURE_TYPE_DEVICE_GROUP_BIND_SPARSE_INFO_KHX"/>
+                <enum offset="7" extends="VkStructureType"              name="VK_STRUCTURE_TYPE_DEVICE_GROUP_PRESENT_CAPABILITIES_KHX"/>
+                <enum offset="8" extends="VkStructureType"              name="VK_STRUCTURE_TYPE_IMAGE_SWAPCHAIN_CREATE_INFO_KHX"/>
+                <enum offset="9" extends="VkStructureType"              name="VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_SWAPCHAIN_INFO_KHX"/>
+                <enum offset="10" extends="VkStructureType"             name="VK_STRUCTURE_TYPE_ACQUIRE_NEXT_IMAGE_INFO_KHX"/>
+                <enum offset="11" extends="VkStructureType"             name="VK_STRUCTURE_TYPE_DEVICE_GROUP_PRESENT_INFO_KHX"/>
+                <type name="VkPeerMemoryFeatureFlagsKHX"/>
+                <type name="VkPeerMemoryFeatureFlagBitsKHX"/>
+                <type name="VkMemoryAllocateFlagsKHX"/>
+                <type name="VkMemoryAllocateFlagBitsKHX"/>
+                <type name="VkDeviceGroupPresentModeFlagBitsKHX"/>
+                <type name="VkDeviceGroupPresentModeFlagsKHX"/>
+                <type name="VkMemoryAllocateFlagsInfoKHX"/>
+                <type name="VkBindBufferMemoryInfoKHX"/>
+                <type name="VkBindImageMemoryInfoKHX"/>
+                <type name="VkDeviceGroupRenderPassBeginInfoKHX"/>
+                <type name="VkDeviceGroupCommandBufferBeginInfoKHX"/>
+                <type name="VkDeviceGroupSubmitInfoKHX"/>
+                <type name="VkDeviceGroupBindSparseInfoKHX"/>
+                <type name="VkDeviceGroupPresentCapabilitiesKHX"/>
+                <type name="VkImageSwapchainCreateInfoKHX"/>
+                <type name="VkBindImageMemorySwapchainInfoKHX"/>
+                <type name="VkAcquireNextImageInfoKHX"/>
+                <type name="VkDeviceGroupPresentInfoKHX"/>
+                <command name="vkGetDeviceGroupPeerMemoryFeaturesKHX"/>
+                <command name="vkBindBufferMemory2KHX"/>
+                <command name="vkBindImageMemory2KHX"/>
+                <command name="vkCmdSetDeviceMaskKHX"/>
+                <command name="vkGetDeviceGroupPresentCapabilitiesKHX"/>
+                <command name="vkGetDeviceGroupSurfacePresentModesKHX"/>
+                <command name="vkAcquireNextImage2KHX"/>
+                <command name="vkCmdDispatchBaseKHX"/>
+                <enum bitpos="6" extends="VkImageCreateFlagBits"  name="VK_IMAGE_CREATE_BIND_SFR_BIT_KHX"    comment="Allows using VkBindImageMemoryInfoKHX::pSFRRects when binding memory to the image"/>
+                <enum bitpos="3" extends="VkPipelineCreateFlagBits"  name="VK_PIPELINE_CREATE_VIEW_ID_FROM_DEVICE_ID_BIT_KHX"/>
+                <enum bitpos="1" extends="VkDependencyFlagBits"   name="VK_DEPENDENCY_DEVICE_GROUP_BIT_KHX"      comment="Dependency is across devices"/>
+                <enum bitpos="0" extends="VkSwapchainCreateFlagBitsKHR" name="VK_SWAPCHAIN_CREATE_BIND_SFR_BIT_KHX" comment="Allow images with VK_IMAGE_CREATE_BIND_SFR_BIT_KHX"/>
             </require>
         </extension>
         <extension name="VK_EXT_validation_flags" number="62" type="instance" author="Google, Inc." contact="Tobin Ehlis @tobine" supported="vulkan">
@@ -4557,16 +4808,28 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
                 <enum value="&quot;VK_IMG_extension_69&quot;"           name="VK_IMG_EXTENSION_69_EXTENSION_NAME"/>
             </require>
         </extension>
-        <extension name="VK_KHR_extension_70" number="70" author="KHR" contact="Piers Daniell @pdaniell" supported="disabled">
+        <extension name="VK_KHR_maintenance1" number="70" author="KHR" contact="Piers Daniell @pdaniell" supported="vulkan">
             <require>
-                <enum value="0"                                         name="VK_KHR_EXTENSION_70_SPEC_VERSION"/>
-                <enum value="&quot;VK_KHR_extension_70&quot;"           name="VK_KHR_EXTENSION_70_EXTENSION_NAME"/>
+                <enum value="1"                                         name="VK_KHR_MAINTENANCE1_SPEC_VERSION"/>
+                <enum value="&quot;VK_KHR_maintenance1&quot;"           name="VK_KHR_MAINTENANCE1_EXTENSION_NAME"/>
+                <enum offset="0" dir="-" extends="VkResult"             name="VK_ERROR_OUT_OF_POOL_MEMORY_KHR"/>
+                <enum bitpos="14" extends="VkFormatFeatureFlagBits"     name="VK_FORMAT_FEATURE_TRANSFER_SRC_BIT_KHR" comment="Format can be used as the source image of image transfer commands"/>
+                <enum bitpos="15" extends="VkFormatFeatureFlagBits"     name="VK_FORMAT_FEATURE_TRANSFER_DST_BIT_KHR" comment="Format can be used as the destination image of image transfer commands"/>
+                <enum bitpos="5" extends="VkImageCreateFlagBits"        name="VK_IMAGE_CREATE_2D_ARRAY_COMPATIBLE_BIT_KHR" comment="The 3D image can be viewed as a 2D or 2D array image"/>
+                <command name="vkTrimCommandPoolKHR"/>
             </require>
         </extension>
-        <extension name="VK_KHR_extension_71" number="71" author="KHR" contact="Jeff Bolz @jbolz" supported="disabled">
+        <extension name="VK_KHX_device_group_creation" number="71" type="instance" author="KHX" contact="Jeff Bolz @jbolz" supported="vulkan">
             <require>
-                <enum value="0"                                         name="VK_KHR_EXTENSION_71_SPEC_VERSION"/>
-                <enum value="&quot;VK_KHR_extension_71&quot;"           name="VK_KHR_EXTENSION_71_EXTENSION_NAME"/>
+                <enum value="1"                                         name="VK_KHX_DEVICE_GROUP_CREATION_SPEC_VERSION"/>
+                <enum value="&quot;VK_KHX_device_group_creation&quot;"  name="VK_KHX_DEVICE_GROUP_CREATION_EXTENSION_NAME"/>
+                <enum offset="0" extends="VkStructureType"              name="VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GROUP_PROPERTIES_KHX"/>
+                <enum offset="1" extends="VkStructureType"              name="VK_STRUCTURE_TYPE_DEVICE_GROUP_DEVICE_CREATE_INFO_KHX"/>
+                <enum name="VK_MAX_DEVICE_GROUP_SIZE_KHX"/>
+                <type name="VkPhysicalDeviceGroupPropertiesKHX"/>
+                <type name="VkDeviceGroupDeviceCreateInfoKHX"/>
+                <command name="vkEnumeratePhysicalDeviceGroupsKHX"/>
+                <enum bitpos="1" extends="VkMemoryHeapFlagBits"   name="VK_MEMORY_HEAP_BROADCAST_BIT_KHX"    comment="If set, heap allocations are broadcast by default"/>
             </require>
         </extension>
         <extension name="VK_KHR_extension_72" number="72" author="KHR" contact="James Jones @cubanismo" supported="disable">
@@ -4623,11 +4886,33 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
                 <enum value="&quot;VK_KHR_extension_80&quot;"           name="VK_KHR_EXTENSION_80_EXTENSION_NAME"/>
             </require>
         </extension>
-        <extension name="VK_KHR_extension_81" number="81" author="KHR" contact="Jeff Bolz @jbolz" supported="disabled">
+        <extension name="VK_KHX_push_descriptor" number="81" type="device" author="KHR" contact="Jeff Bolz @jbolz" supported="vulkan">
             <require>
-                <enum value="0"                                         name="VK_KHR_EXTENSION_81_SPEC_VERSION"/>
-                <enum value="&quot;VK_KHR_extension_81&quot;"           name="VK_KHR_EXTENSION_81_EXTENSION_NAME"/>
+                <enum value="1"                                         name="VK_KHX_PUSH_DESCRIPTOR_SPEC_VERSION"/>
+                <enum value="&quot;VK_KHX_push_descriptor&quot;"        name="VK_KHX_PUSH_DESCRIPTOR_EXTENSION_NAME"/>
+                <enum offset="0" extends="VkStructureType"              name="VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PUSH_DESCRIPTOR_PROPERTIES_KHX"/>
+                <enum bitpos="0" extends="VkDescriptorSetLayoutCreateFlagBits"   name="VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHX"  comment="Descriptors are pushed via flink:vkCmdPushDescriptorSetKHX"/>
+                <command name="vkCmdPushDescriptorSetKHX"/>
+                <type name="VkPhysicalDevicePushDescriptorPropertiesKHX"/>
             </require>
         </extension>
+        <extension name="VK_KHR_extension_82" number="82" author="KHR" contact="Jeff Bolz @jbolz" supported="disabled">
+            <require>
+                <enum value="0"                                         name="VK_KHR_EXTENSION_82_SPEC_VERSION"/>
+                <enum value="&quot;VK_KHR_extension_82&quot;"           name="VK_KHR_EXTENSION_82_EXTENSION_NAME"/>
+            </require>
+        </extension>
+        <extension name="VK_KHR_extension_83" number="83" author="KHR" contact="Jan-Harald Fredriksen @janharald" supported="disabled">
+             <require>
+                 <enum value="0"                                         name="VK_KHR_EXTENSION_83_SPEC_VERSION"/>
+                 <enum value="&quot;VK_KHR_extension_83&quot;"           name="VK_KHR_EXTENSION_83_EXTENSION_NAME"/>
+             </require>
+         </extension>
+         <extension name="VK_KHR_extension_84" number="84" author="KHR" contact="Jan-Harald Fredriksen @janharald" supported="disabled">
+             <require>
+                 <enum value="0"                                         name="VK_KHR_EXTENSION_84_SPEC_VERSION"/>
+                 <enum value="&quot;VK_KHR_extension_84&quot;"           name="VK_KHR_EXTENSION_84_EXTENSION_NAME"/>
+             </require>
+         </extension>
     </extensions>
 </registry>

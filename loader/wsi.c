@@ -1793,6 +1793,10 @@ bool wsi_swapchain_instance_gpa(struct loader_instance *ptr_instance,
     }
 
     // Functions for KHR_display_swapchain extension:
+    // Note: This is a device extension, and its functions are statically
+    // exported from the loader.  Per Khronos decisions, the loader's GIPA
+    // function will return the trampoline function for such device-extension
+    // functions, regardless of whether the extension has been enabled.
     if (!strcmp("vkCreateSharedSwapchainsKHR", name)) {
         *addr = (void *)vkCreateSharedSwapchainsKHR;
         return true;

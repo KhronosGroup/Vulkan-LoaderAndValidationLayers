@@ -25,7 +25,9 @@
 #include "vk_loader_platform.h"
 #include "loader.h"
 #include "extensions.h"
+#include "table_ops.h"
 #include <vulkan/vk_icd.h>
+#include "wsi.h"
 
 // Definitions for the VK_KHR_get_physical_device_properties2 extension
 VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceFeatures2KHR(
@@ -219,6 +221,239 @@ terminator_GetPhysicalDeviceSparseImageFormatProperties2KHR(
         phys_dev_term->phys_dev, pFormatInfo, pPropertyCount, pProperties);
 }
 
+// Definitions for the VK_KHR_maintenance1 extension
+
+VKAPI_ATTR void VKAPI_CALL
+vkTrimCommandPoolKHR(VkDevice device, VkCommandPool commandPool,
+                         VkCommandPoolTrimFlagsKHR flags) {
+    const VkLayerDispatchTable *disp = loader_get_dispatch(device);
+    disp->TrimCommandPoolKHR(device, commandPool, flags);
+}
+
+// Definitions for the VK_KHX_device_group_creation extension
+VKAPI_ATTR VkResult VKAPI_CALL vkEnumeratePhysicalDeviceGroupsKHX(
+    VkInstance instance, uint32_t *pPhysicalDeviceGroupCount,
+    VkPhysicalDeviceGroupPropertiesKHX *pPhysicalDeviceGroupProperties) {
+    VkResult res = VK_SUCCESS;
+    struct loader_instance *inst = NULL;
+
+    loader_platform_thread_lock_mutex(&loader_lock);
+
+    inst = loader_get_instance(instance);
+    if (NULL == inst) {
+        res = VK_ERROR_INITIALIZATION_FAILED;
+        goto out;
+    }
+
+    res = inst->disp->EnumeratePhysicalDeviceGroupsKHX(
+        instance, pPhysicalDeviceGroupCount, pPhysicalDeviceGroupProperties);
+
+    if ((VK_SUCCESS != res && VK_INCOMPLETE != res) ||
+        NULL == pPhysicalDeviceGroupProperties) {
+        goto out;
+    }
+
+    res = setupLoaderTrampPhysDevs(inst);
+    if (VK_SUCCESS != res) {
+        goto out;
+    }
+
+    for (uint32_t group = 0; group < *pPhysicalDeviceGroupCount; group++) {
+        for (uint32_t dev = 0;
+             dev < pPhysicalDeviceGroupProperties[group].physicalDeviceCount;
+             dev++) {
+            for (uint32_t tramp = 0; tramp < inst->total_gpu_count; tramp++) {
+                if (inst->phys_devs_tramp[tramp].phys_dev ==
+                    pPhysicalDeviceGroupProperties[group]
+                        .physicalDevices[dev]) {
+                    pPhysicalDeviceGroupProperties[group].physicalDevices[dev] =
+                        (VkPhysicalDevice)&inst->phys_devs_tramp[tramp];
+                }
+            }
+        }
+    }
+
+out:
+
+    loader_platform_thread_unlock_mutex(&loader_lock);
+    return res;
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL terminator_EnumeratePhysicalDeviceGroupsKHX(
+    VkInstance instance, uint32_t *pPhysicalDeviceGroupCount,
+    VkPhysicalDeviceGroupPropertiesKHX *pPhysicalDeviceGroupProperties) {
+    struct loader_instance *inst = loader_get_instance(instance);
+    VkResult res = VK_SUCCESS;
+    uint32_t total_group_count = 0;
+    uint32_t max_group_count = *pPhysicalDeviceGroupCount;
+    uint32_t i = 0;
+
+    // Only do the setup if we're re-querying the number of devices, or
+    // our count is currently 0.
+    if (NULL == pPhysicalDeviceGroupProperties || 0 == inst->total_gpu_count) {
+        res = setupLoaderTermPhysDevs(inst);
+        if (VK_SUCCESS != res) {
+            goto out;
+        }
+    }
+
+    // We have to loop through all ICDs which may be capable of handling this
+    // call and sum all the possible physical device groups together.
+    struct loader_icd_term *icd_term = inst->icd_terms;
+    while (NULL != icd_term) {
+        if (NULL != icd_term->EnumeratePhysicalDeviceGroupsKHX) {
+            uint32_t cur_group_count = 0;
+            res = icd_term->EnumeratePhysicalDeviceGroupsKHX(icd_term->instance,
+                &cur_group_count, NULL);
+            if (res != VK_SUCCESS) {
+                break;
+            } else if (NULL != pPhysicalDeviceGroupProperties &&
+                max_group_count > total_group_count) {
+
+                uint32_t remain_count = max_group_count - total_group_count;
+                res = icd_term->EnumeratePhysicalDeviceGroupsKHX(
+                    icd_term->instance, &remain_count,
+                    &pPhysicalDeviceGroupProperties[total_group_count]);
+                if (res != VK_SUCCESS) {
+                    break;
+                }
+            }
+            total_group_count += cur_group_count;
+        } else {
+            // For ICDs which don't directly support this, create a group
+            // for each physical device
+            for (uint32_t j = 0; j < inst->total_gpu_count; j++) {
+                if (inst->phys_devs_term[j].icd_index == i) {
+                    if (NULL != pPhysicalDeviceGroupProperties &&
+                        max_group_count > total_group_count) {
+                        pPhysicalDeviceGroupProperties[total_group_count]
+                            .physicalDeviceCount = 1;
+                        pPhysicalDeviceGroupProperties[total_group_count]
+                            .physicalDevices[0] =
+                            inst->phys_devs_term[j].phys_dev;
+                    }
+                    total_group_count++;
+                }
+            }
+        }
+        icd_term = icd_term->next;
+        i++;
+    }
+
+    *pPhysicalDeviceGroupCount = total_group_count;
+
+    // Replace the physical devices with the value from the loader terminator
+    // so we can de-reference them if needed.
+    if (NULL != pPhysicalDeviceGroupProperties) {
+        for (uint32_t group = 0; group < max_group_count; group++) {
+            VkPhysicalDeviceGroupPropertiesKHX *cur_props =
+                &pPhysicalDeviceGroupProperties[group];
+            for (i = 0; i < cur_props->physicalDeviceCount; i++) {
+                for (uint32_t term = 0; term < inst->total_gpu_count; term++) {
+                    if (inst->phys_devs_term[term].phys_dev ==
+                        cur_props->physicalDevices[i]) {
+                        cur_props->physicalDevices[i] =
+                            (VkPhysicalDevice)&inst->phys_devs_term[term];
+                    }
+                }
+            }
+        }
+
+        if (VK_SUCCESS == res && max_group_count < total_group_count) {
+            res = VK_INCOMPLETE;
+        }
+    }
+
+out:
+
+    return res;
+}
+
+// Definitions for the VK_KHX_device_group extension
+
+VKAPI_ATTR void VKAPI_CALL vkGetDeviceGroupPeerMemoryFeaturesKHX(
+    VkDevice device, uint32_t heapIndex, uint32_t localDeviceIndex,
+    uint32_t remoteDeviceIndex,
+    VkPeerMemoryFeatureFlagsKHX *pPeerMemoryFeatures) {
+    const VkLayerDispatchTable *disp = loader_get_dispatch(device);
+    disp->GetDeviceGroupPeerMemoryFeaturesKHX(
+        device, heapIndex, localDeviceIndex, remoteDeviceIndex,
+        pPeerMemoryFeatures);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+vkBindBufferMemory2KHX(VkDevice device, uint32_t bindInfoCount,
+                       const VkBindBufferMemoryInfoKHX *pBindInfos) {
+    const VkLayerDispatchTable *disp = loader_get_dispatch(device);
+    return disp->BindBufferMemory2KHX(device, bindInfoCount, pBindInfos);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+vkBindImageMemory2KHX(VkDevice device, uint32_t bindInfoCount,
+                      const VkBindImageMemoryInfoKHX *pBindInfos) {
+    const VkLayerDispatchTable *disp = loader_get_dispatch(device);
+    return disp->BindImageMemory2KHX(device, bindInfoCount, pBindInfos);
+}
+
+VKAPI_ATTR void VKAPI_CALL vkCmdSetDeviceMaskKHX(VkCommandBuffer commandBuffer,
+                                                 uint32_t deviceMask) {
+    const VkLayerDispatchTable *disp = loader_get_dispatch(commandBuffer);
+    disp->CmdSetDeviceMaskKHX(commandBuffer, deviceMask);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL vkGetDeviceGroupPresentCapabilitiesKHX(
+    VkDevice device,
+    VkDeviceGroupPresentCapabilitiesKHX *pDeviceGroupPresentCapabilities) {
+    const VkLayerDispatchTable *disp = loader_get_dispatch(device);
+    return disp->GetDeviceGroupPresentCapabilitiesKHX(
+        device, pDeviceGroupPresentCapabilities);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL vkGetDeviceGroupSurfacePresentModesKHX(
+    VkDevice device, VkSurfaceKHR surface,
+    VkDeviceGroupPresentModeFlagsKHX *pModes) {
+    const VkLayerDispatchTable *disp = loader_get_dispatch(device);
+    return disp->GetDeviceGroupSurfacePresentModesKHX(device, surface, pModes);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL terminator_GetDeviceGroupSurfacePresentModesKHX(
+    VkDevice device, VkSurfaceKHR surface,
+    VkDeviceGroupPresentModeFlagsKHX *pModes) {
+    uint32_t icd_index = 0;
+    struct loader_device *dev;
+    struct loader_icd_term *icd_term =
+        loader_get_icd_and_device(device, &dev, &icd_index);
+    if (NULL != icd_term &&
+        NULL != icd_term->GetDeviceGroupSurfacePresentModesKHX) {
+        VkIcdSurface *icd_surface = (VkIcdSurface *)(surface);
+        if (NULL != icd_surface->real_icd_surfaces) {
+            if (NULL != (void *)icd_surface->real_icd_surfaces[icd_index]) {
+                return icd_term->GetDeviceGroupSurfacePresentModesKHX(
+                    device, icd_surface->real_icd_surfaces[icd_index], pModes);
+            }
+        }
+        return icd_term->GetDeviceGroupSurfacePresentModesKHX(device, surface,
+                                                              pModes);
+    }
+    return VK_SUCCESS;
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL vkAcquireNextImage2KHX(
+    VkDevice device, const VkAcquireNextImageInfoKHX *pAcquireInfo,
+    uint32_t *pImageIndex) {
+    const VkLayerDispatchTable *disp = loader_get_dispatch(device);
+    return disp->AcquireNextImage2KHX(device, pAcquireInfo, pImageIndex);
+}
+
+// Definitions for the VK_KHX_push_descriptor extension
+
+VKAPI_ATTR void VKAPI_CALL
+vkCmdPushDescriptorSetKHX(VkCommandBuffer commandBuffer, VkPipelineBindPoint pipelineBindPoint,
+    VkPipelineLayout layout, uint32_t set, uint32_t descriptorWriteCount, const VkWriteDescriptorSet* pDescriptorWrites) {
+    const VkLayerDispatchTable *disp = loader_get_dispatch(commandBuffer);
+    disp->CmdPushDescriptorSetKHX(commandBuffer, pipelineBindPoint, layout, set, descriptorWriteCount, pDescriptorWrites);
+}
+
 // Definitions for the VK_NV_external_memory_capabilities extension
 
 VKAPI_ATTR VkResult VKAPI_CALL
@@ -311,6 +546,7 @@ bool extension_instance_gpa(struct loader_instance *ptr_instance,
     *addr = NULL;
 
     // Functions for the VK_KHR_get_physical_device_properties2 extension
+
     if (!strcmp("vkGetPhysicalDeviceFeatures2KHR", name)) {
         *addr = (ptr_instance->enabled_known_extensions
                      .khr_get_physical_device_properties2 == 1)
@@ -361,7 +597,19 @@ bool extension_instance_gpa(struct loader_instance *ptr_instance,
         return true;
     }
 
+    // Functions for the VK_KHX_device_group_creation extension
+
+    if (!strcmp("vkEnumeratePhysicalDeviceGroupsKHX", name)) {
+        *addr =
+            (ptr_instance->enabled_known_extensions.khx_device_group_creation ==
+             1)
+                ? (void *)vkEnumeratePhysicalDeviceGroupsKHX
+                : NULL;
+        return true;
+    }
+
     // Functions for the VK_NV_external_memory_capabilities extension
+
     if (!strcmp("vkGetPhysicalDeviceExternalImageFormatPropertiesNV", name)) {
         *addr = (ptr_instance->enabled_known_extensions
                      .nv_external_memory_capabilities == 1)
@@ -371,11 +619,11 @@ bool extension_instance_gpa(struct loader_instance *ptr_instance,
     }
 
     // Functions for the VK_AMD_draw_indirect_count extension
+
     if (!strcmp("vkCmdDrawIndirectCountAMD", name)) {
         *addr = (void *)vkCmdDrawIndirectCountAMD;
         return true;
     }
-
     if (!strcmp("vkCmdDrawIndexedIndirectCountAMD", name)) {
         *addr = (void *)vkCmdDrawIndexedIndirectCountAMD;
         return true;
@@ -391,13 +639,57 @@ bool extension_instance_gpa(struct loader_instance *ptr_instance,
 
 #endif // VK_USE_PLATFORM_WIN32_KHR
 
+    // Functions for the VK_KHR_maintenance1 extension
+
+    // Functions for the VK_NV_external_memory_win32 extension
+    if (!strcmp("vkTrimCommandPoolKHR", name)) {
+        *addr = (void *)vkTrimCommandPoolKHR;
+        return true;
+    }
+
+    // Functions for the VK_KHX_device_group extension
+
+    if (!strcmp("vkGetDeviceGroupPeerMemoryFeaturesKHX", name)) {
+        *addr = (void *)vkGetDeviceGroupPeerMemoryFeaturesKHX;
+        return true;
+    }
+    if (!strcmp("vkBindBufferMemory2KHX", name)) {
+        *addr = (void *)vkBindBufferMemory2KHX;
+        return true;
+    }
+    if (!strcmp("vkBindImageMemory2KHX", name)) {
+        *addr = (void *)vkBindImageMemory2KHX;
+        return true;
+    }
+    if (!strcmp("vkCmdSetDeviceMaskKHX", name)) {
+        *addr = (void *)vkCmdSetDeviceMaskKHX;
+        return true;
+    }
+    if (!strcmp("vkGetDeviceGroupPresentCapabilitiesKHX", name)) {
+        *addr = (void *)vkGetDeviceGroupPresentCapabilitiesKHX;
+        return true;
+    }
+    if (!strcmp("vkGetDeviceGroupSurfacePresentModesKHX", name)) {
+        *addr = (void *)vkGetDeviceGroupSurfacePresentModesKHX;
+        return true;
+    }
+    if (!strcmp("vkAcquireNextImage2KHX", name)) {
+        *addr = (void *)vkAcquireNextImage2KHX;
+        return true;
+    }
+
+    // Functions for the VK_KHX_push_descriptor extension
+
+    if (!strcmp("vkCmdPushDescriptorSetKHX", name)) {
+        *addr = (void *)vkCmdPushDescriptorSetKHX;
+        return true;
+    }
+
     return false;
 }
 
 void extensions_create_instance(struct loader_instance *ptr_instance,
                                 const VkInstanceCreateInfo *pCreateInfo) {
-    ptr_instance->enabled_known_extensions.nv_external_memory_capabilities = 0;
-
     for (uint32_t i = 0; i < pCreateInfo->enabledExtensionCount; i++) {
         if (0 ==
             strcmp(pCreateInfo->ppEnabledExtensionNames[i],
@@ -408,6 +700,11 @@ void extensions_create_instance(struct loader_instance *ptr_instance,
                         VK_NV_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME)) {
             ptr_instance->enabled_known_extensions
                 .nv_external_memory_capabilities = 1;
+        } else if (strcmp(pCreateInfo->ppEnabledExtensionNames[i],
+                          VK_KHX_DEVICE_GROUP_CREATION_EXTENSION_NAME) == 0) {
+            ptr_instance->enabled_known_extensions.khx_device_group_creation =
+                1;
+            return;
         }
     }
 }

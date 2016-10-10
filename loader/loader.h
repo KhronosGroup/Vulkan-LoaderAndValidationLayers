@@ -81,6 +81,11 @@ static const char std_validation_names[7][VK_MAX_EXTENSION_NAME_SIZE] = {
     "VK_LAYER_LUNARG_core_validation", "VK_LAYER_LUNARG_swapchain",
      "VK_LAYER_GOOGLE_unique_objects"};
 
+struct VkStructureHeader {
+    VkStructureType          sType;
+    const void*              pNext;
+};
+
 // form of all dynamic lists/arrays
 // only the list element should be changed
 struct loader_generic_list {
@@ -241,6 +246,7 @@ struct loader_icd_term {
     PFN_vkCreateDisplayPlaneSurfaceKHR CreateDisplayPlaneSurfaceKHR;
     PFN_vkDestroySurfaceKHR DestroySurfaceKHR;
     PFN_vkCreateSwapchainKHR CreateSwapchainKHR;
+
     // KHR_get_physical_device_properties2
     PFN_vkGetPhysicalDeviceFeatures2KHR GetPhysicalDeviceFeatures2KHR;
     PFN_vkGetPhysicalDeviceProperties2KHR GetPhysicalDeviceProperties2KHR;
@@ -254,14 +260,23 @@ struct loader_icd_term {
         GetPhysicalDeviceMemoryProperties2KHR;
     PFN_vkGetPhysicalDeviceSparseImageFormatProperties2KHR
         GetPhysicalDeviceSparseImageFormatProperties2KHR;
-    // EXT_debug_report
+
+    // KHX_device_group_creation
+    PFN_vkEnumeratePhysicalDeviceGroupsKHX EnumeratePhysicalDeviceGroupsKHX;
+
+    // KHX_device_group
+    PFN_vkGetDeviceGroupSurfacePresentModesKHX GetDeviceGroupSurfacePresentModesKHX;
+
+        // EXT_debug_report
     PFN_vkCreateDebugReportCallbackEXT CreateDebugReportCallbackEXT;
     PFN_vkDestroyDebugReportCallbackEXT DestroyDebugReportCallbackEXT;
     PFN_vkDebugReportMessageEXT DebugReportMessageEXT;
+
     // NV_external_memory_capabilities
     PFN_vkGetPhysicalDeviceExternalImageFormatPropertiesNV
         GetPhysicalDeviceExternalImageFormatPropertiesNV;
-    struct loader_icd_term *next;
+
+        struct loader_icd_term *next;
 };
 
 // per ICD library structure
@@ -274,6 +289,7 @@ struct loader_icd_tramp_list {
 union loader_instance_extension_enables {
     struct {
         uint8_t khr_get_physical_device_properties2 : 1;
+        uint8_t khx_device_group_creation : 1;
         uint8_t ext_debug_report : 1;
         uint8_t nv_external_memory_capabilities : 1;
     };
@@ -590,11 +606,15 @@ loader_create_device_chain(const struct loader_physical_device_tramp *pd,
                            const VkAllocationCallbacks *pAllocator,
                            const struct loader_instance *inst,
                            struct loader_device *dev);
+
 VkResult loader_validate_device_extensions(
     struct loader_physical_device_tramp *phys_dev,
     const struct loader_layer_list *activated_device_layers,
     const struct loader_extension_list *icd_exts,
     const VkDeviceCreateInfo *pCreateInfo);
+
+VkResult setupLoaderTrampPhysDevs(struct loader_instance *inst);
+VkResult setupLoaderTermPhysDevs(struct loader_instance *inst);
 
 /* instance layer chain termination entrypoint definitions */
 VKAPI_ATTR VkResult VKAPI_CALL

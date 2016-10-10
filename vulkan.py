@@ -1324,6 +1324,111 @@ VK_KHR_get_physical_device_properties2 = Extension(
              Param("VkSparseImageFormatProperties2KHR*", "pProperties")]),
     ],
 )
+VK_KHR_maintenance1 = Extension(
+    name="VK_KHR_maintenance1",
+    headers=["vulkan/vulkan.h"],
+    objects=[
+        "VkCommandPoolTrimFlagsKHR",
+        "VkPhysicalDeviceGroupPropertiesKHX",
+    ],
+    protos=[
+        Proto("void", "TrimCommandPoolKHR",
+            [Param("VkDevice", "device"),
+             Param("VkCommandPool", "commandPool"),
+             Param("VkCommandPoolTrimFlagsKHR", "flags")]),
+    ],
+)
+VK_KHX_device_group_creation = Extension(
+    name="VK_KHX_device_group_creation",
+    headers=["vulkan/vulkan.h"],
+    objects=[
+        "VkDeviceGroupDeviceCreateInfoKHX",
+        "VkPhysicalDeviceGroupPropertiesKHX",
+    ],
+    protos=[
+        Proto("VkResult", "EnumeratePhysicalDeviceGroupsKHX",
+            [Param("VkInstance", "instance"),
+             Param("uint32_t*", "pPhysicalDeviceGroupCount"),
+             Param("VkPhysicalDeviceGroupPropertiesKHX*", "pPhysicalDeviceGroupProperties")]),
+    ],
+)
+VK_KHX_device_group = Extension(
+    name="VK_KHX_device_group",
+    headers=["vulkan/vulkan.h"],
+    objects=[
+        "VkPeerMemoryFeatureFlagsKHX",
+        "VkPeerMemoryFeatureFlagBitsKHX",
+        "VkMemoryAllocateFlagsInfoKHX",
+        "VkMemoryAllocateFlagsKHX",
+        "VkMemoryAllocateFlagBitsKHX",
+        "VkDeviceGroupPresentModeFlagBitsKHX",
+        "VkDeviceGroupPresentModeFlagsKHX",
+        "VkMemoryAllocateFlagsInfoKHX",
+        "VkBindBufferMemoryInfoKHX",
+        "VkBindImageMemoryInfoKHX",
+        "VkDeviceGroupRenderPassBeginInfoKHX",
+        "VkDeviceGroupCommandBufferBeginInfoKHX",
+        "VkDeviceGroupSubmitInfoKHX",
+        "VkDeviceGroupBindSparseInfoKHX",
+        "VkDeviceGroupPresentCapabilitiesKHX",
+        "VkImageSwapchainCreateInfoKHX",
+        "VkBindImageMemorySwapchainInfoKHX",
+        "VkAcquireNextImageInfoKHX",
+        "VkDeviceGroupPresentInfoKHX",
+    ],
+    protos=[
+        Proto("void", "GetDeviceGroupPeerMemoryFeaturesKHX",
+            [Param("VkDevice", "device"),
+             Param("uint32_t", "heapIndex"),
+             Param("uint32_t", "localDeviceIndex"),
+             Param("uint32_t", "remoteDeviceIndex"),
+             Param("VkPeerMemoryFeatureFlagsKHX*", "pPeerMemoryFeatures")]),
+
+         Proto("VkResult", "BindBufferMemory2KHX",
+            [Param("VkDevice", "device"),
+             Param("uint32_t", "bindInfoCount"),
+             Param("const VkBindBufferMemoryInfoKHX*", "pBindInfos")]),
+
+        Proto("VkResult", "BindImageMemory2KHX",
+            [Param("VkDevice", "device"),
+             Param("uint32_t", "bindInfoCount"),
+             Param("const VkBindImageMemoryInfoKHX*", "pBindInfos")]),
+
+        Proto("void", "CmdSetDeviceMaskKHX",
+            [Param("VkCommandBuffer", "commandBuffer"),
+             Param("uint32_t", "deviceMask")]),
+
+         Proto("VkResult", "GetDeviceGroupPresentCapabilitiesKHX",
+            [Param("VkDevice", "device"),
+             Param("VkDeviceGroupPresentCapabilitiesKHX*", "pDeviceGroupPresentCapabilities")]),
+
+         Proto("VkResult", "GetDeviceGroupSurfacePresentModesKHX",
+            [Param("VkDevice", "device"),
+             Param("VkSurfaceKHR", "surface"),
+             Param("VkDeviceGroupPresentModeFlagsKHX*", "pModes")]),
+
+         Proto("VkResult", "AcquireNextImage2KHX",
+            [Param("VkDevice", "device"),
+             Param("const VkAcquireNextImageInfoKHX*", "pAcquireInfo"),
+             Param("uint32_t*", "pImageIndex")]),
+    ],
+)
+VK_KHX_push_descriptor = Extension(
+    name="VK_KHX_push_descriptor",
+    headers=["vulkan/vulkan.h"],
+    objects=[
+        "VkPhysicalDevicePushDescriptorPropertiesKHX",
+    ],
+    protos=[
+        Proto("void", "CmdPushDescriptorSetKHX",
+            [Param("VkCommandBuffer", "commandBuffer"),
+             Param("VkPipelineBindPoint", "pipelineBindPoint"),
+             Param("VkPipelineLayout", "layout"),
+             Param("uint32_t", "set"),
+             Param("uint32_t", "descriptorWriteCount"),
+             Param("const VkWriteDescriptorSet*", "pDescriptorWrites")]),
+    ],
+)
 VK_EXT_debug_report = Extension(
     name="VK_EXT_debug_report",
     headers=["vulkan/vulkan.h"],
@@ -1353,7 +1458,6 @@ VK_EXT_debug_report = Extension(
              Param("const char *", "pMsg")]),
     ],
 )
-
 VK_EXT_debug_marker = Extension(
     name="VK_EXT_debug_marker",
     headers=["vulkan/vulkan.h"],
@@ -1419,11 +1523,15 @@ common_exts = [VK_VERSION_1_0,
               ]
 
 # Define extensions not exported by the loader
-non_exported_exts = [VK_NV_external_memory_capabilities,
+non_exported_exts = [VK_KHR_maintenance1,
                      VK_KHR_get_physical_device_properties2,
-                     VK_AMD_draw_indirect_count,
+                     VK_KHX_device_group_creation,
+                     VK_KHX_device_group,
+                     VK_KHX_push_descriptor,
                      VK_EXT_debug_report,
                      VK_EXT_debug_marker,
+                     VK_NV_external_memory_capabilities,
+                     VK_AMD_draw_indirect_count,
 #                    VK_KHR_sampler_mirror_clamp_to_edge,
 #                    VK_NV_glsl_shader,
 #                    VK_IMG_filter_cubic,

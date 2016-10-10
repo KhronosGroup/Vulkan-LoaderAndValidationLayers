@@ -406,6 +406,8 @@ LOADER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkCreateInstance(
                                        &created_instance);
 
     if (res == VK_SUCCESS) {
+        memset(ptr_instance->enabled_known_extensions.padding, 0, sizeof(uint64_t) * 4);
+
         wsi_create_instance(ptr_instance, &ici);
         debug_report_create_instance(ptr_instance, &ici);
         extensions_create_instance(ptr_instance, &ici);
@@ -531,51 +533,40 @@ vkEnumeratePhysicalDevices(VkInstance instance, uint32_t *pPhysicalDeviceCount,
     disp = loader_get_instance_dispatch(instance);
 
     loader_platform_thread_lock_mutex(&loader_lock);
+
+    inst = loader_get_instance(instance);
+    if (NULL == inst) {
+        res = VK_ERROR_INITIALIZATION_FAILED;
+        goto out;
+    }
+
     res = disp->EnumeratePhysicalDevices(instance, pPhysicalDeviceCount,
                                          pPhysicalDevices);
-
     if (res != VK_SUCCESS && res != VK_INCOMPLETE) {
-        loader_platform_thread_unlock_mutex(&loader_lock);
-        return res;
+        goto out;
     }
 
-    if (!pPhysicalDevices) {
-        loader_platform_thread_unlock_mutex(&loader_lock);
-        return res;
+    if (pPhysicalDevices == NULL) {
+        goto out;
     }
 
-    // wrap the PhysDev object for loader usage, return wrapped objects
-    inst = loader_get_instance(instance);
-    if (!inst) {
-        loader_platform_thread_unlock_mutex(&loader_lock);
-        return VK_ERROR_INITIALIZATION_FAILED;
+    res = setupLoaderTrampPhysDevs(inst);
+    if (VK_SUCCESS != res) {
+        goto out;
     }
+
+    // Wrap the PhysDev object for loader usage, return wrapped objects
     count = (inst->total_gpu_count < *pPhysicalDeviceCount)
                 ? inst->total_gpu_count
                 : *pPhysicalDeviceCount;
     *pPhysicalDeviceCount = count;
-    if (NULL == inst->phys_devs_tramp) {
-        inst->phys_devs_tramp =
-            (struct loader_physical_device_tramp *)loader_instance_heap_alloc(
-                inst, inst->total_gpu_count *
-                          sizeof(struct loader_physical_device_tramp),
-                VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
-    }
-    if (NULL == inst->phys_devs_tramp) {
-        loader_platform_thread_unlock_mutex(&loader_lock);
-        return VK_ERROR_OUT_OF_HOST_MEMORY;
-    }
 
     for (i = 0; i < count; i++) {
-
-        // initialize the loader's physicalDevice object
-        loader_set_dispatch((void *)&inst->phys_devs_tramp[i], inst->disp);
-        inst->phys_devs_tramp[i].this_instance = inst;
-        inst->phys_devs_tramp[i].phys_dev = pPhysicalDevices[i];
-
-        // copy wrapped object into Application provided array
         pPhysicalDevices[i] = (VkPhysicalDevice)&inst->phys_devs_tramp[i];
     }
+
+out:
+
     loader_platform_thread_unlock_mutex(&loader_lock);
     return res;
 }
