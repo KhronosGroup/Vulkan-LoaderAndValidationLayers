@@ -17380,6 +17380,7 @@ TEST_F(VkLayerTest, CopyImageLayerCountMismatch) {
     err = vkCreateImage(m_device->device(), &image_create_info, NULL, &srcImage);
     ASSERT_VK_SUCCESS(err);
 
+    image_create_info.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT;
     err = vkCreateImage(m_device->device(), &image_create_info, NULL, &dstImage);
     ASSERT_VK_SUCCESS(err);
 
@@ -17781,6 +17782,204 @@ TEST_F(VkLayerTest, ImageFormatLimits) {
     image_create_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 }
 
+TEST_F(VkLayerTest, CopyImageSrcSizeExceeded) {
+    VkResult err;
+    bool pass;
+
+    // Image copy with source region specified greater than src image size
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT,
+        "exceeds extents srcImage was created with");
+
+    ASSERT_NO_FATAL_FAILURE(InitState());
+
+    // Create two images of different sizes and try to copy between them
+    VkImage srcImage;
+    VkImage dstImage;
+    VkDeviceMemory srcMem;
+    VkDeviceMemory destMem;
+    VkMemoryRequirements memReqs;
+
+    VkImageCreateInfo image_create_info = {};
+    image_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    image_create_info.pNext = NULL;
+    image_create_info.imageType = VK_IMAGE_TYPE_2D;
+    image_create_info.format = VK_FORMAT_B8G8R8A8_UNORM;
+    image_create_info.extent.width = 32;
+    image_create_info.extent.height = 32;
+    image_create_info.extent.depth = 1;
+    image_create_info.mipLevels = 1;
+    image_create_info.arrayLayers = 1;
+    image_create_info.samples = VK_SAMPLE_COUNT_1_BIT;
+    image_create_info.tiling = VK_IMAGE_TILING_LINEAR;
+    image_create_info.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    image_create_info.flags = 0;
+
+    // Create a 64x64 src image
+    err = vkCreateImage(m_device->device(), &image_create_info, NULL, &srcImage);
+    ASSERT_VK_SUCCESS(err);
+
+    // And a 32x32 dst image
+    image_create_info.extent.width = 64;
+    image_create_info.extent.height = 64;
+    image_create_info.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    err = vkCreateImage(m_device->device(), &image_create_info, NULL, &dstImage);
+    ASSERT_VK_SUCCESS(err);
+
+    // Allocate memory
+    VkMemoryAllocateInfo memAlloc = {};
+    memAlloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    memAlloc.pNext = NULL;
+    memAlloc.allocationSize = 0;
+    memAlloc.memoryTypeIndex = 0;
+
+    vkGetImageMemoryRequirements(m_device->device(), srcImage, &memReqs);
+    memAlloc.allocationSize = memReqs.size;
+    pass = m_device->phy().set_memory_type(memReqs.memoryTypeBits, &memAlloc, 0);
+    ASSERT_TRUE(pass);
+    err = vkAllocateMemory(m_device->device(), &memAlloc, NULL, &srcMem);
+    ASSERT_VK_SUCCESS(err);
+
+    vkGetImageMemoryRequirements(m_device->device(), dstImage, &memReqs);
+    memAlloc.allocationSize = memReqs.size;
+    pass = m_device->phy().set_memory_type(memReqs.memoryTypeBits, &memAlloc, 0);
+    ASSERT_TRUE(pass);
+    err = vkAllocateMemory(m_device->device(), &memAlloc, NULL, &destMem);
+    ASSERT_VK_SUCCESS(err);
+
+    err = vkBindImageMemory(m_device->device(), srcImage, srcMem, 0);
+    ASSERT_VK_SUCCESS(err);
+    err = vkBindImageMemory(m_device->device(), dstImage, destMem, 0);
+    ASSERT_VK_SUCCESS(err);
+
+    BeginCommandBuffer();
+    VkImageCopy copyRegion;
+    copyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    copyRegion.srcSubresource.mipLevel = 0;
+    copyRegion.srcSubresource.baseArrayLayer = 0;
+    copyRegion.srcSubresource.layerCount = 0;
+    copyRegion.srcOffset.x = 0;
+    copyRegion.srcOffset.y = 0;
+    copyRegion.srcOffset.z = 0;
+    copyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    copyRegion.dstSubresource.mipLevel = 0;
+    copyRegion.dstSubresource.baseArrayLayer = 0;
+    copyRegion.dstSubresource.layerCount = 0;
+    copyRegion.dstOffset.x = 0;
+    copyRegion.dstOffset.y = 0;
+    copyRegion.dstOffset.z = 0;
+    copyRegion.extent.width = 64;
+    copyRegion.extent.height = 64;
+    copyRegion.extent.depth = 1;
+    m_commandBuffer->CopyImage(srcImage, VK_IMAGE_LAYOUT_GENERAL, dstImage, VK_IMAGE_LAYOUT_GENERAL, 1, &copyRegion);
+    EndCommandBuffer();
+
+    m_errorMonitor->VerifyFound();
+
+    vkDestroyImage(m_device->device(), srcImage, NULL);
+    vkDestroyImage(m_device->device(), dstImage, NULL);
+    vkFreeMemory(m_device->device(), srcMem, NULL);
+    vkFreeMemory(m_device->device(), destMem, NULL);
+}
+
+TEST_F(VkLayerTest, CopyImageDstSizeExceeded) {
+    VkResult err;
+    bool pass;
+
+    // Image copy with dest region specified greater than dest image size
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT,
+        "exceeds extents dstImage was created with");
+
+    ASSERT_NO_FATAL_FAILURE(InitState());
+
+    // Create two images of different sizes and try to copy between them
+    VkImage srcImage;
+    VkImage dstImage;
+    VkDeviceMemory srcMem;
+    VkDeviceMemory destMem;
+    VkMemoryRequirements memReqs;
+
+    VkImageCreateInfo image_create_info = {};
+    image_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    image_create_info.pNext = NULL;
+    image_create_info.imageType = VK_IMAGE_TYPE_2D;
+    image_create_info.format = VK_FORMAT_B8G8R8A8_UNORM;
+    image_create_info.extent.width = 64;
+    image_create_info.extent.height = 64;
+    image_create_info.extent.depth = 1;
+    image_create_info.mipLevels = 1;
+    image_create_info.arrayLayers = 1;
+    image_create_info.samples = VK_SAMPLE_COUNT_1_BIT;
+    image_create_info.tiling = VK_IMAGE_TILING_LINEAR;
+    image_create_info.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    image_create_info.flags = 0;
+
+    // Create a 64x64 src image
+    err = vkCreateImage(m_device->device(), &image_create_info, NULL, &srcImage);
+    ASSERT_VK_SUCCESS(err);
+
+    // And a 32x32 dst image
+    image_create_info.extent.width = 32;
+    image_create_info.extent.height = 32;
+    image_create_info.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    err = vkCreateImage(m_device->device(), &image_create_info, NULL, &dstImage);
+    ASSERT_VK_SUCCESS(err);
+
+    // Allocate memory
+    VkMemoryAllocateInfo memAlloc = {};
+    memAlloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    memAlloc.pNext = NULL;
+    memAlloc.allocationSize = 0;
+    memAlloc.memoryTypeIndex = 0;
+
+    vkGetImageMemoryRequirements(m_device->device(), srcImage, &memReqs);
+    memAlloc.allocationSize = memReqs.size;
+    pass = m_device->phy().set_memory_type(memReqs.memoryTypeBits, &memAlloc, 0);
+    ASSERT_TRUE(pass);
+    err = vkAllocateMemory(m_device->device(), &memAlloc, NULL, &srcMem);
+    ASSERT_VK_SUCCESS(err);
+
+    vkGetImageMemoryRequirements(m_device->device(), dstImage, &memReqs);
+    memAlloc.allocationSize = memReqs.size;
+    pass = m_device->phy().set_memory_type(memReqs.memoryTypeBits, &memAlloc, 0);
+    ASSERT_TRUE(pass);
+    err = vkAllocateMemory(m_device->device(), &memAlloc, NULL, &destMem);
+    ASSERT_VK_SUCCESS(err);
+
+    err = vkBindImageMemory(m_device->device(), srcImage, srcMem, 0);
+    ASSERT_VK_SUCCESS(err);
+    err = vkBindImageMemory(m_device->device(), dstImage, destMem, 0);
+    ASSERT_VK_SUCCESS(err);
+
+    BeginCommandBuffer();
+    VkImageCopy copyRegion;
+    copyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    copyRegion.srcSubresource.mipLevel = 0;
+    copyRegion.srcSubresource.baseArrayLayer = 0;
+    copyRegion.srcSubresource.layerCount = 0;
+    copyRegion.srcOffset.x = 0;
+    copyRegion.srcOffset.y = 0;
+    copyRegion.srcOffset.z = 0;
+    copyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    copyRegion.dstSubresource.mipLevel = 0;
+    copyRegion.dstSubresource.baseArrayLayer = 0;
+    copyRegion.dstSubresource.layerCount = 0;
+    copyRegion.dstOffset.x = 0;
+    copyRegion.dstOffset.y = 0;
+    copyRegion.dstOffset.z = 0;
+    copyRegion.extent.width = 64;
+    copyRegion.extent.height = 64;
+    copyRegion.extent.depth = 1;
+    m_commandBuffer->CopyImage(srcImage, VK_IMAGE_LAYOUT_GENERAL, dstImage, VK_IMAGE_LAYOUT_GENERAL, 1, &copyRegion);
+    EndCommandBuffer();
+
+    m_errorMonitor->VerifyFound();
+
+    vkDestroyImage(m_device->device(), srcImage, NULL);
+    vkDestroyImage(m_device->device(), dstImage, NULL);
+    vkFreeMemory(m_device->device(), srcMem, NULL);
+    vkFreeMemory(m_device->device(), destMem, NULL);
+}
+
 TEST_F(VkLayerTest, CopyImageFormatSizeMismatch) {
     VkResult err;
     bool pass;
@@ -17919,7 +18118,7 @@ TEST_F(VkLayerTest, CopyImageDepthStencilFormatMismatch) {
     // Introduce failure by creating second image with a depth/stencil format
     image_create_info.tiling = VK_IMAGE_TILING_OPTIMAL;
     image_create_info.format = VK_FORMAT_D24_UNORM_S8_UINT;
-    image_create_info.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    image_create_info.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
     err = vkCreateImage(m_device->device(), &image_create_info, NULL, &dstImage);
     ASSERT_VK_SUCCESS(err);
