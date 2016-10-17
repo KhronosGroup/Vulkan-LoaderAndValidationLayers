@@ -122,6 +122,8 @@ The Draw State portion of the core validation layer tracks state leading into Dr
 | Proper synchronization of acquired images | vkAcquireNextImageKHR should be called with a valid semaphore and/or fence | SWAPCHAIN_NO_SYNC_FOR_ACQUIRE | vkAcquireNextImageKHR | TODO | None |
 | Swapchain image index too large | Validates that an image index is within the number of images in a swapchain | SWAPCHAIN_INVALID_IMAGE | vkQueuePresentKHR | VkWsiEnabledLayerTest.TestEnabledWsi | None |
 | Can't present a non-owned image | Validates that application only presents images that it owns | SWAPCHAIN_IMAGE_NOT_ACQUIRED | vkQueuePresentKHR | TODO | None |
+| Surface already has swapchain | Cannot create a swapchain for a surface that already has one [other than the swapchain being replaced] | SWAPCHAIN_ALREADY_EXISTS | vkCreateSwapchainKHR | TODO | None |
+| Swapchain replacement | pCreateInfo->surface must match pCreateInfo->oldSwapchain's surface | SWAPCHAIN_WRONG_SURFACE | vkCreateSwapchainKHR | TODO | None |
 
 ### VK_LAYER_LUNARG_core_validation Draw State Pending Work
 
@@ -141,15 +143,15 @@ It flags errors when inconsistencies are found across interfaces between shader 
 | Non-SPIRV shader | Flag warning if a non-SPIR-V shader image is detected. This can occur if early drivers are ingesting GLSL. VK_LAYER_LUNARG_ShaderChecker cannot analyze non-SPIRV shaders, so this suppresses most other checks. | NON_SPIRV_SHADER | vkCreateGraphicsPipelines | TODO | NA |
 | VI Binding Descriptions | Validate that there is a single vertex input binding description for each binding | INCONSISTENT_VI | vkCreateGraphicsPipelines | CreatePipelineAttribBindingConflict | NA |
 | Shader Stage Check | Warns if shader stage is unsupported | UNKNOWN_STAGE | vkCreateGraphicsPipelines | TODO | NA |
-| Shader Specialization | Error if specialization entry data is not fully contained within the specialization data block. | BAD_SPECIALIZATION | vkCreateGraphicsPipelines vkCreateComputePipelines | TODO | NA |
+| Shader Specialization | Error if specialization entry data is not fully contained within the specialization data block. | BAD_SPECIALIZATION | vkCreateGraphicsPipelines vkCreateComputePipelines | CreatePipelineCheckShaderBadSpecialization | NA |
 | Missing Descriptor | Flags error if shader attempts to use a descriptor binding not declared in the layout | MISSING_DESCRIPTOR | vkCreateGraphicsPipelines | CreatePipelineUniformBlockNotProvided | NA |
 | Missing Entrypoint | Flags error if specified entrypoint is not present in the shader module | MISSING_ENTRYPOINT | vkCreateGraphicsPipelines | TODO | NA |
 | Push constant out of range | Flags error if a member of a push constant block is not contained within a push constant range specified in the pipeline layout | PUSH_CONSTANT_OUT_OF_RANGE | vkCreateGraphicsPipelines | CreatePipelinePushConstantsNotInLayout | NA |
-| Push constant not accessible from stage | Flags error if the push constant range containing a push constant block member is not accessible from the current shader stage. | PUSH_CONSTANT_NOT_ACCESSIBLE_FROM_STAGE | vkCreateGraphicsPipelines | TODO | NA |
-| Descriptor not accessible from stage | Flags error if a descriptor used by a shader stage does not include that stage in its stageFlags | DESCRIPTOR_NOT_ACCESSIBLE_FROM_STAGE | vkCreateGraphicsPipelines | TODO | NA |
-| Descriptor type mismatch | Flags error if a descriptor type does not match the shader resource type. | DESCRIPTOR_TYPE_MISMATCH | vkCreateGraphicsPipelines | TODO | NA |
-| Feature not enabled | Flags error if a capability declared by the shader requires a feature not enabled on the device | FEATURE_NOT_ENABLED | vkCreateGraphicsPipelines | TODO | NA |
-| Bad capability | Flags error if a capability declared by the shader is not supported by Vulkan shaders | BAD_CAPABILITY | vkCreateGraphicsPipelines | TODO | NA |
+| Push constant not accessible from stage | Flags error if the push constant range containing a push constant block member is not accessible from the current shader stage. | PUSH_CONSTANT_NOT_ACCESSIBLE_FROM_STAGE | vkCreateGraphicsPipelines | CreatePipelineCheckShaderPushConstantNotAccessible | NA |
+| Descriptor not accessible from stage | Flags error if a descriptor used by a shader stage does not include that stage in its stageFlags | DESCRIPTOR_NOT_ACCESSIBLE_FROM_STAGE | vkCreateGraphicsPipelines | CreatePipelineCheckShaderDescriptorNotAccessible | NA |
+| Descriptor type mismatch | Flags error if a descriptor type does not match the shader resource type. | DESCRIPTOR_TYPE_MISMATCH | vkCreateGraphicsPipelines | CreatePipelineCheckShaderDescriptorTypeMismatch | NA |
+| Feature not enabled | Flags error if a capability declared by the shader requires a feature not enabled on the device | FEATURE_NOT_ENABLED | vkCreateGraphicsPipelines | CreatePipelineCheckShaderNotEnabled | NA |
+| Bad capability | Flags error if a capability declared by the shader is not supported by Vulkan shaders | BAD_CAPABILITY | vkCreateGraphicsPipelines | CreatePipelineCheckShaderBadCapability | NA |
 | Missing input attachment | Flags error if shader consumes an input attachment which is not provided in the subpass in which a pipeline will be used | MISSING_INPUT_ATTACHMENT | vkCreateGraphicsPipelines | CreatePipelineInputAttachment* | NA |
 | Input attachment type mismatch | Flags error if shader's declaration of an input attachment has a type inconsistent with the format declared in the renderpass | INPUT_ATTACHMENT_TYPE_MISMATCH | vkCreateGraphicsPipelines | CreatePipelineInputAttachmentTypeMismatch | NA |
 | NA | Enum used for informational messages | NONE | | TODO | None |
@@ -348,8 +350,6 @@ This layer is a work in progress. VK_LAYER_LUNARG_swapchain layer is intended to
 | vkCreateSwapchainKHR(pCreateInfo->presentMode) | Validates vkCreateSwapchainKHR(pCreateInfo->presentMode) | CREATE_SWAP_BAD_PRESENT_MODE | vkCreateSwapchainKHR | TODO | None |
 | vkCreateSwapchainKHR(pCreateInfo->imageSharingMode) | Validates vkCreateSwapchainKHR(pCreateInfo->imageSharingMode) | CREATE_SWAP_BAD_SHARING_MODE | vkCreateSwapchainKHR | VkWsiEnabledLayerTest.TestEnabledWsi | None |
 | vkCreateSwapchainKHR(pCreateInfo->imageSharingMode) | Validates vkCreateSwapchainKHR(pCreateInfo->imageSharingMode) | CREATE_SWAP_BAD_SHARING_VALUES | vkCreateSwapchainKHR | VkWsiEnabledLayerTest.TestEnabledWsi | None |
-| vkCreateSwapchainKHR(pCreateInfo->oldSwapchain and pCreateInfo->surface) | pCreateInfo->surface must match pCreateInfo->oldSwapchain's surface | CREATE_SWAP_DIFF_SURFACE | vkCreateSwapchainKHR | TODO | None |
-| Use same device for swapchain | Validates that vkDestroySwapchainKHR() called with the same VkDevice as vkCreateSwapchainKHR() | DESTROY_SWAP_DIFF_DEVICE | vkCreateSwapchainKHR vkDestroySwapchainKHR | TODO | None |
 | Don't acquire too many images | Validates that app never tries to acquire too many swapchain images at a time | APP_ACQUIRES_TOO_MANY_IMAGES | vkAcquireNextImageKHR | TODO | None |
 | A VkBool32 must have values of VK_TRUE or VK_FALSE | Validates that a VkBool32 must have values of VK_TRUE or VK_FALSE | BAD_BOOL | vkCreateSwapchainKHR | TODO | None |
 | pCount must be set by the API before the other pointer is non-NULL | Validates that app queries for the value of pCount before trying to set it | PRIOR_COUNT | vkGetPhysicalDeviceSurfaceFormatsKHR vkGetPhysicalDeviceSurfacePresentModesKHR vkGetSwapchainImagesKHR | VkWsiEnabledLayerTest.TestEnabledWsi | None |
