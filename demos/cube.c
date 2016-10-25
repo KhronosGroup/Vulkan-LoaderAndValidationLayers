@@ -438,7 +438,7 @@ dbgFunc(VkFlags msgFlags, VkDebugReportObjectTypeEXT objType,
         sprintf(message, "WARNING: [%s] Code %d : %s", pLayerPrefix, msgCode, pMsg);
         validation_error = 1;
     } else if (msgFlags & VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT) {
-        sprintf(message, "PERFOERMANCE WARNING: [%s] Code %d : %s", pLayerPrefix, msgCode, pMsg);
+        sprintf(message, "PERFORMANCE WARNING: [%s] Code %d : %s", pLayerPrefix, msgCode, pMsg);
         validation_error = 1;
     } else if (msgFlags & VK_DEBUG_REPORT_ERROR_BIT_EXT) {
         sprintf(message, "ERROR: [%s] Code %d : %s", pLayerPrefix, msgCode, pMsg);
@@ -560,7 +560,9 @@ static void demo_set_image_layout(struct demo *demo, VkImage image,
                                   VkImageAspectFlags aspectMask,
                                   VkImageLayout old_image_layout,
                                   VkImageLayout new_image_layout,
-                                  VkAccessFlagBits srcAccessMask) {
+                                  VkAccessFlagBits srcAccessMask,
+                                  VkPipelineStageFlags src_stages,
+                                  VkPipelineStageFlags dest_stages) {
     VkResult U_ASSERT_ONLY err;
 
     if (demo->cmd == VK_NULL_HANDLE) {
@@ -594,35 +596,42 @@ static void demo_set_image_layout(struct demo *demo, VkImage image,
         .image = image,
         .subresourceRange = {aspectMask, 0, 1, 0, 1}};
 
-    if (new_image_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+    switch (new_image_layout) {
+    case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
         /* Make sure anything that was copying from this image has completed */
-        image_memory_barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-    }
+        image_memory_barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        break;
 
-    if (new_image_layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+    case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
         image_memory_barrier.dstAccessMask =
             VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    }
+        break;
 
-    if (new_image_layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+    case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
         image_memory_barrier.dstAccessMask =
             VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-    }
+        break;
 
-    if (new_image_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-        /* Make sure any Copy or CPU writes to image are flushed */
+    case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
         image_memory_barrier.dstAccessMask =
             VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
+        break;
+
+    case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+        image_memory_barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        break;
+
+    case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
+        image_memory_barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+        break;
+
+    default:
+        image_memory_barrier.dstAccessMask = 0;
+        break;
     }
 
-    if (new_image_layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
-        image_memory_barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-    }
 
     VkImageMemoryBarrier *pmemory_barrier = &image_memory_barrier;
-
-    VkPipelineStageFlags src_stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-    VkPipelineStageFlags dest_stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 
     vkCmdPipelineBarrier(demo->cmd, src_stages, dest_stages, 0, 0, NULL, 0,
                          NULL, 1, pmemory_barrier);
@@ -655,25 +664,7 @@ static void demo_draw_build_cmd(struct demo *demo, VkCommandBuffer cmd_buf) {
 
     err = vkBeginCommandBuffer(cmd_buf, &cmd_buf_info);
     assert(!err);
-
-    VkImageMemoryBarrier image_memory_barrier = {
-        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-        .pNext = NULL,
-        .srcAccessMask = VK_ACCESS_MEMORY_READ_BIT,
-        .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-        .oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-        .newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image = demo->buffers[demo->current_buffer].image,
-        .subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}};
-
-    vkCmdPipelineBarrier(cmd_buf, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0,
-                         NULL, 0, NULL, 1, &image_memory_barrier);
-
     vkCmdBeginRenderPass(cmd_buf, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
-
     vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, demo->pipeline);
     vkCmdBindDescriptorSets(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS,
                             demo->pipeline_layout, 0, 1, &demo->desc_set, 0,
@@ -718,7 +709,7 @@ static void demo_draw_build_cmd(struct demo *demo, VkCommandBuffer cmd_buf) {
 
         vkCmdPipelineBarrier(cmd_buf,
                              VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0,
+                             VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0,
                              0, NULL, 0, NULL, 1, &image_ownership_barrier);
     }
     err = vkEndCommandBuffer(cmd_buf);
@@ -1077,12 +1068,6 @@ static void demo_prepare_buffers(struct demo *demo) {
                                 &demo->buffers[i].view);
         assert(!err);
 
-        // The draw loop will be expecting the presentable images to be in
-        // LAYOUT_PRESENT_SRC_KHR
-        // since that's how they're left at the end of every frame.
-        demo_set_image_layout(
-            demo, demo->buffers[i].image, VK_IMAGE_ASPECT_COLOR_BIT,
-            VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, 0);
     }
 
     if (NULL != presentModes) {
@@ -1152,11 +1137,6 @@ static void demo_prepare_depth(struct demo *demo) {
     err =
         vkBindImageMemory(demo->device, demo->depth.image, demo->depth.mem, 0);
     assert(!err);
-
-    demo_set_image_layout(demo, demo->depth.image, VK_IMAGE_ASPECT_DEPTH_BIT,
-                          VK_IMAGE_LAYOUT_UNDEFINED,
-                          VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                          0);
 
     /* create image view */
     view.image = demo->depth.image;
@@ -1329,11 +1309,6 @@ static void demo_prepare_texture_image(struct demo *demo, const char *filename,
     }
 
     tex_obj->imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    demo_set_image_layout(demo, tex_obj->image, VK_IMAGE_ASPECT_COLOR_BIT,
-                          VK_IMAGE_LAYOUT_PREINITIALIZED, tex_obj->imageLayout,
-                          VK_ACCESS_HOST_WRITE_BIT);
-    /* setting the image layout does not reference the actual memory so no need
-     * to add a mem ref */
 }
 
 static void demo_destroy_texture_image(struct demo *demo,
@@ -1362,6 +1337,12 @@ static void demo_prepare_textures(struct demo *demo) {
                 VK_IMAGE_USAGE_SAMPLED_BIT,
                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                     VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+            // Nothing in the pipeline needs to be complete to start, and don't allow fragment
+            // shader to run until layout transition completes
+            demo_set_image_layout(demo, demo->textures[i].image, VK_IMAGE_ASPECT_COLOR_BIT,
+                                  VK_IMAGE_LAYOUT_PREINITIALIZED, demo->textures[i].imageLayout,
+                                  VK_ACCESS_HOST_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                                  VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
         } else if (props.optimalTilingFeatures &
                    VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) {
             /* Must use staging buffer to copy linear texture to optimized */
@@ -1381,15 +1362,19 @@ static void demo_prepare_textures(struct demo *demo) {
 
             demo_set_image_layout(demo, staging_texture.image,
                                   VK_IMAGE_ASPECT_COLOR_BIT,
-                                  staging_texture.imageLayout,
+                                  VK_IMAGE_LAYOUT_PREINITIALIZED,
                                   VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                                  0);
+                                  VK_ACCESS_HOST_WRITE_BIT,
+                                  VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                                  VK_PIPELINE_STAGE_TRANSFER_BIT);
 
             demo_set_image_layout(demo, demo->textures[i].image,
                                   VK_IMAGE_ASPECT_COLOR_BIT,
-                                  demo->textures[i].imageLayout,
+                                  VK_IMAGE_LAYOUT_PREINITIALIZED,
                                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                  0);
+                                  VK_ACCESS_HOST_WRITE_BIT,
+                                  VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                                  VK_PIPELINE_STAGE_TRANSFER_BIT);
 
             VkImageCopy copy_region = {
                 .srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
@@ -1408,7 +1393,9 @@ static void demo_prepare_textures(struct demo *demo) {
                                   VK_IMAGE_ASPECT_COLOR_BIT,
                                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                                   demo->textures[i].imageLayout,
-                                  0);
+                                  VK_ACCESS_TRANSFER_WRITE_BIT,
+                                  VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                  VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 
             demo_flush_init_cmd(demo);
 
@@ -1579,6 +1566,14 @@ static void demo_prepare_descriptor_layout(struct demo *demo) {
 }
 
 static void demo_prepare_render_pass(struct demo *demo) {
+    // The initial layout for the color and depth attachments will be LAYOUT_UNDEFINED
+    // because at the start of the renderpass, we don't care about their contents.
+    // At the start of the subpass, the color attachment's layout will be transitioned
+    // to LAYOUT_COLOR_ATTACHMENT_OPTIMAL and the depth stencil attachment's layout
+    // will be transitioned to LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL.  At the end of
+    // the renderpass, the color attachment's layout will be transitioned to
+    // LAYOUT_PRESENT_SRC_KHR to be ready to present.  This is all done as part of
+    // the renderpass, no barriers are necessary.
     const VkAttachmentDescription attachments[2] = {
             [0] =
                 {
@@ -1588,7 +1583,7 @@ static void demo_prepare_render_pass(struct demo *demo) {
                  .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
                  .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
                  .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-                 .initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                 .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
                  .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
                 },
             [1] =
@@ -1600,7 +1595,7 @@ static void demo_prepare_render_pass(struct demo *demo) {
                  .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
                  .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
                  .initialLayout =
-                     VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                     VK_IMAGE_LAYOUT_UNDEFINED,
                  .finalLayout =
                      VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
                 },

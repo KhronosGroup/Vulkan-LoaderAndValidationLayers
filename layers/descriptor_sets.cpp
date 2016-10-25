@@ -40,7 +40,7 @@ cvdescriptorset::DescriptorSetLayout::DescriptorSetLayout(debug_report_data *rep
         binding_to_global_start_index_map_[p_create_info->pBindings[i].binding] = global_index;
         global_index += p_create_info->pBindings[i].descriptorCount ? p_create_info->pBindings[i].descriptorCount - 1 : 0;
         binding_to_global_end_index_map_[p_create_info->pBindings[i].binding] = global_index;
-        global_index++;
+        global_index += p_create_info->pBindings[i].descriptorCount ? 1 : 0;
         bindings_.push_back(safe_VkDescriptorSetLayoutBinding(&p_create_info->pBindings[i]));
         // In cases where we should ignore pImmutableSamplers make sure it's NULL
         if ((p_create_info->pBindings[i].pImmutableSamplers) &&
@@ -386,12 +386,12 @@ bool cvdescriptorset::DescriptorSet::ValidateDrawState(const std::map<uint32_t, 
                             *error = error_str.str();
                             return false;
                         } else {
-                            auto mem_entry = getMemObjInfo(device_data_, buffer_node->mem);
+                            auto mem_entry = getMemObjInfo(device_data_, buffer_node->binding.mem);
                             if (!mem_entry) {
                                 std::stringstream error_str;
                                 error_str << "Descriptor in binding #" << binding << " at global descriptor index " << i
-                                          << " uses buffer " << buffer << " that references invalid memory " << buffer_node->mem
-                                          << ".";
+                                          << " uses buffer " << buffer << " that references invalid memory "
+                                          << buffer_node->binding.mem << ".";
                                 *error = error_str.str();
                                 return false;
                             }
@@ -780,7 +780,7 @@ bool cvdescriptorset::ValidateImageUpdate(VkImageView image_view, VkImageLayout 
         }
         break;
     default:
-        // For other layouts if the source is ds image, both aspect bits must not be set
+        // For other layouts if the source is depth/stencil image, both aspect bits must not be set
         if (ds) {
             if (aspect_mask & VK_IMAGE_ASPECT_DEPTH_BIT) {
                 if (aspect_mask & VK_IMAGE_ASPECT_STENCIL_BIT) {
