@@ -483,7 +483,7 @@ LOADER_EXPORT VKAPI_ATTR void VKAPI_CALL vkDestroyInstance(
         return;
     }
 
-    disp = loader_get_instance_dispatch(instance);
+    disp = loader_get_instance_layer_dispatch(instance);
 
     loader_platform_thread_lock_mutex(&loader_lock);
 
@@ -507,6 +507,7 @@ LOADER_EXPORT VKAPI_ATTR void VKAPI_CALL vkDestroyInstance(
 
     loader_deactivate_layers(ptr_instance, NULL,
                              &ptr_instance->activated_layer_list);
+
     if (ptr_instance->phys_devs_tramp) {
         loader_instance_heap_free(ptr_instance, ptr_instance->phys_devs_tramp);
     }
@@ -530,7 +531,7 @@ vkEnumeratePhysicalDevices(VkInstance instance, uint32_t *pPhysicalDeviceCount,
     VkResult res;
     uint32_t count, i;
     struct loader_instance *inst;
-    disp = loader_get_instance_dispatch(instance);
+    disp = loader_get_instance_layer_dispatch(instance);
 
     loader_platform_thread_lock_mutex(&loader_lock);
 
@@ -550,9 +551,9 @@ vkEnumeratePhysicalDevices(VkInstance instance, uint32_t *pPhysicalDeviceCount,
         goto out;
     }
 
-    VkResult temp_res = setupLoaderTrampPhysDevs(inst);
-    if (VK_SUCCESS != temp_res) {
-        res = temp_res;
+    VkResult setup_res = setupLoaderTrampPhysDevs(inst);
+    if (VK_SUCCESS != setup_res) {
+        res = setup_res;
         goto out;
     }
 
@@ -577,7 +578,7 @@ LOADER_EXPORT VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceFeatures(
     const VkLayerInstanceDispatchTable *disp;
     VkPhysicalDevice unwrapped_phys_dev =
         loader_unwrap_physical_device(physicalDevice);
-    disp = loader_get_instance_dispatch(physicalDevice);
+    disp = loader_get_instance_layer_dispatch(physicalDevice);
     disp->GetPhysicalDeviceFeatures(unwrapped_phys_dev, pFeatures);
 }
 
@@ -587,7 +588,7 @@ LOADER_EXPORT VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceFormatProperties(
     const VkLayerInstanceDispatchTable *disp;
     VkPhysicalDevice unwrapped_pd =
         loader_unwrap_physical_device(physicalDevice);
-    disp = loader_get_instance_dispatch(physicalDevice);
+    disp = loader_get_instance_layer_dispatch(physicalDevice);
     disp->GetPhysicalDeviceFormatProperties(unwrapped_pd, format, pFormatInfo);
 }
 
@@ -599,7 +600,7 @@ vkGetPhysicalDeviceImageFormatProperties(
     const VkLayerInstanceDispatchTable *disp;
     VkPhysicalDevice unwrapped_phys_dev =
         loader_unwrap_physical_device(physicalDevice);
-    disp = loader_get_instance_dispatch(physicalDevice);
+    disp = loader_get_instance_layer_dispatch(physicalDevice);
     return disp->GetPhysicalDeviceImageFormatProperties(
         unwrapped_phys_dev, format, type, tiling, usage, flags,
         pImageFormatProperties);
@@ -610,7 +611,7 @@ LOADER_EXPORT VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceProperties(
     const VkLayerInstanceDispatchTable *disp;
     VkPhysicalDevice unwrapped_phys_dev =
         loader_unwrap_physical_device(physicalDevice);
-    disp = loader_get_instance_dispatch(physicalDevice);
+    disp = loader_get_instance_layer_dispatch(physicalDevice);
     disp->GetPhysicalDeviceProperties(unwrapped_phys_dev, pProperties);
 }
 
@@ -621,7 +622,7 @@ vkGetPhysicalDeviceQueueFamilyProperties(
     const VkLayerInstanceDispatchTable *disp;
     VkPhysicalDevice unwrapped_phys_dev =
         loader_unwrap_physical_device(physicalDevice);
-    disp = loader_get_instance_dispatch(physicalDevice);
+    disp = loader_get_instance_layer_dispatch(physicalDevice);
     disp->GetPhysicalDeviceQueueFamilyProperties(
         unwrapped_phys_dev, pQueueFamilyPropertyCount, pQueueProperties);
 }
@@ -632,7 +633,7 @@ LOADER_EXPORT VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceMemoryProperties(
     const VkLayerInstanceDispatchTable *disp;
     VkPhysicalDevice unwrapped_phys_dev =
         loader_unwrap_physical_device(physicalDevice);
-    disp = loader_get_instance_dispatch(physicalDevice);
+    disp = loader_get_instance_layer_dispatch(physicalDevice);
     disp->GetPhysicalDeviceMemoryProperties(unwrapped_phys_dev,
                                             pMemoryProperties);
 }
@@ -663,7 +664,7 @@ LOADER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkCreateDevice(
     }
 
     res = loader_add_device_extensions(
-        inst, inst->disp->EnumerateDeviceExtensionProperties,
+        inst, inst->disp->layer_inst_disp.EnumerateDeviceExtensionProperties,
         phys_dev->phys_dev, "Unknown", &icd_exts);
     if (res != VK_SUCCESS) {
         goto out;
@@ -772,7 +773,7 @@ vkEnumerateDeviceExtensionProperties(VkPhysicalDevice physicalDevice,
     if (pLayerName == NULL || strlen(pLayerName) == 0) {
         const VkLayerInstanceDispatchTable *disp;
 
-        disp = loader_get_instance_dispatch(physicalDevice);
+        disp = loader_get_instance_layer_dispatch(physicalDevice);
         res = disp->EnumerateDeviceExtensionProperties(
             phys_dev->phys_dev, NULL, pPropertyCount, pProperties);
     } else {
@@ -1112,7 +1113,7 @@ vkGetPhysicalDeviceSparseImageFormatProperties(
     const VkLayerInstanceDispatchTable *disp;
     VkPhysicalDevice unwrapped_phys_dev =
         loader_unwrap_physical_device(physicalDevice);
-    disp = loader_get_instance_dispatch(physicalDevice);
+    disp = loader_get_instance_layer_dispatch(physicalDevice);
 
     disp->GetPhysicalDeviceSparseImageFormatProperties(
         unwrapped_phys_dev, format, type, samples, usage, tiling,

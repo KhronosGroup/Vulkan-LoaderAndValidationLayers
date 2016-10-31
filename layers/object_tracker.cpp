@@ -46,6 +46,8 @@
 
 namespace object_tracker {
 
+static uint32_t loader_layer_if_version = CURRENT_LOADER_LAYER_INTERFACE_VERSION;
+
 static void InitObjectTracker(layer_data *my_data, const VkAllocationCallbacks *pAllocator) {
 
     layer_debug_actions(my_data->report_data, my_data->logging_callback, pAllocator, "lunarg_object_tracker");
@@ -572,6 +574,8 @@ VKAPI_ATTR void VKAPI_CALL GetPhysicalDeviceMemoryProperties(VkPhysicalDevice ph
 VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetInstanceProcAddr(VkInstance instance, const char *pName);
 
 VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetDeviceProcAddr(VkDevice device, const char *pName);
+
+VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetPhysicalDeviceProcAddr(VkInstance instance, const char *funcName);
 
 VKAPI_ATTR VkResult VKAPI_CALL EnumerateInstanceExtensionProperties(const char *pLayerName, uint32_t *pPropertyCount,
                                                                     VkExtensionProperties *pProperties);
@@ -5095,6 +5099,8 @@ static inline PFN_vkVoidFunction InterceptCoreInstanceCommand(const char *name) 
         return (PFN_vkVoidFunction)DestroyInstance;
     if (!strcmp(name, "EnumeratePhysicalDevices"))
         return (PFN_vkVoidFunction)EnumeratePhysicalDevices;
+    if (!strcmp(name, "_layerGetPhysicalDeviceProcAddr"))
+        return (PFN_vkVoidFunction)GetPhysicalDeviceProcAddr;
     if (!strcmp(name, "GetPhysicalDeviceFeatures"))
         return (PFN_vkVoidFunction)GetPhysicalDeviceFeatures;
     if (!strcmp(name, "GetPhysicalDeviceFormatProperties"))
@@ -5373,6 +5379,15 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetInstanceProcAddr(VkInstance instance
     return get_dispatch_table(ot_instance_table_map, instance)->GetInstanceProcAddr(instance, funcName);
 }
 
+VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetPhysicalDeviceProcAddr(VkInstance instance, const char *funcName) {
+    assert(instance);
+
+    if (get_dispatch_table(ot_instance_table_map, instance)->GetPhysicalDeviceProcAddr == NULL) {
+        return NULL;
+    }
+    return get_dispatch_table(ot_instance_table_map, instance)->GetPhysicalDeviceProcAddr(instance, funcName);
+}
+
 } // namespace object_tracker
 
 // vk_layer_logging.h expects these to be defined
@@ -5426,4 +5441,28 @@ VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateDeviceExtensionPropert
     // The layer command handles VK_NULL_HANDLE just fine internally
     assert(physicalDevice == VK_NULL_HANDLE);
     return object_tracker::EnumerateDeviceExtensionProperties(VK_NULL_HANDLE, pLayerName, pCount, pProperties);
+}
+
+VK_LAYER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vk_layerGetPhysicalDeviceProcAddr(VkInstance instance, const char *funcName) {
+    return object_tracker::GetPhysicalDeviceProcAddr(instance, funcName);
+}
+
+VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkNegotiateLoaderLayerInterfaceVersion(VkNegotiateLayerInterface *pVersionStruct) {
+    assert(pVersionStruct != NULL);
+    assert(pVersionStruct->sType == LAYER_NEGOTIATE_INTERFACE_STRUCT);
+
+    // Fill in the function pointers if our version is at least capable of having the structure contain them.
+    if (pVersionStruct->loaderLayerInterfaceVersion >= 2) {
+        pVersionStruct->pfnGetInstanceProcAddr = vkGetInstanceProcAddr;
+        pVersionStruct->pfnGetDeviceProcAddr = vkGetDeviceProcAddr;
+        pVersionStruct->pfnGetPhysicalDeviceProcAddr = vk_layerGetPhysicalDeviceProcAddr;
+    }
+
+    if (pVersionStruct->loaderLayerInterfaceVersion < CURRENT_LOADER_LAYER_INTERFACE_VERSION) {
+        object_tracker::loader_layer_if_version = pVersionStruct->loaderLayerInterfaceVersion;
+    } else if (pVersionStruct->loaderLayerInterfaceVersion > CURRENT_LOADER_LAYER_INTERFACE_VERSION) {
+        pVersionStruct->loaderLayerInterfaceVersion = CURRENT_LOADER_LAYER_INTERFACE_VERSION;
+    }
+
+    return VK_SUCCESS;
 }

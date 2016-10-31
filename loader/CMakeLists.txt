@@ -62,6 +62,7 @@ set(NORMAL_LOADER_SRCS
 
 set (OPT_LOADER_SRCS
     dev_ext_trampoline.c
+    phys_dev_ext.c
 )
 
 set (LOADER_SRCS ${NORMAL_LOADER_SRCS} ${OPT_LOADER_SRCS})

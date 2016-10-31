@@ -35,6 +35,40 @@
 #define VK_LAYER_EXPORT
 #endif
 
+#define MAX_NUM_UNKNOWN_EXTS 250
+
+ // Loader-Layer version negotiation API.  Versions add the following features:
+ //   Versions 0/1 - Initial.  Doesn't support vk_layerGetPhysicalDeviceProcAddr
+ //                  or vk_icdNegotiateLoaderLayerInterfaceVersion.
+ //   Version 2    - Add support for vk_layerGetPhysicalDeviceProcAddr and
+ //                  vk_icdNegotiateLoaderLayerInterfaceVersion.
+#define CURRENT_LOADER_LAYER_INTERFACE_VERSION 2
+#define MIN_SUPPORTED_LOADER_LAYER_INTERFACE_VERSION 0
+
+ // Internal function
+typedef PFN_vkVoidFunction (VKAPI_PTR *PFN_GetPhysicalDeviceProcAddr)(VkInstance instance, const char* pName);
+
+// Version negotiation values
+typedef enum VkNegotiateLayerStructType {
+    LAYER_NEGOTIATE_INTERFACE_STRUCT = 0,
+} VkNegotiateLayerStructType;
+
+// Version negotiation structures
+typedef struct VkNegotiateLayerInterface {
+    VkNegotiateLayerStructType sType;
+    void *pNext;
+    uint32_t loaderLayerInterfaceVersion;
+    PFN_vkGetInstanceProcAddr pfnGetInstanceProcAddr;
+    PFN_vkGetDeviceProcAddr pfnGetDeviceProcAddr;
+    PFN_GetPhysicalDeviceProcAddr pfnGetPhysicalDeviceProcAddr;
+} VkNegotiateLayerInterface;
+
+// Version negotiation functions
+typedef VkResult (VKAPI_PTR *PFN_vkNegotiateLoaderLayerInterfaceVersion)(VkNegotiateLayerInterface *pVersionStruct);
+
+// Function prototype for unknown physical device extension command
+typedef VkResult(VKAPI_PTR *PFN_PhysDevExt)(VkPhysicalDevice phys_device, ...);
+
 typedef struct VkLayerDispatchTable_ {
     PFN_vkGetDeviceProcAddr GetDeviceProcAddr;
     PFN_vkDestroyDevice DestroyDevice;
@@ -224,6 +258,7 @@ typedef struct VkLayerDispatchTable_ {
 
 typedef struct VkLayerInstanceDispatchTable_ {
     PFN_vkGetInstanceProcAddr GetInstanceProcAddr;
+    PFN_GetPhysicalDeviceProcAddr GetPhysicalDeviceProcAddr;
     PFN_vkDestroyInstance DestroyInstance;
     PFN_vkEnumeratePhysicalDevices EnumeratePhysicalDevices;
     PFN_vkGetPhysicalDeviceFeatures GetPhysicalDeviceFeatures;
@@ -352,6 +387,7 @@ typedef enum VkLayerFunction_ {
 typedef struct VkLayerInstanceLink_ {
     struct VkLayerInstanceLink_ *pNext;
     PFN_vkGetInstanceProcAddr pfnNextGetInstanceProcAddr;
+    PFN_GetPhysicalDeviceProcAddr pfnNextGetPhysicalDeviceProcAddr;
 } VkLayerInstanceLink;
 
 /*

@@ -52,6 +52,13 @@
 #define VK_MINOR(version) ((version >> 12) & 0x3ff)
 #define VK_PATCH(version) (version & 0xfff)
 
+// This is defined in vk_layer.h, but if there's problems we need to create the define
+// here.
+#ifndef MAX_NUM_UNKNOWN_EXTS
+#define MAX_NUM_UNKNOWN_EXTS 250
+#endif
+
+
 enum layer_type {
     VK_LAYER_TYPE_INSTANCE_EXPLICIT = 0x1,
     VK_LAYER_TYPE_INSTANCE_IMPLICIT = 0x2,
@@ -82,8 +89,8 @@ static const char std_validation_names[7][VK_MAX_EXTENSION_NAME_SIZE] = {
      "VK_LAYER_GOOGLE_unique_objects"};
 
 struct VkStructureHeader {
-    VkStructureType          sType;
-    const void*              pNext;
+    VkStructureType sType;
+    const void* pNext;
 };
 
 // form of all dynamic lists/arrays
@@ -120,13 +127,17 @@ struct loader_name_value {
 struct loader_layer_functions {
     char str_gipa[MAX_STRING_SIZE];
     char str_gdpa[MAX_STRING_SIZE];
+    char str_negotiate_interface[MAX_STRING_SIZE];
+    PFN_vkNegotiateLoaderLayerInterfaceVersion negotiate_layer_interface;
     PFN_vkGetInstanceProcAddr get_instance_proc_addr;
     PFN_vkGetDeviceProcAddr get_device_proc_addr;
+    PFN_GetPhysicalDeviceProcAddr get_physical_device_proc_addr;
 };
 
 struct loader_layer_properties {
     VkLayerProperties info;
     enum layer_type type;
+    uint32_t interface_version; // PFN_vkNegotiateLoaderLayerInterfaceVersion
     char lib_name[MAX_STRING_SIZE];
     loader_platform_dl_handle lib_handle;
     struct loader_layer_functions functions;
@@ -148,7 +159,7 @@ struct loader_dispatch_hash_list {
     uint32_t *index; // index into the dev_ext dispatch table
 };
 
-#define MAX_NUM_DEV_EXTS 250
+
 // loader_dispatch_hash_entry and loader_dev_ext_dispatch_table.dev_ext have
 // one to one correspondence; one loader_dispatch_hash_entry for one dev_ext
 // dispatch entry.
@@ -160,7 +171,7 @@ struct loader_dispatch_hash_entry {
 
 typedef void(VKAPI_PTR *PFN_vkDevExt)(VkDevice device);
 struct loader_dev_ext_dispatch_table {
-    PFN_vkDevExt dev_ext[MAX_NUM_DEV_EXTS];
+    PFN_vkDevExt dev_ext[MAX_NUM_UNKNOWN_EXTS];
 };
 
 struct loader_dev_dispatch_table {
@@ -314,6 +325,8 @@ struct loader_icd_term {
         GetPhysicalDeviceGeneratedCommandsPropertiesNVX;
 
     struct loader_icd_term *next;
+
+    PFN_PhysDevExt  phys_dev_ext[MAX_NUM_UNKNOWN_EXTS];
 };
 
 // per ICD library structure
@@ -338,9 +351,16 @@ union loader_instance_extension_enables {
     uint64_t padding[4];
 };
 
+struct loader_instance_dispatch_table {
+    VkLayerInstanceDispatchTable layer_inst_disp; // must be first entry in structure
+
+    // Physical device functions unknown to the loader
+    PFN_PhysDevExt  phys_dev_ext[MAX_NUM_UNKNOWN_EXTS];
+};
+
 // per instance structure
 struct loader_instance {
-    VkLayerInstanceDispatchTable *disp; // must be first entry in structure
+    struct loader_instance_dispatch_table *disp; // must be first entry in structure
 
     uint32_t total_gpu_count;
     struct loader_physical_device_term *phys_devs_term;
@@ -352,7 +372,8 @@ struct loader_instance {
     struct loader_icd_term *icd_terms;
     struct loader_icd_tramp_list icd_tramp_list;
 
-    struct loader_dispatch_hash_entry disp_hash[MAX_NUM_DEV_EXTS];
+    struct loader_dispatch_hash_entry dev_ext_disp_hash[MAX_NUM_UNKNOWN_EXTS];
+    struct loader_dispatch_hash_entry phys_dev_ext_disp_hash[MAX_NUM_UNKNOWN_EXTS];
 
     struct loader_msg_callback_map_entry *icd_msg_callback_map;
 
@@ -408,14 +429,14 @@ struct loader_instance {
 /* per enumerated PhysicalDevice structure, used to wrap in trampoline code and
    also same structure used to wrap in terminator code */
 struct loader_physical_device_tramp {
-    VkLayerInstanceDispatchTable *disp; // must be first entry in structure
+    struct loader_instance_dispatch_table *disp; // must be first entry in structure
     struct loader_instance *this_instance;
     VkPhysicalDevice phys_dev; // object from layers/loader terminator
 };
 
 /* per enumerated PhysicalDevice structure, used to wrap in terminator code */
 struct loader_physical_device_term {
-    VkLayerInstanceDispatchTable *disp; // must be first entry in structure
+    struct loader_instance_dispatch_table *disp; // must be first entry in structure
     struct loader_icd_term *this_icd_term;
     uint8_t icd_index;
     VkPhysicalDevice phys_dev; // object from ICD
@@ -431,6 +452,7 @@ struct loader_scanned_icd {
     uint32_t api_version;
     uint32_t interface_version;
     PFN_vkGetInstanceProcAddr GetInstanceProcAddr;
+    PFN_GetPhysicalDeviceProcAddr GetPhysicalDeviceProcAddr;
     PFN_vkCreateInstance CreateInstance;
     PFN_vkEnumerateInstanceExtensionProperties
         EnumerateInstanceExtensionProperties;
@@ -461,8 +483,13 @@ loader_get_dev_dispatch(const void *obj) {
 }
 
 static inline VkLayerInstanceDispatchTable *
-loader_get_instance_dispatch(const void *obj) {
+loader_get_instance_layer_dispatch(const void *obj) {
     return *((VkLayerInstanceDispatchTable **)obj);
+}
+
+static inline struct loader_instance_dispatch_table *
+loader_get_instance_dispatch(const void *obj) {
+    return *((struct loader_instance_dispatch_table **)obj);
 }
 
 static inline void loader_init_dispatch(void *obj, const void *data) {
@@ -601,7 +628,10 @@ void loader_init_dispatch_dev_ext(struct loader_instance *inst,
                                   struct loader_device *dev);
 void *loader_dev_ext_gpa(struct loader_instance *inst, const char *funcName);
 void *loader_get_dev_ext_trampoline(uint32_t index);
-void loader_override_terminating_device_proc(struct loader_device *dev);
+bool loader_phys_dev_ext_gpa(struct loader_instance *inst, const char *funcName,
+                             bool perform_checking, void **tramp_addr, void **term_addr);
+void *loader_get_phys_dev_ext_tramp(uint32_t index);
+void *loader_get_phys_dev_ext_termin(uint32_t index);
 struct loader_instance *loader_get_instance(const VkInstance instance);
 void loader_deactivate_layers(const struct loader_instance *instance,
                               struct loader_device *device,

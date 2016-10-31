@@ -152,7 +152,7 @@ LOADER_EXPORT VKAPI_ATTR void VKAPI_CALL
 vkDestroySurfaceKHR(VkInstance instance, VkSurfaceKHR surface,
                     const VkAllocationCallbacks *pAllocator) {
     const VkLayerInstanceDispatchTable *disp;
-    disp = loader_get_instance_dispatch(instance);
+    disp = loader_get_instance_layer_dispatch(instance);
     disp->DestroySurfaceKHR(instance, surface, pAllocator);
 }
 
@@ -205,7 +205,7 @@ vkGetPhysicalDeviceSurfaceSupportKHR(VkPhysicalDevice physicalDevice,
     const VkLayerInstanceDispatchTable *disp;
     VkPhysicalDevice unwrapped_phys_dev =
         loader_unwrap_physical_device(physicalDevice);
-    disp = loader_get_instance_dispatch(physicalDevice);
+    disp = loader_get_instance_layer_dispatch(physicalDevice);
     VkResult res = disp->GetPhysicalDeviceSurfaceSupportKHR(
         unwrapped_phys_dev, queueFamilyIndex, surface, pSupported);
     return res;
@@ -261,7 +261,7 @@ vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
     const VkLayerInstanceDispatchTable *disp;
     VkPhysicalDevice unwrapped_phys_dev =
         loader_unwrap_physical_device(physicalDevice);
-    disp = loader_get_instance_dispatch(physicalDevice);
+    disp = loader_get_instance_layer_dispatch(physicalDevice);
     VkResult res = disp->GetPhysicalDeviceSurfaceCapabilitiesKHR(
         unwrapped_phys_dev, surface, pSurfaceCapabilities);
     return res;
@@ -317,7 +317,7 @@ vkGetPhysicalDeviceSurfaceFormatsKHR(VkPhysicalDevice physicalDevice,
     VkPhysicalDevice unwrapped_phys_dev =
         loader_unwrap_physical_device(physicalDevice);
     const VkLayerInstanceDispatchTable *disp;
-    disp = loader_get_instance_dispatch(physicalDevice);
+    disp = loader_get_instance_layer_dispatch(physicalDevice);
     VkResult res = disp->GetPhysicalDeviceSurfaceFormatsKHR(
         unwrapped_phys_dev, surface, pSurfaceFormatCount, pSurfaceFormats);
     return res;
@@ -373,7 +373,7 @@ vkGetPhysicalDeviceSurfacePresentModesKHR(VkPhysicalDevice physicalDevice,
     VkPhysicalDevice unwrapped_phys_dev =
         loader_unwrap_physical_device(physicalDevice);
     const VkLayerInstanceDispatchTable *disp;
-    disp = loader_get_instance_dispatch(physicalDevice);
+    disp = loader_get_instance_layer_dispatch(physicalDevice);
     VkResult res = disp->GetPhysicalDeviceSurfacePresentModesKHR(
         unwrapped_phys_dev, surface, pPresentModeCount, pPresentModes);
     return res;
@@ -548,7 +548,7 @@ LOADER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkCreateWin32SurfaceKHR(
     VkInstance instance, const VkWin32SurfaceCreateInfoKHR *pCreateInfo,
     const VkAllocationCallbacks *pAllocator, VkSurfaceKHR *pSurface) {
     const VkLayerInstanceDispatchTable *disp;
-    disp = loader_get_instance_dispatch(instance);
+    disp = loader_get_instance_layer_dispatch(instance);
     VkResult res;
 
     res = disp->CreateWin32SurfaceKHR(instance, pCreateInfo, pAllocator,
@@ -638,7 +638,7 @@ vkGetPhysicalDeviceWin32PresentationSupportKHR(VkPhysicalDevice physicalDevice,
     VkPhysicalDevice unwrapped_phys_dev =
         loader_unwrap_physical_device(physicalDevice);
     const VkLayerInstanceDispatchTable *disp;
-    disp = loader_get_instance_dispatch(physicalDevice);
+    disp = loader_get_instance_layer_dispatch(physicalDevice);
     VkBool32 res = disp->GetPhysicalDeviceWin32PresentationSupportKHR(
         unwrapped_phys_dev, queueFamilyIndex);
     return res;
@@ -682,7 +682,7 @@ LOADER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkCreateMirSurfaceKHR(
     VkInstance instance, const VkMirSurfaceCreateInfoKHR *pCreateInfo,
     const VkAllocationCallbacks *pAllocator, VkSurfaceKHR *pSurface) {
     const VkLayerInstanceDispatchTable *disp;
-    disp = loader_get_instance_dispatch(instance);
+    disp = loader_get_instance_layer_dispatch(instance);
     VkResult res;
 
     res =
@@ -771,7 +771,7 @@ vkGetPhysicalDeviceMirPresentationSupportKHR(VkPhysicalDevice physicalDevice,
     VkPhysicalDevice unwrapped_phys_dev =
         loader_unwrap_physical_device(physicalDevice);
     const VkLayerInstanceDispatchTable *disp;
-    disp = loader_get_instance_dispatch(physicalDevice);
+    disp = loader_get_instance_layer_dispatch(physicalDevice);
     VkBool32 res = disp->GetPhysicalDeviceMirPresentationSupportKHR(
         unwrapped_phys_dev, queueFamilyIndex, connection);
     return res;
@@ -818,7 +818,7 @@ LOADER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkCreateWaylandSurfaceKHR(
     VkInstance instance, const VkWaylandSurfaceCreateInfoKHR *pCreateInfo,
     const VkAllocationCallbacks *pAllocator, VkSurfaceKHR *pSurface) {
     const VkLayerInstanceDispatchTable *disp;
-    disp = loader_get_instance_dispatch(instance);
+    disp = loader_get_instance_layer_dispatch(instance);
     VkResult res;
 
     res = disp->CreateWaylandSurfaceKHR(instance, pCreateInfo, pAllocator,
@@ -907,7 +907,7 @@ vkGetPhysicalDeviceWaylandPresentationSupportKHR(
     VkPhysicalDevice unwrapped_phys_dev =
         loader_unwrap_physical_device(physicalDevice);
     const VkLayerInstanceDispatchTable *disp;
-    disp = loader_get_instance_dispatch(physicalDevice);
+    disp = loader_get_instance_layer_dispatch(physicalDevice);
     VkBool32 res = disp->GetPhysicalDeviceWaylandPresentationSupportKHR(
         unwrapped_phys_dev, queueFamilyIndex, display);
     return res;
@@ -953,7 +953,7 @@ LOADER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkCreateXcbSurfaceKHR(
     VkInstance instance, const VkXcbSurfaceCreateInfoKHR *pCreateInfo,
     const VkAllocationCallbacks *pAllocator, VkSurfaceKHR *pSurface) {
     const VkLayerInstanceDispatchTable *disp;
-    disp = loader_get_instance_dispatch(instance);
+    disp = loader_get_instance_layer_dispatch(instance);
     VkResult res;
 
     res =
@@ -1043,7 +1043,7 @@ vkGetPhysicalDeviceXcbPresentationSupportKHR(VkPhysicalDevice physicalDevice,
     VkPhysicalDevice unwrapped_phys_dev =
         loader_unwrap_physical_device(physicalDevice);
     const VkLayerInstanceDispatchTable *disp;
-    disp = loader_get_instance_dispatch(physicalDevice);
+    disp = loader_get_instance_layer_dispatch(physicalDevice);
     VkBool32 res = disp->GetPhysicalDeviceXcbPresentationSupportKHR(
         unwrapped_phys_dev, queueFamilyIndex, connection, visual_id);
     return res;
@@ -1089,7 +1089,7 @@ LOADER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkCreateXlibSurfaceKHR(
     VkInstance instance, const VkXlibSurfaceCreateInfoKHR *pCreateInfo,
     const VkAllocationCallbacks *pAllocator, VkSurfaceKHR *pSurface) {
     const VkLayerInstanceDispatchTable *disp;
-    disp = loader_get_instance_dispatch(instance);
+    disp = loader_get_instance_layer_dispatch(instance);
     VkResult res;
 
     res =
@@ -1178,7 +1178,7 @@ vkGetPhysicalDeviceXlibPresentationSupportKHR(VkPhysicalDevice physicalDevice,
     VkPhysicalDevice unwrapped_phys_dev =
         loader_unwrap_physical_device(physicalDevice);
     const VkLayerInstanceDispatchTable *disp;
-    disp = loader_get_instance_dispatch(physicalDevice);
+    disp = loader_get_instance_layer_dispatch(physicalDevice);
     VkBool32 res = disp->GetPhysicalDeviceXlibPresentationSupportKHR(
         unwrapped_phys_dev, queueFamilyIndex, dpy, visualID);
     return res;
@@ -1224,7 +1224,7 @@ LOADER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkCreateAndroidSurfaceKHR(
     VkInstance instance, ANativeWindow *window,
     const VkAllocationCallbacks *pAllocator, VkSurfaceKHR *pSurface) {
     const VkLayerInstanceDispatchTable *disp;
-    disp = loader_get_instance_dispatch(instance);
+    disp = loader_get_instance_layer_dispatch(instance);
     VkResult res;
 
     res = disp->CreateAndroidSurfaceKHR(instance, window, pAllocator, pSurface);
@@ -1271,7 +1271,7 @@ vkGetPhysicalDeviceDisplayPropertiesKHR(VkPhysicalDevice physicalDevice,
     VkPhysicalDevice unwrapped_phys_dev =
         loader_unwrap_physical_device(physicalDevice);
     const VkLayerInstanceDispatchTable *disp;
-    disp = loader_get_instance_dispatch(physicalDevice);
+    disp = loader_get_instance_layer_dispatch(physicalDevice);
     VkResult res = disp->GetPhysicalDeviceDisplayPropertiesKHR(
         unwrapped_phys_dev, pPropertyCount, pProperties);
     return res;
@@ -1309,7 +1309,7 @@ vkGetPhysicalDeviceDisplayPlanePropertiesKHR(
     VkPhysicalDevice unwrapped_phys_dev =
         loader_unwrap_physical_device(physicalDevice);
     const VkLayerInstanceDispatchTable *disp;
-    disp = loader_get_instance_dispatch(physicalDevice);
+    disp = loader_get_instance_layer_dispatch(physicalDevice);
     VkResult res = disp->GetPhysicalDeviceDisplayPlanePropertiesKHR(
         unwrapped_phys_dev, pPropertyCount, pProperties);
     return res;
@@ -1351,7 +1351,7 @@ vkGetDisplayPlaneSupportedDisplaysKHR(VkPhysicalDevice physicalDevice,
     VkPhysicalDevice unwrapped_phys_dev =
         loader_unwrap_physical_device(physicalDevice);
     const VkLayerInstanceDispatchTable *disp;
-    disp = loader_get_instance_dispatch(physicalDevice);
+    disp = loader_get_instance_layer_dispatch(physicalDevice);
     VkResult res = disp->GetDisplayPlaneSupportedDisplaysKHR(
         unwrapped_phys_dev, planeIndex, pDisplayCount, pDisplays);
     return res;
@@ -1388,7 +1388,7 @@ LOADER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkGetDisplayModePropertiesKHR(
     VkPhysicalDevice unwrapped_phys_dev =
         loader_unwrap_physical_device(physicalDevice);
     const VkLayerInstanceDispatchTable *disp;
-    disp = loader_get_instance_dispatch(physicalDevice);
+    disp = loader_get_instance_layer_dispatch(physicalDevice);
     VkResult res = disp->GetDisplayModePropertiesKHR(
         unwrapped_phys_dev, display, pPropertyCount, pProperties);
     return res;
@@ -1426,7 +1426,7 @@ LOADER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkCreateDisplayModeKHR(
     VkPhysicalDevice unwrapped_phys_dev =
         loader_unwrap_physical_device(physicalDevice);
     const VkLayerInstanceDispatchTable *disp;
-    disp = loader_get_instance_dispatch(physicalDevice);
+    disp = loader_get_instance_layer_dispatch(physicalDevice);
     VkResult res = disp->CreateDisplayModeKHR(unwrapped_phys_dev, display,
                                               pCreateInfo, pAllocator, pMode);
     return res;
@@ -1464,7 +1464,7 @@ LOADER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkGetDisplayPlaneCapabilitiesKHR(
     VkPhysicalDevice unwrapped_phys_dev =
         loader_unwrap_physical_device(physicalDevice);
     const VkLayerInstanceDispatchTable *disp;
-    disp = loader_get_instance_dispatch(physicalDevice);
+    disp = loader_get_instance_layer_dispatch(physicalDevice);
     VkResult res = disp->GetDisplayPlaneCapabilitiesKHR(
         unwrapped_phys_dev, mode, planeIndex, pCapabilities);
     return res;
@@ -1499,7 +1499,7 @@ LOADER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkCreateDisplayPlaneSurfaceKHR(
     VkInstance instance, const VkDisplaySurfaceCreateInfoKHR *pCreateInfo,
     const VkAllocationCallbacks *pAllocator, VkSurfaceKHR *pSurface) {
     const VkLayerInstanceDispatchTable *disp;
-    disp = loader_get_instance_dispatch(instance);
+    disp = loader_get_instance_layer_dispatch(instance);
     VkResult res;
 
     res = disp->CreateDisplayPlaneSurfaceKHR(instance, pCreateInfo, pAllocator,
