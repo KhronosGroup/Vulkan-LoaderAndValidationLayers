@@ -4573,8 +4573,7 @@ loader_create_device_chain(const struct loader_physical_device_tramp *pd,
             if (NULL == layer_prop->functions.negotiate_layer_interface) {
                 PFN_vkNegotiateLoaderLayerInterfaceVersion negotiate_interface =
                     NULL;
-                if (layer_prop->functions.str_negotiate_interface == NULL ||
-                    strlen(layer_prop->functions.str_negotiate_interface) ==
+                if (strlen(layer_prop->functions.str_negotiate_interface) ==
                         0) {
                     negotiate_interface =
                         (PFN_vkNegotiateLoaderLayerInterfaceVersion)
