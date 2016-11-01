@@ -1403,13 +1403,13 @@ non_android_exts = [VK_KHR_display,
 extensions = common_exts
 extensions_all = non_exported_exts
 
-if sys.argv[1] in win32_display_servers:
+if len(sys.argv) >= 2 and sys.argv[1] in win32_display_servers:
     extensions += win32_wsi_exts
     extensions_all += extensions + win32_only_exts
-elif sys.argv[1] in linux_display_servers:
+elif len(sys.argv) >= 2 and sys.argv[1] in linux_display_servers:
     extensions += linux_wsi_exts
     extensions_all += extensions + linux_only_exts
-elif sys.argv[1] in android_display_servers:
+elif len(sys.argv) >= 2 and sys.argv[1] in android_display_servers:
     extensions += android_wsi_exts
     extensions_all += extensions + android_only_exts
 else:
