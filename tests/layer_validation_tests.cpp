@@ -815,10 +815,6 @@ TEST_F(VkLayerTest, RequiredParameter) {
     vkGetPhysicalDeviceQueueFamilyProperties(gpu(), NULL, NULL);
     m_errorMonitor->VerifyFound();
 
-// TODO: Revert when vk.xml is fixed.
-//            This appears to have been caused in a recent change to remove empty validation blocks.  Talking to
-//            appropriate people off-line about this.
-#if 0
     m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, "parameter viewportCount must be greater than 0");
     // Specify 0 for a required array count
     // Expected to trigger an error with parameter_validation::validate_array
@@ -831,7 +827,6 @@ TEST_F(VkLayerTest, RequiredParameter) {
     // Expected to trigger an error with parameter_validation::validate_array
     m_commandBuffer->SetViewport(0, 1, NULL);
     m_errorMonitor->VerifyFound();
-#endif
 
     m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, "required parameter memory specified as VK_NULL_HANDLE");
     // Specify VK_NULL_HANDLE for a required handle
