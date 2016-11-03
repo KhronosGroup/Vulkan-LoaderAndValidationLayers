@@ -103,6 +103,36 @@ class Proto(object):
                 name,
                 self.c_params(need_name=need_param_names))
 
+    def c_pretty_decl(self, name, attr=""):
+        """Return a named declaration in C, with vulkan.h formatting."""
+        plist = []
+        for param in self.params:
+            idx = param.ty.find("[")
+            if idx < 0:
+                idx = len(param.ty)
+
+            pad = 44 - idx
+            if pad <= 0:
+                pad = 1
+
+            plist.append("    %s%s%s%s" % (param.ty[:idx],
+                " " * pad, param.name, param.ty[idx:]))
+
+        return "%s%s %s%s(\n%s)" % (
+                attr + "_ATTR " if attr else "",
+                self.ret,
+                attr + "_CALL " if attr else "",
+                name,
+                ",\n".join(plist))
+
+    def c_func(self, prefix="", attr=""):
+        """Return the prototype in C."""
+        return self.c_decl(prefix + self.name, attr=attr, typed=False)
+
+    def c_call(self):
+        """Return a call to the prototype in C."""
+        return "%s(%s)" % (self.name, self.c_params(need_type=False))
+
     def object_in_params(self):
         """Return the params that are simple VK objects and are inputs."""
         return [param for param in self.params if param.ty in objects]
@@ -111,6 +141,15 @@ class Proto(object):
         """Return the params that are simple VK objects and are outputs."""
         return [param for param in self.params
                 if param.dereferenced_type() in objects]
+
+    def __repr__(self):
+        param_strs = []
+        for param in self.params:
+            param_strs.append(str(param))
+        param_str = "    [%s]" % (",\n     ".join(param_strs))
+
+        return "Proto(\"%s\", \"%s\",\n%s)" % \
+                (self.ret, self.name, param_str)
 
 class Extension(object):
     def __init__(self, name, headers, objects, protos, ifdef = None):
@@ -121,8 +160,8 @@ class Extension(object):
         self.ifdef = ifdef
 
 # VK core API
-core = Extension(
-    name="VK_CORE",
+VK_VERSION_1_0 = Extension(
+    name="VK_VERSION_1_0",
     headers=["vulkan/vulkan.h"],
     objects=[
         "VkInstance",
@@ -951,7 +990,7 @@ core = Extension(
     ],
 )
 
-ext_amd_draw_indirect_count = Extension(
+VK_AMD_draw_indirect_count = Extension(
     name="VK_AMD_draw_indirect_count",
     headers=["vulkan/vulkan.h"],
     objects=[],
@@ -976,7 +1015,7 @@ ext_amd_draw_indirect_count = Extension(
     ],
 )
 
-ext_nv_external_memory_capabilities = Extension(
+VK_NV_external_memory_capabilities = Extension(
     name="VK_NV_external_memory_capabilities",
     headers=["vulkan/vulkan.h"],
     objects=[],
@@ -993,7 +1032,7 @@ ext_nv_external_memory_capabilities = Extension(
     ],
 )
 
-ext_nv_external_memory_win32 = Extension(
+VK_NV_external_memory_win32 = Extension(
     name="VK_NV_external_memory_win32",
     headers=["vulkan/vulkan.h"],
     objects=[],
@@ -1007,7 +1046,7 @@ ext_nv_external_memory_win32 = Extension(
     ],
 )
 
-ext_khr_surface = Extension(
+VK_KHR_surface = Extension(
     name="VK_KHR_surface",
     headers=["vulkan/vulkan.h"],
     objects=["vkSurfaceKHR"],
@@ -1042,7 +1081,7 @@ ext_khr_surface = Extension(
     ],
 )
 
-ext_khr_display = Extension(
+VK_KHR_display = Extension(
     name="VK_KHR_display",
     headers=["vulkan/vulkan.h"],
     objects=['VkSurfaceKHR', 'VkDisplayModeKHR'],
@@ -1090,7 +1129,7 @@ ext_khr_display = Extension(
     ],
 )
 
-ext_khr_device_swapchain = Extension(
+VK_KHR_swapchain = Extension(
     name="VK_KHR_swapchain",
     headers=["vulkan/vulkan.h"],
     objects=["VkSwapchainKHR"],
@@ -1126,7 +1165,7 @@ ext_khr_device_swapchain = Extension(
     ],
 )
 
-ext_khr_display_swapchain = Extension(
+VK_KHR_display_swapchain = Extension(
     name="VK_KHR_display_swapchain",
     headers=["vulkan/vulkan.h"],
     objects=["VkDisplayPresentInfoKHR"],
@@ -1140,7 +1179,7 @@ ext_khr_display_swapchain = Extension(
     ],
 )
 
-ext_khr_xcb_surface = Extension(
+VK_KHR_xcb_surface = Extension(
     name="VK_KHR_xcb_surface",
     headers=["vulkan/vulkan.h"],
     objects=[],
@@ -1158,7 +1197,8 @@ ext_khr_xcb_surface = Extension(
              Param("xcb_visualid_t", "visual_id")]),
     ],
 )
-ext_khr_xlib_surface = Extension(
+
+VK_KHR_xlib_surface = Extension(
     name="VK_KHR_xlib_surface",
     headers=["vulkan/vulkan.h"],
     objects=[],
@@ -1177,7 +1217,8 @@ ext_khr_xlib_surface = Extension(
              Param("VisualID", "visualID")]),
     ],
 )
-ext_khr_wayland_surface = Extension(
+
+VK_KHR_wayland_surface = Extension(
     name="VK_KHR_wayland_surface",
     headers=["vulkan/vulkan.h"],
     objects=[],
@@ -1194,7 +1235,8 @@ ext_khr_wayland_surface = Extension(
              Param("struct wl_display*", "display")]),
     ],
 )
-ext_khr_mir_surface = Extension(
+
+VK_KHR_mir_surface = Extension(
     name="VK_KHR_mir_surface",
     headers=["vulkan/vulkan.h"],
     objects=[],
@@ -1211,7 +1253,8 @@ ext_khr_mir_surface = Extension(
              Param("MirConnection*", "connection")]),
     ],
 )
-ext_khr_android_surface = Extension(
+
+VK_KHR_android_surface = Extension(
     name="VK_KHR_android_surface",
     headers=["vulkan/vulkan.h"],
     objects=[],
@@ -1223,7 +1266,8 @@ ext_khr_android_surface = Extension(
              Param("VkSurfaceKHR*", "pSurface")]),
     ],
 )
-ext_khr_win32_surface = Extension(
+
+VK_KHR_win32_surface = Extension(
     name="VK_KHR_win32_surface",
     headers=["vulkan/vulkan.h"],
     objects=[],
@@ -1239,7 +1283,7 @@ ext_khr_win32_surface = Extension(
              Param("uint32_t", "queueFamilyIndex")]),
     ],
 )
-ext_khr_get_physical_device_properties2 = Extension(
+VK_KHR_get_physical_device_properties2 = Extension(
     name="VK_KHR_get_physical_device_properties2",
     headers=["vulkan/vulkan.h"],
     objects=["VkPhysicalDeviceFeatures2KHR",
@@ -1280,7 +1324,7 @@ ext_khr_get_physical_device_properties2 = Extension(
              Param("VkSparseImageFormatProperties2KHR*", "pProperties")]),
     ],
 )
-ext_debug_report = Extension(
+VK_EXT_debug_report = Extension(
     name="VK_EXT_debug_report",
     headers=["vulkan/vulkan.h"],
     objects=[
@@ -1309,7 +1353,8 @@ ext_debug_report = Extension(
              Param("const char *", "pMsg")]),
     ],
 )
-ext_debug_marker = Extension(
+
+VK_EXT_debug_marker = Extension(
     name="VK_EXT_debug_marker",
     headers=["vulkan/vulkan.h"],
     objects=[
@@ -1341,73 +1386,76 @@ ext_debug_marker = Extension(
 
 import sys
 
-if sys.argv[1] == 'AllPlatforms':
-    extensions = [core, ext_khr_surface, ext_khr_device_swapchain, ext_khr_win32_surface, ext_khr_xcb_surface,
-                         ext_khr_xlib_surface, ext_khr_wayland_surface, ext_khr_mir_surface, ext_khr_display,
-                         ext_khr_android_surface, ext_khr_display_swapchain]
-    extensions_all = [core, ext_khr_surface, ext_khr_device_swapchain, ext_khr_win32_surface,
-                             ext_khr_xcb_surface, ext_khr_xlib_surface, ext_khr_wayland_surface, ext_khr_mir_surface,
-                             ext_khr_display, ext_khr_android_surface, ext_khr_get_physical_device_properties2,
-                             ext_amd_draw_indirect_count,
-                             ext_nv_external_memory_capabilities, ext_nv_external_memory_win32,
-                             ext_khr_display_swapchain, ext_debug_report, ext_debug_marker]
-else :
-    if len(sys.argv) > 3:
-        if (sys.platform.startswith('win32') or sys.platform.startswith('msys')) and sys.argv[1] != 'Android':
-            extensions = [core, ext_khr_surface, ext_khr_device_swapchain, ext_khr_win32_surface,
-                                 ext_khr_display, ext_khr_display_swapchain]
-            extensions_all = [core, ext_khr_surface, ext_khr_device_swapchain, ext_khr_win32_surface,
-                                      ext_khr_display, ext_khr_get_physical_device_properties2,
-                                      ext_amd_draw_indirect_count,
-                                      ext_nv_external_memory_capabilities, ext_nv_external_memory_win32,
-                                      ext_khr_display_swapchain, ext_debug_report, ext_debug_marker]
-        elif sys.platform.startswith('linux') and sys.argv[1] != 'Android':
-            extensions = [core, ext_khr_surface, ext_khr_device_swapchain, ext_khr_xcb_surface,
-                                 ext_khr_xlib_surface, ext_khr_wayland_surface, ext_khr_mir_surface, ext_khr_display,
-                                 ext_khr_display_swapchain]
-            extensions_all = [core, ext_khr_surface, ext_khr_device_swapchain, ext_khr_xcb_surface,
-                                      ext_khr_xlib_surface, ext_khr_wayland_surface, ext_khr_mir_surface,
-                                      ext_khr_display, ext_khr_get_physical_device_properties2,
-                                      ext_amd_draw_indirect_count,
-                                      ext_nv_external_memory_capabilities, ext_khr_display_swapchain,
-                                      ext_debug_report, ext_debug_marker]
-        else: # android
-            extensions = [core, ext_khr_surface, ext_khr_device_swapchain, ext_khr_android_surface,
-                                 ext_khr_display_swapchain]
-            extensions_all = [core, ext_khr_surface, ext_khr_device_swapchain, ext_khr_android_surface,
-                                      ext_khr_get_physical_device_properties2,
-                                      ext_amd_draw_indirect_count, ext_nv_external_memory_capabilities,
-                                      ext_khr_display_swapchain, ext_debug_report, ext_debug_marker]
-    else :
-        if sys.argv[1] == 'Win32' or sys.argv[1] == 'msys':
-            extensions = [core, ext_khr_surface, ext_khr_device_swapchain, ext_khr_win32_surface,
-                                 ext_khr_display, ext_khr_display_swapchain]
-            extensions_all = [core, ext_khr_surface, ext_khr_device_swapchain, ext_khr_win32_surface,
-                                      ext_khr_display, ext_khr_get_physical_device_properties2,
-                                      ext_amd_draw_indirect_count,
-                                      ext_nv_external_memory_capabilities, ext_nv_external_memory_win32,
-                                      ext_khr_display_swapchain, ext_debug_report, ext_debug_marker]
-        elif sys.argv[1] == 'Android':
-            extensions = [core, ext_khr_surface, ext_khr_device_swapchain, ext_khr_android_surface,
-                                 ext_khr_display_swapchain]
-            extensions_all = [core, ext_khr_surface, ext_khr_device_swapchain, ext_khr_android_surface,
-                                      ext_khr_get_physical_device_properties2,
-                                      ext_amd_draw_indirect_count, ext_nv_external_memory_capabilities,
-                                      ext_khr_display_swapchain, ext_debug_report, ext_debug_marker]
-        elif sys.argv[1] == 'Xcb' or sys.argv[1] == 'Xlib' or sys.argv[1] == 'Wayland' or sys.argv[1] == 'Mir' or sys.argv[1] == 'Display':
-            extensions = [core, ext_khr_surface, ext_khr_device_swapchain, ext_khr_xcb_surface,
-                                 ext_khr_xlib_surface, ext_khr_wayland_surface, ext_khr_mir_surface,
-                                 ext_khr_display, ext_khr_display_swapchain]
-            extensions_all = [core, ext_khr_surface, ext_khr_device_swapchain, ext_khr_xcb_surface,
-                                      ext_khr_xlib_surface, ext_khr_wayland_surface, ext_khr_mir_surface,
-                                      ext_khr_display, ext_khr_get_physical_device_properties2,
-                                      ext_amd_draw_indirect_count,
-                                      ext_nv_external_memory_capabilities, ext_khr_display_swapchain,
-                                      ext_debug_report, ext_debug_marker]
-        else:
-            print('Error: Undefined DisplayServer')
-            extensions = []
-            extensions_all = []
+wsi_linux = ['Xcb', 'Xlib', 'Wayland', 'Mir', 'Display']
+
+# Set up platform-specific display servers
+linux_display_servers = ['Xcb', 'Xlib', 'Wayland', 'Mir', 'Display']
+win32_display_servers = ['Win32']
+android_display_servers = ['Android']
+
+# Define non-WSI platform-specific extensions
+android_only_exts = []
+linux_only_exts = []
+win32_only_exts = [VK_NV_external_memory_win32,
+#                  VK_NV_win32_keyed_mutex,
+                  ]
+
+# Define platform-specific WSI extensions
+android_wsi_exts = [VK_KHR_android_surface,
+                   ]
+linux_wsi_exts = [VK_KHR_xlib_surface,
+                  VK_KHR_xcb_surface,
+                  VK_KHR_wayland_surface,
+                  VK_KHR_mir_surface,
+                 ]
+win32_wsi_exts = [VK_KHR_win32_surface
+                 ]
+
+# Define extensions common to all configurations
+common_exts = [VK_VERSION_1_0,
+               VK_KHR_surface,
+               VK_KHR_swapchain,
+               VK_KHR_display_swapchain,
+              ]
+
+# Define extensions not exported by the loader
+non_exported_exts = [VK_NV_external_memory_capabilities,
+                     VK_KHR_get_physical_device_properties2,
+                     VK_AMD_draw_indirect_count,
+                     VK_EXT_debug_report,
+                     VK_EXT_debug_marker,
+#                    VK_KHR_sampler_mirror_clamp_to_edge,
+#                    VK_NV_glsl_shader,
+#                    VK_IMG_filter_cubic,
+#                    VK_AMD_rasterization_order,
+#                    VK_AMD_shader_trinary_minmax,
+#                    VK_AMD_shader_explicit_vertex_parameter,
+#                    VK_AMD_gcn_shader,
+#                    VK_NV_dedicated_allocation,
+#                    VK_NV_external_memory,
+#                    VK_EXT_validation_flags,
+#                    VK_AMD_negative_viewport_height,
+#                    VK_AMD_gpu_shader_half_float,
+#                    VK_AMD_shader_ballot,
+#                    VK_IMG_format_pvrtc,
+                    ]
+non_android_exts = [VK_KHR_display,
+                   ]
+extensions = common_exts
+extensions_all = non_exported_exts
+
+if sys.argv[1] in win32_display_servers:
+    extensions += win32_wsi_exts
+    extensions_all += extensions + win32_only_exts
+elif sys.argv[1] in linux_display_servers:
+    extensions += linux_wsi_exts
+    extensions_all += extensions + linux_only_exts
+elif sys.argv[1] in android_display_servers:
+    extensions += android_wsi_exts
+    extensions_all += extensions + android_only_exts
+else:
+    extensions += win32_wsi_exts + linux_wsi_exts + android_wsi_exts
+    extensions_all += extensions + win32_only_exts + linux_only_exts + android_only_exts
 
 object_dispatch_list = [
     "VkInstance",

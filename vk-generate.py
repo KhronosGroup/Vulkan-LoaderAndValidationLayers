@@ -21,6 +21,7 @@
 # Author: Courtney Goeltzenleuchter <courtney@LunarG.com>
 # Author: Jon Ashburn <jon@lunarg.com>
 # Author: Gwan-gyeong Mun <kk.moon@samsung.com>
+# Author: Mark Lobodzinski <mark@lunarg.com>
 
 import sys
 
@@ -122,6 +123,23 @@ class DispatchTableOpsSubcommand(Subcommand):
                           "#include <vulkan/vk_layer.h>",
                           "#include <string.h>"])
 
+    # Determine if a prototype belongs to an extension in a list of extensions
+    def proto_in_ext(self, name, ext_list):
+        for ext in ext_list:
+            for api in ext.protos:
+                if name == api.name:
+                    return True
+        return False
+
+    # Pull out wsi flavor from a linux WSI extension API name
+    def extract_wsi_type(self, name):
+        wsi_name_map = [("Xcb",     "VK_USE_PLATFORM_XCB_KHR"),
+                        ("Xlib",    "VK_USE_PLATFORM_XLIB_KHR"),
+                        ("Wayland", "VK_USE_PLATFORM_WAYLAND_KHR"),
+                        ("Mir",     "VK_USE_PLATFORM_MIR_KHR")]
+        result = [item[1] for item in wsi_name_map if item[0] in name]
+        return result[0]
+
     def _generate_init_dispatch(self, type):
         stmts = []
         func = []
@@ -136,14 +154,21 @@ class DispatchTableOpsSubcommand(Subcommand):
                   proto.name == "EnumerateInstanceLayerProperties" or proto.params[0].ty == "VkInstance" or \
                   proto.params[0].ty == "VkPhysicalDevice" or proto.name == "GetDeviceProcAddr":
                     continue
-                if proto.name == "GetMemoryWin32HandleNV":
-                    stmts.append("#ifdef VK_USE_PLATFORM_WIN32_KHR")
-                    stmts.append("    table->%s = (PFN_vk%s) gpa(device, \"vk%s\");" %
-                            (proto.name, proto.name, proto.name))
-                    stmts.append("#endif // VK_USE_PLATFORM_WIN32_KHR")
-                else:
-                    stmts.append("    table->%s = (PFN_vk%s) gpa(device, \"vk%s\");" %
-                            (proto.name, proto.name, proto.name))
+
+                # Conditionally compile platform-specific APIs
+                protect = ''
+                if self.proto_in_ext(proto.name, vulkan.win32_only_exts):
+                    protect = "VK_USE_PLATFORM_WIN32_KHR"
+                elif self.proto_in_ext(proto.name, vulkan.android_only_exts):
+                    protect = "VK_USE_PLATFORM_ANDROID_KHR"
+
+                # Output table entry, with an ifdef if needed
+                if protect != '':
+                    stmts.append("#ifdef %s" % protect)
+                stmts.append("    table->%s = (PFN_vk%s) gpa(device, \"vk%s\");" % (proto.name, proto.name, proto.name))
+                # If platform-specific entry was protected by an #ifdef, close with a #endif
+                if protect != '':
+                    stmts.append("#endif // %s" % protect)
             func.append("static inline void %s_init_device_dispatch_table(VkDevice device,"
                 % self.prefix)
             func.append("%s                                               VkLayerDispatchTable *table,"
@@ -155,68 +180,32 @@ class DispatchTableOpsSubcommand(Subcommand):
             stmts.append("    // Core instance function pointers")
             stmts.append("    table->GetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) gpa(instance, \"vkGetInstanceProcAddr\");")
 
-            KHR_printed = False
-            EXT_printed = False
-            Win32_printed = False
-            XLIB_printed = False
-            XCB_printed = False
-            MIR_printed = False
-            WAY_printed = False
-            Android_printed = False
             for proto in self.protos:
                 if proto.params[0].ty != "VkInstance" and proto.params[0].ty != "VkPhysicalDevice" or \
                   proto.name == "CreateDevice" or proto.name == "GetInstanceProcAddr":
                     continue
-                if Win32_printed and 'Win32' not in proto.name:
-                    stmts.append("#endif // VK_USE_PLATFORM_WIN32_KHR")
-                    Win32_printed = False
-                if XLIB_printed and 'Xlib' not in proto.name:
-                    stmts.append("#endif // VK_USE_PLATFORM_XLIB_KHR")
-                    XLIB_printed = False
-                if XCB_printed and 'Xcb' not in proto.name:
-                    stmts.append("#endif // VK_USE_PLATFORM_XCB_KHR")
-                    XCB_printed = False
-                if MIR_printed and 'Mir' not in proto.name:
-                    stmts.append("#endif // VK_USE_PLATFORM_MIR_KHR")
-                    MIR_printed = False
-                if WAY_printed and 'Wayland' not in proto.name:
-                    stmts.append("#endif // VK_USE_PLATFORM_WAYLAND_KHR")
-                    WAY_printed = False
-                if Android_printed and 'Android' not in proto.name:
-                    stmts.append("#endif // VK_USE_PLATFORM_ANDROID_KHR")
-                    Android_printed = False
-                if 'KHR' in proto.name and 'Win32' in proto.name:
-                    if not Win32_printed:
-                        stmts.append("#ifdef VK_USE_PLATFORM_WIN32_KHR")
-                        Win32_printed = True
-                if 'KHR' in proto.name and 'Xlib' in proto.name:
-                    if not XLIB_printed:
-                        stmts.append("#ifdef VK_USE_PLATFORM_XLIB_KHR")
-                        XLIB_printed = True
-                if 'KHR' in proto.name and 'Xcb' in proto.name:
-                    if not XCB_printed:
-                        stmts.append("#ifdef VK_USE_PLATFORM_XCB_KHR")
-                        XCB_printed = True
-                if 'KHR' in proto.name and 'Mir' in proto.name:
-                    if not MIR_printed:
-                        stmts.append("#ifdef VK_USE_PLATFORM_MIR_KHR")
-                        MIR_printed = True
-                if 'KHR' in proto.name and 'Wayland' in proto.name:
-                    if not WAY_printed:
-                        stmts.append("#ifdef VK_USE_PLATFORM_WAYLAND_KHR")
-                        WAY_printed = True
-                if 'KHR' in proto.name and 'Android' in proto.name:
-                    if not Android_printed:
-                        stmts.append("#ifdef VK_USE_PLATFORM_ANDROID_KHR")
-                        Android_printed = True
-                if 'KHR' in proto.name and not KHR_printed:
-                    stmts.append("    // KHR instance extension function pointers")
-                    KHR_printed = True
-                if 'EXT' in proto.name and not EXT_printed:
-                    stmts.append("    // EXT instance extension function pointers")
-                    EXT_printed = True
-                stmts.append("    table->%s = (PFN_vk%s) gpa(instance, \"vk%s\");" %
-                      (proto.name, proto.name, proto.name))
+
+                protect = ''
+                # Protect platform-dependent WSI APIs with #ifdef
+                if self.proto_in_ext(proto.name, vulkan.win32_wsi_exts):
+                    protect = "VK_USE_PLATFORM_WIN32_KHR"
+                elif self.proto_in_ext(proto.name, vulkan.linux_wsi_exts):
+                    protect = self.extract_wsi_type(proto.name)
+                elif self.proto_in_ext(proto.name, vulkan.android_wsi_exts):
+                    protect = "VK_USE_PLATFORM_ANDROID_KHR"
+                # Protect non-WSI platform-dependent APIs with #ifdef
+                elif self.proto_in_ext(proto.name, vulkan.win32_only_exts):
+                    protect = "VK_USE_PLATFORM_WIN32_KHR"
+                elif self.proto_in_ext(proto.name, vulkan.android_only_exts):
+                    protect = "VK_USE_PLATFORM_ANDROID_KHR"
+
+                # Output dispatch table entry, with an ifdef if needed
+                if protect != '':
+                    stmts.append("#ifdef %s" % protect)
+                stmts.append("    table->%s = (PFN_vk%s) gpa(instance, \"vk%s\");" % (proto.name, proto.name, proto.name))
+                if protect != '':
+                    stmts.append("#endif // %s" % protect)
+
             func.append("static inline void %s_init_instance_dispatch_table(" % self.prefix)
             func.append("%s        VkInstance instance," % (" " * len(self.prefix)))
             func.append("%s        VkLayerInstanceDispatchTable *table," % (" " * len(self.prefix)))
@@ -317,7 +306,7 @@ def main():
             "Wayland",
             "Mir",
             "Display",
-            "AllPlatforms"
+            "AllPlatforms",
     }
     subcommands = {
             "dispatch-table-ops": DispatchTableOpsSubcommand,
@@ -325,9 +314,10 @@ def main():
     }
 
     if len(sys.argv) < 3 or sys.argv[1] not in wsi or sys.argv[2] not in subcommands:
-        print("Usage: %s <wsi> <subcommand> [options]" % sys.argv[0])
+        print("Usage: %s <wsi> <subcommand> <option>" % sys.argv[0])
         print
-        print("Available sucommands are: %s" % " ".join(subcommands))
+        print("Available wsi are: %s" % " ".join(wsi))
+        print("Available subcommands are: %s" % " ".join(subcommands))
         exit(1)
 
     subcmd = subcommands[sys.argv[2]](sys.argv[3:])
