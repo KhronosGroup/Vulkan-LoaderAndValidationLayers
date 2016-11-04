@@ -88,7 +88,13 @@ struct layer_data {
 
     layer_data()
         : report_data(nullptr), num_tmp_callbacks(0), tmp_dbg_create_infos(nullptr), tmp_callbacks(nullptr), device_limits{},
-        physical_device_features{}, physical_device{}, enables{0} {};
+        physical_device_features{},
+        // Visual Studio 2013 doesn't like the enables initialization to 0, so manually do it.
+#if (defined(_MSC_VER) && _MSC_VER < 1900 /*vs2015*/) || defined MINGW_HAS_SECURE_API
+        physical_device{} { memset(enables, 0, sizeof(loader_device_extension_enables)); };
+#else
+        physical_device{}, enables{0} {};
+#endif
 };
 
 static std::unordered_map<void *, struct instance_extension_enables> instance_extension_map;
