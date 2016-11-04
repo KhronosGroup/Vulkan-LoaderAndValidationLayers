@@ -40,16 +40,15 @@ VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceFeatures2KHR(
 
 VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceFeatures2KHR(
     VkPhysicalDevice physicalDevice, VkPhysicalDeviceFeatures2KHR *pFeatures) {
-    struct loader_physical_device *phys_dev =
-        (struct loader_physical_device *)physicalDevice;
-    struct loader_icd *icd = phys_dev->this_icd;
-    if (NULL == icd->GetPhysicalDeviceFeatures2KHR) {
-        loader_log(phys_dev->this_icd->this_instance,
-                   VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
+    struct loader_physical_device_term *phys_dev_term =
+        (struct loader_physical_device_term *)physicalDevice;
+    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    if (NULL == icd_term->GetPhysicalDeviceFeatures2KHR) {
+        loader_log(icd_term->this_instance, VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
                    "ICD associated with VkPhysicalDevice does not support "
                    "vkGetPhysicalDeviceFeatures2KHR");
     }
-    icd->GetPhysicalDeviceFeatures2KHR(phys_dev->phys_dev, pFeatures);
+    icd_term->GetPhysicalDeviceFeatures2KHR(phys_dev_term->phys_dev, pFeatures);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -66,16 +65,16 @@ vkGetPhysicalDeviceProperties2KHR(VkPhysicalDevice physicalDevice,
 VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceProperties2KHR(
     VkPhysicalDevice physicalDevice,
     VkPhysicalDeviceProperties2KHR *pProperties) {
-    struct loader_physical_device *phys_dev =
-        (struct loader_physical_device *)physicalDevice;
-    struct loader_icd *icd = phys_dev->this_icd;
-    if (NULL == icd->GetPhysicalDeviceProperties2KHR) {
-        loader_log(phys_dev->this_icd->this_instance,
-                   VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
+    struct loader_physical_device_term *phys_dev_term =
+        (struct loader_physical_device_term *)physicalDevice;
+    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    if (NULL == icd_term->GetPhysicalDeviceProperties2KHR) {
+        loader_log(icd_term->this_instance, VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
                    "ICD associated with VkPhysicalDevice does not support "
                    "vkGetPhysicalDeviceProperties2KHR");
     }
-    icd->GetPhysicalDeviceProperties2KHR(phys_dev->phys_dev, pProperties);
+    icd_term->GetPhysicalDeviceProperties2KHR(phys_dev_term->phys_dev,
+                                              pProperties);
 }
 
 VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceFormatProperties2KHR(
@@ -93,17 +92,16 @@ VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceFormatProperties2KHR(
 VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceFormatProperties2KHR(
     VkPhysicalDevice physicalDevice, VkFormat format,
     VkFormatProperties2KHR *pFormatProperties) {
-    struct loader_physical_device *phys_dev =
-        (struct loader_physical_device *)physicalDevice;
-    struct loader_icd *icd = phys_dev->this_icd;
-    if (NULL == icd->GetPhysicalDeviceFormatProperties2KHR) {
-        loader_log(phys_dev->this_icd->this_instance,
-                   VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
+    struct loader_physical_device_term *phys_dev_term =
+        (struct loader_physical_device_term *)physicalDevice;
+    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    if (NULL == icd_term->GetPhysicalDeviceFormatProperties2KHR) {
+        loader_log(icd_term->this_instance, VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
                    "ICD associated with VkPhysicalDevice does not support "
                    "vkGetPhysicalDeviceFormatProperties2KHR");
     }
-    icd->GetPhysicalDeviceFormatProperties2KHR(phys_dev->phys_dev, format,
-                                               pFormatProperties);
+    icd_term->GetPhysicalDeviceFormatProperties2KHR(phys_dev_term->phys_dev,
+                                                    format, pFormatProperties);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL vkGetPhysicalDeviceImageFormatProperties2KHR(
@@ -124,17 +122,16 @@ terminator_GetPhysicalDeviceImageFormatProperties2KHR(
     VkPhysicalDevice physicalDevice,
     const VkPhysicalDeviceImageFormatInfo2KHR *pImageFormatInfo,
     VkImageFormatProperties2KHR *pImageFormatProperties) {
-    struct loader_physical_device *phys_dev =
-        (struct loader_physical_device *)physicalDevice;
-    struct loader_icd *icd = phys_dev->this_icd;
-    if (NULL == icd->GetPhysicalDeviceImageFormatProperties2KHR) {
-        loader_log(phys_dev->this_icd->this_instance,
-                   VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
+    struct loader_physical_device_term *phys_dev_term =
+        (struct loader_physical_device_term *)physicalDevice;
+    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    if (NULL == icd_term->GetPhysicalDeviceImageFormatProperties2KHR) {
+        loader_log(icd_term->this_instance, VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
                    "ICD associated with VkPhysicalDevice does not support "
                    "vkGetPhysicalDeviceImageFormatProperties2KHR");
     }
-    return icd->GetPhysicalDeviceImageFormatProperties2KHR(
-        phys_dev->phys_dev, pImageFormatInfo, pImageFormatProperties);
+    return icd_term->GetPhysicalDeviceImageFormatProperties2KHR(
+        phys_dev_term->phys_dev, pImageFormatInfo, pImageFormatProperties);
 }
 
 VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceQueueFamilyProperties2KHR(
@@ -153,17 +150,17 @@ VKAPI_ATTR void VKAPI_CALL
 terminator_GetPhysicalDeviceQueueFamilyProperties2KHR(
     VkPhysicalDevice physicalDevice, uint32_t *pQueueFamilyPropertyCount,
     VkQueueFamilyProperties2KHR *pQueueFamilyProperties) {
-    struct loader_physical_device *phys_dev =
-        (struct loader_physical_device *)physicalDevice;
-    struct loader_icd *icd = phys_dev->this_icd;
-    if (NULL == icd->GetPhysicalDeviceQueueFamilyProperties2KHR) {
-        loader_log(phys_dev->this_icd->this_instance,
-                   VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
+    struct loader_physical_device_term *phys_dev_term =
+        (struct loader_physical_device_term *)physicalDevice;
+    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    if (NULL == icd_term->GetPhysicalDeviceQueueFamilyProperties2KHR) {
+        loader_log(icd_term->this_instance, VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
                    "ICD associated with VkPhysicalDevice does not support "
                    "vkGetPhysicalDeviceQueueFamilyProperties2KHR");
     }
-    icd->GetPhysicalDeviceQueueFamilyProperties2KHR(
-        phys_dev->phys_dev, pQueueFamilyPropertyCount, pQueueFamilyProperties);
+    icd_term->GetPhysicalDeviceQueueFamilyProperties2KHR(
+        phys_dev_term->phys_dev, pQueueFamilyPropertyCount,
+        pQueueFamilyProperties);
 }
 
 VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceMemoryProperties2KHR(
@@ -180,17 +177,16 @@ VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceMemoryProperties2KHR(
 VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceMemoryProperties2KHR(
     VkPhysicalDevice physicalDevice,
     VkPhysicalDeviceMemoryProperties2KHR *pMemoryProperties) {
-    struct loader_physical_device *phys_dev =
-        (struct loader_physical_device *)physicalDevice;
-    struct loader_icd *icd = phys_dev->this_icd;
-    if (NULL == icd->GetPhysicalDeviceMemoryProperties2KHR) {
-        loader_log(phys_dev->this_icd->this_instance,
-                   VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
+    struct loader_physical_device_term *phys_dev_term =
+        (struct loader_physical_device_term *)physicalDevice;
+    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    if (NULL == icd_term->GetPhysicalDeviceMemoryProperties2KHR) {
+        loader_log(icd_term->this_instance, VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
                    "ICD associated with VkPhysicalDevice does not support "
                    "vkGetPhysicalDeviceMemoryProperties2KHR");
     }
-    icd->GetPhysicalDeviceMemoryProperties2KHR(phys_dev->phys_dev,
-                                               pMemoryProperties);
+    icd_term->GetPhysicalDeviceMemoryProperties2KHR(phys_dev_term->phys_dev,
+                                                    pMemoryProperties);
 }
 
 VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceSparseImageFormatProperties2KHR(
@@ -211,17 +207,16 @@ terminator_GetPhysicalDeviceSparseImageFormatProperties2KHR(
     VkPhysicalDevice physicalDevice,
     const VkPhysicalDeviceSparseImageFormatInfo2KHR *pFormatInfo,
     uint32_t *pPropertyCount, VkSparseImageFormatProperties2KHR *pProperties) {
-    struct loader_physical_device *phys_dev =
-        (struct loader_physical_device *)physicalDevice;
-    struct loader_icd *icd = phys_dev->this_icd;
-    if (NULL == icd->GetPhysicalDeviceSparseImageFormatProperties2KHR) {
-        loader_log(phys_dev->this_icd->this_instance,
-                   VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
+    struct loader_physical_device_term *phys_dev_term =
+        (struct loader_physical_device_term *)physicalDevice;
+    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    if (NULL == icd_term->GetPhysicalDeviceSparseImageFormatProperties2KHR) {
+        loader_log(icd_term->this_instance, VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
                    "ICD associated with VkPhysicalDevice does not support "
                    "vkGetPhysicalDeviceSparseImageFormatProperties2KHR");
     }
-    icd->GetPhysicalDeviceSparseImageFormatProperties2KHR(
-        phys_dev->phys_dev, pFormatInfo, pPropertyCount, pProperties);
+    icd_term->GetPhysicalDeviceSparseImageFormatProperties2KHR(
+        phys_dev_term->phys_dev, pFormatInfo, pPropertyCount, pProperties);
 }
 
 // Definitions for the VK_NV_external_memory_capabilities extension
@@ -248,16 +243,16 @@ terminator_GetPhysicalDeviceExternalImageFormatPropertiesNV(
     VkImageTiling tiling, VkImageUsageFlags usage, VkImageCreateFlags flags,
     VkExternalMemoryHandleTypeFlagsNV externalHandleType,
     VkExternalImageFormatPropertiesNV *pExternalImageFormatProperties) {
-    struct loader_physical_device *phys_dev =
-        (struct loader_physical_device *)physicalDevice;
-    struct loader_icd *icd = phys_dev->this_icd;
+    struct loader_physical_device_term *phys_dev_term =
+        (struct loader_physical_device_term *)physicalDevice;
+    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
 
-    if (!icd->GetPhysicalDeviceExternalImageFormatPropertiesNV) {
+    if (!icd_term->GetPhysicalDeviceExternalImageFormatPropertiesNV) {
         if (externalHandleType) {
             return VK_ERROR_FORMAT_NOT_SUPPORTED;
         }
 
-        if (!icd->GetPhysicalDeviceImageFormatProperties) {
+        if (!icd_term->GetPhysicalDeviceImageFormatProperties) {
             return VK_ERROR_INITIALIZATION_FAILED;
         }
 
@@ -265,13 +260,13 @@ terminator_GetPhysicalDeviceExternalImageFormatPropertiesNV(
         pExternalImageFormatProperties->exportFromImportedHandleTypes = 0;
         pExternalImageFormatProperties->compatibleHandleTypes = 0;
 
-        return icd->GetPhysicalDeviceImageFormatProperties(
-            phys_dev->phys_dev, format, type, tiling, usage, flags,
+        return icd_term->GetPhysicalDeviceImageFormatProperties(
+            phys_dev_term->phys_dev, format, type, tiling, usage, flags,
             &pExternalImageFormatProperties->imageFormatProperties);
     }
 
-    return icd->GetPhysicalDeviceExternalImageFormatPropertiesNV(
-        phys_dev->phys_dev, format, type, tiling, usage, flags,
+    return icd_term->GetPhysicalDeviceExternalImageFormatPropertiesNV(
+        phys_dev_term->phys_dev, format, type, tiling, usage, flags,
         externalHandleType, pExternalImageFormatProperties);
 }
 
