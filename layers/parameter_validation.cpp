@@ -91,7 +91,7 @@ struct layer_data {
         physical_device_features{},
         // Visual Studio 2013 doesn't like the enables initialization to 0, so manually do it.
 #if (defined(_MSC_VER) && _MSC_VER < 1900 /*vs2015*/) || defined MINGW_HAS_SECURE_API
-        physical_device{} { memset(enables, 0, sizeof(loader_device_extension_enables)); };
+        physical_device{} { memset(enables.padding, 0, sizeof(uint64_t) * 4); };
 #else
         physical_device{}, enables{0} {};
 #endif
