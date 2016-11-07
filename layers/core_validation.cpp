@@ -104,6 +104,8 @@ struct instance_layer_data {
 
     CALL_STATE vkEnumeratePhysicalDevicesState = UNCALLED;
     uint32_t physical_devices_count = 0;
+    CALL_STATE vkEnumeratePhysicalDeviceGroupsState = UNCALLED;
+    uint32_t physical_device_groups_count = 0;
     CHECK_DISABLED disabled = {};
 
     unordered_map<VkPhysicalDevice, PHYSICAL_DEVICE_STATE> physical_device_map;
@@ -11980,6 +11982,64 @@ VKAPI_ATTR VkResult VKAPI_CALL EnumerateDeviceExtensionProperties(VkPhysicalDevi
     return instance_data->dispatch_table.EnumerateDeviceExtensionProperties(physicalDevice, NULL, pCount, pProperties);
 }
 
+VKAPI_ATTR VkResult VKAPI_CALL EnumeratePhysicalDeviceGroupsKHX(
+    VkInstance instance, uint32_t *pPhysicalDeviceGroupCount, VkPhysicalDeviceGroupPropertiesKHX *pPhysicalDeviceGroupProperties) {
+    bool skip_call = false;
+    instance_layer_data *instance_data = get_my_data_ptr(get_dispatch_key(instance), instance_layer_data_map);
+
+    if (instance_data) {
+        // For this instance, flag when EnumeratePhysicalDeviceGroupsKHX goes to QUERY_COUNT and then QUERY_DETAILS.
+        if (NULL == pPhysicalDeviceGroupProperties) {
+            instance_data->vkEnumeratePhysicalDeviceGroupsState = QUERY_COUNT;
+        } else {
+            if (UNCALLED == instance_data->vkEnumeratePhysicalDeviceGroupsState) {
+                // Flag warning here. You can call this without having queried the count, but it may not be
+                // robust on platforms with multiple physical devices.
+                skip_call |= log_msg(instance_data->report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT,
+                    VK_DEBUG_REPORT_OBJECT_TYPE_INSTANCE_EXT, 0, __LINE__, DEVLIMITS_MISSING_QUERY_COUNT, "DL",
+                    "Call sequence has vkEnumeratePhysicalDeviceGroupsKHX() w/ non-NULL "
+                    "pPhysicalDeviceGroupProperties. You should first "
+                    "call vkEnumeratePhysicalDeviceGroupsKHX() w/ NULL pPhysicalDeviceGroupProperties to query "
+                    "pPhysicalDeviceGroupCount.");
+            } // TODO : Could also flag a warning if re-calling this function in QUERY_DETAILS state
+            else if (instance_data->physical_device_groups_count != *pPhysicalDeviceGroupCount) {
+                // Having actual count match count from app is not a requirement, so this can be a warning
+                skip_call |=
+                    log_msg(instance_data->report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT,
+                        VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, 0, __LINE__, DEVLIMITS_COUNT_MISMATCH, "DL",
+                        "Call to vkEnumeratePhysicalDeviceGroupsKHX() w/ pPhysicalDeviceGroupCount value %u, but actual count "
+                        "supported by this instance is %u.",
+                        *pPhysicalDeviceGroupCount, instance_data->physical_device_groups_count);
+            }
+            instance_data->vkEnumeratePhysicalDeviceGroupsState = QUERY_DETAILS;
+        }
+        if (skip_call) {
+            return VK_ERROR_VALIDATION_FAILED_EXT;
+        }
+        VkResult result = instance_data->dispatch_table.EnumeratePhysicalDeviceGroupsKHX(instance, pPhysicalDeviceGroupCount,
+            pPhysicalDeviceGroupProperties);
+        if (NULL == pPhysicalDeviceGroupProperties) {
+            instance_data->physical_device_groups_count = *pPhysicalDeviceGroupCount;
+        } else if (result == VK_SUCCESS) { // Save physical devices
+            for (uint32_t i = 0; i < *pPhysicalDeviceGroupCount; i++) {
+                for (uint32_t j = 0; j < pPhysicalDeviceGroupProperties[i].physicalDeviceCount; j++) {
+                    VkPhysicalDevice cur_phys_dev = pPhysicalDeviceGroupProperties[i].physicalDevices[j];
+                    auto &phys_device_state = instance_data->physical_device_map[cur_phys_dev];
+                    phys_device_state.phys_device = cur_phys_dev;
+                    // Init actual features for each physical device
+                    instance_data->dispatch_table.GetPhysicalDeviceFeatures(cur_phys_dev, &phys_device_state.features);
+                }
+            }
+        }
+        return result;
+    } else {
+        log_msg(instance_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_INSTANCE_EXT, 0, __LINE__,
+            DEVLIMITS_INVALID_INSTANCE, "DL",
+            "Invalid instance (0x%" PRIxLEAST64 ") passed into vkEnumeratePhysicalDeviceGroupsKHX().", (uint64_t)instance);
+    }
+    return VK_ERROR_VALIDATION_FAILED_EXT;
+}
+
 static PFN_vkVoidFunction
 intercept_core_instance_command(const char *name);
 
@@ -11991,6 +12051,9 @@ intercept_khr_swapchain_command(const char *name, VkDevice dev);
 
 static PFN_vkVoidFunction
 intercept_khr_surface_command(const char *name, VkInstance instance);
+
+static PFN_vkVoidFunction
+intercept_extension_instance_commands(const char *name, VkInstance instance);
 
 VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetDeviceProcAddr(VkDevice dev, const char *funcName) {
     PFN_vkVoidFunction proc = intercept_core_device_command(funcName);
@@ -12026,6 +12089,10 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetInstanceProcAddr(VkInstance instance
 
     instance_layer_data *instance_data = get_my_data_ptr(get_dispatch_key(instance), instance_layer_data_map);
     proc = debug_report_get_instance_proc_addr(instance_data->report_data, funcName);
+    if (proc)
+        return proc;
+
+    proc = intercept_extension_instance_commands(funcName, instance);
     if (proc)
         return proc;
 
@@ -12279,6 +12346,13 @@ intercept_khr_surface_command(const char *name, VkInstance instance) {
     }
 
     return nullptr;
+}
+
+static PFN_vkVoidFunction
+intercept_extension_instance_commands(const char *name, VkInstance instance) {
+    if (!strcmp("vkEnumeratePhysicalDeviceGroupsKHX", name))
+        return reinterpret_cast<PFN_vkVoidFunction>(EnumeratePhysicalDeviceGroupsKHX);
+    return NULL;
 }
 
 } // namespace core_validation
