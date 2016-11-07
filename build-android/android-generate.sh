@@ -21,10 +21,12 @@ cd $dir
 rm -rf generated
 mkdir -p generated/include generated/common
 
-python ../vk-generate.py Android dispatch-table-ops layer > generated/include/vk_dispatch_table_helper.h
+( cd generated/common; python ../../../lvl_genvk.py -registry ../../../vk.xml vulkan_api.py )
 
-python ../vk_helper.py --gen_enum_string_helper ../include/vulkan/vulkan.h --abs_out_dir generated/include
-python ../vk_helper.py --gen_struct_wrappers ../include/vulkan/vulkan.h --abs_out_dir generated/include
+python ../vk-generate.py Android dispatch-table-ops ./generated/common layer > generated/include/vk_dispatch_table_helper.h
+
+python ../vk_helper.py --gen_enum_string_helper ../include/vulkan/vulkan.h --abs_out_dir generated/include --vulkan_api_path ./generated/common
+python ../vk_helper.py --gen_struct_wrappers ../include/vulkan/vulkan.h --abs_out_dir generated/include --vulkan_api_path ./generated/common
 
 ( cd generated/include; python ../../../lvl_genvk.py -registry ../../../vk.xml thread_check.h )
 ( cd generated/include; python ../../../lvl_genvk.py -registry ../../../vk.xml parameter_validation.h )

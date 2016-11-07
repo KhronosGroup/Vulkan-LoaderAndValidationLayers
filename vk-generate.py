@@ -23,9 +23,39 @@
 # Author: Gwan-gyeong Mun <kk.moon@samsung.com>
 # Author: Mark Lobodzinski <mark@lunarg.com>
 
-import sys
+# WHAT GOES ON IN vk-genrate.py:
+#
+# This script implements two subcommands:
+#   - dispatch-table-ops -- generate dispatch table header files
+#   - win-def-file       -- generate windows def files
+#
+# dispatch-table-ops subcommand:
+#
+# Args: (display_server, subcommand, path_to_build_dir, table_type)
+#   - display_server -- Win32, Android, Xcb, Xlib, Wayland, Mir or AllPlatforms.
+#         AllPlatforms includes ALL entrypoints regardless of platform.
+#   - subcommand -- must be 'dispatch-table-ops' for this subcommand
+#   - path_to_build_dir -- must be a complete or relative path to the location of the
+#         generated helper script, vulkan_api.py
+#   - table_type -- not used for this subcommand, ignored
+#
+# win-def-file subcommand:
+#
+# Args: (display_server, subcommand, path_to_build_dir, outfile, table_type)
+#   - display_server -- Win32, Android, Xcb, Xlib, Wayland, Mir or AllPlatforms.
+#         AllPlatforms includes ALL entrypoints regardless of platform.
+#   - subcommand -- must be 'win-def-files' for this subcommand
+#   - path_to_build_dir -- must be a complete or relative path to the location of the
+#         generated helper script, vulkan_api.py
+#   - outfile -- name prepended to generated dispatch table header file
+#   - table_type -- 'all', 'icd', 'layer', 'layer_multi'
+#         all -- generates def file containing all entrypoints
+#         icd -- generate def file for LunarG ICD (deprecated)
+#         layer -- generate def file containing entrypoints for a validation layer
+#         layer_multi -- deprecated
+#
 
-import vulkan
+import sys
 
 def generate_get_proc_addr_check(name):
     return "    if (!%s || %s[0] != 'v' || %s[1] != 'k')\n" \
@@ -33,9 +63,13 @@ def generate_get_proc_addr_check(name):
 
 class Subcommand(object):
     def __init__(self, argv):
+        # Add vulkan_api.py library path to python search path
+        sys.path.append(argv[0])
+        import vulkan_api
+
         self.argv = argv
-        self.headers = vulkan.headers
-        self.protos = vulkan.protos
+        self.headers = vulkan_api.headers
+        self.protos = vulkan_api.protos
         self.outfile = None
 
     def run(self):
@@ -99,24 +133,36 @@ class Subcommand(object):
 
 class DispatchTableOpsSubcommand(Subcommand):
     def __init__(self, argv):
+
+        # Add vulkan_api.py library path to python search path
+        sys.path.append(argv[0])
+        import vulkan_api
+
         self.argv = argv
-        self.headers = vulkan.headers_all
-        self.protos = vulkan.protos_all
+        self.headers = vulkan_api.headers_all
+        self.protos = vulkan_api.protos_all
+        self.win32_only_exts = vulkan_api.win32_only_exts
+        self.android_only_exts = vulkan_api.android_only_exts
+
+        self.win32_wsi_exts = vulkan_api.win32_wsi_exts
+        self.linux_wsi_exts = vulkan_api.linux_wsi_exts
+        self.android_wsi_exts = vulkan_api.android_wsi_exts
+
         self.outfile = None
 
     def run(self):
-        if len(self.argv) < 1:
+        if len(self.argv) < 2:
             print("DispatchTableOpsSubcommand: <prefix> unspecified")
             return
 
-        self.prefix = self.argv[0]
+        self.prefix = self.argv[1]
 
-        if len(self.argv) > 2:
+        if len(self.argv) > 3:
             print("DispatchTableOpsSubcommand: <prefix> [outfile]")
             return
 
-        if len(self.argv) == 2:
-            self.outfile = self.argv[1]
+        if len(self.argv) == 3:
+            self.outfile = self.argv[2]
 
         super(DispatchTableOpsSubcommand, self).run()
 
@@ -159,9 +205,9 @@ class DispatchTableOpsSubcommand(Subcommand):
 
                 # Conditionally compile platform-specific APIs
                 protect = ''
-                if self.proto_in_ext(proto.name, vulkan.win32_only_exts):
+                if self.proto_in_ext(proto.name, self.win32_only_exts):
                     protect = "VK_USE_PLATFORM_WIN32_KHR"
-                elif self.proto_in_ext(proto.name, vulkan.android_only_exts):
+                elif self.proto_in_ext(proto.name, self.android_only_exts):
                     protect = "VK_USE_PLATFORM_ANDROID_KHR"
 
                 # Output table entry, with an ifdef if needed
@@ -189,16 +235,16 @@ class DispatchTableOpsSubcommand(Subcommand):
 
                 protect = ''
                 # Protect platform-dependent WSI APIs with #ifdef
-                if self.proto_in_ext(proto.name, vulkan.win32_wsi_exts):
+                if self.proto_in_ext(proto.name, self.win32_wsi_exts):
                     protect = "VK_USE_PLATFORM_WIN32_KHR"
-                elif self.proto_in_ext(proto.name, vulkan.linux_wsi_exts):
+                elif self.proto_in_ext(proto.name, self.linux_wsi_exts):
                     protect = self.extract_wsi_type(proto.name)
-                elif self.proto_in_ext(proto.name, vulkan.android_wsi_exts):
+                elif self.proto_in_ext(proto.name, self.android_wsi_exts):
                     protect = "VK_USE_PLATFORM_ANDROID_KHR"
                 # Protect non-WSI platform-dependent APIs with #ifdef
-                elif self.proto_in_ext(proto.name, vulkan.win32_only_exts):
+                elif self.proto_in_ext(proto.name, self.win32_only_exts):
                     protect = "VK_USE_PLATFORM_WIN32_KHR"
-                elif self.proto_in_ext(proto.name, vulkan.android_only_exts):
+                elif self.proto_in_ext(proto.name, self.android_only_exts):
                     protect = "VK_USE_PLATFORM_ANDROID_KHR"
 
                 # Output dispatch table entry, with an ifdef if needed
@@ -243,19 +289,19 @@ class WinDefFileSubcommand(Subcommand):
                 ]
         }
 
-        if len(self.argv) < 2 or len(self.argv) > 3 or self.argv[1] not in library_exports:
+        if len(self.argv) < 2 or len(self.argv) > 4 or self.argv[2] not in library_exports:
             print("WinDefFileSubcommand: <library-name> {%s} [outfile]" %
                     "|".join(library_exports.keys()))
             return
 
-        self.library = self.argv[0]
+        self.library = self.argv[1]
         if self.library == "VkLayer_multi":
             self.exports = library_exports["layer_multi"]
         else:
-            self.exports = library_exports[self.argv[1]]
+            self.exports = library_exports[self.argv[2]]
 
-        if len(self.argv) == 3:
-            self.outfile = self.argv[2]
+        if len(self.argv) == 4:
+            self.outfile = self.argv[3]
 
         super(WinDefFileSubcommand, self).run()
 
@@ -282,6 +328,8 @@ class WinDefFileSubcommand(Subcommand):
 ; limitations under the License.
 ;
 ;  Author: Courtney Goeltzenleuchter <courtney@LunarG.com>
+;  Author: Jon Ashburn <jon@lunarg.com>
+;  Author: Mark Lobodzinski <mark@lunarg.com>
 ;;;;  End Copyright Notice ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;"""
 
     def generate_header(self):
@@ -293,7 +341,7 @@ class WinDefFileSubcommand(Subcommand):
         body.append("LIBRARY " + self.library)
         body.append("EXPORTS")
 
-        if self.argv[1] != "all":
+        if self.argv[2] != "all":
             for proto in self.exports:
                 if self.library != "VkLayerSwapchain" or proto != "vkEnumerateInstanceExtensionProperties" and proto != "vkEnumerateInstanceLayerProperties":
                     body.append(proto)

@@ -21,7 +21,7 @@
 import argparse
 import os
 import sys
-import vulkan
+import vulkan_api
 import platform
 
 # vk_layer_documentation_generate.py overview
@@ -35,7 +35,7 @@ import platform
 #  Right now it does 3 checks:
 #  1. Verify ENUM codes declared in source are documented
 #  2. Verify ENUM codes in document are declared in source
-#  3. Verify API function names in document are in the actual API header (vulkan.py)
+#  3. Verify API function names in document are in the actual API header (vulkan_api.py)
 # Currently script will flag errors in all of these cases
 
 # TODO : Need a formal specification of the syntax for doc generation
@@ -91,7 +91,7 @@ builtin_headers = [layer_inputs[ln]['header'] for ln in layer_inputs]
 builtin_source = [layer_inputs[ln]['source'] for ln in layer_inputs]
 builtin_tests = ['tests/layer_validation_tests.cpp', ]
 
-# List of extensions in layers that are included in documentation, but not in vulkan.py API set
+# List of extensions in layers that are included in documentation, but not in vulkan_api.py API set
 layer_extension_functions = ['objTrackGetObjects', 'objTrackGetObjectsOfType']
 
 def handle_args():
@@ -319,11 +319,11 @@ class LayerDoc:
                 errors_found += 1
 
         # Now go through API names in doc and verify they're real
-        # First we're going to transform proto names from vulkan.py into single list
-        core_api_names = [p.name for p in vulkan.VK_VERSION_1_0.protos]
-        wsi_s_names = [p.name for p in vulkan.VK_KHR_surface.protos]
-        wsi_ds_names = [p.name for p in vulkan.VK_KHR_swapchain.protos]
-        dbg_rpt_names = [p.name for p in vulkan.VK_EXT_debug_report.protos]
+        # First we're going to transform proto names from vulkan_api.py into single list
+        core_api_names = [p.name for p in vulkan_api.VK_VERSION_1_0.protos]
+        wsi_s_names = [p.name for p in vulkan_api.VK_KHR_surface.protos]
+        wsi_ds_names = [p.name for p in vulkan_api.VK_KHR_swapchain.protos]
+        dbg_rpt_names = [p.name for p in vulkan_api.VK_EXT_debug_report.protos]
         api_names = core_api_names + wsi_s_names + wsi_ds_names + dbg_rpt_names
         for ln in self.layer_doc_dict:
             for chk in self.layer_doc_dict[ln]:

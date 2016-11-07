@@ -39,16 +39,16 @@ endif()
 if (WIN32)
     macro(add_vk_layer target)
     add_custom_command(OUTPUT VkLayer_${target}.def
-        COMMAND ${PYTHON_CMD} ${PROJECT_SOURCE_DIR}/vk-generate.py ${DisplayServer} win-def-file VkLayer_${target} layer > VkLayer_${target}.def
-        DEPENDS ${PROJECT_SOURCE_DIR}/vk-generate.py ${PROJECT_SOURCE_DIR}/vulkan.py
+        COMMAND ${PYTHON_CMD} ${PROJECT_SOURCE_DIR}/vk-generate.py ${DisplayServer} win-def-file ${PROJECT_SOURCE_DIR}/${BUILDTGT_DIR} VkLayer_${target} layer > VkLayer_${target}.def
+        DEPENDS ${PROJECT_SOURCE_DIR}/vk-generate.py
     )
     add_library(VkLayer_${target} SHARED ${ARGN} VkLayer_${target}.def)
-    add_dependencies(VkLayer_${target} generate_tests_dispatch_table_helper VkLayer_utils)
+    add_dependencies(VkLayer_${target} generate_vulkan_api_py generate_tests_dispatch_table_helper VkLayer_utils)
     endmacro()
 else()
     macro(add_vk_layer target)
     add_library(VkLayer_${target} SHARED ${ARGN})
-    add_dependencies(VkLayer_${target} generate_tests_dispatch_table_helper VkLayer_utils)
+    add_dependencies(VkLayer_${target} generate_vulkan_api_py generate_tests_dispatch_table_helper VkLayer_utils)
     set_target_properties(VkLayer_${target} PROPERTIES LINK_FLAGS "-Wl,-Bsymbolic")
     endmacro()
 endif()
@@ -73,8 +73,8 @@ else()
 endif()
 
 add_custom_command(OUTPUT vk_dispatch_table_helper.h
-    COMMAND ${PYTHON_CMD} ${PROJECT_SOURCE_DIR}/vk-generate.py AllPlatforms dispatch-table-ops layer > vk_dispatch_table_helper.h
-    DEPENDS ${PROJECT_SOURCE_DIR}/vk-generate.py ${PROJECT_SOURCE_DIR}/vulkan.py)
+    COMMAND ${PYTHON_CMD} ${PROJECT_SOURCE_DIR}/vk-generate.py AllPlatforms dispatch-table-ops ${PROJECT_SOURCE_DIR}/${BUILDTGT_DIR} layer > vk_dispatch_table_helper.h
+    DEPENDS ${PROJECT_SOURCE_DIR}/vk-generate.py generate_vulkan_api_py)
 
 add_custom_target(generate_tests_dispatch_table_helper DEPENDS
     vk_dispatch_table_helper.h

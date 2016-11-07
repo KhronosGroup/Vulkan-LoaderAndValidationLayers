@@ -1,12 +1,12 @@
 include_directories(
-	${CMAKE_CURRENT_SOURCE_DIR}
-	${CMAKE_CURRENT_BINARY_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_BINARY_DIR}
 )
 
 if (WIN32)
     add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/vulkan-${MAJOR}.def
-        COMMAND ${PYTHON_CMD} ${PROJECT_SOURCE_DIR}/vk-generate.py ${DisplayServer} win-def-file vulkan-${MAJOR}.dll all > ${CMAKE_CURRENT_BINARY_DIR}/vulkan-${MAJOR}.def
-        DEPENDS ${PROJECT_SOURCE_DIR}/vk-generate.py ${PROJECT_SOURCE_DIR}/vulkan.py)
+        COMMAND ${PYTHON_CMD} ${PROJECT_SOURCE_DIR}/vk-generate.py ${DisplayServer} win-def-file ${PROJECT_SOURCE_DIR}/${BUILDTGT_DIR} vulkan-${MAJOR}.dll all > ${CMAKE_CURRENT_BINARY_DIR}/vulkan-${MAJOR}.def
+        DEPENDS ${PROJECT_SOURCE_DIR}/vk-generate.py vulkan_api.py)
 endif()
 
 # DEBUG enables runtime loader ICD verification

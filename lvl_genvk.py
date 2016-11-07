@@ -23,6 +23,8 @@ from generator import write
 from threading_generator import  ThreadGeneratorOptions, ThreadOutputGenerator
 from parameter_validation_generator import ParamCheckerGeneratorOptions, ParamCheckerOutputGenerator
 from unique_objects_generator import UniqueObjectsGeneratorOptions, UniqueObjectsOutputGenerator
+from vulkan_api_generator import VulkanApiGeneratorOptions, VulkanApiOutputGenerator
+
 
 # Simple timer functions
 startTime = None
@@ -144,6 +146,27 @@ def makeGenOpts(extensions = [], protect = True, directory = '.'):
           UniqueObjectsOutputGenerator,
           UniqueObjectsGeneratorOptions(
             filename          = 'unique_objects_wrappers.h',
+            directory         = directory,
+            apiname           = 'vulkan',
+            profile           = None,
+            versions          = allVersions,
+            emitversions      = allVersions,
+            defaultExtensions = 'vulkan',
+            addExtensions     = addExtensions,
+            removeExtensions  = removeExtensions,
+            prefixText        = prefixStrings + vkPrefixStrings,
+            protectFeature    = False,
+            apicall           = 'VKAPI_ATTR ',
+            apientry          = 'VKAPI_CALL ',
+            apientryp         = 'VKAPI_PTR *',
+            alignFuncParam    = 48)
+        ]
+
+    # Options for vulkan API python file
+    genOpts['vulkan_api.py'] = [
+          VulkanApiOutputGenerator,
+          VulkanApiGeneratorOptions(
+            filename          = 'vulkan_api.py',
             directory         = directory,
             apiname           = 'vulkan',
             profile           = None,

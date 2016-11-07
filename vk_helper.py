@@ -20,11 +20,10 @@
 # Author: Courtney Goeltzenleuchter <courtney@LunarG.com>
 # Author: Tobin Ehlis <tobin@lunarg.com>
 
-import argparse
 import os
 import sys
+import argparse
 import re
-import vulkan
 from source_line_info import sourcelineinfo
 
 # vk_helper.py overview
@@ -35,6 +34,7 @@ from source_line_info import sourcelineinfo
 
 def handle_args():
     parser = argparse.ArgumentParser(description='Perform analysis of vogl trace.')
+    parser.add_argument('--vulkan_api_path', required=False, default=False, help='Full path to location of vulkan_api.py module.')
     parser.add_argument('input_file', help='The input header file from which code will be generated.')
     parser.add_argument('--rel_out_dir', required=False, default='vktrace_gen', help='Path relative to exec path to write output files. Will be created if needed.')
     parser.add_argument('--abs_out_dir', required=False, default=None, help='Absolute path to write output files. Will be created if needed.')
@@ -993,7 +993,7 @@ class StructWrapperGen:
                                 sh_funcs.append('%sss[%u] << "0x" << %spStruct->%s[i];' % (indent, index, addr_char, stp_list[index]['name']))
                             else:
                                 sh_funcs.append('%sss[%u] << %spStruct->%s[i];' % (indent, index, addr_char, stp_list[index]['name']))
-                            if stp_list[index]['type'] in vulkan.VK_VERSION_1_0.objects:
+                            if stp_list[index]['type'] in self.VK_VERSION_1_0.objects:
                                 sh_funcs.append('%sstp_strs[%u] += " " + prefix + "%s[" + index_ss.str() + "].handle = " + ss[%u].str() + "\\n";' % (indent, index, stp_list[index]['name'], index))
                             else:
                                 sh_funcs.append('%sstp_strs[%u] += " " + prefix + "%s[" + index_ss.str() + "] = " + ss[%u].str() + "\\n";' % (indent, index, stp_list[index]['name'], index))
@@ -1619,7 +1619,7 @@ class StructWrapperGen:
                     m_type = self._getSafeStructName(m_type)
                 if self.struct_dict[s][m]['array_size'] != 0 and not self.struct_dict[s][m]['dyn_array']:
                     ss_decls.append("    %s %s[%s];" % (m_type, self.struct_dict[s][m]['name'], self.struct_dict[s][m]['array_size']))
-                elif self.struct_dict[s][m]['ptr'] and 'safe_' not in m_type and not self._typeHasObject(m_type, vulkan.object_non_dispatch_list):#m_type in ['char', 'float', 'uint32_t', 'void', 'VkPhysicalDeviceFeatures']: # We'll never overwrite char* so it can remain const
+                elif self.struct_dict[s][m]['ptr'] and 'safe_' not in m_type and not self._typeHasObject(m_type, self.object_non_dispatch_list):#m_type in ['char', 'float', 'uint32_t', 'void', 'VkPhysicalDeviceFeatures']: # We'll never overwrite char* so it can remain const
                     ss_decls.append("    %s %s;" % (self.struct_dict[s][m]['full_type'], self.struct_dict[s][m]['name']))
                 elif self.struct_dict[s][m]['array']:
                     ss_decls.append("    %s* %s;" % (m_type, self.struct_dict[s][m]['name']))
@@ -1703,7 +1703,7 @@ class StructWrapperGen:
                 m_type = self.struct_dict[s][m]['type']
                 if is_type(m_type, 'struct') and self._hasSafeStruct(m_type):
                     m_type = self._getSafeStructName(m_type)
-                if self.struct_dict[s][m]['ptr'] and 'safe_' not in m_type and not self._typeHasObject(m_type, vulkan.object_non_dispatch_list):# in ['char', 'float', 'uint32_t', 'void', 'VkPhysicalDeviceFeatures']) or 'pp' == self.struct_dict[s][m]['name'][0:1]:
+                if self.struct_dict[s][m]['ptr'] and 'safe_' not in m_type and not self._typeHasObject(m_type, self.object_non_dispatch_list):# in ['char', 'float', 'uint32_t', 'void', 'VkPhysicalDeviceFeatures']) or 'pp' == self.struct_dict[s][m]['name'][0:1]:
                     # Ptr types w/o a safe_struct, for non-null case need to allocate new ptr and copy data in
                     if 'KHR' in ss_name or m_type in ['void', 'char']:
                         # For these exceptions just copy initial value over for now
@@ -2131,30 +2131,13 @@ class GraphVizGen:
         gv_funcs.append("}")
         return "".join(gv_funcs)
 
-
-
-
-
-#    def _generateHeader(self):
-#        hdr = []
-#        hdr.append('digraph g {\ngraph [\nrankdir = "LR"\n];')
-#        hdr.append('node [\nfontsize = "16"\nshape = "plaintext"\n];')
-#        hdr.append('edge [\n];\n')
-#        return "\n".join(hdr)
-#
-#    def _generateBody(self):
-#        body = []
-#        for s in sorted(self.struc_dict):
-#            field_num = 1
-#            body.append('"%s" [\nlabel = <<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0"> <TR><TD COLSPAN="2" PORT="f0">%s</TD></TR>' % (s, typedef_fwd_dict[s]))
-#            for m in sorted(self.struc_dict[s]):
-#                body.append('<TR><TD PORT="f%i">%s</TD><TD PORT="f%i">%s</TD></TR>' % (field_num, self.struc_dict[s][m]['full_type'], field_num+1, self.struc_dict[s][m]['name']))
-#                field_num += 2
-#            body.append('</TABLE>>\n];\n')
-#        return "".join(body)
-
 def main(argv=None):
     opts = handle_args()
+
+    # Add vulkan_api.py library path to python search path
+    sys.path.append(opts.vulkan_api_path)
+    import vulkan_api
+
     # Parse input file and fill out global dicts
     hfp = HeaderFileParser(opts.input_file)
     hfp.parse()
@@ -2201,6 +2184,8 @@ def main(argv=None):
     #print(struct)
     if opts.gen_struct_wrappers:
         sw = StructWrapperGen(struct_dict, os.path.basename(opts.input_file).strip(".h"), os.path.dirname(enum_sh_filename))
+        sw.VK_VERSION_1_0 = vulkan_api.VK_VERSION_1_0
+        sw.object_non_dispatch_list = vulkan_api.object_non_dispatch_list
         #print(sw.get_class_name(struct))
         sw.set_include_headers([input_header,os.path.basename(enum_sh_filename),"stdint.h","cinttypes", "stdio.h","stdlib.h"])
         print("Generating struct wrapper header to %s" % sw.header_filename)

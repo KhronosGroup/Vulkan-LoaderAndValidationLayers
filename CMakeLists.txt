@@ -292,8 +292,13 @@ if(UNIX)
     install(DIRECTORY "${PROJECT_SOURCE_DIR}/include/vulkan" DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 endif()
 
-# loader: Generic VULKAN ICD loader
-# tests: VULKAN tests
+add_custom_command( OUTPUT vulkan_api.py
+    COMMAND ${PYTHON_CMD} ${PROJECT_SOURCE_DIR}/lvl_genvk.py -registry ${PROJECT_SOURCE_DIR}/vk.xml vulkan_api.py
+    DEPENDS ${PROJECT_SOURCE_DIR}/vk.xml ${PROJECT_SOURCE_DIR}/vulkan_api_generator.py ${PROJECT_SOURCE_DIR}/generator.py ${PROJECT_SOURCE_DIR}/${dependency} ${PROJECT_SOURCE_DIR}/lvl_genvk.py ${PROJECT_SOURCE_DIR}/reg.py )
+
+add_custom_target( generate_vulkan_api_py DEPENDS vulkan_api.py )
+
+
 if(BUILD_LOADER)
     add_subdirectory(loader)
 endif()
