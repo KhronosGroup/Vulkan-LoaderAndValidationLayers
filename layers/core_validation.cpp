@@ -7351,6 +7351,7 @@ BeginCommandBuffer(VkCommandBuffer commandBuffer, const VkCommandBufferBeginInfo
                 (cb_node->beginInfo.flags & VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT)) {
                 cb_node->activeRenderPass = getRenderPassState(dev_data, cb_node->beginInfo.pInheritanceInfo->renderPass);
                 cb_node->activeSubpass = cb_node->beginInfo.pInheritanceInfo->subpass;
+                cb_node->activeFramebuffer = cb_node->beginInfo.pInheritanceInfo->framebuffer;
                 cb_node->framebuffers.insert(cb_node->beginInfo.pInheritanceInfo->framebuffer);
             }
         }
@@ -11008,6 +11009,10 @@ CmdExecuteCommands(VkCommandBuffer commandBuffer, uint32_t commandBuffersCount, 
                             "flight and inherited queries not "
                             "supported on this device.",
                             reinterpret_cast<uint64_t>(pCommandBuffers[i]));
+            }
+            // Propagate layout transitions to the primary cmd buffer
+            for (auto ilm_entry : pSubCB->imageLayoutMap) {
+                SetLayout(pCB, ilm_entry.first, ilm_entry.second);
             }
             pSubCB->primaryCommandBuffer = pCB->commandBuffer;
             pCB->secondaryCommandBuffers.insert(pSubCB->commandBuffer);
