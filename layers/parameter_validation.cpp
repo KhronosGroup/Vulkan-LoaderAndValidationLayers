@@ -6054,17 +6054,13 @@ static PFN_vkVoidFunction InterceptWsiEnabledCommand(const char *name, VkDevice 
     if (device) {
         layer_data *device_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
 
-        if (device_data->enables.khr_swapchain_enabled) {
-            for (size_t i = 0; i < ARRAY_SIZE(wsi_device_commands); i++) {
-                if (!strcmp(wsi_device_commands[i].name, name))
-                    return wsi_device_commands[i].proc;
-            }
+        for (size_t i = 0; i < ARRAY_SIZE(wsi_device_commands); i++) {
+            if (!strcmp(wsi_device_commands[i].name, name))
+                return wsi_device_commands[i].proc;
         }
 
-        if (device_data->enables.khr_display_swapchain_enabled) {
-            if (!strcmp("vkCreateSharedSwapchainsKHR", name)) {
-                return reinterpret_cast<PFN_vkVoidFunction>(CreateSharedSwapchainsKHR);
-            }
+        if (!strcmp("vkCreateSharedSwapchainsKHR", name)) {
+            return reinterpret_cast<PFN_vkVoidFunction>(CreateSharedSwapchainsKHR);
         }
     }
 
