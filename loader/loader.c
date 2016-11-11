@@ -3319,7 +3319,8 @@ void loader_override_terminating_device_proc(
             device, "vkCreateSwapchainKHR")) {
         disp_table->core_dispatch.CreateSwapchainKHR =
             terminator_vkCreateSwapchainKHR;
-    } else if ((PFN_vkVoidFunction)disp_table->core_dispatch
+    }
+    if ((PFN_vkVoidFunction)disp_table->core_dispatch
                    .GetDeviceGroupSurfacePresentModesKHX ==
                (PFN_vkVoidFunction)icd_term->GetDeviceProcAddr(
                    device, "vkGetDeviceGroupSurfacePresentModesKHX")) {
