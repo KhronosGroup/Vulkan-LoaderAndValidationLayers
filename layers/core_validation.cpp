@@ -9012,7 +9012,7 @@ static bool ValidateMaskBitsFromLayouts(const layer_data *my_data, VkCommandBuff
         break;
     }
     case VK_IMAGE_LAYOUT_PREINITIALIZED: {
-        skip_call |= ValidateMaskBits(my_data, cmdBuffer, accessMask, layout, VK_ACCESS_HOST_WRITE_BIT, 0, type);
+        skip_call |= ValidateMaskBits(my_data, cmdBuffer, accessMask, layout, 0, 0, type);
         break;
     }
     case VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL: {
