@@ -171,7 +171,9 @@ struct loader_dev_dispatch_table {
 // per CreateDevice structure
 struct loader_device {
     struct loader_dev_dispatch_table loader_dispatch;
-    VkDevice device; // device object from the icd
+    VkDevice chain_device; // device object from the dispatch chain
+    VkDevice icd_device; // device object from the icd
+    struct loader_physical_device_term *phys_dev_term;
 
     struct loader_layer_list activated_layer_list;
 
@@ -267,10 +269,14 @@ struct loader_icd_term {
     // KHX_device_group
     PFN_vkGetDeviceGroupSurfacePresentModesKHX GetDeviceGroupSurfacePresentModesKHX;
 
-        // EXT_debug_report
+    // EXT_debug_report
     PFN_vkCreateDebugReportCallbackEXT CreateDebugReportCallbackEXT;
     PFN_vkDestroyDebugReportCallbackEXT DestroyDebugReportCallbackEXT;
     PFN_vkDebugReportMessageEXT DebugReportMessageEXT;
+    
+    // EXT_debug_marker (items needing a trampoline/terminator)
+    PFN_vkDebugMarkerSetObjectTagEXT DebugMarkerSetObjectTagEXT;
+    PFN_vkDebugMarkerSetObjectNameEXT DebugMarkerSetObjectNameEXT;
 
     // NV_external_memory_capabilities
     PFN_vkGetPhysicalDeviceExternalImageFormatPropertiesNV
@@ -559,8 +565,7 @@ void loader_init_dispatch_dev_ext(struct loader_instance *inst,
                                   struct loader_device *dev);
 void *loader_dev_ext_gpa(struct loader_instance *inst, const char *funcName);
 void *loader_get_dev_ext_trampoline(uint32_t index);
-void loader_override_terminating_device_proc(
-    VkDevice device, struct loader_dev_dispatch_table *disp_table);
+void loader_override_terminating_device_proc(struct loader_device *dev);
 struct loader_instance *loader_get_instance(const VkInstance instance);
 void loader_deactivate_layers(const struct loader_instance *instance,
                               struct loader_device *device,

@@ -73,6 +73,15 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_EnumeratePhysicalDeviceGroupsKHX(
 VKAPI_ATTR VkResult VKAPI_CALL terminator_GetDeviceGroupSurfacePresentModesKHX(
     VkDevice device, VkSurfaceKHR surface,
     VkDeviceGroupPresentModeFlagsKHX *pModes);
+    
+// Device extension terminators for the VK_NV_external_memory_capabilities
+// extension
+
+VKAPI_ATTR VkResult VKAPI_CALL terminator_DebugMarkerSetObjectTagEXT(
+    VkDevice device, VkDebugMarkerObjectTagInfoEXT *pTagInfo);
+
+VKAPI_ATTR VkResult VKAPI_CALL terminator_DebugMarkerSetObjectNameEXT(
+    VkDevice device, VkDebugMarkerObjectNameInfoEXT *pNameInfo);
 
 // Instance extension terminators for the VK_NV_external_memory_capabilities
 // extension
