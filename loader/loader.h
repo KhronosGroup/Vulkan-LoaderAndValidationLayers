@@ -200,6 +200,8 @@ struct loader_icd_term {
     PFN_vkCreateDebugReportCallbackEXT CreateDebugReportCallbackEXT;
     PFN_vkDestroyDebugReportCallbackEXT DestroyDebugReportCallbackEXT;
     PFN_vkDebugReportMessageEXT DebugReportMessageEXT;
+    PFN_vkDebugMarkerSetObjectTagEXT DebugMarkerSetObjectTagEXT;
+    PFN_vkDebugMarkerSetObjectNameEXT DebugMarkerSetObjectNameEXT;
     PFN_vkGetPhysicalDeviceSurfaceSupportKHR GetPhysicalDeviceSurfaceSupportKHR;
     PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR
         GetPhysicalDeviceSurfaceCapabilitiesKHR;
