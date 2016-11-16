@@ -165,6 +165,7 @@ struct layer_data {
     unordered_map<VkRenderPass, unique_ptr<RENDER_PASS_STATE>> renderPassMap;
     unordered_map<VkShaderModule, unique_ptr<shader_module>> shaderModuleMap;
     VkDevice device = VK_NULL_HANDLE;
+    VkPhysicalDevice physical_device = VK_NULL_HANDLE;
 
     instance_layer_data *instance_data = nullptr;  // from device to enclosing instance
 
@@ -3258,8 +3259,7 @@ static bool verifyLineWidth(layer_data *my_data, DRAW_STATE_ERROR dsError, const
 }
 
 // Verify that create state for a pipeline is valid
-static bool verifyPipelineCreateState(layer_data *my_data, const VkDevice device, std::vector<PIPELINE_STATE *> pPipelines,
-                                      int pipelineIndex) {
+static bool verifyPipelineCreateState(layer_data *my_data, std::vector<PIPELINE_STATE *> pPipelines, int pipelineIndex) {
     bool skip_call = false;
 
     PIPELINE_STATE *pPipeline = pPipelines[pipelineIndex];
@@ -4455,6 +4455,8 @@ VKAPI_ATTR VkResult VKAPI_CALL CreateDevice(VkPhysicalDevice gpu, const VkDevice
     // Setup device dispatch table
     layer_init_device_dispatch_table(*pDevice, &my_device_data->dispatch_table, fpGetDeviceProcAddr);
     my_device_data->device = *pDevice;
+    // Save PhysicalDevice handle
+    my_device_data->physical_device = gpu;
 
     my_device_data->report_data = layer_debug_report_create_device(my_instance_data->report_data, *pDevice);
     checkDeviceRegisterExtensions(pCreateInfo, *pDevice);
@@ -6779,49 +6781,74 @@ void set_pipeline_state(PIPELINE_STATE *pPipe) {
     }
 }
 
+static bool PreCallCreateGraphicsPipelines(layer_data *device_data, uint32_t count,
+                                           const VkGraphicsPipelineCreateInfo *create_infos, vector<PIPELINE_STATE *> &pipe_state) {
+    bool skip = false;
+    instance_layer_data *instance_data = get_my_data_ptr(get_dispatch_key(device_data->instance_data->instance), instance_layer_data_map);
+
+    for (uint32_t i = 0; i < count; i++) {
+        skip |= verifyPipelineCreateState(device_data, pipe_state, i);
+        if (create_infos[i].pVertexInputState != NULL) {
+            for (uint32_t j = 0; j < create_infos[i].pVertexInputState->vertexAttributeDescriptionCount; j++) {
+                VkFormat format = create_infos[i].pVertexInputState->pVertexAttributeDescriptions[j].format;
+                // Internal call to get format info.  Still goes through layers, could potentially go directly to ICD.
+                VkFormatProperties properties;
+                instance_data->dispatch_table.GetPhysicalDeviceFormatProperties(device_data->physical_device, format, &properties);
+                if ((properties.bufferFeatures & VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT) == 0) {
+                    skip |= log_msg(
+                        device_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
+                        __LINE__, VALIDATION_ERROR_01413, "IMAGE",
+                        "vkCreateGraphicsPipelines: pCreateInfo[%d].pVertexInputState->vertexAttributeDescriptions[%d].format "
+                        "(%s) is not a supported vertex buffer format, %s.",
+                        i, j, string_VkFormat(format), validation_error_map[VALIDATION_ERROR_01413]);
+                }
+            }
+        }
+    }
+    return skip;
+}
+
 VKAPI_ATTR VkResult VKAPI_CALL
 CreateGraphicsPipelines(VkDevice device, VkPipelineCache pipelineCache, uint32_t count,
                         const VkGraphicsPipelineCreateInfo *pCreateInfos, const VkAllocationCallbacks *pAllocator,
                         VkPipeline *pPipelines) {
-    VkResult result = VK_SUCCESS;
     // TODO What to do with pipelineCache?
     // The order of operations here is a little convoluted but gets the job done
     //  1. Pipeline create state is first shadowed into PIPELINE_STATE struct
     //  2. Create state is then validated (which uses flags setup during shadowing)
     //  3. If everything looks good, we'll then create the pipeline and add NODE to pipelineMap
-    bool skip_call = false;
+    VkResult result = VK_ERROR_VALIDATION_FAILED_EXT;
+    bool skip = false;
     // TODO : Improve this data struct w/ unique_ptrs so cleanup below is automatic
-    vector<PIPELINE_STATE *> pPipeState(count);
+    vector<PIPELINE_STATE *> pipe_state(count);
     layer_data *dev_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
 
     uint32_t i = 0;
     std::unique_lock<std::mutex> lock(global_lock);
 
     for (i = 0; i < count; i++) {
-        pPipeState[i] = new PIPELINE_STATE;
-        pPipeState[i]->initGraphicsPipeline(&pCreateInfos[i]);
-        pPipeState[i]->render_pass_ci.initialize(getRenderPassState(dev_data, pCreateInfos[i].renderPass)->createInfo.ptr());
-        pPipeState[i]->pipeline_layout = *getPipelineLayout(dev_data, pCreateInfos[i].layout);
-
-        skip_call |= verifyPipelineCreateState(dev_data, device, pPipeState, i);
+        pipe_state[i] = new PIPELINE_STATE;
+        pipe_state[i]->initGraphicsPipeline(&pCreateInfos[i]);
+        pipe_state[i]->render_pass_ci.initialize(getRenderPassState(dev_data, pCreateInfos[i].renderPass)->createInfo.ptr());
+        pipe_state[i]->pipeline_layout = *getPipelineLayout(dev_data, pCreateInfos[i].layout);
     }
+    skip |= PreCallCreateGraphicsPipelines(dev_data, count, pCreateInfos, pipe_state);
 
-    if (!skip_call) {
+    if (!skip) {
         lock.unlock();
         result =
             dev_data->dispatch_table.CreateGraphicsPipelines(device, pipelineCache, count, pCreateInfos, pAllocator, pPipelines);
         lock.lock();
         for (i = 0; i < count; i++) {
-            pPipeState[i]->pipeline = pPipelines[i];
-            dev_data->pipelineMap[pPipeState[i]->pipeline] = pPipeState[i];
+            pipe_state[i]->pipeline = pPipelines[i];
+            dev_data->pipelineMap[pipe_state[i]->pipeline] = pipe_state[i];
         }
         lock.unlock();
     } else {
         for (i = 0; i < count; i++) {
-            delete pPipeState[i];
+            delete pipe_state[i];
         }
         lock.unlock();
-        return VK_ERROR_VALIDATION_FAILED_EXT;
     }
     return result;
 }
@@ -6851,7 +6878,7 @@ CreateComputePipelines(VkDevice device, VkPipelineCache pipelineCache, uint32_t 
         // TODO: Add Compute Pipeline Verification
         skip_call |= !validate_compute_pipeline(dev_data->report_data, pPipeState[i], &dev_data->enabled_features,
                                                 dev_data->shaderModuleMap);
-        // skip_call |= verifyPipelineCreateState(dev_data, device, pPipeState[i]);
+        // skip_call |= verifyPipelineCreateState(dev_data, pPipeState[i]);
     }
 
     if (!skip_call) {
