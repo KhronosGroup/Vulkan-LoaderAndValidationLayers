@@ -10324,7 +10324,7 @@ static bool ValidateAttachmentIndex(layer_data *dev_data, uint32_t attachment, u
     if (attachment >= attachment_count && attachment != VK_ATTACHMENT_UNUSED) {
         skip_call |= log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, (VkDebugReportObjectTypeEXT)0, 0, __LINE__,
                              DRAWSTATE_INVALID_ATTACHMENT_INDEX, "DS",
-                             "CreateRenderPass: %s attachment %d cannot be greater than the total number of attachments %d.",
+                             "CreateRenderPass: %s attachment %d must be less than the total number of attachments %d.",
                              type, attachment, attachment_count);
     }
     return skip_call;
@@ -10425,10 +10425,12 @@ VKAPI_ATTR VkResult VKAPI_CALL CreateRenderPass(VkDevice device, const VkRenderP
 
     std::unique_lock<std::mutex> lock(global_lock);
 
-    skip_call |= ValidateLayouts(dev_data, device, pCreateInfo);
     // TODO: As part of wrapping up the mem_tracker/core_validation merge the following routine should be consolidated with
     //       ValidateLayouts.
     skip_call |= ValidateRenderpassAttachmentUsage(dev_data, pCreateInfo);
+    if (!skip_call) {
+        skip_call |= ValidateLayouts(dev_data, device, pCreateInfo);
+    }
     lock.unlock();
 
     if (skip_call) {
