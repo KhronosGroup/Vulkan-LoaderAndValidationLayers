@@ -5169,7 +5169,7 @@ static void PostCallRecordFreeMemory(layer_data *dev_data, VkDeviceMemory mem, D
         }
     }
     // Any bound cmd buffers are now invalid
-    invalidateCommandBuffers(dev_data, mem_info->cb_bindings, obj_struct);
+    invalidateCommandBuffers(dev_data, &mem_info->cb_bindings, obj_struct);
     dev_data->memObjMap.erase(mem);
 }
 
@@ -5483,7 +5483,7 @@ static bool PreCallValidateDestroyEvent(layer_data *dev_data, VkEvent event, EVE
 }
 
 static void PostCallRecordDestroyEvent(layer_data *dev_data, VkEvent event, EVENT_STATE *event_state, VK_OBJECT obj_struct) {
-    invalidateCommandBuffers(dev_data, event_state->cb_bindings, obj_struct);
+    invalidateCommandBuffers(dev_data, &event_state->cb_bindings, obj_struct);
     dev_data->eventMap.erase(event);
 }
 
@@ -5511,7 +5511,7 @@ DestroyQueryPool(VkDevice device, VkQueryPool queryPool, const VkAllocationCallb
         VK_OBJECT obj_struct = {reinterpret_cast<uint64_t &>(queryPool), VK_DEBUG_REPORT_OBJECT_TYPE_QUERY_POOL_EXT};
         skip |= ValidateObjectNotInUse(dev_data, qp_node, obj_struct, VALIDATION_ERROR_01012);
         // Any bound cmd buffers are now invalid
-        invalidateCommandBuffers(dev_data, qp_node->cb_bindings, obj_struct);
+        invalidateCommandBuffers(dev_data, &qp_node->cb_bindings, obj_struct);
     }
     if (!skip) {
         dev_data->queryPoolMap.erase(queryPool);
@@ -5759,7 +5759,7 @@ VKAPI_ATTR void VKAPI_CALL DestroyBuffer(VkDevice device, VkBuffer buffer,
         auto buffer_state = getBufferState(dev_data, buffer);
         if (buffer_state) {
             // Any bound cmd buffers are now invalid
-            invalidateCommandBuffers(dev_data, buffer_state->cb_bindings,
+            invalidateCommandBuffers(dev_data, &buffer_state->cb_bindings,
                                      {reinterpret_cast<uint64_t &>(buffer_state->buffer), VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_EXT});
             for (auto mem_binding : buffer_state->GetBoundMemory()) {
                 auto mem_info = getMemObjInfo(dev_data, mem_binding);
@@ -5791,7 +5791,7 @@ static bool PreCallValidateDestroyBufferView(layer_data *dev_data, VkBufferView 
 static void PostCallRecordDestroyBufferView(layer_data *dev_data, VkBufferView buffer_view, BUFFER_VIEW_STATE *buffer_view_state,
                                             VK_OBJECT obj_struct) {
     // Any bound cmd buffers are now invalid
-    invalidateCommandBuffers(dev_data, buffer_view_state->cb_bindings, obj_struct);
+    invalidateCommandBuffers(dev_data, &buffer_view_state->cb_bindings, obj_struct);
     dev_data->bufferViewMap.erase(buffer_view);
 }
 
@@ -5825,7 +5825,7 @@ static bool PreCallValidateDestroyImage(layer_data *dev_data, VkImage image, IMA
 }
 
 static void PostCallRecordDestroyImage(layer_data *dev_data, VkImage image, IMAGE_STATE *image_state, VK_OBJECT obj_struct) {
-    invalidateCommandBuffers(dev_data, image_state->cb_bindings, obj_struct);
+    invalidateCommandBuffers(dev_data, &image_state->cb_bindings, obj_struct);
     // Clean up memory mapping, bindings and range references for image
     for (auto mem_binding : image_state->GetBoundMemory()) {
         auto mem_info = getMemObjInfo(dev_data, mem_binding);
@@ -6001,7 +6001,7 @@ static bool PreCallValidateDestroyImageView(layer_data *dev_data, VkImageView im
 static void PostCallRecordDestroyImageView(layer_data *dev_data, VkImageView image_view, IMAGE_VIEW_STATE *image_view_state,
                                            VK_OBJECT obj_struct) {
     // Any bound cmd buffers are now invalid
-    invalidateCommandBuffers(dev_data, image_view_state->cb_bindings, obj_struct);
+    invalidateCommandBuffers(dev_data, &image_view_state->cb_bindings, obj_struct);
     dev_data->imageViewMap.erase(image_view);
 }
 
@@ -6048,7 +6048,7 @@ static bool PreCallValidateDestroyPipeline(layer_data *dev_data, VkPipeline pipe
 static void PostCallRecordDestroyPipeline(layer_data *dev_data, VkPipeline pipeline, PIPELINE_STATE *pipeline_state,
                                           VK_OBJECT obj_struct) {
     // Any bound cmd buffers are now invalid
-    invalidateCommandBuffers(dev_data, pipeline_state->cb_bindings, obj_struct);
+    invalidateCommandBuffers(dev_data, &pipeline_state->cb_bindings, obj_struct);
     dev_data->pipelineMap.erase(pipeline);
 }
 
@@ -6094,7 +6094,7 @@ static void PostCallRecordDestroySampler(layer_data *dev_data, VkSampler sampler
                                          VK_OBJECT obj_struct) {
     // Any bound cmd buffers are now invalid
     if (sampler_state)
-        invalidateCommandBuffers(dev_data, sampler_state->cb_bindings, obj_struct);
+        invalidateCommandBuffers(dev_data, &sampler_state->cb_bindings, obj_struct);
     dev_data->samplerMap.erase(sampler);
 }
 
@@ -6136,7 +6136,7 @@ static bool PreCallValidateDestroyDescriptorPool(layer_data *dev_data, VkDescrip
 static void PostCallRecordDestroyDescriptorPool(layer_data *dev_data, VkDescriptorPool descriptorPool,
                                                 DESCRIPTOR_POOL_STATE *desc_pool_state, VK_OBJECT obj_struct) {
     // Any bound cmd buffers are now invalid
-    invalidateCommandBuffers(dev_data, desc_pool_state->cb_bindings, obj_struct);
+    invalidateCommandBuffers(dev_data, &desc_pool_state->cb_bindings, obj_struct);
     // Free sets that were in this pool
     for (auto ds : desc_pool_state->sets) {
         freeDescriptorSet(dev_data, ds);
@@ -6386,12 +6386,13 @@ VKAPI_ATTR VkResult VKAPI_CALL ResetFences(VkDevice device, uint32_t fenceCount,
 }
 
 // For given cb_nodes, invalidate them and track object causing invalidation
-void invalidateCommandBuffers(const layer_data *dev_data, std::unordered_set<GLOBAL_CB_NODE *> cb_nodes, VK_OBJECT obj) {
-    for (auto cb_node : cb_nodes) {
+void invalidateCommandBuffers(const layer_data *dev_data, std::unordered_set<GLOBAL_CB_NODE *> *cb_nodes, VK_OBJECT obj) {
+    for (auto cb_node : *cb_nodes) {
         if (cb_node->state == CB_RECORDING) {
             log_msg(dev_data->report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                    (uint64_t)(cb_node), __LINE__, DRAWSTATE_INVALID_COMMAND_BUFFER, "DS",
-                    "Invalidating a command buffer that's currently being recorded: 0x%" PRIx64 ".", (uint64_t)(cb_node));
+                    (uint64_t)(cb_node->commandBuffer), __LINE__, DRAWSTATE_INVALID_COMMAND_BUFFER, "DS",
+                    "Invalidating a command buffer that's currently being recorded: 0x%" PRIx64 ".",
+                    (uint64_t)(cb_node->commandBuffer));
         }
         cb_node->state = CB_INVALID;
         cb_node->broken_bindings.push_back(obj);
@@ -6413,7 +6414,7 @@ static bool PreCallValidateDestroyFramebuffer(layer_data *dev_data, VkFramebuffe
 
 static void PostCallRecordDestroyFramebuffer(layer_data *dev_data, VkFramebuffer framebuffer, FRAMEBUFFER_STATE *framebuffer_state,
                                              VK_OBJECT obj_struct) {
-    invalidateCommandBuffers(dev_data, framebuffer_state->cb_bindings, obj_struct);
+    invalidateCommandBuffers(dev_data, &framebuffer_state->cb_bindings, obj_struct);
     dev_data->frameBufferMap.erase(framebuffer);
 }
 
@@ -6447,7 +6448,7 @@ static bool PreCallValidateDestroyRenderPass(layer_data *dev_data, VkRenderPass 
 
 static void PostCallRecordDestroyRenderPass(layer_data *dev_data, VkRenderPass render_pass, RENDER_PASS_STATE *rp_state,
                                             VK_OBJECT obj_struct) {
-    invalidateCommandBuffers(dev_data, rp_state->cb_bindings, obj_struct);
+    invalidateCommandBuffers(dev_data, &rp_state->cb_bindings, obj_struct);
     dev_data->renderPassMap.erase(render_pass);
 }
 
