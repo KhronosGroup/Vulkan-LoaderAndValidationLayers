@@ -550,8 +550,9 @@ vkEnumeratePhysicalDevices(VkInstance instance, uint32_t *pPhysicalDeviceCount,
         goto out;
     }
 
-    res = setupLoaderTrampPhysDevs(inst);
-    if (VK_SUCCESS != res) {
+    VkResult temp_res = setupLoaderTrampPhysDevs(inst);
+    if (VK_SUCCESS != temp_res) {
+        res = temp_res;
         goto out;
     }
 
