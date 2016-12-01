@@ -684,14 +684,24 @@ static void clear_cmd_buf_and_mem_references(layer_data *dev_data, const VkComma
 }
 
 // Clear a single object binding from given memory object, or report error if binding is missing
-static bool ClearMemoryObjectBinding(layer_data *dev_data, uint64_t handle, VkDebugReportObjectTypeEXT type, VkDeviceMemory mem) {
+static bool ClearMemoryObjectBinding(layer_data *dev_data, uint64_t handle, VkDebugReportObjectTypeEXT type, VkDeviceMemory mem,
+                                     int32_t const msgCode) {
     DEVICE_MEM_INFO *mem_info = getMemObjInfo(dev_data, mem);
     // This obj is bound to a memory object. Remove the reference to this object in that memory object's list
     if (mem_info && !mem_info->obj_bindings.erase({handle, type})) {
-        return log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, type, handle, __LINE__, MEMTRACK_INVALID_OBJECT,
-                    "MEM", "While trying to clear mem binding for %s obj 0x%" PRIxLEAST64
-                           ", unable to find that object referenced by mem obj 0x%" PRIxLEAST64,
-                    object_type_to_string(type), handle, (uint64_t)mem);
+        if (msgCode == -1) {
+            // TODO: Fix callers with msgCode == -1 to use correct validation checks.
+            return log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, type, handle, __LINE__,
+                           MEMTRACK_INVALID_USAGE_FLAG, "MEM", "While trying to clear mem binding for %s obj 0x%" PRIxLEAST64
+                                                               ", unable to find that object referenced by mem obj 0x%" PRIxLEAST64,
+                           object_type_to_string(type), handle, (uint64_t)mem);
+        } else {
+            char const *valid_usage = (msgCode == -1) ? "" : validation_error_map[msgCode];
+            return log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, type, handle, __LINE__, msgCode, "MEM",
+                           "While trying to clear mem binding for %s obj 0x%" PRIxLEAST64
+                           ", unable to find that object referenced by mem obj 0x%" PRIxLEAST64 ". %s",
+                           object_type_to_string(type), handle, (uint64_t)mem, valid_usage);
+        }
     }
     return false;
 }
@@ -699,15 +709,16 @@ static bool ClearMemoryObjectBinding(layer_data *dev_data, uint64_t handle, VkDe
 // ClearMemoryObjectBindings clears the binding of objects to memory
 //  For the given object it pulls the memory bindings and makes sure that the bindings
 //  no longer refer to the object being cleared. This occurs when objects are destroyed.
-static bool ClearMemoryObjectBindings(layer_data *dev_data, uint64_t handle, VkDebugReportObjectTypeEXT type) {
+static bool ClearMemoryObjectBindings(layer_data *dev_data, uint64_t handle, VkDebugReportObjectTypeEXT type,
+                                      int32_t const msgCode) {
     bool skip = false;
     BINDABLE *mem_binding = GetObjectMemBinding(dev_data, handle, type);
     if (mem_binding) {
         if (!mem_binding->sparse) {
-            skip = ClearMemoryObjectBinding(dev_data, handle, type, mem_binding->binding.mem);
+            skip = ClearMemoryObjectBinding(dev_data, handle, type, mem_binding->binding.mem, msgCode);
         } else { // Sparse, clear all bindings
             for (auto& sparse_mem_binding : mem_binding->sparse_bindings) {
-                skip |= ClearMemoryObjectBinding(dev_data, handle, type, sparse_mem_binding.mem);
+                skip |= ClearMemoryObjectBinding(dev_data, handle, type, sparse_mem_binding.mem, msgCode);
             }
         }
     }
@@ -5767,7 +5778,8 @@ VKAPI_ATTR void VKAPI_CALL DestroyBuffer(VkDevice device, VkBuffer buffer,
                     RemoveBufferMemoryRange(reinterpret_cast<uint64_t &>(buffer), mem_info);
                 }
             }
-            ClearMemoryObjectBindings(dev_data, reinterpret_cast<uint64_t &>(buffer), VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_EXT);
+            ClearMemoryObjectBindings(dev_data, reinterpret_cast<uint64_t &>(buffer), VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_EXT,
+                                      VALIDATION_ERROR_00682);
             dev_data->bufferMap.erase(buffer_state->buffer);
         }
         lock.unlock();
@@ -5833,7 +5845,7 @@ static void PostCallRecordDestroyImage(layer_data *dev_data, VkImage image, IMAG
             RemoveImageMemoryRange(obj_struct.handle, mem_info);
         }
     }
-    ClearMemoryObjectBindings(dev_data, obj_struct.handle, VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT);
+    ClearMemoryObjectBindings(dev_data, obj_struct.handle, VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, VALIDATION_ERROR_00749);
     // Remove image from imageMap
     dev_data->imageMap.erase(image);
 
@@ -11893,8 +11905,8 @@ DestroySwapchainKHR(VkDevice device, VkSwapchainKHR swapchain, const VkAllocatio
                     }
                     dev_data->imageSubresourceMap.erase(image_sub);
                 }
-                skip_call =
-                    ClearMemoryObjectBindings(dev_data, (uint64_t)swapchain_image, VK_DEBUG_REPORT_OBJECT_TYPE_SWAPCHAIN_KHR_EXT);
+                skip_call = ClearMemoryObjectBindings(dev_data, (uint64_t)swapchain_image,
+                                                      VK_DEBUG_REPORT_OBJECT_TYPE_SWAPCHAIN_KHR_EXT, -1);
                 dev_data->imageMap.erase(swapchain_image);
             }
         }
