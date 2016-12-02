@@ -15,7 +15,7 @@ string(TOLOWER ${API_NAME} API_LOWERCASE)
 find_package(PythonInterp 3 REQUIRED)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
-    add_definitions(-DVK_USE_PLATFORM_WIN32_KHR -DWIN32_LEAN_AND_MEAN)
+    add_definitions(-DVK_USE_PLATFORM_WIN32_KHR -DVK_USE_PLATFORM_WIN32_KHX -DWIN32_LEAN_AND_MEAN)
     set(DisplayServer Win32)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Android")
     add_definitions(-DVK_USE_PLATFORM_ANDROID_KHR)

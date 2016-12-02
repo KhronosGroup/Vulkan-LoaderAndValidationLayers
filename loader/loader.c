@@ -170,16 +170,28 @@ const VkLayerInstanceDispatchTable instance_disp = {
         terminator_GetPhysicalDeviceSparseImageFormatProperties2KHR,
 
     // KHX_device_group_creation
-    .EnumeratePhysicalDeviceGroupsKHX = terminator_EnumeratePhysicalDeviceGroupsKHX,
+    .EnumeratePhysicalDeviceGroupsKHX =
+        terminator_EnumeratePhysicalDeviceGroupsKHX,
 
-    // EXT_debug_report
-    .CreateDebugReportCallbackEXT = terminator_CreateDebugReportCallback,
-    .DestroyDebugReportCallbackEXT = terminator_DestroyDebugReportCallback,
-    .DebugReportMessageEXT = terminator_DebugReportMessage,
+    // KHX_external_memory_capabilities
+    .GetPhysicalDeviceExternalBufferPropertiesKHX =
+        terminator_GetPhysicalDeviceExternalBufferPropertiesKHX,
+    .GetPhysicalDeviceProperties2KHX =
+        terminator_GetPhysicalDeviceProperties2KHX,
+    .GetPhysicalDeviceImageFormatProperties2KHX =
+        terminator_GetPhysicalDeviceImageFormatProperties2KHX,
+
+    // KHX_external_semaphore_capabilities
+    .GetPhysicalDeviceExternalSemaphorePropertiesKHX =
+        terminator_GetPhysicalDeviceExternalSemaphorePropertiesKHX,
 
     // NV_external_memory_capabilities
     .GetPhysicalDeviceExternalImageFormatPropertiesNV =
         terminator_GetPhysicalDeviceExternalImageFormatPropertiesNV,
+
+    // NVX_device_generated_commands
+    .GetPhysicalDeviceGeneratedCommandsPropertiesNVX =
+        terminator_GetPhysicalDeviceGeneratedCommandsPropertiesNVX,
 };
 
 LOADER_PLATFORM_THREAD_ONCE_DECLARATION(once_init);
@@ -1707,10 +1719,16 @@ static bool loader_icd_init_entrys(struct loader_icd_term *icd_term,
     LOOKUP_GIPA(GetPhysicalDeviceMemoryProperties2KHR, false);
     LOOKUP_GIPA(GetPhysicalDeviceSparseImageFormatProperties2KHR, false);
     // KHX_device_group_creation
-    LOOKUP_GIPA(EnumeratePhysicalDeviceGroupsKHX , false);
+    LOOKUP_GIPA(EnumeratePhysicalDeviceGroupsKHX, false);
     // KHX_device_group (ones requiring trampoline/terminator funcs only)
-    LOOKUP_GIPA(GetDeviceGroupSurfacePresentModesKHX , false);
-    // EXT_debug_marker
+    LOOKUP_GIPA(GetDeviceGroupSurfacePresentModesKHX, false);
+    // KHX_external_memory_capabilities
+    LOOKUP_GIPA(GetPhysicalDeviceExternalBufferPropertiesKHX, false);
+    LOOKUP_GIPA(GetPhysicalDeviceProperties2KHX, false);
+    LOOKUP_GIPA(GetPhysicalDeviceImageFormatProperties2KHX, false);
+    // KHX_external_semaphore_capabilities
+    LOOKUP_GIPA(GetPhysicalDeviceExternalSemaphorePropertiesKHX, false);
+    // EXT_debug_marker (items needing a trampoline/terminator)
     LOOKUP_GIPA(DebugMarkerSetObjectTagEXT, false);
     LOOKUP_GIPA(DebugMarkerSetObjectNameEXT, false);
     // EXT_debug_report
@@ -1718,6 +1736,8 @@ static bool loader_icd_init_entrys(struct loader_icd_term *icd_term,
     LOOKUP_GIPA(DestroyDebugReportCallbackEXT, false);
     // NV_external_memory_capabilities
     LOOKUP_GIPA(GetPhysicalDeviceExternalImageFormatPropertiesNV, false);
+    // NVX_device_generated_commands
+    LOOKUP_GIPA(GetPhysicalDeviceGeneratedCommandsPropertiesNVX, false);
 
 #undef LOOKUP_GIPA
 

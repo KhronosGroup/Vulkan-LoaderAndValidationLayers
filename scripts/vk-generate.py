@@ -161,6 +161,8 @@ class DispatchTableOpsSubcommand(Subcommand):
                 protect = ''
                 if self.proto_in_ext(proto.name, vulkan.win32_only_exts):
                     protect = "VK_USE_PLATFORM_WIN32_KHR"
+                elif self.proto_in_ext(proto.name, vulkan.win32_khx_only_exts):
+                    protect = "VK_USE_PLATFORM_WIN32_KHX"
                 elif self.proto_in_ext(proto.name, vulkan.android_only_exts):
                     protect = "VK_USE_PLATFORM_ANDROID_KHR"
 
@@ -198,6 +200,8 @@ class DispatchTableOpsSubcommand(Subcommand):
                 # Protect non-WSI platform-dependent APIs with #ifdef
                 elif self.proto_in_ext(proto.name, vulkan.win32_only_exts):
                     protect = "VK_USE_PLATFORM_WIN32_KHR"
+                elif self.proto_in_ext(proto.name, vulkan.win32_khx_only_exts):
+                    protect = "VK_USE_PLATFORM_WIN32_KHX"
                 elif self.proto_in_ext(proto.name, vulkan.android_only_exts):
                     protect = "VK_USE_PLATFORM_ANDROID_KHR"
 

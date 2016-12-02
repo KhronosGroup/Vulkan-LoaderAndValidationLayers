@@ -263,11 +263,23 @@ struct loader_icd_term {
     PFN_vkGetPhysicalDeviceSparseImageFormatProperties2KHR
         GetPhysicalDeviceSparseImageFormatProperties2KHR;
 
+    // KHX_device_group
+    PFN_vkGetDeviceGroupSurfacePresentModesKHX
+        GetDeviceGroupSurfacePresentModesKHX;
+
     // KHX_device_group_creation
     PFN_vkEnumeratePhysicalDeviceGroupsKHX EnumeratePhysicalDeviceGroupsKHX;
 
-    // KHX_device_group
-    PFN_vkGetDeviceGroupSurfacePresentModesKHX GetDeviceGroupSurfacePresentModesKHX;
+    // KHX_external_memory_capabilities
+    PFN_vkGetPhysicalDeviceExternalBufferPropertiesKHX
+        GetPhysicalDeviceExternalBufferPropertiesKHX;
+    PFN_vkGetPhysicalDeviceProperties2KHX GetPhysicalDeviceProperties2KHX;
+    PFN_vkGetPhysicalDeviceImageFormatProperties2KHX
+        GetPhysicalDeviceImageFormatProperties2KHX;
+
+    // KHX_external_semaphore_capabilities
+    PFN_vkGetPhysicalDeviceExternalSemaphorePropertiesKHX
+        GetPhysicalDeviceExternalSemaphorePropertiesKHX;
 
     // EXT_debug_report
     PFN_vkCreateDebugReportCallbackEXT CreateDebugReportCallbackEXT;
@@ -282,7 +294,11 @@ struct loader_icd_term {
     PFN_vkGetPhysicalDeviceExternalImageFormatPropertiesNV
         GetPhysicalDeviceExternalImageFormatPropertiesNV;
 
-        struct loader_icd_term *next;
+    // NVX_device_generated_commands
+    PFN_vkGetPhysicalDeviceGeneratedCommandsPropertiesNVX
+        GetPhysicalDeviceGeneratedCommandsPropertiesNVX;
+
+    struct loader_icd_term *next;
 };
 
 // per ICD library structure
@@ -296,6 +312,8 @@ union loader_instance_extension_enables {
     struct {
         uint8_t khr_get_physical_device_properties2 : 1;
         uint8_t khx_device_group_creation : 1;
+        uint8_t khx_external_memory_capabilities : 1;
+        uint8_t khx_external_semaphore_capabilities : 1;
         uint8_t ext_debug_report : 1;
         uint8_t nv_external_memory_capabilities : 1;
     };

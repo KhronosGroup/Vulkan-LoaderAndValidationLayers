@@ -150,6 +150,7 @@ class ParamCheckerOutputGenerator(OutputGenerator):
         self.enumRanges = dict()                          # Map of enum name to BEGIN/END range values
         self.flags = set()                                # Map of flags typenames
         self.flagBits = dict()                            # Map of flag bits typename to list of values
+        self.newFlags = set()                             # Map of flags typenames /defined in the current feature/
         # Named tuples to store struct and command data
         self.StructType = namedtuple('StructType', ['name', 'value'])
         self.CommandParam = namedtuple('CommandParam', ['type', 'name', 'ispointer', 'isstaticarray', 'isbool', 'israngedenum',
@@ -228,9 +229,7 @@ class ParamCheckerOutputGenerator(OutputGenerator):
         self.commands = []
         self.structMembers = []
         self.validatedStructs = dict()
-        self.enumRanges = dict()
-        self.flags = set()
-        self.flagBits = dict()
+        self.newFlags = set()
     def endFeature(self):
         # C-specific
         # Actually write the interface to the output file.
@@ -250,7 +249,7 @@ class ParamCheckerOutputGenerator(OutputGenerator):
                 write('const uint32_t GeneratedHeaderVersion = {};'.format(self.headerVersion), file=self.outFile)
                 self.newline()
             # Write the declarations for the VkFlags values combining all flag bits
-            for flag in sorted(self.flags):
+            for flag in sorted(self.newFlags):
                 flagBits = flag.replace('Flags', 'FlagBits')
                 if flagBits in self.flagBits:
                     bits = self.flagBits[flagBits]
@@ -292,6 +291,7 @@ class ParamCheckerOutputGenerator(OutputGenerator):
             self.handleTypes.add(name)
         elif (category == 'bitmask'):
             self.flags.add(name)
+            self.newFlags.add(name)
         elif (category == 'define'):
             if name == 'VK_HEADER_VERSION':
                 nameElem = typeElem.find('name')
@@ -493,6 +493,7 @@ class ParamCheckerOutputGenerator(OutputGenerator):
     def genVkStructureType(self, typename):
         # Add underscore between lowercase then uppercase
         value = re.sub('([a-z0-9])([A-Z])', r'\1_\2', typename)
+        value = value.replace('D3_D12', 'D3D12')
         # Change to uppercase
         value = value.upper()
         # Add STRUCTURE_TYPE_
@@ -801,8 +802,12 @@ class ParamCheckerOutputGenerator(OutputGenerator):
             expr.append(indent + '{')
             indent = self.incIndent(indent)
             # Prefix for value name to display in error message
-            memberNamePrefix = '{}{}[{}].'.format(prefix, value.name, indexName)
-            memberDisplayNamePrefix = ('{}[%i].'.format(valueDisplayName), indexName)
+            if value.ispointer == 2:
+                memberNamePrefix = '{}{}[{}]->'.format(prefix, value.name, indexName)
+                memberDisplayNamePrefix = ('{}[%i]->'.format(valueDisplayName), indexName)
+            else:
+                memberNamePrefix = '{}{}[{}].'.format(prefix, value.name, indexName)
+                memberDisplayNamePrefix = ('{}[%i].'.format(valueDisplayName), indexName)
         else:
             memberNamePrefix = '{}{}->'.format(prefix, value.name)
             memberDisplayNamePrefix = '{}->'.format(valueDisplayName)
@@ -821,6 +826,8 @@ class ParamCheckerOutputGenerator(OutputGenerator):
     def genFuncBody(self, funcName, values, valuePrefix, displayNamePrefix, structTypeName):
         lines = []    # Generated lines of code
         unused = []   # Unused variable names
+        if funcName == "vkRegisterObjectsNVX":
+            indent = 0
         for value in values:
             usedLines = []
             lenParam = None
@@ -925,6 +932,8 @@ class ParamCheckerOutputGenerator(OutputGenerator):
                         usedLines.append('skipCall |= validate_bool32(report_data, "{}", {ppp}"{}"{pps}, {}{});\n'.format(funcName, valueDisplayName, valuePrefix, value.name, **postProcSpec))
                     elif value.israngedenum:
                         enumRange = self.enumRanges[value.type]
+                        if value.type == "VkObjectEntryTypeNVX":
+                            garbage = 2
                         usedLines.append('skipCall |= validate_ranged_enum(report_data, "{}", {ppp}"{}"{pps}, "{}", {}, {}, {}{});\n'.format(funcName, valueDisplayName, value.type, enumRange[0], enumRange[1], valuePrefix, value.name, **postProcSpec))
                     #
                     # If this is a struct, see if it contains members that need to be checked

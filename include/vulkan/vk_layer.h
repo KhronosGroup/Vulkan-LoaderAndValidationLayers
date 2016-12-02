@@ -186,8 +186,31 @@ typedef struct VkLayerDispatchTable_ {
     PFN_vkGetDeviceGroupSurfacePresentModesKHX
         GetDeviceGroupSurfacePresentModesKHX;
     PFN_vkAcquireNextImage2KHX AcquireNextImage2KHX;
+    // KHX_external_memory_fd
+    PFN_vkGetMemoryFdKHX GetMemoryFdKHX;
+#ifdef VK_USE_PLATFORM_WIN32_KHX
+    // KHX_external_memory_win32
+    PFN_vkGetMemoryWin32HandleKHX GetMemoryWin32HandleKHX;
+#endif
+    // KHX_external_semaphore_fd
+    PFN_vkImportSemaphoreFdKHX ImportSemaphoreFdKHX;
+    PFN_vkGetSemaphoreFdKHX GetSemaphoreFdKHX;
+#ifdef VK_USE_PLATFORM_WIN32_KHX
+    // KHX_external_semaphore_win32
+    PFN_vkImportSemaphoreWin32HandleKHX ImportSemaphoreWin32HandleKHX;
+    PFN_vkGetSemaphoreWin32HandleKHX GetSemaphoreWin32HandleKHX;
+#endif
     // KHX_push_descriptor
     PFN_vkCmdPushDescriptorSetKHX CmdPushDescriptorSetKHX;
+    // NVX_device_generated_commands
+    PFN_vkCmdProcessCommandsNVX CmdProcessCommandsNVX;
+    PFN_vkCmdReserveSpaceForCommandsNVX CmdReserveSpaceForCommandsNVX;
+    PFN_vkCreateIndirectCommandsLayoutNVX CreateIndirectCommandsLayoutNVX;
+    PFN_vkDestroyIndirectCommandsLayoutNVX DestroyIndirectCommandsLayoutNVX;
+    PFN_vkCreateObjectTableNVX CreateObjectTableNVX;
+    PFN_vkDestroyObjectTableNVX DestroyObjectTableNVX;
+    PFN_vkRegisterObjectsNVX RegisterObjectsNVX;
+    PFN_vkUnregisterObjectsNVX UnregisterObjectsNVX;
 } VkLayerDispatchTable;
 
 typedef struct VkLayerInstanceDispatchTable_ {
@@ -268,6 +291,17 @@ typedef struct VkLayerInstanceDispatchTable_ {
         GetPhysicalDeviceMemoryProperties2KHR;
     PFN_vkGetPhysicalDeviceSparseImageFormatProperties2KHR
         GetPhysicalDeviceSparseImageFormatProperties2KHR;
+    // KHX_device_group_creation
+    PFN_vkEnumeratePhysicalDeviceGroupsKHX EnumeratePhysicalDeviceGroupsKHX;
+    // KHX_external_memory_capabilities
+    PFN_vkGetPhysicalDeviceExternalBufferPropertiesKHX
+        GetPhysicalDeviceExternalBufferPropertiesKHX;
+    PFN_vkGetPhysicalDeviceProperties2KHX GetPhysicalDeviceProperties2KHX;
+    PFN_vkGetPhysicalDeviceImageFormatProperties2KHX
+        GetPhysicalDeviceImageFormatProperties2KHX;
+    // KHX_external_semaphore_capabilities
+    PFN_vkGetPhysicalDeviceExternalSemaphorePropertiesKHX
+        GetPhysicalDeviceExternalSemaphorePropertiesKHX;
     // EXT_debug_report
     PFN_vkCreateDebugReportCallbackEXT CreateDebugReportCallbackEXT;
     PFN_vkDestroyDebugReportCallbackEXT DestroyDebugReportCallbackEXT;
@@ -275,8 +309,9 @@ typedef struct VkLayerInstanceDispatchTable_ {
     // NV_external_memory_capabilities
     PFN_vkGetPhysicalDeviceExternalImageFormatPropertiesNV
         GetPhysicalDeviceExternalImageFormatPropertiesNV;
-    // KHX_device_group - Instance portion
-    PFN_vkEnumeratePhysicalDeviceGroupsKHX EnumeratePhysicalDeviceGroupsKHX;
+    // NVX_device_generated_commands
+    PFN_vkGetPhysicalDeviceGeneratedCommandsPropertiesNVX
+        GetPhysicalDeviceGeneratedCommandsPropertiesNVX;
 } VkLayerInstanceDispatchTable;
 
 // ------------------------------------------------------------------------------------------------

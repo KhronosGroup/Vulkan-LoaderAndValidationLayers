@@ -269,15 +269,6 @@ static inline void loader_init_device_extension_dispatch_table(
         (PFN_vkGetSwapchainImagesKHR)gpa(dev, "vkGetSwapchainImagesKHR");
     table->QueuePresentKHR =
         (PFN_vkQueuePresentKHR)gpa(dev, "vkQueuePresentKHR");
-    table->CmdDrawIndirectCountAMD =
-        (PFN_vkCmdDrawIndirectCountAMD)gpa(dev, "vkCmdDrawIndirectCountAMD");
-    table->CmdDrawIndexedIndirectCountAMD =
-        (PFN_vkCmdDrawIndexedIndirectCountAMD)gpa(
-            dev, "vkCmdDrawIndexedIndirectCountAMD");
-#ifdef VK_USE_PLATFORM_WIN32_KHR
-    table->GetMemoryWin32HandleNV =
-        (PFN_vkGetMemoryWin32HandleNV)gpa(dev, "vkGetMemoryWin32HandleNV");
-#endif // VK_USE_PLATFORM_WIN32_KHR
 
     // KHR_display_swapchain
     table->CreateSharedSwapchainsKHR =
@@ -310,6 +301,42 @@ static inline void loader_init_device_extension_dispatch_table(
     table->CmdPushDescriptorSetKHX =
         (PFN_vkCmdPushDescriptorSetKHX)gpa(dev, "vkCmdPushDescriptorSetKHX");
 
+    // KHX_external_memory_fd
+    table->GetMemoryFdKHX =
+        (PFN_vkGetMemoryFdKHX)gpa(dev, "vkGetMemoryFdKHX");
+
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+    // KHX_external_memory_win32
+    table->GetMemoryWin32HandleKHX =
+        (PFN_vkGetMemoryWin32HandleKHX)gpa(dev, "vkGetMemoryWin32HandleKHX");
+#endif
+
+    // KHX_external_semaphore_fd
+    table->ImportSemaphoreFdKHX =
+        (PFN_vkImportSemaphoreFdKHX)gpa(dev, "vkImportSemaphoreFdKHX");
+    table->GetSemaphoreFdKHX =
+        (PFN_vkGetSemaphoreFdKHX)gpa(dev, "vkGetSemaphoreFdKHX");
+
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+    // KHX_external_semaphore_win32
+    table->ImportSemaphoreWin32HandleKHX =
+        (PFN_vkImportSemaphoreWin32HandleKHX)gpa(dev, "vkImportSemaphoreWin32HandleKHX");
+    table->GetSemaphoreWin32HandleKHX =
+        (PFN_vkGetSemaphoreWin32HandleKHX)gpa(dev, "vkGetSemaphoreWin32HandleKHX");
+#endif
+
+    // KHX_push_descriptor
+    table->CmdPushDescriptorSetKHX =
+        (PFN_vkCmdPushDescriptorSetKHX)gpa(dev, "vkCmdPushDescriptorSetKHX");
+
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+    // KHX_external_semaphore_win32
+    table->ImportSemaphoreWin32HandleKHX =
+        (PFN_vkImportSemaphoreWin32HandleKHX)gpa(dev, "vkImportSemaphoreWin32HandleKHX");
+    table->GetSemaphoreWin32HandleKHX =
+        (PFN_vkGetSemaphoreWin32HandleKHX)gpa(dev, "vkGetSemaphoreWin32HandleKHX");
+#endif
+
     // EXT_debug_marker
     table->DebugMarkerSetObjectTagEXT =
         (PFN_vkDebugMarkerSetObjectTagEXT)gpa(dev, "vkDebugMarkerSetObjectTagEXT");
@@ -321,6 +348,37 @@ static inline void loader_init_device_extension_dispatch_table(
         (PFN_vkCmdDebugMarkerEndEXT)gpa(dev, "vkCmdDebugMarkerEndEXT");
     table->CmdDebugMarkerInsertEXT =
         (PFN_vkCmdDebugMarkerInsertEXT)gpa(dev, "vkCmdDebugMarkerInsertEXT");
+
+    // AMD_draw_indirect_count
+    table->CmdDrawIndirectCountAMD =
+        (PFN_vkCmdDrawIndirectCountAMD)gpa(dev, "vkCmdDrawIndirectCountAMD");
+    table->CmdDrawIndexedIndirectCountAMD =
+        (PFN_vkCmdDrawIndexedIndirectCountAMD)gpa(
+            dev, "vkCmdDrawIndexedIndirectCountAMD");
+
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+    // NV_external_memory_win32
+    table->GetMemoryWin32HandleNV =
+        (PFN_vkGetMemoryWin32HandleNV)gpa(dev, "vkGetMemoryWin32HandleNV");
+#endif
+
+    // NVX_device_generated_commands
+    table->CmdProcessCommandsNVX =
+        (PFN_vkCmdProcessCommandsNVX)gpa(dev, "vkCmdProcessCommandsNVX");
+    table->CmdReserveSpaceForCommandsNVX =
+        (PFN_vkCmdReserveSpaceForCommandsNVX)gpa(dev, "vkCmdReserveSpaceForCommandsNVX");
+    table->CreateIndirectCommandsLayoutNVX =
+        (PFN_vkCreateIndirectCommandsLayoutNVX)gpa(dev, "vkCreateIndirectCommandsLayoutNVX");
+    table->DestroyIndirectCommandsLayoutNVX =
+        (PFN_vkDestroyIndirectCommandsLayoutNVX)gpa(dev, "vkDestroyIndirectCommandsLayoutNVX");
+    table->CreateObjectTableNVX =
+        (PFN_vkCreateObjectTableNVX)gpa(dev, "vkCreateObjectTableNVX");
+    table->DestroyObjectTableNVX =
+        (PFN_vkDestroyObjectTableNVX)gpa(dev, "vkDestroyObjectTableNVX");
+    table->RegisterObjectsNVX =
+        (PFN_vkRegisterObjectsNVX)gpa(dev, "vkRegisterObjectsNVX");
+    table->UnregisterObjectsNVX =
+        (PFN_vkUnregisterObjectsNVX)gpa(dev, "vkUnregisterObjectsNVX");
 }
 
 static inline void *
@@ -733,6 +791,27 @@ static inline void loader_init_instance_extension_dispatch_table(
         (PFN_vkGetPhysicalDeviceSparseImageFormatProperties2KHR)gpa(
             inst, "vkGetPhysicalDeviceSparseImageFormatProperties2KHR");
 
+    // KHX_device_group_creation
+    table->EnumeratePhysicalDeviceGroupsKHX =
+        (PFN_vkEnumeratePhysicalDeviceGroupsKHX)gpa(
+            inst, "vkEnumeratePhysicalDeviceGroupsKHX");
+
+    // KHX_external_memory_capabilities
+    table->GetPhysicalDeviceExternalBufferPropertiesKHX =
+        (PFN_vkGetPhysicalDeviceExternalBufferPropertiesKHX)gpa(
+            inst, "vkGetPhysicalDeviceExternalBufferPropertiesKHX");
+    table->GetPhysicalDeviceProperties2KHX =
+        (PFN_vkGetPhysicalDeviceProperties2KHX)gpa(
+            inst, "vkGetPhysicalDeviceProperties2KHX");
+    table->GetPhysicalDeviceImageFormatProperties2KHX =
+        (PFN_vkGetPhysicalDeviceImageFormatProperties2KHX)gpa(
+            inst, "vkGetPhysicalDeviceImageFormatProperties2KHX");
+
+    // KHX_external_semaphore_capabilities
+    table->GetPhysicalDeviceExternalSemaphorePropertiesKHX =
+        (PFN_vkGetPhysicalDeviceExternalSemaphorePropertiesKHX)gpa(
+            inst, "vkGetPhysicalDeviceExternalSemaphorePropertiesKHX");
+
     // EXT_debug_report
     table->CreateDebugReportCallbackEXT =
         (PFN_vkCreateDebugReportCallbackEXT)gpa(
@@ -748,10 +827,10 @@ static inline void loader_init_instance_extension_dispatch_table(
         (PFN_vkGetPhysicalDeviceExternalImageFormatPropertiesNV)gpa(
             inst, "vkGetPhysicalDeviceExternalImageFormatPropertiesNV");
 
-    // KHX_device_group_creation
-    table->EnumeratePhysicalDeviceGroupsKHX =
-        (PFN_vkEnumeratePhysicalDeviceGroupsKHX)gpa(
-            inst, "vkEnumeratePhysicalDeviceGroupsKHX");
+    // NVX_device_generated_commands
+    table->GetPhysicalDeviceGeneratedCommandsPropertiesNVX =
+        (PFN_vkGetPhysicalDeviceGeneratedCommandsPropertiesNVX)gpa(
+            inst, "vkGetPhysicalDeviceGeneratedCommandsPropertiesNVX");
 }
 
 static inline void *
@@ -858,22 +937,6 @@ loader_lookup_instance_dispatch_table(const VkLayerInstanceDispatchTable *table,
         return (void *)table->GetPhysicalDeviceMemoryProperties2KHR;
     if (!strcmp(name, "GetPhysicalDeviceSparseImageFormatProperties2KHR"))
         return (void *)table->GetPhysicalDeviceSparseImageFormatProperties2KHR;
-
-    // EXT_debug_report
-    if (!strcmp(name, "CreateDebugReportCallbackEXT"))
-        return (void *)table->CreateDebugReportCallbackEXT;
-    if (!strcmp(name, "DestroyDebugReportCallbackEXT"))
-        return (void *)table->DestroyDebugReportCallbackEXT;
-    if (!strcmp(name, "DebugReportMessageEXT"))
-        return (void *)table->DebugReportMessageEXT;
-
-    // NV_external_memory_capabilities
-    if (!strcmp(name, "GetPhysicalDeviceExternalImageFormatPropertiesNV"))
-        return (void *)table->GetPhysicalDeviceExternalImageFormatPropertiesNV;
-
-    // KHX_device_group_creation
-    if (!strcmp(name, "EnumeratePhysicalDeviceGroupsKHX"))
-        return (void *)table->EnumeratePhysicalDeviceGroupsKHX;
 
     *found_name = false;
     return NULL;

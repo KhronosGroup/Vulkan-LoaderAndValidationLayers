@@ -1329,7 +1329,7 @@ VK_KHR_maintenance1 = Extension(
     headers=["vulkan/vulkan.h"],
     objects=[
         "VkCommandPoolTrimFlagsKHR",
-        "VkPhysicalDeviceGroupPropertiesKHX",
+        "VkPhysicalDeviceGroupPropertiesKHR",
     ],
     protos=[
         Proto("void", "TrimCommandPoolKHR",
@@ -1413,6 +1413,116 @@ VK_KHX_device_group = Extension(
              Param("uint32_t*", "pImageIndex")]),
     ],
 )
+VK_KHX_external_memory_capabilities = Extension(
+    name="VK_KHX_external_memory_capabilities",
+    headers=["vulkan/vulkan.h"],
+    objects=[
+        "VkPhysicalDeviceExternalImageFormatInfoKHX",
+        "VkExternalImageFormatPropertiesKHX",
+        "VkPhysicalDeviceExternalBufferInfoKHX",
+        "VkExternalBufferPropertiesKHX",
+        "VkPhysicalDeviceIDPropertiesKHX",
+        "VkPhysicalDeviceProperties2KHX",
+        "VkImageFormatProperties2KHX",
+        "VkPhysicalDeviceImageFormatInfo2KHX",
+    ],
+    protos=[
+        Proto("void", "GetPhysicalDeviceExternalBufferPropertiesKHX",
+            [Param("VkPhysicalDevice", "physicalDevice"),
+             Param("const VkPhysicalDeviceExternalBufferInfoKHX*", "pExternalBufferInfo"),
+             Param("VkExternalBufferPropertiesKHX*", "pExternalBufferProperties")]),
+
+        Proto("void", "GetPhysicalDeviceProperties2KHX",
+            [Param("VkPhysicalDevice", "physicalDevice"),
+             Param("VkPhysicalDeviceProperties2KHX*", "pProperties")]),
+
+        Proto("void", "GetPhysicalDeviceImageFormatProperties2KHX",
+            [Param("VkPhysicalDevice", "physicalDevice"),
+             Param("cconst VkPhysicalDeviceImageFormatInfo2KHX*", "pImageFormatInfo"),
+             Param("VkImageFormatProperties2KHX*", "pImageFormatProperties")]),
+    ],
+)
+VK_KHX_external_memory_fd = Extension(
+    name="VK_KHX_external_memory_fd",
+    headers=["vulkan/vulkan.h"],
+    objects=[
+        "VkImportMemoryFdInfoKHX",
+    ],
+    protos=[
+        Proto("VkResult", "GetMemoryFdKHX",
+            [Param("VkDevice", "device"),
+             Param("VkDeviceMemory", "memory"),
+             Param("VkExternalMemoryHandleTypeFlagBitsKHX", "handleType"),
+             Param("int*", "pFd")]),
+    ],
+)
+VK_KHX_external_memory_win32 = Extension(
+    name="VK_KHX_external_memory_win32",
+    headers=["vulkan/vulkan.h"],
+    objects=[
+        "VkImportMemoryWin32HandleInfoKHX",
+        "VkExportMemoryWin32HandleInfoKHX",
+    ],
+    protos=[
+        Proto("VkResult", "GetMemoryWin32HandleKHX",
+            [Param("VkDevice", "device"),
+             Param("VkDeviceMemory", "memory"),
+             Param("VkExternalMemoryHandleTypeFlagBitsKHX", "handleType"),
+             Param("HANDLE*", "pHandle")]),
+    ],
+)
+VK_KHX_external_semaphore_capabilities = Extension(
+    name="VK_KHX_external_semaphore_capabilities",
+    headers=["vulkan/vulkan.h"],
+    objects=[
+        "VkPhysicalDeviceExternalSemaphoreInfoKHX",
+        "VkExternalSemaphorePropertiesKHX",
+    ],
+    protos=[
+        Proto("void", "GetPhysicalDeviceExternalSemaphorePropertiesKHX",
+            [Param("VkPhysicalDevice", "physicalDevice"),
+             Param("const VkPhysicalDeviceExternalSemaphoreInfoKHX*", "pExternalSemaphoreInfo,"),
+             Param("VkExternalSemaphorePropertiesKHX*", "pExternalSemaphoreProperties")]),
+    ],
+)
+VK_KHX_external_semaphore_fd = Extension(
+    name="VK_KHX_external_semaphore_fd",
+    headers=["vulkan/vulkan.h"],
+    objects=[
+        "VkImportSemaphoreFdInfoKHX",
+    ],
+    protos=[
+        Proto("VkResult", "ImportSemaphoreFdKHX",
+            [Param("VkDevice", "device"),
+             Param("const VkImportSemaphoreFdInfoKHX*", "pImportSemaphoreFdInfo")]),
+
+        Proto("VkResult", "GetSemaphoreFdKHX",
+            [Param("VkDevice", "device"),
+             Param("VkSemaphore", "semaphore,"),
+             Param("VkExternalSemaphoreHandleTypeFlagBitsKHX", "handleType"),
+             Param("int*", "pFd")]),
+    ],
+)
+VK_KHX_external_semaphore_win32 = Extension(
+    name="VK_KHX_external_semaphore_win32",
+    headers=["vulkan/vulkan.h"],
+    objects=[
+        "VkImportSemaphoreWin32HandleInfoKHX",
+        "VkExportSemaphoreWin32HandleInfoKHX",
+        "VkD3D12FenceSubmitInfoKHX",
+    ],
+    protos=[
+        Proto("VkResult", "ImportSemaphoreWin32HandleKHX",
+            [Param("VkDevice", "device"),
+             Param("const VkImportSemaphoreWin32HandleInfoKHX*", "pImportSemaphoreWin32HandleInfo")]),
+
+        Proto("VkResult", "GetSemaphoreWin32HandleKHX",
+            [Param("VkDevice", "device"),
+             Param("VkSemaphore", "semaphore,"),
+             Param("VkExternalSemaphoreHandleTypeFlagBitsKHX", "handleType"),
+             Param("HANDLE*", "pHandle")]),
+    ],
+)
 VK_KHX_push_descriptor = Extension(
     name="VK_KHX_push_descriptor",
     headers=["vulkan/vulkan.h"],
@@ -1487,6 +1597,64 @@ VK_EXT_debug_marker = Extension(
              Param("VkDebugMarkerMarkerInfoEXT*", "pMarkerInfo")]),
     ],
 )
+VK_NVX_device_generated_commands = Extension(
+    name="VK_EXT_debug_marker",
+    headers=["vulkan/vulkan.h"],
+    objects=[
+        "VkObjectTableNVX",
+        "VkIndirectCommandsLayoutNVX",
+    ],
+    protos=[
+        Proto("void", "CmdProcessCommandsNVX",
+            [Param("VkCommandBuffer", "commandBuffer"),
+             Param("VkCmdProcessCommandsInfoNVX*", "pProcessCommandsInfo")]),
+
+        Proto("void", "CmdReserveSpaceForCommandsNV",
+            [Param("VkCommandBuffer", "commandBuffer"),
+             Param("VkCmdReserveSpaceForCommandsInfoNVX*", "pReserveSpaceInfo")]),
+
+        Proto("VkResult", "CreateIndirectCommandsLayoutNVX",
+            [Param("VkDevice", "device"),
+             Param("VkIndirectCommandsLayoutCreateInfoNVX*", "pCreateInfo"),
+             Param("VkAllocationCallbacks*", "pAllocator"),
+             Param("VkIndirectCommandsLayoutNVX*", "pIndirectCommandsLayout")]),
+
+        Proto("void", "DestroyIndirectCommandsLayoutNVX",
+            [Param("VkDevice", "device"),
+             Param("VkIndirectCommandsLayoutNVX", "indirectCommandsLayout"),
+             Param("VkAllocationCallbacks*", "pAllocator")]),
+
+        Proto("VkResult", "CreateObjectTableNVX)",
+            [Param("VkDevice", "device"),
+             Param("VkObjectTableCreateInfoNVX*", "pCreateInfo"),
+             Param("VkAllocationCallbacks*", "pAllocator"),
+             Param("VkObjectTableNVX*", "pObjectTable")]),
+
+        Proto("void", "DestroyObjectTableNVX",
+            [Param("VkDevice", "device"),
+             Param("VkObjectTableNVX", "objectTable"),
+             Param("VkAllocationCallbacks*", "pAllocator")]),
+
+        Proto("VkResult", "RegisterObjectsNVX",
+            [Param("VkDevice", "device"),
+             Param("VkObjectTableNVX", "objectTable"),
+             Param("uint32_t", "objectCount"),
+             Param("VkObjectTableEntryNVX**", "ppObjectTableEntries"),
+             Param("uint32_t*", "pObjectIndices")]),
+
+        Proto("VkResult", "UnregisterObjectsNVX)",
+            [Param("VkDevice", "device"),
+             Param("VkObjectTableNVX*", "objectTable"),
+             Param("uint32_t*", "objectCount"),
+             Param("VkObjectEntryTypeNVX*", "pObjectEntryTypes"),
+             Param("uint32_t*", "pObjectIndices")]),
+
+        Proto("void", "GetPhysicalDeviceGeneratedCommandsPropertiesNVX",
+            [Param("VkPhysicalDevice", "physicalDevice"),
+             Param("VkDeviceGeneratedCommandsFeaturesNVX*", "pFeatures"),
+             Param("VkDeviceGeneratedCommandsLimitsNVX*", "pLimits")]),
+    ],
+)
 
 import sys
 
@@ -1503,6 +1671,9 @@ linux_only_exts = []
 win32_only_exts = [VK_NV_external_memory_win32,
 #                  VK_NV_win32_keyed_mutex,
                   ]
+win32_khx_only_exts = [VK_KHX_external_memory_win32,
+                   VK_KHX_external_semaphore_win32
+                  ]
 
 # Define platform-specific WSI extensions
 android_wsi_exts = [VK_KHR_android_surface,
@@ -1512,13 +1683,14 @@ linux_wsi_exts = [VK_KHR_xlib_surface,
                   VK_KHR_wayland_surface,
                   VK_KHR_mir_surface,
                  ]
-win32_wsi_exts = [VK_KHR_win32_surface
+win32_wsi_exts = [VK_KHR_win32_surface,
                  ]
 
 # Define extensions common to all configurations
 common_exts = [VK_VERSION_1_0,
                VK_KHR_surface,
                VK_KHR_swapchain,
+               VK_KHR_display,
                VK_KHR_display_swapchain,
               ]
 
@@ -1527,9 +1699,13 @@ non_exported_exts = [VK_KHR_maintenance1,
                      VK_KHR_get_physical_device_properties2,
                      VK_KHX_device_group_creation,
                      VK_KHX_device_group,
+                     VK_KHX_external_memory_capabilities,
+                     VK_KHX_external_memory_fd,
+                     VK_KHX_external_semaphore_capabilities,
+                     VK_KHX_external_semaphore_fd,
                      VK_KHX_push_descriptor,
-                     VK_EXT_debug_report,
                      VK_EXT_debug_marker,
+                     VK_EXT_debug_report,
                      VK_NV_external_memory_capabilities,
                      VK_AMD_draw_indirect_count,
 #                    VK_KHR_sampler_mirror_clamp_to_edge,
@@ -1546,6 +1722,7 @@ non_exported_exts = [VK_KHR_maintenance1,
 #                    VK_AMD_gpu_shader_half_float,
 #                    VK_AMD_shader_ballot,
 #                    VK_IMG_format_pvrtc,
+#                    VK_NVX_device_generated_commands,
                     ]
 non_android_exts = [VK_KHR_display,
                    ]
@@ -1554,7 +1731,7 @@ extensions_all = non_exported_exts
 
 if sys.argv[1] in win32_display_servers:
     extensions += win32_wsi_exts
-    extensions_all += extensions + win32_only_exts
+    extensions_all += extensions + win32_only_exts + win32_khx_only_exts
 elif sys.argv[1] in linux_display_servers:
     extensions += linux_wsi_exts
     extensions_all += extensions + linux_only_exts
@@ -1563,7 +1740,7 @@ elif sys.argv[1] in android_display_servers:
     extensions_all += extensions + android_only_exts
 else:
     extensions += win32_wsi_exts + linux_wsi_exts + android_wsi_exts
-    extensions_all += extensions + win32_only_exts + linux_only_exts + android_only_exts
+    extensions_all += extensions + win32_only_exts + win32_khx_only_exts + linux_only_exts + android_only_exts
 
 object_dispatch_list = [
     "VkInstance",

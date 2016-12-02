@@ -295,7 +295,10 @@ class HeaderFileParser:
         members = members.strip().split(':', 1)[0] # strip bitfield element
         (member_type, member_name) = members.rsplit(None, 1)
         # Store counts to help recognize and size dynamic arrays
-        if 'count' in member_name.lower() and 'samplecount' != member_name.lower() and 'uint' in member_type:
+        # Add special case for pObjectEntryCounts -- though it meets the criteria for a 'count', it should not
+        # replace the previously identified (and correct) objectCount.
+        # TODO: convert to using vk.xml and avoid parsing the header
+        if 'count' in member_name.lower() and 'samplecount' != member_name.lower() and 'uint' in member_type and member_name != "pObjectEntryCounts":
             self.last_struct_count_name = member_name
         self.struct_dict[struct_type][num] = {}
         self.struct_dict[struct_type][num]['full_type'] = member_type
@@ -409,8 +412,11 @@ def add_platform_wrapper_entry(list, func):
         list.append("#ifdef VK_USE_PLATFORM_MIR_KHR")
     if (re.match(r'.*Android.*', func)):
         list.append("#ifdef VK_USE_PLATFORM_ANDROID_KHR")
-    if (re.match(r'.*Win32.*', func)):
-        list.append("#ifdef VK_USE_PLATFORM_WIN32_KHR")
+    if (re.match(r'.*Win32.*', func)) or (re.match(r'.*D3D12.*', func)):
+        if (re.match(r'.*KHX.*', func)):
+            list.append("#ifdef VK_USE_PLATFORM_WIN32_KHX")
+        else:
+            list.append("#ifdef VK_USE_PLATFORM_WIN32_KHR")
 
 # Emit an endif if incoming func matches a platform identifier
 def add_platform_wrapper_exit(list, func):
@@ -424,8 +430,11 @@ def add_platform_wrapper_exit(list, func):
         list.append("#endif //VK_USE_PLATFORM_MIR_KHR")
     if (re.match(r'.*Android.*', func)):
         list.append("#endif //VK_USE_PLATFORM_ANDROID_KHR")
-    if (re.match(r'.*Win32.*', func)):
-        list.append("#endif //VK_USE_PLATFORM_WIN32_KHR")
+    if (re.match(r'.*Win32.*', func)) or (re.match(r'.*D3D12.*', func)):
+        if (re.match(r'.*KHX.*', func)):
+            list.append("#endif //VK_USE_PLATFORM_WIN32_KHX")
+        else:
+            list.append("#endif //VK_USE_PLATFORM_WIN32_KHR")
 
 # class for writing common file elements
 # Here's how this class lays out a file:
@@ -1167,16 +1176,22 @@ class StructWrapperGen:
                     struct_name = get_struct_name_from_struct_type(v)
                     if struct_name not in self.struct_dict:
                         continue
-                    if 'WIN32' in v:
-                        sh_funcs.append("#ifdef VK_USE_PLATFORM_WIN32_KHR")
+                    if ('WIN32' in v):
+                        if ('KHX' in v):
+                            sh_funcs.append("#ifdef VK_USE_PLATFORM_WIN32_KHX")
+                        else:
+                            sh_funcs.append("#ifdef VK_USE_PLATFORM_WIN32_KHR")
                     print_func_name = self._get_sh_func_name(struct_name)
                     #sh_funcs.append('string %s(const %s* pStruct, const string prefix);' % (self._get_sh_func_name(s), typedef_fwd_dict[s]))
                     sh_funcs.append('        case %s:\n        {' % (v))
                     sh_funcs.append('            return %s((%s*)pStruct, indent);' % (print_func_name, struct_name))
                     sh_funcs.append('        }')
                     sh_funcs.append('        break;')
-                    if 'WIN32' in v:
-                        sh_funcs.append("#endif // VK_USE_PLATFORM_WIN32_KHR")
+                    if ('WIN32' in v):
+                        if ('KHX' in v):
+                            sh_funcs.append("#endif // VK_USE_PLATFORM_WIN32_KHX")
+                        else:
+                            sh_funcs.append("#endif // VK_USE_PLATFORM_WIN32_KHR")
                 sh_funcs.append("        default:")
                 sh_funcs.append("        return string();")
         sh_funcs.append('%s' % lineinfo.get())
@@ -1468,8 +1483,11 @@ class StructWrapperGen:
                             if struct_name not in self.struct_dict:
                                 continue
 
-                            if 'WIN32' in v:
-                                sh_funcs.append("#ifdef VK_USE_PLATFORM_WIN32_KHR")
+                            if ('WIN32' in v):
+                                if ('KHX' in v):
+                                    sh_funcs.append("#ifdef VK_USE_PLATFORM_WIN32_KHX")
+                                else:
+                                    sh_funcs.append("#ifdef VK_USE_PLATFORM_WIN32_KHR")
                             sh_funcs.append('%scase %s:' % (indent, v))
                             sh_funcs.append('%s{' % (indent))
                             indent += '    '
@@ -1477,8 +1495,11 @@ class StructWrapperGen:
                             sh_funcs.append('%sbreak;' % (indent))
                             indent = indent[:-4]
                             sh_funcs.append('%s}' % (indent))
-                            if 'WIN32' in v:
-                                sh_funcs.append("#endif // VK_USE_PLATFORM_WIN32_KHR")
+                            if ('WIN32' in v):
+                                if ('KHX' in v):
+                                    sh_funcs.append("#endif // VK_USE_PLATFORM_WIN32_KHX")
+                                else:
+                                    sh_funcs.append("#endif // VK_USE_PLATFORM_WIN32_KHR")
                         sh_funcs.append('%sdefault:' % (indent))
                         indent += '    '
                         sh_funcs.append('%sassert(0);' % (indent))
