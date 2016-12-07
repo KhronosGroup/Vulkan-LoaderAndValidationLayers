@@ -19,6 +19,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     option(BUILD_WSI_XLIB_SUPPORT "Build Xlib WSI support" ON)
     option(BUILD_WSI_WAYLAND_SUPPORT "Build Wayland WSI support" ON)
     option(BUILD_WSI_MIR_SUPPORT "Build Mir WSI support" ON)
+    # Supported values for DEMOS_WSI_SELECTION are XCB, XLIB or WAYLAND.
+    option(DEMOS_WSI_SELECTION "Select WSI to use to build demos" XCB)
 endif()
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")

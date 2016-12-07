@@ -28,7 +28,7 @@ It should be straightforward to use it on other Linux distros.
 
 These packages are needed to build this repository:
 ```
-sudo apt-get install git cmake build-essential bison libx11-dev libxcb1-dev libxkbcommon-dev
+sudo apt-get install git cmake build-essential bison libx11-dev libxcb1-dev libxkbcommon-dev libmirclient-dev libwayland-dev
 ```
 
 Example debug build (Note that the update\_external\_sources script used below builds external tools into predefined locations. See **Loader and Validation Layer Dependencies** for more information and other options):
@@ -168,6 +168,12 @@ Some demos that can be found in the dbuild/demos directory are:
 - vulkaninfo: report GPU properties
 - cube: a textured spinning cube
 - smoke/smoke: A "smoke" test using a more complex Vulkan demo
+
+You can select which WSI subsystem is used to build the demos using a cmake option called DEMOS_WSI_SELECTION.
+Supported options are XCB, XLIB, WAYLAND, and MIR.  Note that you must build using the corresponding BUILD_WSI_*_SUPPORT enabled at the base repo level.
+For instance, creating a build that will use Xlib to build the demos, your cmake command line might look like:
+
+cmake -H. -Bbuild -DCMAKE_BUILD_TYPE=Debug -DDEMOS_WSI_SELECTION=XLIB
 
 ## Windows System Requirements
 
