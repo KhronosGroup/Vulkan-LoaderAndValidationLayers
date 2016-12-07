@@ -2,6 +2,30 @@ include_directories(
 	${CMAKE_CURRENT_SOURCE_DIR}
 	${CMAKE_CURRENT_BINARY_DIR}
 )
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    add_definitions(-DVK_USE_PLATFORM_WIN32_KHR -DWIN32_LEAN_AND_MEAN)
+    set(DisplayServer Win32)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Android")
+    add_definitions(-DVK_USE_PLATFORM_ANDROID_KHR)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    if (BUILD_WSI_XCB_SUPPORT)
+        add_definitions(-DVK_USE_PLATFORM_XCB_KHR)
+    endif()
+
+    if (BUILD_WSI_XLIB_SUPPORT)
+       add_definitions(-DVK_USE_PLATFORM_XLIB_KHR)
+    endif()
+
+    if (BUILD_WSI_WAYLAND_SUPPORT)
+       add_definitions(-DVK_USE_PLATFORM_WAYLAND_KHR)
+    endif()
+
+    if (BUILD_WSI_MIR_SUPPORT)
+        add_definitions(-DVK_USE_PLATFORM_MIR_KHR)
+    endif()
+else()
+    message( FATAL_ERROR "Unrecognized value for DEMOS_WSI_SELECTION: ${DEMOS_WSI_SELECTION}" )
+endif()
 
 if (WIN32)
     add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${API_LOWERCASE}-${MAJOR}.def
