@@ -36,6 +36,14 @@
 #include <X11/Xutil.h>
 #endif
 
+#if defined(VK_USE_PLATFORM_MIR_KHR)
+#error "Vulkaninfo does not have code for Mir at this time"
+#endif
+
+#if defined(VK_USE_PLATFORM_WAYLAND_KHR)
+#error "Vulkaninfo does not have code for Wayland at this time"
+#endif
+
 #include <vulkan/vulkan.h>
 
 #define ERR(err)                                                               \
