@@ -185,6 +185,11 @@ const VkLayerInstanceDispatchTable instance_disp = {
     .GetPhysicalDeviceExternalSemaphorePropertiesKHX =
         terminator_GetPhysicalDeviceExternalSemaphorePropertiesKHX,
 
+    // EXT_debug_report
+    .CreateDebugReportCallbackEXT = terminator_CreateDebugReportCallback,
+    .DestroyDebugReportCallbackEXT = terminator_DestroyDebugReportCallback,
+    .DebugReportMessageEXT = terminator_DebugReportMessage,
+
     // NV_external_memory_capabilities
     .GetPhysicalDeviceExternalImageFormatPropertiesNV =
         terminator_GetPhysicalDeviceExternalImageFormatPropertiesNV,

@@ -834,6 +834,64 @@ static inline void loader_init_instance_extension_dispatch_table(
 }
 
 static inline void *
+loader_lookup_instance_extension_dispatch_table(const VkLayerInstanceDispatchTable *table,
+    const char *name, bool *found_name) {
+
+    *found_name = true;
+
+    // KHR_get_physical_device_properties2
+    if (!strcmp(name, "GetPhysicalDeviceFeatures2KHR"))
+        return (void *)table->GetPhysicalDeviceFeatures2KHR;
+    if (!strcmp(name, "GetPhysicalDeviceProperties2KHR"))
+        return (void *)table->GetPhysicalDeviceProperties2KHR;
+    if (!strcmp(name, "GetPhysicalDeviceFormatProperties2KHR"))
+        return (void *)table->GetPhysicalDeviceFormatProperties2KHR;
+    if (!strcmp(name, "GetPhysicalDeviceImageFormatProperties2KHR"))
+        return (void *)table->GetPhysicalDeviceImageFormatProperties2KHR;
+    if (!strcmp(name, "GetPhysicalDeviceQueueFamilyProperties2KHR"))
+        return (void *)table->GetPhysicalDeviceQueueFamilyProperties2KHR;
+    if (!strcmp(name, "GetPhysicalDeviceMemoryProperties2KHR"))
+        return (void *)table->GetPhysicalDeviceMemoryProperties2KHR;
+    if (!strcmp(name, "GetPhysicalDeviceSparseImageFormatProperties2KHR"))
+        return (void *)table->GetPhysicalDeviceSparseImageFormatProperties2KHR;
+
+    // KHX_device_group_creation
+    if (!strcmp(name, "EnumeratePhysicalDeviceGroupsKHX"))
+        return (void *)table->EnumeratePhysicalDeviceGroupsKHX;
+
+    // KHX_external_memory_capabilities
+    if (!strcmp(name, "GetPhysicalDeviceExternalBufferPropertiesKHX"))
+        return (void *)table->GetPhysicalDeviceExternalBufferPropertiesKHX;
+    if (!strcmp(name, "GetPhysicalDeviceProperties2KHX"))
+        return (void *)table->GetPhysicalDeviceProperties2KHX;
+    if (!strcmp(name, "GetPhysicalDeviceImageFormatProperties2KHX"))
+        return (void *)table->GetPhysicalDeviceImageFormatProperties2KHX;
+
+    // KHX_external_semaphore_capabilities
+    if (!strcmp(name, "GetPhysicalDeviceExternalSemaphorePropertiesKHX"))
+        return (void *)table->GetPhysicalDeviceExternalSemaphorePropertiesKHX;
+
+    // EXT_debug_report
+    if (!strcmp(name, "CreateDebugReportCallbackEXT"))
+        return (void *)table->CreateDebugReportCallbackEXT;
+    if (!strcmp(name, "DestroyDebugReportCallbackEXT"))
+        return (void *)table->DestroyDebugReportCallbackEXT;
+    if (!strcmp(name, "DebugReportMessageEXT"))
+        return (void *)table->DebugReportMessageEXT;
+
+    // NV_external_memory_capabilities
+    if (!strcmp(name, "GetPhysicalDeviceExternalImageFormatPropertiesNV"))
+        return (void *)table->GetPhysicalDeviceExternalImageFormatPropertiesNV;
+
+    // NVX_device_generated_commands
+    if (!strcmp(name, "GetPhysicalDeviceGeneratedCommandsPropertiesNVX"))
+        return (void *)table->GetPhysicalDeviceGeneratedCommandsPropertiesNVX;
+
+    *found_name = false;
+    return NULL;
+}
+
+static inline void *
 loader_lookup_instance_dispatch_table(const VkLayerInstanceDispatchTable *table,
                                       const char *name, bool *found_name) {
     if (!name || name[0] != 'v' || name[1] != 'k') {
@@ -922,22 +980,5 @@ loader_lookup_instance_dispatch_table(const VkLayerInstanceDispatchTable *table,
     if (!strcmp(name, "CreateDisplayPlaneSurfaceKHR"))
         return (void *)table->CreateDisplayPlaneSurfaceKHR;
 
-    // KHR_get_physical_device_properties2
-    if (!strcmp(name, "GetPhysicalDeviceFeatures2KHR"))
-        return (void *)table->GetPhysicalDeviceFeatures2KHR;
-    if (!strcmp(name, "GetPhysicalDeviceProperties2KHR"))
-        return (void *)table->GetPhysicalDeviceProperties2KHR;
-    if (!strcmp(name, "GetPhysicalDeviceFormatProperties2KHR"))
-        return (void *)table->GetPhysicalDeviceFormatProperties2KHR;
-    if (!strcmp(name, "GetPhysicalDeviceImageFormatProperties2KHR"))
-        return (void *)table->GetPhysicalDeviceImageFormatProperties2KHR;
-    if (!strcmp(name, "GetPhysicalDeviceQueueFamilyProperties2KHR"))
-        return (void *)table->GetPhysicalDeviceQueueFamilyProperties2KHR;
-    if (!strcmp(name, "GetPhysicalDeviceMemoryProperties2KHR"))
-        return (void *)table->GetPhysicalDeviceMemoryProperties2KHR;
-    if (!strcmp(name, "GetPhysicalDeviceSparseImageFormatProperties2KHR"))
-        return (void *)table->GetPhysicalDeviceSparseImageFormatProperties2KHR;
-
-    *found_name = false;
-    return NULL;
+    return loader_lookup_instance_extension_dispatch_table(table, name, found_name);
 }
