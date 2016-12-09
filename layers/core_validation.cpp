@@ -10712,6 +10712,17 @@ CmdBeginRenderPass(VkCommandBuffer commandBuffer, const VkRenderPassBeginInfo *p
                             pRenderPassBegin->clearValueCount, clear_op_size, reinterpret_cast<uint64_t &>(renderPass),
                             clear_op_size, clear_op_size - 1, validation_error_map[VALIDATION_ERROR_00442]);
             }
+            if (clear_op_size < pRenderPassBegin->clearValueCount) {
+                skip_call |=
+                    log_msg(dev_data->report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_RENDER_PASS_EXT,
+                            reinterpret_cast<uint64_t &>(renderPass), __LINE__, DRAWSTATE_RENDERPASS_TOO_MANY_CLEAR_VALUES, "DS",
+                            "In vkCmdBeginRenderPass() the VkRenderPassBeginInfo struct has a clearValueCount of %u but only "
+                            "first %u "
+                            "entries in pClearValues array are used. The highest index attachment in renderPass 0x%" PRIx64
+                            " that uses VK_ATTACHMENT_LOAD_OP_CLEAR is %u - other pClearValues are ignored.",
+                            pRenderPassBegin->clearValueCount, clear_op_size, reinterpret_cast<uint64_t &>(renderPass),
+                            clear_op_size);
+            }
             skip_call |= VerifyRenderAreaBounds(dev_data, pRenderPassBegin);
             skip_call |= VerifyFramebufferAndRenderPassLayouts(dev_data, cb_node, pRenderPassBegin);
             skip_call |= insideRenderPass(dev_data, cb_node, "vkCmdBeginRenderPass");
