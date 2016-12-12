@@ -1014,7 +1014,6 @@ VK_AMD_draw_indirect_count = Extension(
              Param("uint32_t", "stride")]),
     ],
 )
-
 VK_NV_external_memory_capabilities = Extension(
     name="VK_NV_external_memory_capabilities",
     headers=["vulkan/vulkan.h"],
@@ -1597,6 +1596,75 @@ VK_EXT_debug_marker = Extension(
              Param("VkDebugMarkerMarkerInfoEXT*", "pMarkerInfo")]),
     ],
 )
+VK_EXT_direct_mode_display = Extension(
+    name="VK_EXT_direct_mode_display",
+    headers=["vulkan/vulkan.h"],
+    objects=[],
+    protos=[
+        Proto("VkResult", "ReleaseDisplayEXT",
+            [Param("VkPhysicalDevice", "physicalDevice"),
+             Param("VkDisplayKHR", "display")]),
+    ],
+)
+VK_EXT_acquire_xlib_display = Extension(
+    name="VK_EXT_acquire_xlib_display",
+    headers=["vulkan/vulkan.h"],
+    objects=[],
+    protos=[
+        Proto("VkResult", "AcquireXlibDisplayEXT",
+            [Param("VkPhysicalDevice", "physicalDevice"),
+             Param("Display*", "dpy"),
+             Param("VkDisplayKHR", "display")]),
+        Proto("VkResult", "GetRandROutputDisplayEXT",
+            [Param("VkPhysicalDevice", "physicalDevice"),
+             Param("Display*", "dpy"),
+             Param("RROutput", "rrOutput"),
+             Param("VkDisplayKHR*", "pDisplay")]),
+    ],
+)
+VK_EXT_display_surface_counter = Extension(
+    name="VK_EXT_display_surface_counter",
+    headers=["vulkan/vulkan.h"],
+    objects=["VkSurfaceCapabilities2EXT"],
+    protos=[
+        Proto("VkResult", "GetPhysicalDeviceSurfaceCapabilities2EXT",
+            [Param("VkPhysicalDevice", "physicalDevice"),
+             Param("VkSurfaceKHR", "surface"),
+             Param("VkSurfaceCapabilities2EXT*", "pSurfaceCapabilities")]),
+    ],
+)
+VK_EXT_display_control = Extension(
+    name="VK_EXT_display_control",
+    headers=["vulkan/vulkan.h"],
+    objects=[
+        "VkDisplayPowerInfoEXT",
+        "VkDeviceEventInfoEXT",
+        "VkDisplayEventInfoEXT",
+        "VkSwapchainCounterCreateInfoEXT",
+    ],
+    protos=[
+        Proto("VkResult", "DisplayPowerControlEXT",
+            [Param("VkDevice", "device"),
+             Param("VkDisplayKHR", "display"),
+             Param("const VkDisplayPowerInfoEXT*", "pDisplayPowerInfo")]),
+        Proto("VkResult", "RegisterDeviceEventEXT",
+            [Param("VkDevice", "device"),
+             Param("const VkDeviceEventInfoEXT*", "pDeviceEventInfo"),
+             Param("const VkAllocationCallbacks*", "pAllocator"),
+             Param("VkFence*", "pFence")]),
+        Proto("VkResult", "RegisterDisplayEventEXT",
+            [Param("VkDevice", "device"),
+             Param("VkDisplayKHR", "display"),
+             Param("const VkDisplayEventInfoEXT*", "pDisplayEventInfo"),
+             Param("const VkAllocationCallbacks*", "pAllocator"),
+             Param("VkFence*", "pFence")]),
+        Proto("VkResult", "GetSwapchainCounterEXT",
+            [Param("VkDevice", "device"),
+             Param("VkSwapchainKHR", "swapchain"),
+             Param("VkSurfaceCounterFlagBitsEXT", "counter"),
+             Param("uint64_t*", "pCounterValue")]),
+    ],
+)
 VK_NVX_device_generated_commands = Extension(
     name="VK_EXT_debug_marker",
     headers=["vulkan/vulkan.h"],
@@ -1727,13 +1795,15 @@ android_display_servers = ['Android']
 
 # Define non-WSI platform-specific extensions
 android_only_exts = []
-linux_only_exts = []
+linux_only_exts = [] 
+linux_xrandr_only_exts = [VK_EXT_acquire_xlib_display,
+                         ]
 win32_only_exts = [VK_NV_external_memory_win32,
 #                  VK_NV_win32_keyed_mutex,
                   ]
 win32_khx_only_exts = [VK_KHX_external_memory_win32,
-                   VK_KHX_external_semaphore_win32
-                  ]
+                       VK_KHX_external_semaphore_win32
+                      ]
 
 # Define platform-specific WSI extensions
 android_wsi_exts = [VK_KHR_android_surface,
@@ -1766,6 +1836,9 @@ non_exported_exts = [VK_KHR_maintenance1,
                      VK_KHX_push_descriptor,
                      VK_EXT_debug_marker,
                      VK_EXT_debug_report,
+                     VK_EXT_direct_mode_display,
+                     VK_EXT_display_surface_counter,
+                     VK_EXT_display_control,
                      VK_NV_external_memory_capabilities,
                      VK_AMD_draw_indirect_count,
 #                    VK_KHR_sampler_mirror_clamp_to_edge,
@@ -1793,13 +1866,13 @@ if sys.argv[1] in win32_display_servers:
     extensions_all += extensions + win32_only_exts + win32_khx_only_exts
 elif sys.argv[1] in linux_display_servers:
     extensions += linux_wsi_exts
-    extensions_all += extensions + linux_only_exts
+    extensions_all += extensions + linux_only_exts + linux_xrandr_only_exts 
 elif sys.argv[1] in android_display_servers:
     extensions += android_wsi_exts
     extensions_all += extensions + android_only_exts
 else:
     extensions += win32_wsi_exts + linux_wsi_exts + android_wsi_exts
-    extensions_all += extensions + win32_only_exts + win32_khx_only_exts + linux_only_exts + android_only_exts
+    extensions_all += extensions + win32_only_exts + win32_khx_only_exts + linux_only_exts + linux_xrandr_only_exts + android_only_exts
 
 object_dispatch_list = [
     "VkInstance",

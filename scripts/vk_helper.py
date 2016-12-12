@@ -400,17 +400,22 @@ def get_struct_name_from_struct_type(struct_type):
 
 # Emit an ifdef if incoming func matches a platform identifier
 def add_platform_wrapper_entry(list, func):
-    if (re.match(r'.*Xlib.*', func)):
-        list.append("#ifdef VK_USE_PLATFORM_XLIB_KHR")
-    if (re.match(r'.*Xcb.*', func)):
+    if (re.match(r'.*RandR*', func)):
+        list.append("#ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT")
+    elif (re.match(r'.*Xlib.*', func)):
+        if (re.match(r'.*AcquireXlibDisplay*', func)):
+            list.append("#ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT")
+        else:
+            list.append("#ifdef VK_USE_PLATFORM_XLIB_KHR")
+    elif (re.match(r'.*Xcb.*', func)):
         list.append("#ifdef VK_USE_PLATFORM_XCB_KHR")
-    if (re.match(r'.*Wayland.*', func)):
+    elif (re.match(r'.*Wayland.*', func)):
         list.append("#ifdef VK_USE_PLATFORM_WAYLAND_KHR")
-    if (re.match(r'.*Mir.*', func)):
+    elif (re.match(r'.*Mir.*', func)):
         list.append("#ifdef VK_USE_PLATFORM_MIR_KHR")
-    if (re.match(r'.*Android.*', func)):
+    elif (re.match(r'.*Android.*', func)):
         list.append("#ifdef VK_USE_PLATFORM_ANDROID_KHR")
-    if (re.match(r'.*Win32.*', func)) or (re.match(r'.*D3D12.*', func)):
+    elif (re.match(r'.*Win32.*', func)) or (re.match(r'.*D3D12.*', func)):
         if (re.match(r'.*KHX.*', func)):
             list.append("#ifdef VK_USE_PLATFORM_WIN32_KHX")
         else:
@@ -418,21 +423,26 @@ def add_platform_wrapper_entry(list, func):
 
 # Emit an endif if incoming func matches a platform identifier
 def add_platform_wrapper_exit(list, func):
-    if (re.match(r'.*Xlib.*', func)):
-        list.append("#endif //VK_USE_PLATFORM_XLIB_KHR")
-    if (re.match(r'.*Xcb.*', func)):
-        list.append("#endif //VK_USE_PLATFORM_XCB_KHR")
-    if (re.match(r'.*Wayland.*', func)):
-        list.append("#endif //VK_USE_PLATFORM_WAYLAND_KHR")
-    if (re.match(r'.*Mir.*', func)):
-        list.append("#endif //VK_USE_PLATFORM_MIR_KHR")
-    if (re.match(r'.*Android.*', func)):
-        list.append("#endif //VK_USE_PLATFORM_ANDROID_KHR")
-    if (re.match(r'.*Win32.*', func)) or (re.match(r'.*D3D12.*', func)):
-        if (re.match(r'.*KHX.*', func)):
-            list.append("#endif //VK_USE_PLATFORM_WIN32_KHX")
+    if (re.match(r'.*RandR*', func)):
+        list.append("#endif // VK_USE_PLATFORM_XLIB_XRANDR_EXT")
+    elif (re.match(r'.*Xlib.*', func)):
+        if (re.match(r'.*AcquireXlibDisplay*', func)):
+            list.append("#endif // VK_USE_PLATFORM_XLIB_XRANDR_EXT")
         else:
-            list.append("#endif //VK_USE_PLATFORM_WIN32_KHR")
+            list.append("#endif // VK_USE_PLATFORM_XLIB_KHR")
+    elif (re.match(r'.*Xcb.*', func)):
+        list.append("#endif // VK_USE_PLATFORM_XCB_KHR")
+    elif (re.match(r'.*Wayland.*', func)):
+        list.append("#endif // VK_USE_PLATFORM_WAYLAND_KHR")
+    elif (re.match(r'.*Mir.*', func)):
+        list.append("#endif // VK_USE_PLATFORM_MIR_KHR")
+    elif (re.match(r'.*Android.*', func)):
+        list.append("#endif // VK_USE_PLATFORM_ANDROID_KHR")
+    elif (re.match(r'.*Win32.*', func)) or (re.match(r'.*D3D12.*', func)):
+        if (re.match(r'.*KHX.*', func)):
+            list.append("#endif // VK_USE_PLATFORM_WIN32_KHX")
+        else:
+            list.append("#endif // VK_USE_PLATFORM_WIN32_KHR")
 
 # class for writing common file elements
 # Here's how this class lays out a file:

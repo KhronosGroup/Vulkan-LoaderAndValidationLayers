@@ -185,10 +185,23 @@ const VkLayerInstanceDispatchTable instance_disp = {
     .GetPhysicalDeviceExternalSemaphorePropertiesKHX =
         terminator_GetPhysicalDeviceExternalSemaphorePropertiesKHX,
 
+#ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
+    // EXT_acquire_xlib_display
+    .AcquireXlibDisplayEXT = terminator_AcquireXlibDisplayEXT,
+    .GetRandROutputDisplayEXT = terminator_GetRandROutputDisplayEXT,
+#endif
+
     // EXT_debug_report
     .CreateDebugReportCallbackEXT = terminator_CreateDebugReportCallback,
     .DestroyDebugReportCallbackEXT = terminator_DestroyDebugReportCallback,
     .DebugReportMessageEXT = terminator_DebugReportMessage,
+
+    // EXT_direct_mode_display
+    .ReleaseDisplayEXT = terminator_ReleaseDisplayEXT,
+
+    // EXT_display_surface_counter
+    .GetPhysicalDeviceSurfaceCapabilities2EXT =
+        terminator_GetPhysicalDeviceSurfaceCapabilities2EXT,
 
     // NV_external_memory_capabilities
     .GetPhysicalDeviceExternalImageFormatPropertiesNV =
@@ -1736,9 +1749,24 @@ static bool loader_icd_init_entrys(struct loader_icd_term *icd_term,
     // EXT_debug_marker (items needing a trampoline/terminator)
     LOOKUP_GIPA(DebugMarkerSetObjectTagEXT, false);
     LOOKUP_GIPA(DebugMarkerSetObjectNameEXT, false);
+
+#ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
+    // EXT_acquire_xlib_display
+    LOOKUP_GIPA(AcquireXlibDisplayEXT, false);
+    LOOKUP_GIPA(GetRandROutputDisplayEXT, false);
+#endif
+
     // EXT_debug_report
     LOOKUP_GIPA(CreateDebugReportCallbackEXT, false);
     LOOKUP_GIPA(DestroyDebugReportCallbackEXT, false);
+    LOOKUP_GIPA(DebugReportMessageEXT, false);
+
+    // EXT_direct_mode_display
+    LOOKUP_GIPA(ReleaseDisplayEXT, false);
+
+    // EXT_display_surface_counter
+    LOOKUP_GIPA(GetPhysicalDeviceSurfaceCapabilities2EXT, false);
+
     // NV_external_memory_capabilities
     LOOKUP_GIPA(GetPhysicalDeviceExternalImageFormatPropertiesNV, false);
     // NVX_device_generated_commands

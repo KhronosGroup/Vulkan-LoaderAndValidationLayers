@@ -629,6 +629,67 @@ VKAPI_ATTR void VKAPI_CALL vkCmdPushDescriptorSetKHX(
                                   descriptorWriteCount, pDescriptorWrites);
 }
 
+// Definitions for the VK_EXT_acquire_xlib_display extension
+
+#ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
+VKAPI_ATTR VkResult VKAPI_CALL vkAcquireXlibDisplayEXT(
+    VkPhysicalDevice physicalDevice,
+    Display* dpy,
+    VkDisplayKHR display) {
+    const VkLayerInstanceDispatchTable *disp;
+    VkPhysicalDevice unwrapped_phys_dev =
+        loader_unwrap_physical_device(physicalDevice);
+    disp = loader_get_instance_dispatch(physicalDevice);
+    return disp->AcquireXlibDisplayEXT(unwrapped_phys_dev, dpy, display);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL terminator_AcquireXlibDisplayEXT(
+    VkPhysicalDevice physicalDevice,
+    Display* dpy,
+    VkDisplayKHR display) {
+    struct loader_physical_device_term *phys_dev_term =
+        (struct loader_physical_device_term *)physicalDevice;
+    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    if (NULL == icd_term->AcquireXlibDisplayEXT) {
+        loader_log(icd_term->this_instance, VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
+                   "ICD associated with VkPhysicalDevice does not support "
+                   "vkAcquireXlibDisplayEXT");
+    }
+    return icd_term->AcquireXlibDisplayEXT(phys_dev_term->phys_dev, dpy,
+        display);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL vkGetRandROutputDisplayEXT(
+    VkPhysicalDevice physicalDevice,
+    Display* dpy,
+    RROutput rrOutput,
+    VkDisplayKHR* pDisplay) {
+    const VkLayerInstanceDispatchTable *disp;
+    VkPhysicalDevice unwrapped_phys_dev =
+        loader_unwrap_physical_device(physicalDevice);
+    disp = loader_get_instance_dispatch(physicalDevice);
+    return disp->GetRandROutputDisplayEXT(unwrapped_phys_dev, dpy, rrOutput,
+        pDisplay);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL terminator_GetRandROutputDisplayEXT(
+    VkPhysicalDevice physicalDevice,
+    Display* dpy,
+    RROutput rrOutput,
+    VkDisplayKHR* pDisplay) {
+    struct loader_physical_device_term *phys_dev_term =
+        (struct loader_physical_device_term *)physicalDevice;
+    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    if (NULL == icd_term->GetRandROutputDisplayEXT) {
+        loader_log(icd_term->this_instance, VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
+                   "ICD associated with VkPhysicalDevice does not support "
+                   "vkGetRandROutputDisplayEXT");
+    }
+    return icd_term->GetRandROutputDisplayEXT(phys_dev_term->phys_dev, dpy,
+        rrOutput, pDisplay);
+}
+#endif /* VK_USE_PLATFORM_XLIB_XRANDR_EXT */
+
 // Definitions for the VK_EXT_debug_marker extension commands which
 // need to have a terminator function
 
@@ -729,6 +790,71 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_DebugMarkerSetObjectNameEXT(
     } else {
         return VK_SUCCESS;
     }
+}
+
+// Definitions for the VK_EXT_direct_mode_display extension
+
+VKAPI_ATTR VkResult VKAPI_CALL vkReleaseDisplayEXT(
+    VkPhysicalDevice physicalDevice,
+    VkDisplayKHR display) {
+    const VkLayerInstanceDispatchTable *disp;
+    VkPhysicalDevice unwrapped_phys_dev =
+        loader_unwrap_physical_device(physicalDevice);
+    disp = loader_get_instance_dispatch(physicalDevice);
+    return disp->ReleaseDisplayEXT(unwrapped_phys_dev, display);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL terminator_ReleaseDisplayEXT(
+    VkPhysicalDevice physicalDevice,
+    VkDisplayKHR display) {
+    struct loader_physical_device_term *phys_dev_term =
+        (struct loader_physical_device_term *)physicalDevice;
+    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    if (NULL == icd_term->ReleaseDisplayEXT) {
+        loader_log(icd_term->this_instance, VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
+                   "ICD associated with VkPhysicalDevice does not support "
+                   "vkReleaseDisplayEXT");
+    }
+    return icd_term->ReleaseDisplayEXT(phys_dev_term->phys_dev, display);
+}
+
+// Definitions for the VK_EXT_display_surface_counter extension
+
+VKAPI_ATTR VkResult VKAPI_CALL vkGetPhysicalDeviceSurfaceCapabilities2EXT(
+    VkPhysicalDevice physicalDevice,
+    VkSurfaceKHR surface,
+    VkSurfaceCapabilities2EXT* pSurfaceCapabilities) {
+    const VkLayerInstanceDispatchTable *disp;
+    VkPhysicalDevice unwrapped_phys_dev =
+        loader_unwrap_physical_device(physicalDevice);
+    disp = loader_get_instance_dispatch(physicalDevice);
+    return disp->GetPhysicalDeviceSurfaceCapabilities2EXT(unwrapped_phys_dev,
+        surface, pSurfaceCapabilities);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+terminator_GetPhysicalDeviceSurfaceCapabilities2EXT(
+    VkPhysicalDevice physicalDevice,
+    VkSurfaceKHR surface,
+    VkSurfaceCapabilities2EXT* pSurfaceCapabilities) {
+    struct loader_physical_device_term *phys_dev_term =
+        (struct loader_physical_device_term *)physicalDevice;
+    struct loader_icd_term *icd_term = phys_dev_term->this_icd_term;
+    if (NULL != icd_term &&
+        NULL != icd_term->GetPhysicalDeviceSurfaceCapabilities2EXT) {
+        VkIcdSurface *icd_surface = (VkIcdSurface *)(surface);
+        uint8_t icd_index = phys_dev_term->icd_index;
+        if (NULL != icd_surface->real_icd_surfaces) {
+            if (NULL != (void *)icd_surface->real_icd_surfaces[icd_index]) {
+                return icd_term->GetPhysicalDeviceSurfaceCapabilities2EXT(
+                    phys_dev_term->phys_dev,
+                    icd_surface->real_icd_surfaces[icd_index],
+                    pSurfaceCapabilities);
+            }
+        }
+    }
+    return icd_term->GetPhysicalDeviceSurfaceCapabilities2EXT(
+        phys_dev_term->phys_dev, surface, pSurfaceCapabilities);
 }
 
 // Definitions for the VK_AMD_draw_indirect_count extension
@@ -1099,6 +1225,29 @@ bool extension_instance_gpa(struct loader_instance *ptr_instance,
         return true;
     }
 
+    // Functions for the VK_EXT_acquire_xlib_display extension
+
+#ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
+    if (!strcmp("vkAcquireXlibDisplayEXT", name)) {
+        *addr =
+            (ptr_instance->enabled_known_extensions.ext_acquire_xlib_display ==
+             1)
+                ? (void *)vkAcquireXlibDisplayEXT
+                : NULL;
+        return true;
+    }
+
+    if (!strcmp("vkGetRandROutputDisplayEXT", name)) {
+        *addr =
+            (ptr_instance->enabled_known_extensions.ext_acquire_xlib_display ==
+             1)
+                ? (void *)vkGetRandROutputDisplayEXT
+                : NULL;
+        return true;
+    }
+
+#endif // VK_USE_PLATFORM_XLIB_XRANDR_EXT 
+
     // Definitions for the VK_EXT_debug_marker extension commands which
     // need to have a terminator function.  Since these are device
     // commands, we always need to return a valid value for them.
@@ -1109,6 +1258,28 @@ bool extension_instance_gpa(struct loader_instance *ptr_instance,
     }
     if (!strcmp("vkDebugMarkerSetObjectNameEXT", name)) {
         *addr = (void *)vkDebugMarkerSetObjectNameEXT;
+        return true;
+    }
+
+    // Functions for the VK_EXT_direct_mode_display extension
+
+    if (!strcmp("vkReleaseDisplayEXT", name)) {
+        *addr =
+            (ptr_instance->enabled_known_extensions.ext_direct_mode_display ==
+             1)
+                ? (void *)vkReleaseDisplayEXT
+                : NULL;
+        return true;
+    }
+
+    // Functions for the VK_EXT_display_surface_counter extension
+
+    if (!strcmp("vkGetPhysicalDeviceSurfaceCapabilities2EXT", name)) {
+        *addr =
+            (ptr_instance->enabled_known_extensions.ext_display_surface_counter ==
+             1)
+                ? (void *)vkGetPhysicalDeviceSurfaceCapabilities2EXT
+                : NULL;
         return true;
     }
 
@@ -1214,6 +1385,23 @@ void extensions_create_instance(struct loader_instance *ptr_instance,
                        VK_KHX_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME)) {
             ptr_instance->enabled_known_extensions
                 .khx_external_semaphore_capabilities = 1;
+            return;
+#ifdef VK_USE_PLATFORM_XLIB_KHR
+        } else if (0 == strcmp(pCreateInfo->ppEnabledExtensionNames[i],
+                   VK_EXT_ACQUIRE_XLIB_DISPLAY_EXTENSION_NAME)) {
+            ptr_instance->enabled_known_extensions.
+                ext_acquire_xlib_display = 1;
+            return;
+#endif
+        } else if (0 == strcmp(pCreateInfo->ppEnabledExtensionNames[i],
+                   VK_EXT_DIRECT_MODE_DISPLAY_EXTENSION_NAME)) {
+            ptr_instance->enabled_known_extensions.
+                ext_direct_mode_display = 1;
+            return;
+        } else if (0 == strcmp(pCreateInfo->ppEnabledExtensionNames[i],
+                   VK_EXT_DISPLAY_SURFACE_COUNTER_EXTENSION_NAME)) {
+            ptr_instance->enabled_known_extensions.
+                ext_display_surface_counter = 1;
             return;
         }
     }

@@ -70,6 +70,7 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
             <!-- WSI extensions -->
         <type category="include">#include "<name>vulkan.h</name>"</type>
         <type category="include">#include &lt;<name>X11/Xlib.h</name>&gt;</type>
+        <type category="include">#include &lt;<name>X11/extensions/Xrandr.h</name>&gt;</type>
         <type category="include">#include &lt;<name>android/native_window.h</name>&gt;</type>
         <type category="include">#include &lt;<name>mir_toolkit/client_types.h</name>&gt;</type>
         <type category="include">#include &lt;<name>wayland-client.h</name>&gt;</type>
@@ -79,6 +80,7 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
         <type requires="X11/Xlib.h" name="Display"/>
         <type requires="X11/Xlib.h" name="VisualID"/>
         <type requires="X11/Xlib.h" name="Window"/>
+        <type requires="X11/extensions/Xrandr.h" name="RROutput"/>
         <type requires="android/native_window.h" name="ANativeWindow"/>
         <type requires="mir_toolkit/client_types.h" name="MirConnection"/>
         <type requires="mir_toolkit/client_types.h" name="MirSurface"/>
@@ -210,6 +212,7 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
         <type requires="VkExternalMemoryFeatureFlagBitsKHX" category="bitmask">typedef <type>VkFlags</type> <name>VkExternalMemoryFeatureFlagsKHX</name>;</type>
         <type requires="VkExternalSemaphoreHandleTypeFlagBitsKHX" category="bitmask">typedef <type>VkFlags</type> <name>VkExternalSemaphoreHandleTypeFlagsKHX</name>;</type>
         <type requires="VkExternalSemaphoreFeatureFlagBitsKHX" category="bitmask">typedef <type>VkFlags</type> <name>VkExternalSemaphoreFeatureFlagsKHX</name>;</type>
+        <type requires="VkSurfaceCounterFlagBitsEXT"      category="bitmask">typedef <type>VkFlags</type> <name>VkSurfaceCounterFlagsEXT</name>;</type>
             <!-- WSI extensions -->
         <type requires="VkCompositeAlphaFlagBitsKHR"      category="bitmask">typedef <type>VkFlags</type> <name>VkCompositeAlphaFlagsKHR</name>;</type>
         <type requires="VkDisplayPlaneAlphaFlagBitsKHR"   category="bitmask">typedef <type>VkFlags</type> <name>VkDisplayPlaneAlphaFlagsKHR</name>;</type>
@@ -223,7 +226,6 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
         <type                                             category="bitmask">typedef <type>VkFlags</type> <name>VkWin32SurfaceCreateFlagsKHR</name>;</type>       <!-- creation flags -->
         <type                                             category="bitmask">typedef <type>VkFlags</type> <name>VkXlibSurfaceCreateFlagsKHR</name>;</type>        <!-- creation flags -->
         <type                                             category="bitmask">typedef <type>VkFlags</type> <name>VkXcbSurfaceCreateFlagsKHR</name>;</type>         <!-- creation flags -->
-
 
         <!-- Types which can be void pointers or class pointers, selected at compile time -->
         <type category="handle"><type>VK_DEFINE_HANDLE</type>(<name>VkInstance</name>)</type>
@@ -373,6 +375,10 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
         <type name="VkExternalMemoryFeatureFlagBitsKHX" category="enum"/>
         <type name="VkExternalSemaphoreHandleTypeFlagBitsKHX" category="enum"/>
         <type name="VkExternalSemaphoreFeatureFlagBitsKHX" category="enum"/>
+        <type name="VkSurfaceCounterFlagBitsEXT" category="enum"/>
+        <type name="VkDisplayPowerStateEXT" category="enum"/>
+        <type name="VkDeviceEventTypeEXT" category="enum"/>
+        <type name="VkDisplayEventTypeEXT" category="enum"/>
 
         <!-- The PFN_vk*Function types are used by VkAllocationCallbacks below -->
         <type category="funcpointer">typedef void (VKAPI_PTR *<name>PFN_vkInternalAllocationNotification</name>)(
@@ -2054,6 +2060,41 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
             <member><type>VkExternalSemaphoreHandleTypeFlagBitsKHX</type> <name>handleType</name></member>
             <member><type>int</type>                              <name>fd</name></member>
         </type>
+        <type category="struct" name="VkSurfaceCapabilities2EXT" returnedonly="true">
+            <member values="VK_STRUCTURE_TYPE_SURFACE_CAPABILITIES2_EXT"><type>VkStructureType</type> <name>sType</name></member>
+            <member><type>void</type>*                            <name>pNext</name></member>
+            <member><type>uint32_t</type>                         <name>minImageCount</name></member>            <!-- Supported minimum number of images for the surface -->
+            <member><type>uint32_t</type>                         <name>maxImageCount</name></member>            <!-- Supported maximum number of images for the surface, 0 for unlimited -->
+            <member><type>VkExtent2D</type>                       <name>currentExtent</name></member>            <!-- Current image width and height for the surface, (0, 0) if undefined -->
+            <member><type>VkExtent2D</type>                       <name>minImageExtent</name></member>           <!-- Supported minimum image width and height for the surface -->
+            <member><type>VkExtent2D</type>                       <name>maxImageExtent</name></member>           <!-- Supported maximum image width and height for the surface -->
+            <member><type>uint32_t</type>                         <name>maxImageArrayLayers</name></member>      <!-- Supported maximum number of image layers for the surface -->
+            <member optional="true"><type>VkSurfaceTransformFlagsKHR</type>       <name>supportedTransforms</name></member>      <!-- 1 or more bits representing the transforms supported -->
+            <member><type>VkSurfaceTransformFlagBitsKHR</type>    <name>currentTransform</name></member>         <!-- The surface's current transform relative to the device's natural orientation -->
+            <member optional="true"><type>VkCompositeAlphaFlagsKHR</type>         <name>supportedCompositeAlpha</name></member>  <!-- 1 or more bits representing the alpha compositing modes supported -->
+            <member optional="true"><type>VkImageUsageFlags</type>                <name>supportedUsageFlags</name></member>      <!-- Supported image usage flags for the surface -->
+            <member optional="true"><type>VkSurfaceCounterFlagsEXT</type> <name>supportedSurfaceCounters</name></member>
+        </type>
+        <type category="struct" name="VkDisplayPowerInfoEXT">
+            <member values="VK_STRUCTURE_TYPE_DISPLAY_POWER_INFO_EXT"><type>VkStructureType</type> <name>sType</name></member>
+            <member>const <type>void</type>*                      <name>pNext</name></member>
+            <member><type>VkDisplayPowerStateEXT</type>           <name>powerState</name></member>
+        </type>
+        <type category="struct" name="VkDeviceEventInfoEXT">
+            <member values="VK_STRUCTURE_TYPE_DEVICE_EVENT_INFO_EXT"><type>VkStructureType</type> <name>sType</name></member>
+            <member>const <type>void</type>*                      <name>pNext</name></member>
+            <member><type>VkDeviceEventTypeEXT</type>             <name>deviceEvent</name></member>
+        </type>
+        <type category="struct" name="VkDisplayEventInfoEXT">
+            <member values="VK_STRUCTURE_TYPE_DISPLAY_EVENT_INFO_EXT"><type>VkStructureType</type> <name>sType</name></member>
+            <member>const <type>void</type>*                      <name>pNext</name></member>
+            <member><type>VkDisplayEventTypeEXT</type>            <name>displayEvent</name></member>
+        </type>
+        <type category="struct" name="VkSwapchainCounterCreateInfoEXT">
+            <member values="VK_STRUCTURE_TYPE_SWAPCHAIN_COUNTER_CREATE_INFO_EXT"><type>VkStructureType</type> <name>sType</name></member>
+            <member>const <type>void</type>*                      <name>pNext</name></member>
+            <member optional="true"><type>VkSurfaceCounterFlagsEXT</type>         <name>surfaceCounters</name></member>
+        </type>
     </types>
 
     <!-- SECTION: Vulkan enumerant (token) definitions. -->
@@ -2954,6 +2995,20 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
     <enums name="VkExternalSemaphoreFeatureFlagBitsKHX" type="enum">
         <enum bitpos="0" name="VK_EXTERNAL_SEMAPHORE_FEATURE_EXPORTABLE_BIT_KHX"/>
         <enum bitpos="1" name="VK_EXTERNAL_SEMAPHORE_FEATURE_IMPORTABLE_BIT_KHX"/>
+    </enums>
+    <enums name="VkSurfaceCounterFlagBitsEXT" type="bitmask">
+        <enum bitpos="0" name="VK_SURFACE_COUNTER_VBLANK_EXT"/>
+    </enums>
+    <enums name="VkDisplayPowerStateEXT" type="enum">
+        <enum value="0" name="VK_DISPLAY_POWER_STATE_OFF_EXT"/>
+        <enum value="1" name="VK_DISPLAY_POWER_STATE_SUSPEND_EXT"/>
+        <enum value="2" name="VK_DISPLAY_POWER_STATE_ON_EXT"/>
+    </enums>
+    <enums name="VkDeviceEventTypeEXT" type="enum">
+        <enum value="0" name="VK_DEVICE_EVENT_TYPE_DISPLAY_HOTPLUG_EXT"/>
+    </enums>
+    <enums name="VkDisplayEventTypeEXT" type="enum">
+        <enum value="0" name="VK_DISPLAY_EVENT_TYPE_FIRST_PIXEL_OUT_EXT"/>
     </enums>
 
     <!-- SECTION: Vulkan command definitions -->
@@ -4418,6 +4473,58 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
             <param><type>VkDevice</type> <name>device</name></param>
             <param>const <type>VkImportSemaphoreFdInfoKHX</type>* <name>pImportSemaphoreFdInfo</name></param>
         </command>
+        <command successcodes="VK_SUCCESS">
+            <proto><type>VkResult</type> <name>vkReleaseDisplayEXT</name></proto>
+            <param><type>VkPhysicalDevice</type> <name>physicalDevice</name></param>
+            <param><type>VkDisplayKHR</type> <name>display</name></param>
+        </command>
+        <command successcodes="VK_SUCCESS">
+            <proto><type>VkResult</type> <name>vkAcquireXlibDisplayEXT</name></proto>
+            <param><type>VkPhysicalDevice</type> <name>physicalDevice</name></param>
+            <param><type>Display</type>* <name>dpy</name></param>
+            <param><type>VkDisplayKHR</type> <name>display</name></param>
+        </command>
+        <command successcodes="VK_SUCCESS">
+            <proto><type>VkResult</type> <name>vkGetRandROutputDisplayEXT</name></proto>
+            <param><type>VkPhysicalDevice</type> <name>physicalDevice</name></param>
+            <param><type>Display</type>* <name>dpy</name></param>
+            <param><type>RROutput</type> <name>rrOutput</name></param>
+            <param><type>VkDisplayKHR</type>* <name>pDisplay</name></param>
+        </command>
+        <command successcodes="VK_SUCCESS">
+            <proto><type>VkResult</type> <name>vkDisplayPowerControlEXT</name></proto>
+            <param><type>VkDevice</type> <name>device</name></param>
+            <param><type>VkDisplayKHR</type> <name>display</name></param>
+            <param>const <type>VkDisplayPowerInfoEXT</type>* <name>pDisplayPowerInfo</name></param>
+        </command>
+        <command successcodes="VK_SUCCESS">
+            <proto><type>VkResult</type> <name>vkRegisterDeviceEventEXT</name></proto>
+            <param><type>VkDevice</type> <name>device</name></param>
+            <param>const <type>VkDeviceEventInfoEXT</type>* <name>pDeviceEventInfo</name></param>
+            <param>const <type>VkAllocationCallbacks</type>* <name>pAllocator</name></param>
+            <param><type>VkFence</type>* <name>pFence</name></param>
+        </command>
+        <command successcodes="VK_SUCCESS">
+            <proto><type>VkResult</type> <name>vkRegisterDisplayEventEXT</name></proto>
+            <param><type>VkDevice</type> <name>device</name></param>
+            <param><type>VkDisplayKHR</type> <name>display</name></param>
+            <param>const <type>VkDisplayEventInfoEXT</type>* <name>pDisplayEventInfo</name></param>
+            <param>const <type>VkAllocationCallbacks</type>* <name>pAllocator</name></param>
+            <param><type>VkFence</type>* <name>pFence</name></param>
+        </command>
+        <command successcodes="VK_SUCCESS,VK_ERROR_DEVICE_LOST,VK_ERROR_OUT_OF_DATE_KHR">
+            <proto><type>VkResult</type> <name>vkGetSwapchainCounterEXT</name></proto>
+            <param><type>VkDevice</type> <name>device</name></param>
+            <param><type>VkSwapchainKHR</type> <name>swapchain</name></param>
+            <param><type>VkSurfaceCounterFlagBitsEXT</type> <name>counter</name></param>
+            <param><type>uint64_t</type>* <name>pCounterValue</name></param>
+        </command>
+        <command successcodes="VK_SUCCESS" errorcodes="VK_ERROR_OUT_OF_HOST_MEMORY,VK_ERROR_OUT_OF_DEVICE_MEMORY,VK_ERROR_SURFACE_LOST_KHR">
+            <proto><type>VkResult</type> <name>vkGetPhysicalDeviceSurfaceCapabilities2EXT</name></proto>
+            <param><type>VkPhysicalDevice</type> <name>physicalDevice</name></param>
+            <param><type>VkSurfaceKHR</type> <name>surface</name></param>
+            <param><type>VkSurfaceCapabilities2EXT</type>* <name>pSurfaceCapabilities</name></param>
+        </command>
     </commands>
 
     <!-- SECTION: Vulkan API interface definitions -->
@@ -4634,6 +4741,8 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
             <command name="vkCmdNextSubpass"/>
             <command name="vkCmdEndRenderPass"/>
             <command name="vkCmdExecuteCommands"/>
+            <command name="vkCmdProcessCommandsNVX"/>
+            <command name="vkCmdReserveSpaceForCommandsNVX"/>
         </require>
         <require comment="Types not directly used by the API">
             <!-- Include <type name="typename"/> here for e.g. structs that
@@ -5456,81 +5565,104 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
                  <enum value="&quot;VK_KHR_extension_86&quot;"           name="VK_KHR_EXTENSION_86_EXTENSION_NAME"/>
               </require>
          </extension>
-         <extension name="VK_NVX_device_generated_commands" number="87" type="device" author="NVIDIA" contact="Christoph Kubisch @pixeljetstream" supported="vulkan">
-           <require>
-               <enum value="1"                                               name="VK_NVX_DEVICE_GENERATED_COMMANDS_SPEC_VERSION"/>
-               <enum value="&quot;VK_NVX_device_generated_commands&quot;"    name="VK_NVX_DEVICE_GENERATED_COMMANDS_EXTENSION_NAME"/>
-               <enum offset="0" extends="VkStructureType"                    name="VK_STRUCTURE_TYPE_OBJECT_TABLE_CREATE_INFO_NVX"/>
-               <enum offset="1" extends="VkStructureType"                    name="VK_STRUCTURE_TYPE_INDIRECT_COMMANDS_LAYOUT_CREATE_INFO_NVX"/>
-               <enum offset="2" extends="VkStructureType"                    name="VK_STRUCTURE_TYPE_CMD_PROCESS_COMMANDS_INFO_NVX"/>
-               <enum offset="3" extends="VkStructureType"                    name="VK_STRUCTURE_TYPE_CMD_RESERVE_SPACE_FOR_COMMANDS_INFO_NVX"/>
-               <enum offset="4" extends="VkStructureType"                    name="VK_STRUCTURE_TYPE_DEVICE_GENERATED_COMMANDS_LIMITS_NVX"/>
-               <enum offset="5" extends="VkStructureType"                    name="VK_STRUCTURE_TYPE_DEVICE_GENERATED_COMMANDS_FEATURES_NVX"/>
-               <enum bitpos="17" extends="VkPipelineStageFlagBits"           name="VK_PIPELINE_STAGE_COMMAND_PROCESS_BIT_NVX"/>
-               <enum bitpos="17" extends="VkAccessFlagBits"                  name="VK_ACCESS_COMMAND_PROCESS_READ_BIT_NVX"/>
-               <enum bitpos="18" extends="VkAccessFlagBits"                  name="VK_ACCESS_COMMAND_PROCESS_WRITE_BIT_NVX"/>
-               <type name="VkObjectTableNVX"/>
-               <type name="VkIndirectCommandsLayoutNVX"/>
-               <type name="VkIndirectCommandsLayoutUsageFlagsNVX"/>
-               <type name="VkObjectEntryUsageFlagsNVX"/>
-               <type name="VkIndirectCommandsLayoutUsageFlagBitsNVX"/>
-               <type name="VkIndirectCommandsTokenTypeNVX"/>
-               <type name="VkObjectEntryUsageFlagBitsNVX"/>
-               <type name="VkObjectEntryTypeNVX"/>
-               <type name="VkDeviceGeneratedCommandsFeaturesNVX"/>
-               <type name="VkDeviceGeneratedCommandsLimitsNVX"/>
-               <type name="VkIndirectCommandsTokenNVX"/>
-               <type name="VkIndirectCommandsLayoutTokenNVX"/>
-               <type name="VkIndirectCommandsLayoutCreateInfoNVX"/>
-               <type name="VkCmdProcessCommandsInfoNVX"/>
-               <type name="VkCmdReserveSpaceForCommandsInfoNVX"/>
-               <type name="VkObjectTableCreateInfoNVX"/>
-               <type name="VkObjectTableEntryNVX"/>
-               <type name="VkObjectTablePipelineEntryNVX"/>
-               <type name="VkObjectTableDescriptorSetEntryNVX"/>
-               <type name="VkObjectTableVertexBufferEntryNVX"/>
-               <type name="VkObjectTableIndexBufferEntryNVX"/>
-               <type name="VkObjectTablePushConstantEntryNVX"/>
-               <command name="vkCmdProcessCommandsNVX"/>
-               <command name="vkCmdReserveSpaceForCommandsNVX"/>
-               <command name="vkCreateIndirectCommandsLayoutNVX"/>
-               <command name="vkDestroyIndirectCommandsLayoutNVX"/>
-               <command name="vkCreateObjectTableNVX"/>
-               <command name="vkDestroyObjectTableNVX"/>
-               <command name="vkRegisterObjectsNVX"/>
-               <command name="vkUnregisterObjectsNVX"/>
-               <command name="vkGetPhysicalDeviceGeneratedCommandsPropertiesNVX"/>
-           </require>
-         </extension>
+        <extension name="VK_NVX_device_generated_commands" number="87" type="device" author="NVIDIA" contact="Christoph Kubisch @pixeljetstream" supported="vulkan">
+          <require>
+              <enum value="1"                                               name="VK_NVX_DEVICE_GENERATED_COMMANDS_SPEC_VERSION"/>
+              <enum value="&quot;VK_NVX_device_generated_commands&quot;"    name="VK_NVX_DEVICE_GENERATED_COMMANDS_EXTENSION_NAME"/>
+              <enum offset="0" extends="VkStructureType"                    name="VK_STRUCTURE_TYPE_OBJECT_TABLE_CREATE_INFO_NVX"/>
+              <enum offset="1" extends="VkStructureType"                    name="VK_STRUCTURE_TYPE_INDIRECT_COMMANDS_LAYOUT_CREATE_INFO_NVX"/>
+              <enum offset="2" extends="VkStructureType"                    name="VK_STRUCTURE_TYPE_CMD_PROCESS_COMMANDS_INFO_NVX"/>
+              <enum offset="3" extends="VkStructureType"                    name="VK_STRUCTURE_TYPE_CMD_RESERVE_SPACE_FOR_COMMANDS_INFO_NVX"/>
+              <enum offset="4" extends="VkStructureType"                    name="VK_STRUCTURE_TYPE_DEVICE_GENERATED_COMMANDS_LIMITS_NVX"/>
+              <enum offset="5" extends="VkStructureType"                    name="VK_STRUCTURE_TYPE_DEVICE_GENERATED_COMMANDS_FEATURES_NVX"/>
+              <enum bitpos="17" extends="VkPipelineStageFlagBits"           name="VK_PIPELINE_STAGE_COMMAND_PROCESS_BIT_NVX"/>
+              <enum bitpos="17" extends="VkAccessFlagBits"                  name="VK_ACCESS_COMMAND_PROCESS_READ_BIT_NVX"/>
+              <enum bitpos="18" extends="VkAccessFlagBits"                  name="VK_ACCESS_COMMAND_PROCESS_WRITE_BIT_NVX"/>
+              <type name="VkObjectTableNVX"/>
+              <type name="VkIndirectCommandsLayoutNVX"/>
+              <type name="VkIndirectCommandsLayoutUsageFlagsNVX"/>
+              <type name="VkObjectEntryUsageFlagsNVX"/>
+              <type name="VkIndirectCommandsLayoutUsageFlagBitsNVX"/>
+              <type name="VkIndirectCommandsTokenTypeNVX"/>
+              <type name="VkObjectEntryUsageFlagBitsNVX"/>
+              <type name="VkObjectEntryTypeNVX"/>
+              <type name="VkDeviceGeneratedCommandsFeaturesNVX"/>
+              <type name="VkDeviceGeneratedCommandsLimitsNVX"/>
+              <type name="VkIndirectCommandsTokenNVX"/>
+              <type name="VkIndirectCommandsLayoutTokenNVX"/>
+              <type name="VkIndirectCommandsLayoutCreateInfoNVX"/>
+              <type name="VkCmdProcessCommandsInfoNVX"/>
+              <type name="VkCmdReserveSpaceForCommandsInfoNVX"/>
+              <type name="VkObjectTableCreateInfoNVX"/>
+              <type name="VkObjectTableEntryNVX"/>
+              <type name="VkObjectTablePipelineEntryNVX"/>
+              <type name="VkObjectTableDescriptorSetEntryNVX"/>
+              <type name="VkObjectTableVertexBufferEntryNVX"/>
+              <type name="VkObjectTableIndexBufferEntryNVX"/>
+              <type name="VkObjectTablePushConstantEntryNVX"/>
+              <command name="vkCmdProcessCommandsNVX"/>
+              <command name="vkCmdReserveSpaceForCommandsNVX"/>
+              <command name="vkCreateIndirectCommandsLayoutNVX"/>
+              <command name="vkDestroyIndirectCommandsLayoutNVX"/>
+              <command name="vkCreateObjectTableNVX"/>
+              <command name="vkDestroyObjectTableNVX"/>
+              <command name="vkRegisterObjectsNVX"/>
+              <command name="vkUnregisterObjectsNVX"/>
+              <command name="vkGetPhysicalDeviceGeneratedCommandsPropertiesNVX"/>
+          </require>
+        </extension>
          <extension name="VK_KHR_extension_88" number="88" author="NV" contact="Eric Werness @ewerness" supported="disabled">
              <require>
                  <enum value="0"                                         name="VK_KHR_EXTENSION_88_SPEC_VERSION"/>
                  <enum value="&quot;VK_KHR_extension_88&quot;"           name="VK_KHR_EXTENSION_88_EXTENSION_NAME"/>
               </require>
          </extension>
-         <extension name="VK_EXT_extension_89" number="89" author="NV" contact="James Jones @cubanismo" supported="disabled">
+         <extension name="VK_EXT_direct_mode_display" number="89" type="instance" requires="VK_KHR_display" author="NVIDIA" contact="James Jones @cubanismo" supported="vulkan">
              <require>
-                 <enum value="0"                                         name="VK_EXT_EXTENSION_89_SPEC_VERSION"/>
-                 <enum value="&quot;VK_EXT_extension_89&quot;"           name="VK_EXT_EXTENSION_89_EXTENSION_NAME"/>
-              </require>
+                 <enum value="1"                                         name="VK_EXT_DIRECT_MODE_DISPLAY_SPEC_VERSION"/>
+                 <enum value="&quot;VK_EXT_direct_mode_display&quot;"           name="VK_EXT_DIRECT_MODE_DISPLAY_EXTENSION_NAME"/>
+                 <command name="vkReleaseDisplayEXT"/>
+             </require>
          </extension>
-         <extension name="VK_EXT_extension_90" number="90" author="NV" contact="James Jones @cubanismo" supported="disabled">
+         <extension name="VK_EXT_acquire_xlib_display" number="90" type="instance" requires="VK_EXT_direct_mode_display,VK_KHR_display" author="NVIDIA" contact="James Jones @cubanismo" protect="VK_USE_PLATFORM_XLIB_XRANDR_EXT" supported="vulkan">
              <require>
-                 <enum value="0"                                         name="VK_EXT_EXTENSION_90_SPEC_VERSION"/>
-                 <enum value="&quot;VK_EXT_extension_90&quot;"           name="VK_EXT_EXTENSION_90_EXTENSION_NAME"/>
-              </require>
+                 <enum value="1"                                         name="VK_EXT_ACQUIRE_XLIB_DISPLAY_SPEC_VERSION"/>
+                 <enum value="&quot;VK_EXT_acquire_xlib_display&quot;"   name="VK_EXT_ACQUIRE_XLIB_DISPLAY_EXTENSION_NAME"/>
+                 <command name="vkAcquireXlibDisplayEXT"/>
+                 <command name="vkGetRandROutputDisplayEXT"/>
+             </require>
          </extension>
-         <extension name="VK_EXT_extension_91" number="91" author="NV" contact="James Jones @cubanismo" supported="disabled">
+         <extension name="VK_EXT_display_surface_counter" number="91" type="instance" requires="VK_KHR_display" author="NVIDIA" contact="James Jones @cubanismo" supported="vulkan">
              <require>
-                 <enum value="0"                                         name="VK_EXT_EXTENSION_91_SPEC_VERSION"/>
-                 <enum value="&quot;VK_EXT_extension_91&quot;"           name="VK_EXT_EXTENSION_91_EXTENSION_NAME"/>
-              </require>
+                 <enum value="1"                                         name="VK_EXT_DISPLAY_SURFACE_COUNTER_SPEC_VERSION"/>
+                 <enum value="&quot;VK_EXT_display_surface_counter&quot;" name="VK_EXT_DISPLAY_SURFACE_COUNTER_EXTENSION_NAME"/>
+                 <enum offset="0" extends="VkStructureType"              name="VK_STRUCTURE_TYPE_SURFACE_CAPABILITIES2_EXT"/>
+                 <type name="VkSurfaceCounterFlagsEXT"/>
+                 <type name="VkSurfaceCounterFlagBitsEXT"/>
+                 <type name="VkSurfaceCapabilities2EXT"/>
+                 <command name="vkGetPhysicalDeviceSurfaceCapabilities2EXT"/>
+             </require>
          </extension>
-         <extension name="VK_EXT_extension_92" number="92" author="NV" contact="James Jones @cubanismo" supported="disabled">
+         <extension name="VK_EXT_display_control" number="92" type="device" requires="VK_KHR_display,VK_EXT_display_surface_counter,VK_KHR_swapchain" author="NVIDIA" contact="James Jones @cubanismo" supported="vulkan">
              <require>
-                 <enum value="0"                                         name="VK_EXT_EXTENSION_92_SPEC_VERSION"/>
-                 <enum value="&quot;VK_EXT_extension_92&quot;"           name="VK_EXT_EXTENSION_92_EXTENSION_NAME"/>
-              </require>
+                 <enum value="1"                                         name="VK_EXT_DISPLAY_CONTROL_SPEC_VERSION"/>
+                 <enum value="&quot;VK_EXT_display_control&quot;"        name="VK_EXT_DISPLAY_CONTROL_EXTENSION_NAME"/>
+                 <enum offset="0" extends="VkStructureType"              name="VK_STRUCTURE_TYPE_DISPLAY_POWER_INFO_EXT"/>
+                 <enum offset="1" extends="VkStructureType"              name="VK_STRUCTURE_TYPE_DEVICE_EVENT_INFO_EXT"/>
+                 <enum offset="2" extends="VkStructureType"              name="VK_STRUCTURE_TYPE_DISPLAY_EVENT_INFO_EXT"/>
+                 <enum offset="3" extends="VkStructureType"              name="VK_STRUCTURE_TYPE_SWAPCHAIN_COUNTER_CREATE_INFO_EXT"/>
+                 <type name="VkDisplayPowerStateEXT"/>
+                 <type name="VkDeviceEventTypeEXT"/>
+                 <type name="VkDisplayEventTypeEXT"/>
+                 <type name="VkDisplayPowerInfoEXT"/>
+                 <type name="VkDeviceEventInfoEXT"/>
+                 <type name="VkDisplayEventInfoEXT"/>
+                 <type name="VkSwapchainCounterCreateInfoEXT"/>
+                 <command name="vkDisplayPowerControlEXT"/>
+                 <command name="vkRegisterDeviceEventEXT"/>
+                 <command name="vkRegisterDisplayEventEXT"/>
+                 <command name="vkGetSwapchainCounterEXT"/>
+             </require>
          </extension>
          <extension name="VK_KHR_extension_93" number="93" author="GOOGLE" contact="Ian Elliott @ianelliott" supported="disabled">
              <require>

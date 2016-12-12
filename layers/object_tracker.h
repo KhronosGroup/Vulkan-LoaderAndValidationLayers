@@ -98,6 +98,18 @@ struct layer_data {
     bool wsi_display_swapchain_enabled;
     bool wsi_display_extension_enabled;
     bool objtrack_extensions_enabled;
+    bool khx_device_group_enabled;
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+    bool khx_external_memory_win32_enabled;
+#endif // VK_USE_PLATFORM_WIN32_KHR
+    bool khx_external_memory_fd_enabled;
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+    bool khx_external_semaphore_win32_enabled;
+#endif // VK_USE_PLATFORM_WIN32_KHR
+    bool khx_external_semaphore_fd_enabled;
+    bool khx_push_descriptor_enabled;
+    bool nvx_device_generated_commands_enabled;
+    bool ext_display_control_enabled;
 
     // The following are for keeping track of the temporary callbacks that can
     // be used in vkCreateInstance and vkDestroyInstance:

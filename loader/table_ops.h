@@ -338,6 +338,16 @@ static inline void loader_init_device_extension_dispatch_table(
         dev, "vkGetSemaphoreWin32HandleKHX");
 #endif
 
+    // EXT_display_control
+    table->DisplayPowerControlEXT =
+        (PFN_vkDisplayPowerControlEXT)gpa(dev, "vkDisplayPowerControlEXT");
+    table->RegisterDeviceEventEXT =
+        (PFN_vkRegisterDeviceEventEXT)gpa(dev, "vkRegisterDeviceEventEXT");
+    table->RegisterDisplayEventEXT =
+        (PFN_vkRegisterDisplayEventEXT)gpa(dev, "vkRegisterDisplayEventEXT");
+    table->GetSwapchainCounterEXT =
+        (PFN_vkGetSwapchainCounterEXT)gpa(dev, "vkGetSwapchainCounterEXT");
+
     // EXT_debug_marker
     table->DebugMarkerSetObjectTagEXT = (PFN_vkDebugMarkerSetObjectTagEXT)gpa(
         dev, "vkDebugMarkerSetObjectTagEXT");
@@ -816,6 +826,16 @@ static inline void loader_init_instance_extension_dispatch_table(
         (PFN_vkGetPhysicalDeviceExternalSemaphorePropertiesKHX)gpa(
             inst, "vkGetPhysicalDeviceExternalSemaphorePropertiesKHX");
 
+#ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
+    // EXT_acquire_xlib_display
+    table->AcquireXlibDisplayEXT =
+        (PFN_vkAcquireXlibDisplayEXT)gpa(
+            inst, "vkAcquireXlibDisplayEXT");
+    table->GetRandROutputDisplayEXT =
+        (PFN_vkGetRandROutputDisplayEXT)gpa(
+            inst, "vkGetRandROutputDisplayEXT");
+#endif
+
     // EXT_debug_report
     table->CreateDebugReportCallbackEXT =
         (PFN_vkCreateDebugReportCallbackEXT)gpa(
@@ -826,12 +846,22 @@ static inline void loader_init_instance_extension_dispatch_table(
     table->DebugReportMessageEXT =
         (PFN_vkDebugReportMessageEXT)gpa(inst, "vkDebugReportMessageEXT");
 
+    // EXT_direct_mode_display
+    table->ReleaseDisplayEXT =
+        (PFN_vkReleaseDisplayEXT)gpa(
+            inst, "vkReleaseDisplayEXT");
+
+    // EXT_display_surface_counter
+    table->GetPhysicalDeviceSurfaceCapabilities2EXT =
+        (PFN_vkGetPhysicalDeviceSurfaceCapabilities2EXT)gpa(
+            inst, "vkGetPhysicalDeviceSurfaceCapabilities2EXT");
+
     // NV_external_memory_capabilities
     table->GetPhysicalDeviceExternalImageFormatPropertiesNV =
         (PFN_vkGetPhysicalDeviceExternalImageFormatPropertiesNV)gpa(
             inst, "vkGetPhysicalDeviceExternalImageFormatPropertiesNV");
 
-    // NVX_device_generated_commands
+    // NVX_device_generated_commands (physical device command)
     table->GetPhysicalDeviceGeneratedCommandsPropertiesNVX =
         (PFN_vkGetPhysicalDeviceGeneratedCommandsPropertiesNVX)gpa(
             inst, "vkGetPhysicalDeviceGeneratedCommandsPropertiesNVX");

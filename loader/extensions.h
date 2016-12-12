@@ -94,7 +94,7 @@ terminator_GetPhysicalDeviceImageFormatProperties2KHX(
     const VkPhysicalDeviceImageFormatInfo2KHX *pImageFormatInfo,
     VkImageFormatProperties2KHX *pImageFormatProperties);
 
-// Instance extension terminators for the K_KHX_external_semaphore_capabilities
+// Instance extension terminators for the VK_KHX_external_semaphore_capabilities
 // extension
 
 VKAPI_ATTR void VKAPI_CALL
@@ -102,6 +102,38 @@ terminator_GetPhysicalDeviceExternalSemaphorePropertiesKHX(
     VkPhysicalDevice physicalDevice,
     const VkPhysicalDeviceExternalSemaphoreInfoKHX *pExternalSemaphoreInfo,
     VkExternalSemaphorePropertiesKHX *pExternalSemaphoreProperties);
+
+// Instance extension terminators for the VK_EXT_acquire_xlib_display
+// extension
+
+#ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
+VKAPI_ATTR VkResult VKAPI_CALL terminator_AcquireXlibDisplayEXT(
+    VkPhysicalDevice physicalDevice,
+    Display* dpy,
+    VkDisplayKHR display);
+
+VKAPI_ATTR VkResult VKAPI_CALL terminator_GetRandROutputDisplayEXT(
+    VkPhysicalDevice physicalDevice,
+    Display* dpy,
+    RROutput rrOutput,
+    VkDisplayKHR* pDisplay);
+#endif /* VK_USE_PLATFORM_XLIB_XRANDR_EXT */
+
+// Instance extension terminators for the VK_EXT_direct_mode_display
+// extension
+
+VKAPI_ATTR VkResult VKAPI_CALL terminator_ReleaseDisplayEXT(
+    VkPhysicalDevice physicalDevice,
+    VkDisplayKHR display);
+
+// Instance extension terminators for the VK_EXT_display_surface_counter
+// extension
+
+VKAPI_ATTR VkResult VKAPI_CALL
+terminator_GetPhysicalDeviceSurfaceCapabilities2EXT(
+    VkPhysicalDevice physicalDevice,
+    VkSurfaceKHR surface,
+    VkSurfaceCapabilities2EXT* pSurfaceCapabilities);
 
 // Device extension terminators for the VK_NV_external_memory_capabilities
 // extension

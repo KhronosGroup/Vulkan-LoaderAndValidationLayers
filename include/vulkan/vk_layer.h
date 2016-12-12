@@ -203,6 +203,11 @@ typedef struct VkLayerDispatchTable_ {
 #endif
     // KHX_push_descriptor
     PFN_vkCmdPushDescriptorSetKHX CmdPushDescriptorSetKHX;
+    // EXT_display_control
+    PFN_vkDisplayPowerControlEXT DisplayPowerControlEXT;
+    PFN_vkRegisterDeviceEventEXT RegisterDeviceEventEXT;
+    PFN_vkRegisterDisplayEventEXT RegisterDisplayEventEXT;
+    PFN_vkGetSwapchainCounterEXT GetSwapchainCounterEXT;
     // NVX_device_generated_commands
     PFN_vkCmdProcessCommandsNVX CmdProcessCommandsNVX;
     PFN_vkCmdReserveSpaceForCommandsNVX CmdReserveSpaceForCommandsNVX;
@@ -303,10 +308,20 @@ typedef struct VkLayerInstanceDispatchTable_ {
     // KHX_external_semaphore_capabilities
     PFN_vkGetPhysicalDeviceExternalSemaphorePropertiesKHX
         GetPhysicalDeviceExternalSemaphorePropertiesKHX;
+#ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
+    // EXT_acquire_xlib_display
+    PFN_vkAcquireXlibDisplayEXT AcquireXlibDisplayEXT;
+    PFN_vkGetRandROutputDisplayEXT GetRandROutputDisplayEXT;
+#endif
     // EXT_debug_report
     PFN_vkCreateDebugReportCallbackEXT CreateDebugReportCallbackEXT;
     PFN_vkDestroyDebugReportCallbackEXT DestroyDebugReportCallbackEXT;
     PFN_vkDebugReportMessageEXT DebugReportMessageEXT;
+    // EXT_direct_mode_display
+    PFN_vkReleaseDisplayEXT ReleaseDisplayEXT;
+    // EXT_display_surface_counter
+    PFN_vkGetPhysicalDeviceSurfaceCapabilities2EXT
+        GetPhysicalDeviceSurfaceCapabilities2EXT;
     // NV_external_memory_capabilities
     PFN_vkGetPhysicalDeviceExternalImageFormatPropertiesNV
         GetPhysicalDeviceExternalImageFormatPropertiesNV;

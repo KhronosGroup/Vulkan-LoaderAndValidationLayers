@@ -5680,7 +5680,12 @@ namespace vk
     eCmdProcessCommandsInfoNVX = VK_STRUCTURE_TYPE_CMD_PROCESS_COMMANDS_INFO_NVX,
     eCmdReserveSpaceForCommandsInfoNVX = VK_STRUCTURE_TYPE_CMD_RESERVE_SPACE_FOR_COMMANDS_INFO_NVX,
     eDeviceGeneratedCommandsLimitsNVX = VK_STRUCTURE_TYPE_DEVICE_GENERATED_COMMANDS_LIMITS_NVX,
-    eDeviceGeneratedCommandsFeaturesNVX = VK_STRUCTURE_TYPE_DEVICE_GENERATED_COMMANDS_FEATURES_NVX
+    eDeviceGeneratedCommandsFeaturesNVX = VK_STRUCTURE_TYPE_DEVICE_GENERATED_COMMANDS_FEATURES_NVX,
+    eSurfaceCapabilities2EXT = VK_STRUCTURE_TYPE_SURFACE_CAPABILITIES2_EXT,
+    eDisplayPowerInfoEXT = VK_STRUCTURE_TYPE_DISPLAY_POWER_INFO_EXT,
+    eDeviceEventInfoEXT = VK_STRUCTURE_TYPE_DEVICE_EVENT_INFO_EXT,
+    eDisplayEventInfoEXT = VK_STRUCTURE_TYPE_DISPLAY_EVENT_INFO_EXT,
+    eSwapchainCounterCreateInfoEXT = VK_STRUCTURE_TYPE_SWAPCHAIN_COUNTER_CREATE_INFO_EXT
   };
 
   struct ApplicationInfo
@@ -20090,6 +20095,352 @@ namespace vk
   };
   static_assert( sizeof( ExternalSemaphorePropertiesKHX ) == sizeof( VkExternalSemaphorePropertiesKHX ), "struct and wrapper have different size!" );
 
+  enum class SurfaceCounterFlagBitsEXT
+  {
+    eVblankExt = VK_SURFACE_COUNTER_VBLANK_EXT
+  };
+
+  using SurfaceCounterFlagsEXT = Flags<SurfaceCounterFlagBitsEXT, VkSurfaceCounterFlagsEXT>;
+
+  VULKAN_HPP_INLINE SurfaceCounterFlagsEXT operator|( SurfaceCounterFlagBitsEXT bit0, SurfaceCounterFlagBitsEXT bit1 )
+  {
+    return SurfaceCounterFlagsEXT( bit0 ) | bit1;
+  }
+
+  VULKAN_HPP_INLINE SurfaceCounterFlagsEXT operator~( SurfaceCounterFlagBitsEXT bits )
+  {
+    return ~( SurfaceCounterFlagsEXT( bits ) );
+  }
+
+  template <> struct FlagTraits<SurfaceCounterFlagBitsEXT>
+  {
+    enum
+    {
+      allFlags = VkFlags(SurfaceCounterFlagBitsEXT::eVblankExt)
+    };
+  };
+
+  struct SurfaceCapabilities2EXT
+  {
+    operator const VkSurfaceCapabilities2EXT&() const
+    {
+      return *reinterpret_cast<const VkSurfaceCapabilities2EXT*>(this);
+    }
+
+    bool operator==( SurfaceCapabilities2EXT const& rhs ) const
+    {
+      return ( sType == rhs.sType )
+          && ( pNext == rhs.pNext )
+          && ( minImageCount == rhs.minImageCount )
+          && ( maxImageCount == rhs.maxImageCount )
+          && ( currentExtent == rhs.currentExtent )
+          && ( minImageExtent == rhs.minImageExtent )
+          && ( maxImageExtent == rhs.maxImageExtent )
+          && ( maxImageArrayLayers == rhs.maxImageArrayLayers )
+          && ( supportedTransforms == rhs.supportedTransforms )
+          && ( currentTransform == rhs.currentTransform )
+          && ( supportedCompositeAlpha == rhs.supportedCompositeAlpha )
+          && ( supportedUsageFlags == rhs.supportedUsageFlags )
+          && ( supportedSurfaceCounters == rhs.supportedSurfaceCounters );
+    }
+
+    bool operator!=( SurfaceCapabilities2EXT const& rhs ) const
+    {
+      return !operator==( rhs );
+    }
+
+  private:
+    StructureType sType;
+
+  public:
+    void* pNext;
+    uint32_t minImageCount;
+    uint32_t maxImageCount;
+    Extent2D currentExtent;
+    Extent2D minImageExtent;
+    Extent2D maxImageExtent;
+    uint32_t maxImageArrayLayers;
+    SurfaceTransformFlagsKHR supportedTransforms;
+    SurfaceTransformFlagBitsKHR currentTransform;
+    CompositeAlphaFlagsKHR supportedCompositeAlpha;
+    ImageUsageFlags supportedUsageFlags;
+    SurfaceCounterFlagsEXT supportedSurfaceCounters;
+  };
+  static_assert( sizeof( SurfaceCapabilities2EXT ) == sizeof( VkSurfaceCapabilities2EXT ), "struct and wrapper have different size!" );
+
+  struct SwapchainCounterCreateInfoEXT
+  {
+    SwapchainCounterCreateInfoEXT( SurfaceCounterFlagsEXT surfaceCounters_ = SurfaceCounterFlagsEXT() )
+      : sType( StructureType::eSwapchainCounterCreateInfoEXT )
+      , pNext( nullptr )
+      , surfaceCounters( surfaceCounters_ )
+    {
+    }
+
+    SwapchainCounterCreateInfoEXT( VkSwapchainCounterCreateInfoEXT const & rhs )
+    {
+      memcpy( this, &rhs, sizeof(SwapchainCounterCreateInfoEXT) );
+    }
+
+    SwapchainCounterCreateInfoEXT& operator=( VkSwapchainCounterCreateInfoEXT const & rhs )
+    {
+      memcpy( this, &rhs, sizeof(SwapchainCounterCreateInfoEXT) );
+      return *this;
+    }
+
+    SwapchainCounterCreateInfoEXT& setSType( StructureType sType_ )
+    {
+      sType = sType_;
+      return *this;
+    }
+
+    SwapchainCounterCreateInfoEXT& setPNext( const void* pNext_ )
+    {
+      pNext = pNext_;
+      return *this;
+    }
+
+    SwapchainCounterCreateInfoEXT& setSurfaceCounters( SurfaceCounterFlagsEXT surfaceCounters_ )
+    {
+      surfaceCounters = surfaceCounters_;
+      return *this;
+    }
+
+    operator const VkSwapchainCounterCreateInfoEXT&() const
+    {
+      return *reinterpret_cast<const VkSwapchainCounterCreateInfoEXT*>(this);
+    }
+
+    bool operator==( SwapchainCounterCreateInfoEXT const& rhs ) const
+    {
+      return ( sType == rhs.sType )
+          && ( pNext == rhs.pNext )
+          && ( surfaceCounters == rhs.surfaceCounters );
+    }
+
+    bool operator!=( SwapchainCounterCreateInfoEXT const& rhs ) const
+    {
+      return !operator==( rhs );
+    }
+
+  private:
+    StructureType sType;
+
+  public:
+    const void* pNext;
+    SurfaceCounterFlagsEXT surfaceCounters;
+  };
+  static_assert( sizeof( SwapchainCounterCreateInfoEXT ) == sizeof( VkSwapchainCounterCreateInfoEXT ), "struct and wrapper have different size!" );
+
+  enum class DisplayPowerStateEXT
+  {
+    eOff = VK_DISPLAY_POWER_STATE_OFF_EXT,
+    eSuspend = VK_DISPLAY_POWER_STATE_SUSPEND_EXT,
+    eOn = VK_DISPLAY_POWER_STATE_ON_EXT
+  };
+
+  struct DisplayPowerInfoEXT
+  {
+    DisplayPowerInfoEXT( DisplayPowerStateEXT powerState_ = DisplayPowerStateEXT::eOff )
+      : sType( StructureType::eDisplayPowerInfoEXT )
+      , pNext( nullptr )
+      , powerState( powerState_ )
+    {
+    }
+
+    DisplayPowerInfoEXT( VkDisplayPowerInfoEXT const & rhs )
+    {
+      memcpy( this, &rhs, sizeof(DisplayPowerInfoEXT) );
+    }
+
+    DisplayPowerInfoEXT& operator=( VkDisplayPowerInfoEXT const & rhs )
+    {
+      memcpy( this, &rhs, sizeof(DisplayPowerInfoEXT) );
+      return *this;
+    }
+
+    DisplayPowerInfoEXT& setSType( StructureType sType_ )
+    {
+      sType = sType_;
+      return *this;
+    }
+
+    DisplayPowerInfoEXT& setPNext( const void* pNext_ )
+    {
+      pNext = pNext_;
+      return *this;
+    }
+
+    DisplayPowerInfoEXT& setPowerState( DisplayPowerStateEXT powerState_ )
+    {
+      powerState = powerState_;
+      return *this;
+    }
+
+    operator const VkDisplayPowerInfoEXT&() const
+    {
+      return *reinterpret_cast<const VkDisplayPowerInfoEXT*>(this);
+    }
+
+    bool operator==( DisplayPowerInfoEXT const& rhs ) const
+    {
+      return ( sType == rhs.sType )
+          && ( pNext == rhs.pNext )
+          && ( powerState == rhs.powerState );
+    }
+
+    bool operator!=( DisplayPowerInfoEXT const& rhs ) const
+    {
+      return !operator==( rhs );
+    }
+
+  private:
+    StructureType sType;
+
+  public:
+    const void* pNext;
+    DisplayPowerStateEXT powerState;
+  };
+  static_assert( sizeof( DisplayPowerInfoEXT ) == sizeof( VkDisplayPowerInfoEXT ), "struct and wrapper have different size!" );
+
+  enum class DeviceEventTypeEXT
+  {
+    eDisplayHotplug = VK_DEVICE_EVENT_TYPE_DISPLAY_HOTPLUG_EXT
+  };
+
+  struct DeviceEventInfoEXT
+  {
+    DeviceEventInfoEXT( DeviceEventTypeEXT deviceEvent_ = DeviceEventTypeEXT::eDisplayHotplug )
+      : sType( StructureType::eDeviceEventInfoEXT )
+      , pNext( nullptr )
+      , deviceEvent( deviceEvent_ )
+    {
+    }
+
+    DeviceEventInfoEXT( VkDeviceEventInfoEXT const & rhs )
+    {
+      memcpy( this, &rhs, sizeof(DeviceEventInfoEXT) );
+    }
+
+    DeviceEventInfoEXT& operator=( VkDeviceEventInfoEXT const & rhs )
+    {
+      memcpy( this, &rhs, sizeof(DeviceEventInfoEXT) );
+      return *this;
+    }
+
+    DeviceEventInfoEXT& setSType( StructureType sType_ )
+    {
+      sType = sType_;
+      return *this;
+    }
+
+    DeviceEventInfoEXT& setPNext( const void* pNext_ )
+    {
+      pNext = pNext_;
+      return *this;
+    }
+
+    DeviceEventInfoEXT& setDeviceEvent( DeviceEventTypeEXT deviceEvent_ )
+    {
+      deviceEvent = deviceEvent_;
+      return *this;
+    }
+
+    operator const VkDeviceEventInfoEXT&() const
+    {
+      return *reinterpret_cast<const VkDeviceEventInfoEXT*>(this);
+    }
+
+    bool operator==( DeviceEventInfoEXT const& rhs ) const
+    {
+      return ( sType == rhs.sType )
+          && ( pNext == rhs.pNext )
+          && ( deviceEvent == rhs.deviceEvent );
+    }
+
+    bool operator!=( DeviceEventInfoEXT const& rhs ) const
+    {
+      return !operator==( rhs );
+    }
+
+  private:
+    StructureType sType;
+
+  public:
+    const void* pNext;
+    DeviceEventTypeEXT deviceEvent;
+  };
+  static_assert( sizeof( DeviceEventInfoEXT ) == sizeof( VkDeviceEventInfoEXT ), "struct and wrapper have different size!" );
+
+  enum class DisplayEventTypeEXT
+  {
+    eFirstPixelOut = VK_DISPLAY_EVENT_TYPE_FIRST_PIXEL_OUT_EXT
+  };
+
+  struct DisplayEventInfoEXT
+  {
+    DisplayEventInfoEXT( DisplayEventTypeEXT displayEvent_ = DisplayEventTypeEXT::eFirstPixelOut )
+      : sType( StructureType::eDisplayEventInfoEXT )
+      , pNext( nullptr )
+      , displayEvent( displayEvent_ )
+    {
+    }
+
+    DisplayEventInfoEXT( VkDisplayEventInfoEXT const & rhs )
+    {
+      memcpy( this, &rhs, sizeof(DisplayEventInfoEXT) );
+    }
+
+    DisplayEventInfoEXT& operator=( VkDisplayEventInfoEXT const & rhs )
+    {
+      memcpy( this, &rhs, sizeof(DisplayEventInfoEXT) );
+      return *this;
+    }
+
+    DisplayEventInfoEXT& setSType( StructureType sType_ )
+    {
+      sType = sType_;
+      return *this;
+    }
+
+    DisplayEventInfoEXT& setPNext( const void* pNext_ )
+    {
+      pNext = pNext_;
+      return *this;
+    }
+
+    DisplayEventInfoEXT& setDisplayEvent( DisplayEventTypeEXT displayEvent_ )
+    {
+      displayEvent = displayEvent_;
+      return *this;
+    }
+
+    operator const VkDisplayEventInfoEXT&() const
+    {
+      return *reinterpret_cast<const VkDisplayEventInfoEXT*>(this);
+    }
+
+    bool operator==( DisplayEventInfoEXT const& rhs ) const
+    {
+      return ( sType == rhs.sType )
+          && ( pNext == rhs.pNext )
+          && ( displayEvent == rhs.displayEvent );
+    }
+
+    bool operator!=( DisplayEventInfoEXT const& rhs ) const
+    {
+      return !operator==( rhs );
+    }
+
+  private:
+    StructureType sType;
+
+  public:
+    const void* pNext;
+    DisplayEventTypeEXT displayEvent;
+  };
+  static_assert( sizeof( DisplayEventInfoEXT ) == sizeof( VkDisplayEventInfoEXT ), "struct and wrapper have different size!" );
+
   VULKAN_HPP_INLINE Result enumerateInstanceLayerProperties( uint32_t* pPropertyCount, LayerProperties* pProperties )
   {
     return static_cast<Result>( vkEnumerateInstanceLayerProperties( pPropertyCount, reinterpret_cast<VkLayerProperties*>( pProperties ) ) );
@@ -22639,6 +22990,61 @@ namespace vk
     }
 #endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
 
+    Result displayPowerControlEXT( DisplayKHR display, const DisplayPowerInfoEXT* pDisplayPowerInfo ) const
+    {
+      return static_cast<Result>( vkDisplayPowerControlEXT( m_device, static_cast<VkDisplayKHR>( display ), reinterpret_cast<const VkDisplayPowerInfoEXT*>( pDisplayPowerInfo ) ) );
+    }
+
+#ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
+    ResultValueType<void>::type displayPowerControlEXT( DisplayKHR display, const DisplayPowerInfoEXT & displayPowerInfo ) const
+    {
+      Result result = static_cast<Result>( vkDisplayPowerControlEXT( m_device, static_cast<VkDisplayKHR>( display ), reinterpret_cast<const VkDisplayPowerInfoEXT*>( &displayPowerInfo ) ) );
+      return createResultValue( result, "vk::Device::displayPowerControlEXT" );
+    }
+#endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
+
+    Result registerEventEXT( const DeviceEventInfoEXT* pDeviceEventInfo, const AllocationCallbacks* pAllocator, Fence* pFence ) const
+    {
+      return static_cast<Result>( vkRegisterDeviceEventEXT( m_device, reinterpret_cast<const VkDeviceEventInfoEXT*>( pDeviceEventInfo ), reinterpret_cast<const VkAllocationCallbacks*>( pAllocator ), reinterpret_cast<VkFence*>( pFence ) ) );
+    }
+
+#ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
+    ResultValueType<Fence>::type registerEventEXT( const DeviceEventInfoEXT & deviceEventInfo, const AllocationCallbacks & allocator ) const
+    {
+      Fence fence;
+      Result result = static_cast<Result>( vkRegisterDeviceEventEXT( m_device, reinterpret_cast<const VkDeviceEventInfoEXT*>( &deviceEventInfo ), reinterpret_cast<const VkAllocationCallbacks*>( &allocator ), reinterpret_cast<VkFence*>( &fence ) ) );
+      return createResultValue( result, fence, "vk::Device::registerEventEXT" );
+    }
+#endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
+
+    Result registerDisplayEventEXT( DisplayKHR display, const DisplayEventInfoEXT* pDisplayEventInfo, const AllocationCallbacks* pAllocator, Fence* pFence ) const
+    {
+      return static_cast<Result>( vkRegisterDisplayEventEXT( m_device, static_cast<VkDisplayKHR>( display ), reinterpret_cast<const VkDisplayEventInfoEXT*>( pDisplayEventInfo ), reinterpret_cast<const VkAllocationCallbacks*>( pAllocator ), reinterpret_cast<VkFence*>( pFence ) ) );
+    }
+
+#ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
+    ResultValueType<Fence>::type registerDisplayEventEXT( DisplayKHR display, const DisplayEventInfoEXT & displayEventInfo, const AllocationCallbacks & allocator ) const
+    {
+      Fence fence;
+      Result result = static_cast<Result>( vkRegisterDisplayEventEXT( m_device, static_cast<VkDisplayKHR>( display ), reinterpret_cast<const VkDisplayEventInfoEXT*>( &displayEventInfo ), reinterpret_cast<const VkAllocationCallbacks*>( &allocator ), reinterpret_cast<VkFence*>( &fence ) ) );
+      return createResultValue( result, fence, "vk::Device::registerDisplayEventEXT" );
+    }
+#endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
+
+    Result getSwapchainCounterEXT( SwapchainKHR swapchain, SurfaceCounterFlagBitsEXT counter, uint64_t* pCounterValue ) const
+    {
+      return static_cast<Result>( vkGetSwapchainCounterEXT( m_device, static_cast<VkSwapchainKHR>( swapchain ), static_cast<VkSurfaceCounterFlagBitsEXT>( counter ), pCounterValue ) );
+    }
+
+#ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
+    ResultValue<uint64_t> getSwapchainCounterEXT( SwapchainKHR swapchain, SurfaceCounterFlagBitsEXT counter ) const
+    {
+      uint64_t counterValue;
+      Result result = static_cast<Result>( vkGetSwapchainCounterEXT( m_device, static_cast<VkSwapchainKHR>( swapchain ), static_cast<VkSurfaceCounterFlagBitsEXT>( counter ), &counterValue ) );
+      return createResultValue( result, counterValue, "vk::Device::getSwapchainCounterEXT", { Result::eSuccess, Result::eErrorDeviceLost, Result::eErrorOutOfDateKHR } );
+    }
+#endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
+
 #if !defined(VULKAN_HPP_TYPESAFE_CONVERSION)
     explicit
 #endif
@@ -23355,6 +23761,70 @@ namespace vk
       ExternalSemaphorePropertiesKHX externalSemaphoreProperties;
       vkGetPhysicalDeviceExternalSemaphorePropertiesKHX( m_physicalDevice, reinterpret_cast<const VkPhysicalDeviceExternalSemaphoreInfoKHX*>( &externalSemaphoreInfo ), reinterpret_cast<VkExternalSemaphorePropertiesKHX*>( &externalSemaphoreProperties ) );
       return externalSemaphoreProperties;
+    }
+#endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
+
+#ifdef VULKAN_HPP_DISABLE_ENHANCED_MODE
+    Result releaseDisplayEXT( DisplayKHR display ) const
+    {
+      return static_cast<Result>( vkReleaseDisplayEXT( m_physicalDevice, static_cast<VkDisplayKHR>( display ) ) );
+    }
+#endif /*!VULKAN_HPP_DISABLE_ENHANCED_MODE*/
+
+#ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
+    ResultValueType<void>::type releaseDisplayEXT( DisplayKHR display ) const
+    {
+      Result result = static_cast<Result>( vkReleaseDisplayEXT( m_physicalDevice, static_cast<VkDisplayKHR>( display ) ) );
+      return createResultValue( result, "vk::PhysicalDevice::releaseDisplayEXT" );
+    }
+#endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
+
+#ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
+    Result acquireXlibDisplayEXT( Display* dpy, DisplayKHR display ) const
+    {
+      return static_cast<Result>( vkAcquireXlibDisplayEXT( m_physicalDevice, dpy, static_cast<VkDisplayKHR>( display ) ) );
+    }
+#endif /*VK_USE_PLATFORM_XLIB_XRANDR_EXT*/
+
+#ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
+#ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
+    ResultValueType<Display>::type acquireXlibDisplayEXT( DisplayKHR display ) const
+    {
+      Display dpy;
+      Result result = static_cast<Result>( vkAcquireXlibDisplayEXT( m_physicalDevice, &dpy, static_cast<VkDisplayKHR>( display ) ) );
+      return createResultValue( result, dpy, "vk::PhysicalDevice::acquireXlibDisplayEXT" );
+    }
+#endif /*VK_USE_PLATFORM_XLIB_XRANDR_EXT*/
+#endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
+
+#ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
+    Result getRandROutputDisplayEXT( Display* dpy, RROutput rrOutput, DisplayKHR* pDisplay ) const
+    {
+      return static_cast<Result>( vkGetRandROutputDisplayEXT( m_physicalDevice, dpy, rrOutput, reinterpret_cast<VkDisplayKHR*>( pDisplay ) ) );
+    }
+#endif /*VK_USE_PLATFORM_XLIB_XRANDR_EXT*/
+
+#ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
+#ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
+    ResultValueType<void>::type getRandROutputDisplayEXT( Display & dpy, RROutput rrOutput, DisplayKHR & display ) const
+    {
+      Result result = static_cast<Result>( vkGetRandROutputDisplayEXT( m_physicalDevice, &dpy, rrOutput, reinterpret_cast<VkDisplayKHR*>( &display ) ) );
+      return createResultValue( result, "vk::PhysicalDevice::getRandROutputDisplayEXT" );
+    }
+#endif /*VK_USE_PLATFORM_XLIB_XRANDR_EXT*/
+#endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
+
+    Result getSurfaceCapabilities2EXT( SurfaceKHR surface, SurfaceCapabilities2EXT* pSurfaceCapabilities ) const
+    {
+      return static_cast<Result>( vkGetPhysicalDeviceSurfaceCapabilities2EXT( m_physicalDevice, static_cast<VkSurfaceKHR>( surface ), reinterpret_cast<VkSurfaceCapabilities2EXT*>( pSurfaceCapabilities ) ) );
+    }
+
+#ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
+    ResultValueType<SurfaceCapabilities2EXT>::type getSurfaceCapabilities2EXT( SurfaceKHR surface ) const
+    {
+      SurfaceCapabilities2EXT surfaceCapabilities;
+      Result result = static_cast<Result>( vkGetPhysicalDeviceSurfaceCapabilities2EXT( m_physicalDevice, static_cast<VkSurfaceKHR>( surface ), reinterpret_cast<VkSurfaceCapabilities2EXT*>( &surfaceCapabilities ) ) );
+      return createResultValue( result, surfaceCapabilities, "vk::PhysicalDevice::getSurfaceCapabilities2EXT" );
     }
 #endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
 
@@ -25097,6 +25567,11 @@ namespace vk
     case StructureType::eCmdReserveSpaceForCommandsInfoNVX: return "CmdReserveSpaceForCommandsInfoNVX";
     case StructureType::eDeviceGeneratedCommandsLimitsNVX: return "DeviceGeneratedCommandsLimitsNVX";
     case StructureType::eDeviceGeneratedCommandsFeaturesNVX: return "DeviceGeneratedCommandsFeaturesNVX";
+    case StructureType::eSurfaceCapabilities2EXT: return "SurfaceCapabilities2EXT";
+    case StructureType::eDisplayPowerInfoEXT: return "DisplayPowerInfoEXT";
+    case StructureType::eDeviceEventInfoEXT: return "DeviceEventInfoEXT";
+    case StructureType::eDisplayEventInfoEXT: return "DisplayEventInfoEXT";
+    case StructureType::eSwapchainCounterCreateInfoEXT: return "SwapchainCounterCreateInfoEXT";
     default: return "invalid";
     }
   }
@@ -26366,6 +26841,52 @@ namespace vk
     if (value & ExternalSemaphoreFeatureFlagBitsKHX::eVkExternalSemaphoreFeatureExportableBit) result += "VkExternalSemaphoreFeatureExportableBit | ";
     if (value & ExternalSemaphoreFeatureFlagBitsKHX::eVkExternalSemaphoreFeatureImportableBit) result += "VkExternalSemaphoreFeatureImportableBit | ";
     return "{" + result.substr(0, result.size() - 3) + "}";
+  }
+
+  VULKAN_HPP_INLINE std::string to_string(SurfaceCounterFlagBitsEXT value)
+  {
+    switch (value)
+    {
+    case SurfaceCounterFlagBitsEXT::eVblankExt: return "VblankExt";
+    default: return "invalid";
+    }
+  }
+
+  VULKAN_HPP_INLINE std::string to_string(SurfaceCounterFlagsEXT value)
+  {
+    if (!value) return "{}";
+    std::string result;
+    if (value & SurfaceCounterFlagBitsEXT::eVblankExt) result += "VblankExt | ";
+    return "{" + result.substr(0, result.size() - 3) + "}";
+  }
+
+  VULKAN_HPP_INLINE std::string to_string(DisplayPowerStateEXT value)
+  {
+    switch (value)
+    {
+    case DisplayPowerStateEXT::eOff: return "Off";
+    case DisplayPowerStateEXT::eSuspend: return "Suspend";
+    case DisplayPowerStateEXT::eOn: return "On";
+    default: return "invalid";
+    }
+  }
+
+  VULKAN_HPP_INLINE std::string to_string(DeviceEventTypeEXT value)
+  {
+    switch (value)
+    {
+    case DeviceEventTypeEXT::eDisplayHotplug: return "DisplayHotplug";
+    default: return "invalid";
+    }
+  }
+
+  VULKAN_HPP_INLINE std::string to_string(DisplayEventTypeEXT value)
+  {
+    switch (value)
+    {
+    case DisplayEventTypeEXT::eFirstPixelOut: return "FirstPixelOut";
+    default: return "invalid";
+    }
   }
 
 } // namespace vk

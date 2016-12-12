@@ -1580,53 +1580,53 @@ static void CheckInstanceRegisterExtensions(const VkInstanceCreateInfo *pCreateI
 
         if (strcmp(name, VK_KHR_SURFACE_EXTENSION_NAME) == 0) {
             instance_data->extensions.surface_enabled = true;
-        }
 #ifdef VK_USE_PLATFORM_XLIB_KHR
-        if (strcmp(name, VK_KHR_XLIB_SURFACE_EXTENSION_NAME) == 0) {
+        } else if (strcmp(name, VK_KHR_XLIB_SURFACE_EXTENSION_NAME) == 0) {
             instance_data->extensions.xlib_enabled = true;
-        }
 #endif
 #ifdef VK_USE_PLATFORM_XCB_KHR
-        if (strcmp(name, VK_KHR_XCB_SURFACE_EXTENSION_NAME) == 0) {
+        } else if (strcmp(name, VK_KHR_XCB_SURFACE_EXTENSION_NAME) == 0) {
             instance_data->extensions.xcb_enabled = true;
-        }
 #endif
 #ifdef VK_USE_PLATFORM_WAYLAND_KHR
-        if (strcmp(name, VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME) == 0) {
+        } else if (strcmp(name, VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME) == 0) {
             instance_data->extensions.wayland_enabled = true;
-        }
 #endif
 #ifdef VK_USE_PLATFORM_MIR_KHR
-        if (strcmp(name, VK_KHR_MIR_SURFACE_EXTENSION_NAME) == 0) {
+        } else if (strcmp(name, VK_KHR_MIR_SURFACE_EXTENSION_NAME) == 0) {
             instance_data->extensions.mir_enabled = true;
-        }
 #endif
 #ifdef VK_USE_PLATFORM_ANDROID_KHR
-        if (strcmp(name, VK_KHR_ANDROID_SURFACE_EXTENSION_NAME) == 0) {
+        } else if (strcmp(name, VK_KHR_ANDROID_SURFACE_EXTENSION_NAME) == 0) {
             instance_data->extensions.android_enabled = true;
-        }
 #endif
 #ifdef VK_USE_PLATFORM_WIN32_KHR
-        if (strcmp(name, VK_KHR_WIN32_SURFACE_EXTENSION_NAME) == 0) {
+        } else if (strcmp(name, VK_KHR_WIN32_SURFACE_EXTENSION_NAME) == 0) {
             instance_data->extensions.win32_enabled = true;
-        }
 #endif
-        if (strcmp(name, VK_KHR_DISPLAY_EXTENSION_NAME) == 0) {
+        } else if (strcmp(name, VK_KHR_DISPLAY_EXTENSION_NAME) == 0) {
             instance_data->extensions.display_enabled = true;
-        }
-        if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME) == 0) {
+        } else if (strcmp(name, VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME) == 0) {
             instance_data->extensions.khr_get_phys_dev_properties2_enabled = true;
-        }
-        if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_KHX_DEVICE_GROUP_CREATION_EXTENSION_NAME) == 0) {
+        } else if (strcmp(name, VK_KHX_DEVICE_GROUP_CREATION_EXTENSION_NAME) == 0) {
             instance_data->extensions.khx_device_group_creation_enabled = true;
-        }
-        if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_KHX_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME) == 0) {
+        } else if (strcmp(name, VK_KHX_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME) == 0) {
             instance_data->extensions.khx_external_memory_capabilities_enabled = true;
-        }
-        if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_KHX_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME) == 0) {
+        } else if (strcmp(name, VK_KHX_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME) == 0) {
             instance_data->extensions.khx_external_semaphore_capabilities_enabled = true;
-        }
-        if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_NV_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME) == 0) {
+        } else if (strcmp(name, VK_NV_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME) == 0) {
+            instance_data->extensions.nv_external_memory_capabilities_enabled = true;
+        } else if (strcmp(name, VK_KHX_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME) == 0) {
+            instance_data->extensions.khx_external_semaphore_capabilities_enabled = true;
+#ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
+        } else if (strcmp(name, VK_EXT_ACQUIRE_XLIB_DISPLAY_EXTENSION_NAME) == 0) {
+            instance_data->extensions.ext_acquire_xlib_display_enabled = true;
+#endif
+        } else if (strcmp(name, VK_EXT_DIRECT_MODE_DISPLAY_EXTENSION_NAME) == 0) {
+            instance_data->extensions.ext_direct_mode_display_enabled = true;
+        } else if (strcmp(name, VK_EXT_DISPLAY_SURFACE_COUNTER_EXTENSION_NAME) == 0) {
+            instance_data->extensions.ext_display_surface_counter_enabled = true;
+        } else if (strcmp(name, VK_NV_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME) == 0) {
             instance_data->extensions.nv_external_memory_capabilities_enabled = true;
         }
     }
@@ -5986,7 +5986,52 @@ VKAPI_ATTR void VKAPI_CALL CmdPushDescriptorSetKHX(VkCommandBuffer commandBuffer
     }
 }
 
-// VK_EXT_debug_marker Extension
+// Definitions for the VK_EXT_acquire_xlib_display extension
+
+#ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
+VKAPI_ATTR VkResult VKAPI_CALL AcquireXlibDisplayEXT(
+    VkPhysicalDevice physicalDevice,
+    Display* dpy,
+    VkDisplayKHR display) {
+
+    VkResult result = VK_ERROR_VALIDATION_FAILED_EXT;
+    auto my_data = get_my_data_ptr(get_dispatch_key(physicalDevice), instance_layer_data_map);
+    assert(my_data != NULL);
+    bool skip = false;
+    skip |= require_instance_extension(physicalDevice, &instance_extension_enables::ext_acquire_xlib_display_enabled,
+                                            "vkAcquireXlibDisplayEXT", VK_EXT_ACQUIRE_XLIB_DISPLAY_EXTENSION_NAME);
+    skip |=
+        parameter_validation_vkAcquireXlibDisplayEXT(my_data->report_data, dpy, display);
+    if (!skip) {
+        result = my_data->dispatch_table.AcquireXlibDisplayEXT(physicalDevice, dpy, display);
+        validate_result(my_data->report_data, "vkAcquireXlibDisplayEXT", result);
+    }
+    return result;
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL GetRandROutputDisplayEXT(
+    VkPhysicalDevice physicalDevice,
+    Display* dpy,
+    RROutput rrOutput,
+    VkDisplayKHR* pDisplay) {
+
+    VkResult result = VK_ERROR_VALIDATION_FAILED_EXT;
+    auto my_data = get_my_data_ptr(get_dispatch_key(physicalDevice), instance_layer_data_map);
+    assert(my_data != NULL);
+    bool skip = false;
+    skip |= require_instance_extension(physicalDevice, &instance_extension_enables::ext_acquire_xlib_display_enabled,
+                                            "vkGetRandROutputDisplayEXT", VK_EXT_ACQUIRE_XLIB_DISPLAY_EXTENSION_NAME);
+    skip |=
+        parameter_validation_vkGetRandROutputDisplayEXT(my_data->report_data, dpy, rrOutput, pDisplay);
+    if (!skip) {
+        result = my_data->dispatch_table.GetRandROutputDisplayEXT(physicalDevice, dpy, rrOutput, pDisplay);
+        validate_result(my_data->report_data, "vkGetRandROutputDisplayEXT", result);
+    }
+    return result;
+}
+#endif // VK_USE_PLATFORM_XLIB_XRANDR_EXT
+
+// Definitions for the VK_EXT_debug_marker Extension
 
 VKAPI_ATTR VkResult VKAPI_CALL DebugMarkerSetObjectTagEXT(VkDevice device, VkDebugMarkerObjectTagInfoEXT *pTagInfo) {
     VkResult result = VK_ERROR_VALIDATION_FAILED_EXT;
@@ -6064,7 +6109,54 @@ VKAPI_ATTR void VKAPI_CALL CmdDebugMarkerInsertEXT(VkCommandBuffer commandBuffer
     }
 }
 
-// VK_NV_external_memory_capabilities Extension
+// Definitions for the VK_EXT_direct_mode_display extension
+
+VKAPI_ATTR VkResult VKAPI_CALL ReleaseDisplayEXT(
+    VkPhysicalDevice physicalDevice,
+    VkDisplayKHR display) {
+
+    VkResult result = VK_ERROR_VALIDATION_FAILED_EXT;
+    auto my_data = get_my_data_ptr(get_dispatch_key(physicalDevice), instance_layer_data_map);
+    assert(my_data != NULL);
+    bool skip = false;
+    skip |= require_instance_extension(physicalDevice, &instance_extension_enables::ext_direct_mode_display_enabled,
+                                            "vkReleaseDisplayEXT", VK_EXT_DIRECT_MODE_DISPLAY_EXTENSION_NAME);
+#if 0 // Validation not automatically generated
+    skip |= parameter_validation_vkReleaseDisplayEXT(my_data->report_data, display);
+#endif
+    if (!skip) {
+        result = my_data->dispatch_table.ReleaseDisplayEXT(physicalDevice, display);
+        validate_result(my_data->report_data, "vkGetRandROutputDisplayEXT", result);
+    }
+    return result;
+}
+
+// Definitions for the VK_EXT_display_surface_counter extension
+
+VKAPI_ATTR VkResult VKAPI_CALL
+GetPhysicalDeviceSurfaceCapabilities2EXT(
+    VkPhysicalDevice physicalDevice,
+    VkSurfaceKHR surface,
+    VkSurfaceCapabilities2EXT* pSurfaceCapabilities) {
+
+    VkResult result = VK_ERROR_VALIDATION_FAILED_EXT;
+    auto my_data = get_my_data_ptr(get_dispatch_key(physicalDevice), instance_layer_data_map);
+    assert(my_data != NULL);
+    bool skip = false;
+    skip |= require_instance_extension(physicalDevice, &instance_extension_enables::ext_display_surface_counter_enabled,
+                                            "vkGetPhysicalDeviceSurfaceCapabilities2EXT", VK_EXT_DISPLAY_SURFACE_COUNTER_EXTENSION_NAME);
+#if 0 // Validation not automatically generated
+    skip |=
+        parameter_validation_vkGetPhysicalDeviceSurfaceCapabilities2EXT(my_data->report_data, surface, pSurfaceCapabilities);
+#endif
+    if (!skip) {
+        result = my_data->dispatch_table.GetPhysicalDeviceSurfaceCapabilities2EXT(physicalDevice, surface, pSurfaceCapabilities);
+        validate_result(my_data->report_data, "vkGetPhysicalDeviceSurfaceCapabilities2EXT", result);
+    }
+    return result;
+}
+
+// Definitions for the VK_NV_external_memory_capabilities Extension
 
 VKAPI_ATTR VkResult VKAPI_CALL GetPhysicalDeviceExternalImageFormatPropertiesNV(
     VkPhysicalDevice physicalDevice, VkFormat format, VkImageType type, VkImageTiling tiling, VkImageUsageFlags usage,
@@ -6171,7 +6263,9 @@ VKAPI_ATTR void VKAPI_CALL DestroyIndirectCommandsLayoutNVX(VkDevice device, VkI
     assert(my_data != NULL);
     skip |= require_device_extension(my_data, my_data->enables.nvx_device_generated_commands, "vkDestroyIndirectCommandsLayoutNVX",
                                      VK_NVX_DEVICE_GENERATED_COMMANDS_EXTENSION_NAME);
+#if 0 // Validation not automatically generated
     skip |= parameter_validation_vkDestroyIndirectCommandsLayoutNVX(my_data->report_data, indirectCommandsLayout, pAllocator);
+#endif
     if (!skip) {
         my_data->dispatch_table.DestroyIndirectCommandsLayoutNVX(device, indirectCommandsLayout, pAllocator);
     }
@@ -6200,7 +6294,9 @@ VKAPI_ATTR void VKAPI_CALL DestroyObjectTableNVX(VkDevice device, VkObjectTableN
     assert(my_data != NULL);
     skip |= require_device_extension(my_data, my_data->enables.nvx_device_generated_commands, "vkDestroyObjectTableNVX",
                                      VK_NVX_DEVICE_GENERATED_COMMANDS_EXTENSION_NAME);
+#if 0 // Validation not automatically generated
     skip |= parameter_validation_vkDestroyObjectTableNVX(my_data->report_data, objectTable, pAllocator);
+#endif
     if (!skip) {
         my_data->dispatch_table.DestroyObjectTableNVX(device, objectTable, pAllocator);
     }

@@ -281,6 +281,12 @@ struct loader_icd_term {
     PFN_vkGetPhysicalDeviceExternalSemaphorePropertiesKHX
         GetPhysicalDeviceExternalSemaphorePropertiesKHX;
 
+#ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
+    // EXT_acquire_xlib_display
+    PFN_vkAcquireXlibDisplayEXT AcquireXlibDisplayEXT;
+    PFN_vkGetRandROutputDisplayEXT GetRandROutputDisplayEXT;
+#endif
+
     // EXT_debug_report
     PFN_vkCreateDebugReportCallbackEXT CreateDebugReportCallbackEXT;
     PFN_vkDestroyDebugReportCallbackEXT DestroyDebugReportCallbackEXT;
@@ -289,6 +295,13 @@ struct loader_icd_term {
     // EXT_debug_marker (items needing a trampoline/terminator)
     PFN_vkDebugMarkerSetObjectTagEXT DebugMarkerSetObjectTagEXT;
     PFN_vkDebugMarkerSetObjectNameEXT DebugMarkerSetObjectNameEXT;
+
+    // EXT_direct_mode_display
+    PFN_vkReleaseDisplayEXT ReleaseDisplayEXT;
+
+    // EXT_display_surface_counter
+    PFN_vkGetPhysicalDeviceSurfaceCapabilities2EXT
+        GetPhysicalDeviceSurfaceCapabilities2EXT;
 
     // NV_external_memory_capabilities
     PFN_vkGetPhysicalDeviceExternalImageFormatPropertiesNV
@@ -314,7 +327,10 @@ union loader_instance_extension_enables {
         uint8_t khx_device_group_creation : 1;
         uint8_t khx_external_memory_capabilities : 1;
         uint8_t khx_external_semaphore_capabilities : 1;
+        uint8_t ext_acquire_xlib_display : 1;
         uint8_t ext_debug_report : 1;
+        uint8_t ext_direct_mode_display : 1;
+        uint8_t ext_display_surface_counter : 1;
         uint8_t nv_external_memory_capabilities : 1;
     };
     uint64_t padding[4];

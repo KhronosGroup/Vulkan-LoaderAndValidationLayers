@@ -280,6 +280,11 @@ typedef enum VkStructureType {
     VK_STRUCTURE_TYPE_CMD_RESERVE_SPACE_FOR_COMMANDS_INFO_NVX = 1000086003,
     VK_STRUCTURE_TYPE_DEVICE_GENERATED_COMMANDS_LIMITS_NVX = 1000086004,
     VK_STRUCTURE_TYPE_DEVICE_GENERATED_COMMANDS_FEATURES_NVX = 1000086005,
+    VK_STRUCTURE_TYPE_SURFACE_CAPABILITIES2_EXT = 1000090000,
+    VK_STRUCTURE_TYPE_DISPLAY_POWER_INFO_EXT = 1000091000,
+    VK_STRUCTURE_TYPE_DEVICE_EVENT_INFO_EXT = 1000091001,
+    VK_STRUCTURE_TYPE_DISPLAY_EVENT_INFO_EXT = 1000091002,
+    VK_STRUCTURE_TYPE_SWAPCHAIN_COUNTER_CREATE_INFO_EXT = 1000091003,
     VK_STRUCTURE_TYPE_BEGIN_RANGE = VK_STRUCTURE_TYPE_APPLICATION_INFO,
     VK_STRUCTURE_TYPE_END_RANGE = VK_STRUCTURE_TYPE_LOADER_DEVICE_CREATE_INFO,
     VK_STRUCTURE_TYPE_RANGE_SIZE = (VK_STRUCTURE_TYPE_LOADER_DEVICE_CREATE_INFO - VK_STRUCTURE_TYPE_APPLICATION_INFO + 1),
@@ -5183,6 +5188,167 @@ VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceGeneratedCommandsPropertiesNVX(
     VkPhysicalDevice                            physicalDevice,
     VkDeviceGeneratedCommandsFeaturesNVX*       pFeatures,
     VkDeviceGeneratedCommandsLimitsNVX*         pLimits);
+#endif
+
+#define VK_EXT_direct_mode_display 1
+#define VK_EXT_DIRECT_MODE_DISPLAY_SPEC_VERSION 1
+#define VK_EXT_DIRECT_MODE_DISPLAY_EXTENSION_NAME "VK_EXT_direct_mode_display"
+
+typedef VkResult (VKAPI_PTR *PFN_vkReleaseDisplayEXT)(VkPhysicalDevice physicalDevice, VkDisplayKHR display);
+
+#ifndef VK_NO_PROTOTYPES
+VKAPI_ATTR VkResult VKAPI_CALL vkReleaseDisplayEXT(
+    VkPhysicalDevice                            physicalDevice,
+    VkDisplayKHR                                display);
+#endif
+
+#ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
+#define VK_EXT_acquire_xlib_display 1
+#define VK_EXT_ACQUIRE_XLIB_DISPLAY_SPEC_VERSION 1
+#define VK_EXT_ACQUIRE_XLIB_DISPLAY_EXTENSION_NAME "VK_EXT_acquire_xlib_display"
+
+#include <X11/extensions/Xrandr.h>
+
+typedef VkResult (VKAPI_PTR *PFN_vkAcquireXlibDisplayEXT)(VkPhysicalDevice physicalDevice, Display* dpy, VkDisplayKHR display);
+typedef VkResult (VKAPI_PTR *PFN_vkGetRandROutputDisplayEXT)(VkPhysicalDevice physicalDevice, Display* dpy, RROutput rrOutput, VkDisplayKHR* pDisplay);
+
+#ifndef VK_NO_PROTOTYPES
+VKAPI_ATTR VkResult VKAPI_CALL vkAcquireXlibDisplayEXT(
+    VkPhysicalDevice                            physicalDevice,
+    Display*                                    dpy,
+    VkDisplayKHR                                display);
+
+VKAPI_ATTR VkResult VKAPI_CALL vkGetRandROutputDisplayEXT(
+    VkPhysicalDevice                            physicalDevice,
+    Display*                                    dpy,
+    RROutput                                    rrOutput,
+    VkDisplayKHR*                               pDisplay);
+#endif
+#endif /* VK_USE_PLATFORM_XLIB_XRANDR_EXT */
+
+#define VK_EXT_display_surface_counter 1
+#define VK_EXT_DISPLAY_SURFACE_COUNTER_SPEC_VERSION 1
+#define VK_EXT_DISPLAY_SURFACE_COUNTER_EXTENSION_NAME "VK_EXT_display_surface_counter"
+
+
+typedef enum VkSurfaceCounterFlagBitsEXT {
+    VK_SURFACE_COUNTER_VBLANK_EXT = 0x00000001,
+    VK_SURFACE_COUNTER_FLAG_BITS_MAX_ENUM_EXT = 0x7FFFFFFF
+} VkSurfaceCounterFlagBitsEXT;
+
+typedef VkFlags VkSurfaceCounterFlagsEXT;
+
+typedef struct VkSurfaceCapabilities2EXT {
+    VkStructureType                  sType;
+    void*                            pNext;
+    uint32_t                         minImageCount;
+    uint32_t                         maxImageCount;
+    VkExtent2D                       currentExtent;
+    VkExtent2D                       minImageExtent;
+    VkExtent2D                       maxImageExtent;
+    uint32_t                         maxImageArrayLayers;
+    VkSurfaceTransformFlagsKHR       supportedTransforms;
+    VkSurfaceTransformFlagBitsKHR    currentTransform;
+    VkCompositeAlphaFlagsKHR         supportedCompositeAlpha;
+    VkImageUsageFlags                supportedUsageFlags;
+    VkSurfaceCounterFlagsEXT         supportedSurfaceCounters;
+} VkSurfaceCapabilities2EXT;
+
+
+typedef VkResult (VKAPI_PTR *PFN_vkGetPhysicalDeviceSurfaceCapabilities2EXT)(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, VkSurfaceCapabilities2EXT* pSurfaceCapabilities);
+
+#ifndef VK_NO_PROTOTYPES
+VKAPI_ATTR VkResult VKAPI_CALL vkGetPhysicalDeviceSurfaceCapabilities2EXT(
+    VkPhysicalDevice                            physicalDevice,
+    VkSurfaceKHR                                surface,
+    VkSurfaceCapabilities2EXT*                  pSurfaceCapabilities);
+#endif
+
+#define VK_EXT_display_control 1
+#define VK_EXT_DISPLAY_CONTROL_SPEC_VERSION 1
+#define VK_EXT_DISPLAY_CONTROL_EXTENSION_NAME "VK_EXT_display_control"
+
+
+typedef enum VkDisplayPowerStateEXT {
+    VK_DISPLAY_POWER_STATE_OFF_EXT = 0,
+    VK_DISPLAY_POWER_STATE_SUSPEND_EXT = 1,
+    VK_DISPLAY_POWER_STATE_ON_EXT = 2,
+    VK_DISPLAY_POWER_STATE_BEGIN_RANGE_EXT = VK_DISPLAY_POWER_STATE_OFF_EXT,
+    VK_DISPLAY_POWER_STATE_END_RANGE_EXT = VK_DISPLAY_POWER_STATE_ON_EXT,
+    VK_DISPLAY_POWER_STATE_RANGE_SIZE_EXT = (VK_DISPLAY_POWER_STATE_ON_EXT - VK_DISPLAY_POWER_STATE_OFF_EXT + 1),
+    VK_DISPLAY_POWER_STATE_MAX_ENUM_EXT = 0x7FFFFFFF
+} VkDisplayPowerStateEXT;
+
+typedef enum VkDeviceEventTypeEXT {
+    VK_DEVICE_EVENT_TYPE_DISPLAY_HOTPLUG_EXT = 0,
+    VK_DEVICE_EVENT_TYPE_BEGIN_RANGE_EXT = VK_DEVICE_EVENT_TYPE_DISPLAY_HOTPLUG_EXT,
+    VK_DEVICE_EVENT_TYPE_END_RANGE_EXT = VK_DEVICE_EVENT_TYPE_DISPLAY_HOTPLUG_EXT,
+    VK_DEVICE_EVENT_TYPE_RANGE_SIZE_EXT = (VK_DEVICE_EVENT_TYPE_DISPLAY_HOTPLUG_EXT - VK_DEVICE_EVENT_TYPE_DISPLAY_HOTPLUG_EXT + 1),
+    VK_DEVICE_EVENT_TYPE_MAX_ENUM_EXT = 0x7FFFFFFF
+} VkDeviceEventTypeEXT;
+
+typedef enum VkDisplayEventTypeEXT {
+    VK_DISPLAY_EVENT_TYPE_FIRST_PIXEL_OUT_EXT = 0,
+    VK_DISPLAY_EVENT_TYPE_BEGIN_RANGE_EXT = VK_DISPLAY_EVENT_TYPE_FIRST_PIXEL_OUT_EXT,
+    VK_DISPLAY_EVENT_TYPE_END_RANGE_EXT = VK_DISPLAY_EVENT_TYPE_FIRST_PIXEL_OUT_EXT,
+    VK_DISPLAY_EVENT_TYPE_RANGE_SIZE_EXT = (VK_DISPLAY_EVENT_TYPE_FIRST_PIXEL_OUT_EXT - VK_DISPLAY_EVENT_TYPE_FIRST_PIXEL_OUT_EXT + 1),
+    VK_DISPLAY_EVENT_TYPE_MAX_ENUM_EXT = 0x7FFFFFFF
+} VkDisplayEventTypeEXT;
+
+typedef struct VkDisplayPowerInfoEXT {
+    VkStructureType           sType;
+    const void*               pNext;
+    VkDisplayPowerStateEXT    powerState;
+} VkDisplayPowerInfoEXT;
+
+typedef struct VkDeviceEventInfoEXT {
+    VkStructureType         sType;
+    const void*             pNext;
+    VkDeviceEventTypeEXT    deviceEvent;
+} VkDeviceEventInfoEXT;
+
+typedef struct VkDisplayEventInfoEXT {
+    VkStructureType          sType;
+    const void*              pNext;
+    VkDisplayEventTypeEXT    displayEvent;
+} VkDisplayEventInfoEXT;
+
+typedef struct VkSwapchainCounterCreateInfoEXT {
+    VkStructureType             sType;
+    const void*                 pNext;
+    VkSurfaceCounterFlagsEXT    surfaceCounters;
+} VkSwapchainCounterCreateInfoEXT;
+
+
+typedef VkResult (VKAPI_PTR *PFN_vkDisplayPowerControlEXT)(VkDevice device, VkDisplayKHR display, const VkDisplayPowerInfoEXT* pDisplayPowerInfo);
+typedef VkResult (VKAPI_PTR *PFN_vkRegisterDeviceEventEXT)(VkDevice device, const VkDeviceEventInfoEXT* pDeviceEventInfo, const VkAllocationCallbacks* pAllocator, VkFence* pFence);
+typedef VkResult (VKAPI_PTR *PFN_vkRegisterDisplayEventEXT)(VkDevice device, VkDisplayKHR display, const VkDisplayEventInfoEXT* pDisplayEventInfo, const VkAllocationCallbacks* pAllocator, VkFence* pFence);
+typedef VkResult (VKAPI_PTR *PFN_vkGetSwapchainCounterEXT)(VkDevice device, VkSwapchainKHR swapchain, VkSurfaceCounterFlagBitsEXT counter, uint64_t* pCounterValue);
+
+#ifndef VK_NO_PROTOTYPES
+VKAPI_ATTR VkResult VKAPI_CALL vkDisplayPowerControlEXT(
+    VkDevice                                    device,
+    VkDisplayKHR                                display,
+    const VkDisplayPowerInfoEXT*                pDisplayPowerInfo);
+
+VKAPI_ATTR VkResult VKAPI_CALL vkRegisterDeviceEventEXT(
+    VkDevice                                    device,
+    const VkDeviceEventInfoEXT*                 pDeviceEventInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkFence*                                    pFence);
+
+VKAPI_ATTR VkResult VKAPI_CALL vkRegisterDisplayEventEXT(
+    VkDevice                                    device,
+    VkDisplayKHR                                display,
+    const VkDisplayEventInfoEXT*                pDisplayEventInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkFence*                                    pFence);
+
+VKAPI_ATTR VkResult VKAPI_CALL vkGetSwapchainCounterEXT(
+    VkDevice                                    device,
+    VkSwapchainKHR                              swapchain,
+    VkSurfaceCounterFlagBitsEXT                 counter,
+    uint64_t*                                   pCounterValue);
 #endif
 
 #ifdef __cplusplus
