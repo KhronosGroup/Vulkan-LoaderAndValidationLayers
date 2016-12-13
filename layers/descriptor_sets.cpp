@@ -18,10 +18,14 @@
  * Author: Tobin Ehlis <tobine@google.com>
  */
 
+// Allow use of STL min and max functions in Windows
+#define NOMINMAX
+
 #include "descriptor_sets.h"
 #include "vk_enum_string_helper.h"
 #include "vk_safe_struct.h"
 #include <sstream>
+#include <algorithm>
 
 // Construct DescriptorSetLayout instance from given create info
 cvdescriptorset::DescriptorSetLayout::DescriptorSetLayout(const VkDescriptorSetLayoutCreateInfo *p_create_info,
@@ -72,6 +76,18 @@ bool cvdescriptorset::DescriptorSetLayout::ValidateCreateInfo(debug_report_data 
         }
     }
     return skip;
+}
+
+// Return the number of descriptors for the given binding and all successive bindings
+uint32_t cvdescriptorset::DescriptorSetLayout::GetConsecutiveDescriptorCountFromBinding(uint32_t binding) const {
+    // If binding is invalid we'll return 0
+    uint32_t binding_count = 0;
+    auto bi_itr = binding_to_index_map_.find(binding);
+    while (bi_itr != binding_to_index_map_.end()) {
+        binding_count += bindings_[bi_itr->second].descriptorCount;
+        bi_itr++;
+    }
+    return binding_count;
 }
 
 // put all bindings into the given set
@@ -546,10 +562,21 @@ void cvdescriptorset::DescriptorSet::InvalidateBoundCmdBuffers() {
 }
 // Perform write update in given update struct
 void cvdescriptorset::DescriptorSet::PerformWriteUpdate(const VkWriteDescriptorSet *update) {
-    auto start_idx = p_layout_->GetGlobalStartIndexFromBinding(update->dstBinding) + update->dstArrayElement;
-    // perform update
-    for (uint32_t di = 0; di < update->descriptorCount; ++di) {
-        descriptors_[start_idx + di]->WriteUpdate(update, di);
+    // Perform update on a per-binding basis as consecutive updates roll over to next binding
+    auto descriptors_remaining = update->descriptorCount;
+    auto binding_being_updated = update->dstBinding;
+    auto offset = update->dstArrayElement;
+    while (descriptors_remaining) {
+        uint32_t update_count = std::min(descriptors_remaining, GetDescriptorCountFromBinding(binding_being_updated));
+        auto global_idx = p_layout_->GetGlobalStartIndexFromBinding(binding_being_updated) + offset;
+        // Loop over the updates for a single binding at a time
+        for (uint32_t di = 0; di < update_count; ++di) {
+            descriptors_[global_idx + di]->WriteUpdate(update, di);
+        }
+        // Roll over to next binding in case of consecutive update
+        descriptors_remaining -= update_count;
+        offset = 0;
+        binding_being_updated++;
     }
     if (update->descriptorCount)
         some_update_ = true;
@@ -1169,14 +1196,15 @@ bool cvdescriptorset::DescriptorSet::ValidateWriteUpdate(const debug_report_data
         *error_msg = error_str.str();
         return false;
     }
-    if ((start_idx + update->descriptorCount) > p_layout_->GetTotalDescriptorCount()) {
+    if (update->descriptorCount >
+        (p_layout_->GetConsecutiveDescriptorCountFromBinding(update->dstBinding) - update->dstArrayElement)) {
         *error_code = VALIDATION_ERROR_00938;
         std::stringstream error_str;
         error_str << "Attempting write update to descriptor set " << set_ << " binding #" << update->dstBinding << " with "
-                  << p_layout_->GetTotalDescriptorCount() << " total descriptors but update of " << update->descriptorCount
-                  << " descriptors starting at binding offset of " << p_layout_->GetGlobalStartIndexFromBinding(update->dstBinding)
-                  << " combined with update array element offset of " << update->dstArrayElement
-                  << " oversteps the size of this descriptor set";
+                  << p_layout_->GetConsecutiveDescriptorCountFromBinding(update->dstBinding)
+                  << " descriptors in that binding and all successive bindings of the set, but update of "
+                  << update->descriptorCount << " descriptors combined with update array element offset of "
+                  << update->dstArrayElement << " oversteps the available number of consecutive descriptors";
         *error_msg = error_str.str();
         return false;
     }
@@ -1534,21 +1562,23 @@ bool cvdescriptorset::ValidateAllocateDescriptorSets(const debug_report_data *re
     auto pool_state = getDescriptorPoolState(dev_data, p_alloc_info->descriptorPool);
     // Track number of descriptorSets allowable in this pool
     if (pool_state->availableSets < p_alloc_info->descriptorSetCount) {
-        skip_call |= log_msg(
-            report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_DESCRIPTOR_POOL_EXT,
-            reinterpret_cast<uint64_t &>(pool_state->pool), __LINE__, DRAWSTATE_DESCRIPTOR_POOL_EMPTY, "DS",
-            "Unable to allocate %u descriptorSets from pool 0x%" PRIxLEAST64 ". This pool only has %d descriptorSets remaining.",
-            p_alloc_info->descriptorSetCount, reinterpret_cast<uint64_t &>(pool_state->pool), pool_state->availableSets);
+        skip_call |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_DESCRIPTOR_POOL_EXT,
+                             reinterpret_cast<uint64_t &>(pool_state->pool), __LINE__, VALIDATION_ERROR_00911, "DS",
+                             "Unable to allocate %u descriptorSets from pool 0x%" PRIxLEAST64
+                             ". This pool only has %d descriptorSets remaining. %s",
+                             p_alloc_info->descriptorSetCount, reinterpret_cast<uint64_t &>(pool_state->pool),
+                             pool_state->availableSets, validation_error_map[VALIDATION_ERROR_00911]);
     }
     // Determine whether descriptor counts are satisfiable
     for (uint32_t i = 0; i < VK_DESCRIPTOR_TYPE_RANGE_SIZE; i++) {
         if (ds_data->required_descriptors_by_type[i] > pool_state->availableDescriptorTypeCount[i]) {
             skip_call |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_DESCRIPTOR_POOL_EXT,
-                                 reinterpret_cast<const uint64_t &>(pool_state->pool), __LINE__, DRAWSTATE_DESCRIPTOR_POOL_EMPTY,
-                                 "DS", "Unable to allocate %u descriptors of type %s from pool 0x%" PRIxLEAST64
-                                       ". This pool only has %d descriptors of this type remaining.",
+                                 reinterpret_cast<const uint64_t &>(pool_state->pool), __LINE__, VALIDATION_ERROR_00912, "DS",
+                                 "Unable to allocate %u descriptors of type %s from pool 0x%" PRIxLEAST64
+                                 ". This pool only has %d descriptors of this type remaining. %s",
                                  ds_data->required_descriptors_by_type[i], string_VkDescriptorType(VkDescriptorType(i)),
-                                 reinterpret_cast<uint64_t &>(pool_state->pool), pool_state->availableDescriptorTypeCount[i]);
+                                 reinterpret_cast<uint64_t &>(pool_state->pool), pool_state->availableDescriptorTypeCount[i],
+                                 validation_error_map[VALIDATION_ERROR_00912]);
         }
     }
 

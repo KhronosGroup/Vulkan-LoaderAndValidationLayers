@@ -81,19 +81,18 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_GetDeviceGroupSurfacePresentModesKHX(
 VKAPI_ATTR void VKAPI_CALL
 terminator_GetPhysicalDeviceExternalBufferPropertiesKHX(
     VkPhysicalDevice physicalDevice,
-    const VkPhysicalDeviceExternalBufferInfoKHX* pExternalBufferInfo,
-    VkExternalBufferPropertiesKHX* pExternalBufferProperties);
+    const VkPhysicalDeviceExternalBufferInfoKHX *pExternalBufferInfo,
+    VkExternalBufferPropertiesKHX *pExternalBufferProperties);
 
-VKAPI_ATTR void VKAPI_CALL
-terminator_GetPhysicalDeviceProperties2KHX(
+VKAPI_ATTR void VKAPI_CALL terminator_GetPhysicalDeviceProperties2KHX(
     VkPhysicalDevice physicalDevice,
-    VkPhysicalDeviceProperties2KHX* pProperties);
+    VkPhysicalDeviceProperties2KHX *pProperties);
 
 VKAPI_ATTR VkResult VKAPI_CALL
 terminator_GetPhysicalDeviceImageFormatProperties2KHX(
     VkPhysicalDevice physicalDevice,
-    const VkPhysicalDeviceImageFormatInfo2KHX* pImageFormatInfo,
-    VkImageFormatProperties2KHX* pImageFormatProperties);
+    const VkPhysicalDeviceImageFormatInfo2KHX *pImageFormatInfo,
+    VkImageFormatProperties2KHX *pImageFormatProperties);
 
 // Instance extension terminators for the K_KHX_external_semaphore_capabilities
 // extension
@@ -101,8 +100,8 @@ terminator_GetPhysicalDeviceImageFormatProperties2KHX(
 VKAPI_ATTR void VKAPI_CALL
 terminator_GetPhysicalDeviceExternalSemaphorePropertiesKHX(
     VkPhysicalDevice physicalDevice,
-    const VkPhysicalDeviceExternalSemaphoreInfoKHX* pExternalSemaphoreInfo,
-    VkExternalSemaphorePropertiesKHX* pExternalSemaphoreProperties);
+    const VkPhysicalDeviceExternalSemaphoreInfoKHX *pExternalSemaphoreInfo,
+    VkExternalSemaphorePropertiesKHX *pExternalSemaphoreProperties);
 
 // Device extension terminators for the VK_NV_external_memory_capabilities
 // extension
@@ -123,10 +122,10 @@ terminator_GetPhysicalDeviceExternalImageFormatPropertiesNV(
     VkExternalMemoryHandleTypeFlagsNV externalHandleType,
     VkExternalImageFormatPropertiesNV *pExternalImageFormatProperties);
 
-// Instance extension terminators for the VK_NVX_device_generated_commands 
+// Instance extension terminators for the VK_NVX_device_generated_commands
 // extension
 VKAPI_ATTR void VKAPI_CALL
 terminator_GetPhysicalDeviceGeneratedCommandsPropertiesNVX(
     VkPhysicalDevice physicalDevice,
-    VkDeviceGeneratedCommandsFeaturesNVX* pFeatures,
-    VkDeviceGeneratedCommandsLimitsNVX* pLimits);
+    VkDeviceGeneratedCommandsFeaturesNVX *pFeatures,
+    VkDeviceGeneratedCommandsLimitsNVX *pLimits);

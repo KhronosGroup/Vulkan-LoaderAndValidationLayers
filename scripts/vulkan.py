@@ -1656,6 +1656,66 @@ VK_NVX_device_generated_commands = Extension(
     ],
 )
 
+VK_NVX_device_generated_commands = Extension(
+    name="VK_EXT_debug_marker",
+    headers=["vulkan/vulkan.h"],
+    objects=[
+        "VkObjectTableNVX",
+        "VkIndirectCommandsLayoutNVX",
+    ],
+    protos=[
+        Proto("void", "CmdProcessCommandsNVX",
+            [Param("VkCommandBuffer", "commandBuffer"),
+             Param("VkCmdProcessCommandsInfoNVX*", "pProcessCommandsInfo")]),
+
+        Proto("void", "CmdReserveSpaceForCommandsNV",
+            [Param("VkCommandBuffer", "commandBuffer"),
+             Param("VkCmdReserveSpaceForCommandsInfoNVX*", "pReserveSpaceInfo")]),
+
+        Proto("VkResult", "CreateIndirectCommandsLayoutNVX",
+            [Param("VkDevice", "device"),
+             Param("VkIndirectCommandsLayoutCreateInfoNVX*", "pCreateInfo"),
+             Param("VkAllocationCallbacks*", "pAllocator"),
+             Param("VkIndirectCommandsLayoutNVX*", "pIndirectCommandsLayout")]),
+
+        Proto("void", "DestroyIndirectCommandsLayoutNVX",
+            [Param("VkDevice", "device"),
+             Param("VkIndirectCommandsLayoutNVX", "indirectCommandsLayout"),
+             Param("VkAllocationCallbacks*", "pAllocator")]),
+
+        Proto("VkResult", "CreateObjectTableNVX)",
+            [Param("VkDevice", "device"),
+             Param("VkObjectTableCreateInfoNVX*", "pCreateInfo"),
+             Param("VkAllocationCallbacks*", "pAllocator"),
+             Param("VkObjectTableNVX*", "pObjectTable")]),
+
+        Proto("void", "DestroyObjectTableNVX",
+            [Param("VkDevice", "device"),
+             Param("VkObjectTableNVX", "objectTable"),
+             Param("VkAllocationCallbacks*", "pAllocator")]),
+
+        Proto("VkResult", "RegisterObjectsNVX",
+            [Param("VkDevice", "device"),
+             Param("VkObjectTableNVX", "objectTable"),
+             Param("uint32_t", "objectCount"),
+             Param("VkObjectTableEntryNVX**", "ppObjectTableEntries"),
+             Param("uint32_t*", "pObjectIndices")]),
+
+        Proto("VkResult", "UnregisterObjectsNVX)",
+            [Param("VkDevice", "device"),
+             Param("VkObjectTableNVX*", "objectTable"),
+             Param("uint32_t*", "objectCount"),
+             Param("VkObjectEntryTypeNVX*", "pObjectEntryTypes"),
+             Param("uint32_t*", "pObjectIndices")]),
+
+        Proto("void", "GetPhysicalDeviceGeneratedCommandsPropertiesNVX",
+            [Param("VkPhysicalDevice", "physicalDevice"),
+             Param("VkDeviceGeneratedCommandsFeaturesNVX*", "pFeatures"),
+             Param("VkDeviceGeneratedCommandsLimitsNVX*", "pLimits")]),
+    ],
+)
+
+
 import sys
 
 wsi_linux = ['Xcb', 'Xlib', 'Wayland', 'Mir', 'Display']
@@ -1724,8 +1784,7 @@ non_exported_exts = [VK_KHR_maintenance1,
 #                    VK_IMG_format_pvrtc,
 #                    VK_NVX_device_generated_commands,
                     ]
-non_android_exts = [VK_KHR_display,
-                   ]
+
 extensions = common_exts
 extensions_all = non_exported_exts
 

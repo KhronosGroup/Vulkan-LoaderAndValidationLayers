@@ -186,6 +186,7 @@ typedef struct VkLayerDispatchTable_ {
     PFN_vkGetDeviceGroupSurfacePresentModesKHX
         GetDeviceGroupSurfacePresentModesKHX;
     PFN_vkAcquireNextImage2KHX AcquireNextImage2KHX;
+    PFN_vkCmdDispatchBaseKHX CmdDispatchBaseKHX;
     // KHX_external_memory_fd
     PFN_vkGetMemoryFdKHX GetMemoryFdKHX;
 #ifdef VK_USE_PLATFORM_WIN32_KHX
@@ -309,7 +310,7 @@ typedef struct VkLayerInstanceDispatchTable_ {
     // NV_external_memory_capabilities
     PFN_vkGetPhysicalDeviceExternalImageFormatPropertiesNV
         GetPhysicalDeviceExternalImageFormatPropertiesNV;
-    // NVX_device_generated_commands
+    // NVX_device_generated_commands (phys dev commands)
     PFN_vkGetPhysicalDeviceGeneratedCommandsPropertiesNVX
         GetPhysicalDeviceGeneratedCommandsPropertiesNVX;
 } VkLayerInstanceDispatchTable;
