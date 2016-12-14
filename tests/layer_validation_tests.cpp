@@ -3885,9 +3885,9 @@ TEST_F(VkLayerTest, WriteDescriptorSetIntegrityCheck) {
     VkDescriptorPoolSize ds_type_count[4] = {};
     ds_type_count[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     ds_type_count[0].descriptorCount = 1;
-    ds_type_count[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    ds_type_count[1].type = VK_DESCRIPTOR_TYPE_SAMPLER;
     ds_type_count[1].descriptorCount = 1;
-    ds_type_count[2].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    ds_type_count[2].type = VK_DESCRIPTOR_TYPE_SAMPLER;
     ds_type_count[2].descriptorCount = 1;
     ds_type_count[3].type = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
     ds_type_count[3].descriptorCount = 1;
@@ -3994,12 +3994,14 @@ TEST_F(VkLayerTest, WriteDescriptorSetIntegrityCheck) {
     VkBuffer dyub;
     err = vkCreateBuffer(m_device->device(), &buffCI, NULL, &dyub);
     ASSERT_VK_SUCCESS(err);
-    VkDescriptorBufferInfo buffInfo = {};
-    buffInfo.buffer = dyub;
-    buffInfo.offset = 0;
-    buffInfo.range = 1024;
-
-    descriptor_write.pBufferInfo = &buffInfo;
+    VkDescriptorBufferInfo buffInfo[2] = {};
+    buffInfo[0].buffer = dyub;
+    buffInfo[0].offset = 0;
+    buffInfo[0].range = 1024;
+    buffInfo[1].buffer = dyub;
+    buffInfo[1].offset = 0;
+    buffInfo[1].range = 1024;
+    descriptor_write.pBufferInfo = buffInfo;
     descriptor_write.descriptorCount = 2;
 
     // 2) The stateFlags don't match between the first and second descriptor
