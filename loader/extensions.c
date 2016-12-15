@@ -1363,46 +1363,48 @@ void extensions_create_instance(struct loader_instance *ptr_instance,
                    VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME)) {
             ptr_instance->enabled_known_extensions
                 .khr_get_physical_device_properties2 = 1;
+            continue;
         } else if (0 ==
                    strcmp(pCreateInfo->ppEnabledExtensionNames[i],
                           VK_NV_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME)) {
             ptr_instance->enabled_known_extensions
                 .nv_external_memory_capabilities = 1;
+            continue;
         } else if (0 == strcmp(pCreateInfo->ppEnabledExtensionNames[i],
                                VK_KHX_DEVICE_GROUP_CREATION_EXTENSION_NAME)) {
             ptr_instance->enabled_known_extensions.khx_device_group_creation =
                 1;
-            return;
+            continue;
         } else if (0 ==
                    strcmp(pCreateInfo->ppEnabledExtensionNames[i],
                           VK_KHX_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME)) {
             ptr_instance->enabled_known_extensions
                 .khx_external_memory_capabilities = 1;
-            return;
+            continue;
         } else if (0 ==
                    strcmp(
                        pCreateInfo->ppEnabledExtensionNames[i],
                        VK_KHX_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME)) {
             ptr_instance->enabled_known_extensions
                 .khx_external_semaphore_capabilities = 1;
-            return;
+            continue;
 #ifdef VK_USE_PLATFORM_XLIB_KHR
         } else if (0 == strcmp(pCreateInfo->ppEnabledExtensionNames[i],
                    VK_EXT_ACQUIRE_XLIB_DISPLAY_EXTENSION_NAME)) {
             ptr_instance->enabled_known_extensions.
                 ext_acquire_xlib_display = 1;
-            return;
+            continue;
 #endif
         } else if (0 == strcmp(pCreateInfo->ppEnabledExtensionNames[i],
                    VK_EXT_DIRECT_MODE_DISPLAY_EXTENSION_NAME)) {
             ptr_instance->enabled_known_extensions.
                 ext_direct_mode_display = 1;
-            return;
+            continue;
         } else if (0 == strcmp(pCreateInfo->ppEnabledExtensionNames[i],
                    VK_EXT_DISPLAY_SURFACE_COUNTER_EXTENSION_NAME)) {
             ptr_instance->enabled_known_extensions.
                 ext_display_surface_counter = 1;
-            return;
+            continue;
         }
     }
 }
