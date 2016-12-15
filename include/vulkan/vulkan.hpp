@@ -5622,6 +5622,9 @@ namespace vk
     eDedicatedAllocationImageCreateInfoNV = VK_STRUCTURE_TYPE_DEDICATED_ALLOCATION_IMAGE_CREATE_INFO_NV,
     eDedicatedAllocationBufferCreateInfoNV = VK_STRUCTURE_TYPE_DEDICATED_ALLOCATION_BUFFER_CREATE_INFO_NV,
     eDedicatedAllocationMemoryAllocateInfoNV = VK_STRUCTURE_TYPE_DEDICATED_ALLOCATION_MEMORY_ALLOCATE_INFO_NV,
+    eRenderPassMultiviewCreateInfoKHX = VK_STRUCTURE_TYPE_RENDER_PASS_MULTIVIEW_CREATE_INFO_KHX,
+    ePhysicalDeviceMultiviewFeaturesKHX = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES_KHX,
+    ePhysicalDeviceMultiviewPropertiesKHX = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PROPERTIES_KHX,
     eExternalMemoryImageCreateInfoNV = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO_NV,
     eExportMemoryAllocateInfoNV = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO_NV,
     eImportMemoryWin32HandleInfoNV = VK_STRUCTURE_TYPE_IMPORT_MEMORY_WIN32_HANDLE_INFO_NV,
@@ -10905,6 +10908,227 @@ namespace vk
   };
   static_assert( sizeof( D3D12FenceSubmitInfoKHX ) == sizeof( VkD3D12FenceSubmitInfoKHX ), "struct and wrapper have different size!" );
 #endif /*VK_USE_PLATFORM_WIN32_KHX*/
+
+  struct PhysicalDeviceMultiviewFeaturesKHX
+  {
+    PhysicalDeviceMultiviewFeaturesKHX( Bool32 multiview_ = 0, Bool32 multiviewGeometryShader_ = 0, Bool32 multiviewTessellationShader_ = 0 )
+      : sType( StructureType::ePhysicalDeviceMultiviewFeaturesKHX )
+      , pNext( nullptr )
+      , multiview( multiview_ )
+      , multiviewGeometryShader( multiviewGeometryShader_ )
+      , multiviewTessellationShader( multiviewTessellationShader_ )
+    {
+    }
+
+    PhysicalDeviceMultiviewFeaturesKHX( VkPhysicalDeviceMultiviewFeaturesKHX const & rhs )
+    {
+      memcpy( this, &rhs, sizeof(PhysicalDeviceMultiviewFeaturesKHX) );
+    }
+
+    PhysicalDeviceMultiviewFeaturesKHX& operator=( VkPhysicalDeviceMultiviewFeaturesKHX const & rhs )
+    {
+      memcpy( this, &rhs, sizeof(PhysicalDeviceMultiviewFeaturesKHX) );
+      return *this;
+    }
+
+    PhysicalDeviceMultiviewFeaturesKHX& setSType( StructureType sType_ )
+    {
+      sType = sType_;
+      return *this;
+    }
+
+    PhysicalDeviceMultiviewFeaturesKHX& setPNext( void* pNext_ )
+    {
+      pNext = pNext_;
+      return *this;
+    }
+
+    PhysicalDeviceMultiviewFeaturesKHX& setMultiview( Bool32 multiview_ )
+    {
+      multiview = multiview_;
+      return *this;
+    }
+
+    PhysicalDeviceMultiviewFeaturesKHX& setMultiviewGeometryShader( Bool32 multiviewGeometryShader_ )
+    {
+      multiviewGeometryShader = multiviewGeometryShader_;
+      return *this;
+    }
+
+    PhysicalDeviceMultiviewFeaturesKHX& setMultiviewTessellationShader( Bool32 multiviewTessellationShader_ )
+    {
+      multiviewTessellationShader = multiviewTessellationShader_;
+      return *this;
+    }
+
+    operator const VkPhysicalDeviceMultiviewFeaturesKHX&() const
+    {
+      return *reinterpret_cast<const VkPhysicalDeviceMultiviewFeaturesKHX*>(this);
+    }
+
+    bool operator==( PhysicalDeviceMultiviewFeaturesKHX const& rhs ) const
+    {
+      return ( sType == rhs.sType )
+          && ( pNext == rhs.pNext )
+          && ( multiview == rhs.multiview )
+          && ( multiviewGeometryShader == rhs.multiviewGeometryShader )
+          && ( multiviewTessellationShader == rhs.multiviewTessellationShader );
+    }
+
+    bool operator!=( PhysicalDeviceMultiviewFeaturesKHX const& rhs ) const
+    {
+      return !operator==( rhs );
+    }
+
+  private:
+    StructureType sType;
+
+  public:
+    void* pNext;
+    Bool32 multiview;
+    Bool32 multiviewGeometryShader;
+    Bool32 multiviewTessellationShader;
+  };
+  static_assert( sizeof( PhysicalDeviceMultiviewFeaturesKHX ) == sizeof( VkPhysicalDeviceMultiviewFeaturesKHX ), "struct and wrapper have different size!" );
+
+  struct PhysicalDeviceMultiviewPropertiesKHX
+  {
+    operator const VkPhysicalDeviceMultiviewPropertiesKHX&() const
+    {
+      return *reinterpret_cast<const VkPhysicalDeviceMultiviewPropertiesKHX*>(this);
+    }
+
+    bool operator==( PhysicalDeviceMultiviewPropertiesKHX const& rhs ) const
+    {
+      return ( sType == rhs.sType )
+          && ( pNext == rhs.pNext )
+          && ( maxMultiviewViewCount == rhs.maxMultiviewViewCount )
+          && ( maxMultiviewInstanceIndex == rhs.maxMultiviewInstanceIndex );
+    }
+
+    bool operator!=( PhysicalDeviceMultiviewPropertiesKHX const& rhs ) const
+    {
+      return !operator==( rhs );
+    }
+
+  private:
+    StructureType sType;
+
+  public:
+    void* pNext;
+    uint32_t maxMultiviewViewCount;
+    uint32_t maxMultiviewInstanceIndex;
+  };
+  static_assert( sizeof( PhysicalDeviceMultiviewPropertiesKHX ) == sizeof( VkPhysicalDeviceMultiviewPropertiesKHX ), "struct and wrapper have different size!" );
+
+  struct RenderPassMultiviewCreateInfoKHX
+  {
+    RenderPassMultiviewCreateInfoKHX( uint32_t subpassCount_ = 0, const uint32_t* pViewMasks_ = nullptr, uint32_t dependencyCount_ = 0, const int32_t* pViewOffsets_ = nullptr, uint32_t correlationMaskCount_ = 0, const uint32_t* pCorrelationMasks_ = nullptr )
+      : sType( StructureType::eRenderPassMultiviewCreateInfoKHX )
+      , pNext( nullptr )
+      , subpassCount( subpassCount_ )
+      , pViewMasks( pViewMasks_ )
+      , dependencyCount( dependencyCount_ )
+      , pViewOffsets( pViewOffsets_ )
+      , correlationMaskCount( correlationMaskCount_ )
+      , pCorrelationMasks( pCorrelationMasks_ )
+    {
+    }
+
+    RenderPassMultiviewCreateInfoKHX( VkRenderPassMultiviewCreateInfoKHX const & rhs )
+    {
+      memcpy( this, &rhs, sizeof(RenderPassMultiviewCreateInfoKHX) );
+    }
+
+    RenderPassMultiviewCreateInfoKHX& operator=( VkRenderPassMultiviewCreateInfoKHX const & rhs )
+    {
+      memcpy( this, &rhs, sizeof(RenderPassMultiviewCreateInfoKHX) );
+      return *this;
+    }
+
+    RenderPassMultiviewCreateInfoKHX& setSType( StructureType sType_ )
+    {
+      sType = sType_;
+      return *this;
+    }
+
+    RenderPassMultiviewCreateInfoKHX& setPNext( const void* pNext_ )
+    {
+      pNext = pNext_;
+      return *this;
+    }
+
+    RenderPassMultiviewCreateInfoKHX& setSubpassCount( uint32_t subpassCount_ )
+    {
+      subpassCount = subpassCount_;
+      return *this;
+    }
+
+    RenderPassMultiviewCreateInfoKHX& setPViewMasks( const uint32_t* pViewMasks_ )
+    {
+      pViewMasks = pViewMasks_;
+      return *this;
+    }
+
+    RenderPassMultiviewCreateInfoKHX& setDependencyCount( uint32_t dependencyCount_ )
+    {
+      dependencyCount = dependencyCount_;
+      return *this;
+    }
+
+    RenderPassMultiviewCreateInfoKHX& setPViewOffsets( const int32_t* pViewOffsets_ )
+    {
+      pViewOffsets = pViewOffsets_;
+      return *this;
+    }
+
+    RenderPassMultiviewCreateInfoKHX& setCorrelationMaskCount( uint32_t correlationMaskCount_ )
+    {
+      correlationMaskCount = correlationMaskCount_;
+      return *this;
+    }
+
+    RenderPassMultiviewCreateInfoKHX& setPCorrelationMasks( const uint32_t* pCorrelationMasks_ )
+    {
+      pCorrelationMasks = pCorrelationMasks_;
+      return *this;
+    }
+
+    operator const VkRenderPassMultiviewCreateInfoKHX&() const
+    {
+      return *reinterpret_cast<const VkRenderPassMultiviewCreateInfoKHX*>(this);
+    }
+
+    bool operator==( RenderPassMultiviewCreateInfoKHX const& rhs ) const
+    {
+      return ( sType == rhs.sType )
+          && ( pNext == rhs.pNext )
+          && ( subpassCount == rhs.subpassCount )
+          && ( pViewMasks == rhs.pViewMasks )
+          && ( dependencyCount == rhs.dependencyCount )
+          && ( pViewOffsets == rhs.pViewOffsets )
+          && ( correlationMaskCount == rhs.correlationMaskCount )
+          && ( pCorrelationMasks == rhs.pCorrelationMasks );
+    }
+
+    bool operator!=( RenderPassMultiviewCreateInfoKHX const& rhs ) const
+    {
+      return !operator==( rhs );
+    }
+
+  private:
+    StructureType sType;
+
+  public:
+    const void* pNext;
+    uint32_t subpassCount;
+    const uint32_t* pViewMasks;
+    uint32_t dependencyCount;
+    const int32_t* pViewOffsets;
+    uint32_t correlationMaskCount;
+    const uint32_t* pCorrelationMasks;
+  };
+  static_assert( sizeof( RenderPassMultiviewCreateInfoKHX ) == sizeof( VkRenderPassMultiviewCreateInfoKHX ), "struct and wrapper have different size!" );
 
   enum class SubpassContents
   {
@@ -16317,6 +16541,7 @@ namespace vk
   enum class DependencyFlagBits
   {
     eByRegion = VK_DEPENDENCY_BY_REGION_BIT,
+    eViewLocalKHX = VK_DEPENDENCY_VIEW_LOCAL_BIT_KHX,
     eDeviceGroupKHX = VK_DEPENDENCY_DEVICE_GROUP_BIT_KHX
   };
 
@@ -16336,7 +16561,7 @@ namespace vk
   {
     enum
     {
-      allFlags = VkFlags(DependencyFlagBits::eByRegion) | VkFlags(DependencyFlagBits::eDeviceGroupKHX)
+      allFlags = VkFlags(DependencyFlagBits::eByRegion) | VkFlags(DependencyFlagBits::eViewLocalKHX) | VkFlags(DependencyFlagBits::eDeviceGroupKHX)
     };
   };
 
@@ -25508,6 +25733,9 @@ namespace vk
     case StructureType::eDedicatedAllocationImageCreateInfoNV: return "DedicatedAllocationImageCreateInfoNV";
     case StructureType::eDedicatedAllocationBufferCreateInfoNV: return "DedicatedAllocationBufferCreateInfoNV";
     case StructureType::eDedicatedAllocationMemoryAllocateInfoNV: return "DedicatedAllocationMemoryAllocateInfoNV";
+    case StructureType::eRenderPassMultiviewCreateInfoKHX: return "RenderPassMultiviewCreateInfoKHX";
+    case StructureType::ePhysicalDeviceMultiviewFeaturesKHX: return "PhysicalDeviceMultiviewFeaturesKHX";
+    case StructureType::ePhysicalDeviceMultiviewPropertiesKHX: return "PhysicalDeviceMultiviewPropertiesKHX";
     case StructureType::eExternalMemoryImageCreateInfoNV: return "ExternalMemoryImageCreateInfoNV";
     case StructureType::eExportMemoryAllocateInfoNV: return "ExportMemoryAllocateInfoNV";
     case StructureType::eImportMemoryWin32HandleInfoNV: return "ImportMemoryWin32HandleInfoNV";
@@ -26330,6 +26558,7 @@ namespace vk
     switch (value)
     {
     case DependencyFlagBits::eByRegion: return "ByRegion";
+    case DependencyFlagBits::eViewLocalKHX: return "ViewLocalKHX";
     case DependencyFlagBits::eDeviceGroupKHX: return "DeviceGroupKHX";
     default: return "invalid";
     }
@@ -26340,6 +26569,7 @@ namespace vk
     if (!value) return "{}";
     std::string result;
     if (value & DependencyFlagBits::eByRegion) result += "ByRegion | ";
+    if (value & DependencyFlagBits::eViewLocalKHX) result += "ViewLocalKHX | ";
     if (value & DependencyFlagBits::eDeviceGroupKHX) result += "DeviceGroupKHX | ";
     return "{" + result.substr(0, result.size() - 3) + "}";
   }
