@@ -905,6 +905,14 @@ static inline void *loader_lookup_instance_extension_dispatch_table(
     if (!strcmp(name, "GetPhysicalDeviceExternalSemaphorePropertiesKHX"))
         return (void *)table->GetPhysicalDeviceExternalSemaphorePropertiesKHX;
 
+    // EXT_acquire_xlib_display
+#ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
+    if (!strcmp(name, "AcquireXlibDisplayEXT"))
+        return (void *)table->AcquireXlibDisplayEXT;
+    if (!strcmp(name, "GetRandROutputDisplayEXT"))
+        return (void *)table->GetRandROutputDisplayEXT;
+#endif
+
     // EXT_debug_report
     if (!strcmp(name, "CreateDebugReportCallbackEXT"))
         return (void *)table->CreateDebugReportCallbackEXT;
@@ -912,6 +920,14 @@ static inline void *loader_lookup_instance_extension_dispatch_table(
         return (void *)table->DestroyDebugReportCallbackEXT;
     if (!strcmp(name, "DebugReportMessageEXT"))
         return (void *)table->DebugReportMessageEXT;
+
+    // EXT_direct_mode_display
+    if (!strcmp(name, "ReleaseDisplayEXT"))
+        return (void *)table->ReleaseDisplayEXT;
+
+    // EXT_display_surface_counter
+    if (!strcmp(name, "GetPhysicalDeviceSurfaceCapabilities2EXT"))
+        return (void *)table->GetPhysicalDeviceSurfaceCapabilities2EXT;
 
     // NV_external_memory_capabilities
     if (!strcmp(name, "GetPhysicalDeviceExternalImageFormatPropertiesNV"))
