@@ -86,6 +86,10 @@ static const VkDeviceMemory MEMTRACKER_SWAP_CHAIN_IMAGE_KEY = (VkDeviceMemory)(-
 // 2nd special memory handle used to flag object as unbound from memory
 static const VkDeviceMemory MEMORY_UNBOUND = VkDeviceMemory(~((uint64_t)(0)) - 1);
 
+// A special value of (0xFFFFFFFF, 0xFFFFFFFF) indicates that the surface size will be determined
+// by the extent of a swapchain targeting the surface.
+static const uint32_t kSurfaceSizeFromSwapchain = 0xFFFFFFFFu;
+
 struct devExts {
     bool wsi_enabled;
     bool wsi_display_swapchain_enabled;
@@ -3309,54 +3313,11 @@ static bool verifyPipelineCreateState(layer_data *my_data, std::vector<PIPELINE_
                                          pPipeline->graphicsPipelineCI.pRasterizationState->lineWidth);
         }
     }
-    // Viewport state must be included if rasterization is enabled.
-    // If the viewport state is included, the viewport and scissor counts should always match.
-    // NOTE : Even if these are flagged as dynamic, counts need to be set correctly for shader compiler
-    if (!pPipeline->graphicsPipelineCI.pRasterizationState ||
-        (pPipeline->graphicsPipelineCI.pRasterizationState->rasterizerDiscardEnable == VK_FALSE)) {
-        if (!pPipeline->graphicsPipelineCI.pViewportState) {
-            skip_call |= log_msg(my_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, (VkDebugReportObjectTypeEXT)0, 0, __LINE__,
-                                 DRAWSTATE_VIEWPORT_SCISSOR_MISMATCH, "DS", "Gfx Pipeline pViewportState is null. Even if viewport "
-                                                                            "and scissors are dynamic PSO must include "
-                                                                            "viewportCount and scissorCount in pViewportState.");
-        } else if (pPipeline->graphicsPipelineCI.pViewportState->scissorCount !=
-                   pPipeline->graphicsPipelineCI.pViewportState->viewportCount) {
-            skip_call |= log_msg(my_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, (VkDebugReportObjectTypeEXT)0, 0, __LINE__,
-                                 DRAWSTATE_VIEWPORT_SCISSOR_MISMATCH, "DS",
-                                 "Gfx Pipeline viewport count (%u) must match scissor count (%u).",
-                                 pPipeline->graphicsPipelineCI.pViewportState->viewportCount,
-                                 pPipeline->graphicsPipelineCI.pViewportState->scissorCount);
-        } else {
-            // If viewport or scissor are not dynamic, then verify that data is appropriate for count
-            bool dynViewport = isDynamic(pPipeline, VK_DYNAMIC_STATE_VIEWPORT);
-            bool dynScissor = isDynamic(pPipeline, VK_DYNAMIC_STATE_SCISSOR);
-            if (!dynViewport) {
-                if (pPipeline->graphicsPipelineCI.pViewportState->viewportCount &&
-                    !pPipeline->graphicsPipelineCI.pViewportState->pViewports) {
-                    skip_call |=
-                        log_msg(my_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, (VkDebugReportObjectTypeEXT)0, 0, __LINE__,
-                                DRAWSTATE_VIEWPORT_SCISSOR_MISMATCH, "DS",
-                                "Gfx Pipeline viewportCount is %u, but pViewports is NULL. For non-zero viewportCount, you "
-                                "must either include pViewports data, or include viewport in pDynamicState and set it with "
-                                "vkCmdSetViewport().",
-                                pPipeline->graphicsPipelineCI.pViewportState->viewportCount);
-                }
-            }
-            if (!dynScissor) {
-                if (pPipeline->graphicsPipelineCI.pViewportState->scissorCount &&
-                    !pPipeline->graphicsPipelineCI.pViewportState->pScissors) {
-                    skip_call |= log_msg(my_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, (VkDebugReportObjectTypeEXT)0, 0,
-                                         __LINE__, DRAWSTATE_VIEWPORT_SCISSOR_MISMATCH, "DS",
-                                         "Gfx Pipeline scissorCount is %u, but pScissors is NULL. For non-zero scissorCount, you "
-                                         "must either include pScissors data, or include scissor in pDynamicState and set it with "
-                                         "vkCmdSetScissor().",
-                                         pPipeline->graphicsPipelineCI.pViewportState->scissorCount);
-                }
-            }
-        }
 
-        // If rasterization is not disabled, and subpass uses a depth/stencil
-        // attachment, pDepthStencilState must be a pointer to a valid structure
+    // If rasterization is not disabled and subpass uses a depth/stencil attachment, pDepthStencilState must be a pointer to a
+    // valid structure
+    if (pPipeline->graphicsPipelineCI.pRasterizationState &&
+        (pPipeline->graphicsPipelineCI.pRasterizationState->rasterizerDiscardEnable == VK_FALSE)) {
         auto subpass_desc = renderPass ? &renderPass->createInfo.pSubpasses[pPipeline->graphicsPipelineCI.subpass] : nullptr;
         if (subpass_desc && subpass_desc->pDepthStencilAttachment &&
             subpass_desc->pDepthStencilAttachment->attachment != VK_ATTACHMENT_UNUSED) {
@@ -5574,17 +5535,19 @@ static bool rangesIntersect(layer_data const *dev_data, MEMORY_RANGE const *rang
         return false;
 
     if (range1->linear != range2->linear) {
-        // In linear vs. non-linear case, it's an error to alias
+        // In linear vs. non-linear case, warn of aliasing
         const char *r1_linear_str = range1->linear ? "Linear" : "Non-linear";
         const char *r1_type_str = range1->image ? "image" : "buffer";
         const char *r2_linear_str = range2->linear ? "linear" : "non-linear";
         const char *r2_type_str = range2->image ? "image" : "buffer";
         auto obj_type = range1->image ? VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT : VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_EXT;
-        *skip_call |=
-            log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, obj_type, range1->handle, 0, MEMTRACK_INVALID_ALIASING,
-                    "MEM", "%s %s 0x%" PRIx64 " is aliased with %s %s 0x%" PRIx64
-                           " which is in violation of the Buffer-Image Granularity section of the Vulkan specification.",
-                    r1_linear_str, r1_type_str, range1->handle, r2_linear_str, r2_type_str, range2->handle);
+        *skip_call |= log_msg(dev_data->report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT, obj_type, range1->handle, 0,
+                              MEMTRACK_INVALID_ALIASING, "MEM", "%s %s 0x%" PRIx64 " is aliased with %s %s 0x%" PRIx64
+                                                                " which may indicate a bug. For further info refer to the "
+                                                                "Buffer-Image Granularity section of the Vulkan specification. "
+                                                                "(https://www.khronos.org/registry/vulkan/specs/1.0-extensions/"
+                                                                "xhtml/vkspec.html#resources-bufferimagegranularity)",
+                              r1_linear_str, r1_type_str, range1->handle, r2_linear_str, r2_type_str, range2->handle);
     }
     // Ranges intersect
     return true;
@@ -5604,7 +5567,7 @@ static bool rangesIntersect(layer_data const *dev_data, MEMORY_RANGE const *rang
 // TODO : For ranges where there is no alias, we may want to create new buffer ranges that are valid
 static void SetMemRangesValid(layer_data const *dev_data, DEVICE_MEM_INFO *mem_info, VkDeviceSize offset, VkDeviceSize end) {
     bool tmp_bool = false;
-    MEMORY_RANGE map_range;
+    MEMORY_RANGE map_range = {};
     map_range.linear = true;
     map_range.start = offset;
     map_range.end = end;
@@ -5637,7 +5600,7 @@ static bool InsertMemoryRange(layer_data const *dev_data, uint64_t handle, DEVIC
     range.end = memoryOffset + memRequirements.size - 1;
     range.aliases.clear();
     // Update Memory aliasing
-    // Save aliase ranges so we can copy into final map entry below. Can't do it in loop b/c we don't yet have final ptr. If we
+    // Save aliased ranges so we can copy into final map entry below. Can't do it in loop b/c we don't yet have final ptr. If we
     // inserted into map before loop to get the final ptr, then we may enter loop when not needed & we check range against itself
     std::unordered_set<MEMORY_RANGE *> tmp_alias_ranges;
     for (auto &obj_range_pair : mem_info->bound_ranges) {
@@ -11456,7 +11419,6 @@ static bool PreCallValidateFlushMappedMemoryRanges(layer_data *dev_data, uint32_
                                                    const VkMappedMemoryRange *mem_ranges) {
     bool skip = false;
     std::lock_guard<std::mutex> lock(global_lock);
-    skip |= ValidateMappedMemoryRangeDeviceLimits(dev_data, "vkFlushMappedMemoryRanges", mem_range_count, mem_ranges);
     skip |= ValidateAndCopyNoncoherentMemoryToDriver(dev_data, mem_range_count, mem_ranges);
     skip |= validateMemoryIsMapped(dev_data, "vkFlushMappedMemoryRanges", mem_range_count, mem_ranges);
     return skip;
@@ -11477,7 +11439,6 @@ static bool PreCallValidateInvalidateMappedMemoryRanges(layer_data *dev_data, ui
                                                         const VkMappedMemoryRange *mem_ranges) {
     bool skip = false;
     std::lock_guard<std::mutex> lock(global_lock);
-    skip |= ValidateMappedMemoryRangeDeviceLimits(dev_data, "vkInvalidateMappedMemoryRanges", mem_range_count, mem_ranges);
     skip |= validateMemoryIsMapped(dev_data, "vkInvalidateMappedMemoryRanges", mem_range_count, mem_ranges);
     return skip;
 }
@@ -11778,10 +11739,11 @@ static bool PreCallValidateCreateSwapchainKHR(layer_data *dev_data, VkSwapchainC
 
         // Validate pCreateInfo->imageExtent against
         // VkSurfaceCapabilitiesKHR::{current|min|max}ImageExtent:
-        if ((capabilities.currentExtent.width == -1) && ((pCreateInfo->imageExtent.width < capabilities.minImageExtent.width) ||
-                                                         (pCreateInfo->imageExtent.width > capabilities.maxImageExtent.width) ||
-                                                         (pCreateInfo->imageExtent.height < capabilities.minImageExtent.height) ||
-                                                         (pCreateInfo->imageExtent.height > capabilities.maxImageExtent.height))) {
+        if ((capabilities.currentExtent.width == kSurfaceSizeFromSwapchain) &&
+            ((pCreateInfo->imageExtent.width < capabilities.minImageExtent.width) ||
+             (pCreateInfo->imageExtent.width > capabilities.maxImageExtent.width) ||
+             (pCreateInfo->imageExtent.height < capabilities.minImageExtent.height) ||
+             (pCreateInfo->imageExtent.height > capabilities.maxImageExtent.height))) {
             if (log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_EXT,
                         reinterpret_cast<uint64_t>(dev_data->device), __LINE__, VALIDATION_ERROR_02334, "DS",
                         "vkCreateSwapchainKHR() called with pCreateInfo->imageExtent = (%d,%d), which is outside the "
@@ -11793,8 +11755,9 @@ static bool PreCallValidateCreateSwapchainKHR(layer_data *dev_data, VkSwapchainC
                         validation_error_map[VALIDATION_ERROR_02334]))
                 return true;
         }
-        if ((capabilities.currentExtent.width != -1) && ((pCreateInfo->imageExtent.width != capabilities.currentExtent.width) ||
-                                                         (pCreateInfo->imageExtent.height != capabilities.currentExtent.height))) {
+        if ((capabilities.currentExtent.width != kSurfaceSizeFromSwapchain) &&
+            ((pCreateInfo->imageExtent.width != capabilities.currentExtent.width) ||
+             (pCreateInfo->imageExtent.height != capabilities.currentExtent.height))) {
             if (log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_EXT,
                         reinterpret_cast<uint64_t>(dev_data->device), __LINE__, VALIDATION_ERROR_02334, "DS",
                         "vkCreateSwapchainKHR() called with pCreateInfo->imageExtent = (%d,%d), which is not equal to the "
@@ -11984,6 +11947,9 @@ VKAPI_ATTR VkResult VKAPI_CALL CreateSwapchainKHR(VkDevice device, const VkSwapc
     }
 
     // Spec requires that even if CreateSwapchainKHR fails, oldSwapchain behaves as replaced.
+    if (old_swapchain_state) {
+        old_swapchain_state->replaced = true;
+    }
     surface_state->old_swapchain = old_swapchain_state;
 
     return result;
@@ -12241,6 +12207,14 @@ VKAPI_ATTR VkResult VKAPI_CALL AcquireNextImageKHR(VkDevice device, VkSwapchainK
     }
 
     auto swapchain_data = getSwapchainNode(dev_data, swapchain);
+
+    if (swapchain_data->replaced) {
+        skip_call |= log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_SWAPCHAIN_KHR_EXT,
+                             reinterpret_cast<uint64_t &>(swapchain), __LINE__, DRAWSTATE_SWAPCHAIN_REPLACED, "DS",
+                             "vkAcquireNextImageKHR: This swapchain has been replaced. The application can still "
+                             "present any images it has acquired, but cannot acquire any more.");
+    }
+
     auto physical_device_state = getPhysicalDeviceState(dev_data->instance_data, dev_data->physical_device);
     if (physical_device_state->vkGetPhysicalDeviceSurfaceCapabilitiesKHRState != UNCALLED) {
         uint64_t acquired_images = std::count_if(swapchain_data->images.begin(), swapchain_data->images.end(),
