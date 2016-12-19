@@ -1355,13 +1355,6 @@ VK_KHX_device_group = Extension(
     name="VK_KHX_device_group",
     headers=["vulkan/vulkan.h"],
     objects=[
-        "VkPeerMemoryFeatureFlagsKHX",
-        "VkPeerMemoryFeatureFlagBitsKHX",
-        "VkMemoryAllocateFlagsInfoKHX",
-        "VkMemoryAllocateFlagsKHX",
-        "VkMemoryAllocateFlagBitsKHX",
-        "VkDeviceGroupPresentModeFlagBitsKHX",
-        "VkDeviceGroupPresentModeFlagsKHX",
         "VkMemoryAllocateFlagsInfoKHX",
         "VkBindBufferMemoryInfoKHX",
         "VkBindImageMemoryInfoKHX",
@@ -1374,6 +1367,7 @@ VK_KHX_device_group = Extension(
         "VkBindImageMemorySwapchainInfoKHX",
         "VkAcquireNextImageInfoKHX",
         "VkDeviceGroupPresentInfoKHX",
+        "VkDeviceGroupSwapchainCreateInfoKHX",
     ],
     protos=[
         Proto("void", "GetDeviceGroupPeerMemoryFeaturesKHX",
@@ -1383,7 +1377,7 @@ VK_KHX_device_group = Extension(
              Param("uint32_t", "remoteDeviceIndex"),
              Param("VkPeerMemoryFeatureFlagsKHX*", "pPeerMemoryFeatures")]),
 
-         Proto("VkResult", "BindBufferMemory2KHX",
+        Proto("VkResult", "BindBufferMemory2KHX",
             [Param("VkDevice", "device"),
              Param("uint32_t", "bindInfoCount"),
              Param("const VkBindBufferMemoryInfoKHX*", "pBindInfos")]),
@@ -1397,19 +1391,34 @@ VK_KHX_device_group = Extension(
             [Param("VkCommandBuffer", "commandBuffer"),
              Param("uint32_t", "deviceMask")]),
 
-         Proto("VkResult", "GetDeviceGroupPresentCapabilitiesKHX",
+        Proto("VkResult", "GetDeviceGroupPresentCapabilitiesKHX",
             [Param("VkDevice", "device"),
              Param("VkDeviceGroupPresentCapabilitiesKHX*", "pDeviceGroupPresentCapabilities")]),
 
-         Proto("VkResult", "GetDeviceGroupSurfacePresentModesKHX",
+        Proto("VkResult", "GetDeviceGroupSurfacePresentModesKHX",
             [Param("VkDevice", "device"),
              Param("VkSurfaceKHR", "surface"),
              Param("VkDeviceGroupPresentModeFlagsKHX*", "pModes")]),
 
-         Proto("VkResult", "AcquireNextImage2KHX",
+        Proto("VkResult", "AcquireNextImage2KHX",
             [Param("VkDevice", "device"),
              Param("const VkAcquireNextImageInfoKHX*", "pAcquireInfo"),
              Param("uint32_t*", "pImageIndex")]),
+
+        Proto("void", "CmdDispatchBaseKHX",
+            [Param("VkCommandBuffer", "commandBuffer"),
+             Param("uint32_t", "baseGroupX"),
+             Param("uint32_t", "baseGroupY"),
+             Param("uint32_t", "baseGroupZ"),
+             Param("uint32_t", "groupCountX"),
+             Param("uint32_t", "groupCountY"),
+             Param("uint32_t", "groupCountZ")]),
+
+        Proto("VkResult", "GetPhysicalDevicePresentRectanglesKHX",
+            [Param("VkPhysicalDevice", "physicalDevice"),
+             Param("VkSurfaceKHR", "surface"),
+             Param("uint32_t*", "pRectCount"),
+             Param("VkRect2D*", "pRects")]),
     ],
 )
 VK_KHX_external_memory_capabilities = Extension(
@@ -1446,6 +1455,7 @@ VK_KHX_external_memory_fd = Extension(
     headers=["vulkan/vulkan.h"],
     objects=[
         "VkImportMemoryFdInfoKHX",
+        "VkMemoryFdPropertiesKHX",
     ],
     protos=[
         Proto("VkResult", "GetMemoryFdKHX",
@@ -1453,6 +1463,12 @@ VK_KHX_external_memory_fd = Extension(
              Param("VkDeviceMemory", "memory"),
              Param("VkExternalMemoryHandleTypeFlagBitsKHX", "handleType"),
              Param("int*", "pFd")]),
+
+        Proto("VkResult", "GetMemoryFdPropertiesKHX",
+            [Param("VkDevice", "device"),
+             Param("VkExternalMemoryHandleTypeFlagBitsKHX", "handleType"),
+             Param("int", "fd"),
+             Param("VkMemoryFdPropertiesKHX*", "pMemoryFdProperties")]),
     ],
 )
 VK_KHX_external_memory_win32 = Extension(
@@ -1461,6 +1477,7 @@ VK_KHX_external_memory_win32 = Extension(
     objects=[
         "VkImportMemoryWin32HandleInfoKHX",
         "VkExportMemoryWin32HandleInfoKHX",
+        "VkMemoryWin32HandlePropertiesKHX",
     ],
     protos=[
         Proto("VkResult", "GetMemoryWin32HandleKHX",
@@ -1468,6 +1485,12 @@ VK_KHX_external_memory_win32 = Extension(
              Param("VkDeviceMemory", "memory"),
              Param("VkExternalMemoryHandleTypeFlagBitsKHX", "handleType"),
              Param("HANDLE*", "pHandle")]),
+
+        Proto("VkResult", "GetMemoryWin32HandlePropertiesKHX",
+            [Param("VkDevice", "device"),
+             Param("VkExternalMemoryHandleTypeFlagBitsKHX", "handleType"),
+             Param("HANDLE", "handle"),
+             Param("VkMemoryWin32HandlePropertiesKHX*", "pMemoryWin32HandleProperties")]),
     ],
 )
 VK_KHX_external_semaphore_capabilities = Extension(
@@ -1666,66 +1689,7 @@ VK_EXT_display_control = Extension(
     ],
 )
 VK_NVX_device_generated_commands = Extension(
-    name="VK_EXT_debug_marker",
-    headers=["vulkan/vulkan.h"],
-    objects=[
-        "VkObjectTableNVX",
-        "VkIndirectCommandsLayoutNVX",
-    ],
-    protos=[
-        Proto("void", "CmdProcessCommandsNVX",
-            [Param("VkCommandBuffer", "commandBuffer"),
-             Param("VkCmdProcessCommandsInfoNVX*", "pProcessCommandsInfo")]),
-
-        Proto("void", "CmdReserveSpaceForCommandsNV",
-            [Param("VkCommandBuffer", "commandBuffer"),
-             Param("VkCmdReserveSpaceForCommandsInfoNVX*", "pReserveSpaceInfo")]),
-
-        Proto("VkResult", "CreateIndirectCommandsLayoutNVX",
-            [Param("VkDevice", "device"),
-             Param("VkIndirectCommandsLayoutCreateInfoNVX*", "pCreateInfo"),
-             Param("VkAllocationCallbacks*", "pAllocator"),
-             Param("VkIndirectCommandsLayoutNVX*", "pIndirectCommandsLayout")]),
-
-        Proto("void", "DestroyIndirectCommandsLayoutNVX",
-            [Param("VkDevice", "device"),
-             Param("VkIndirectCommandsLayoutNVX", "indirectCommandsLayout"),
-             Param("VkAllocationCallbacks*", "pAllocator")]),
-
-        Proto("VkResult", "CreateObjectTableNVX)",
-            [Param("VkDevice", "device"),
-             Param("VkObjectTableCreateInfoNVX*", "pCreateInfo"),
-             Param("VkAllocationCallbacks*", "pAllocator"),
-             Param("VkObjectTableNVX*", "pObjectTable")]),
-
-        Proto("void", "DestroyObjectTableNVX",
-            [Param("VkDevice", "device"),
-             Param("VkObjectTableNVX", "objectTable"),
-             Param("VkAllocationCallbacks*", "pAllocator")]),
-
-        Proto("VkResult", "RegisterObjectsNVX",
-            [Param("VkDevice", "device"),
-             Param("VkObjectTableNVX", "objectTable"),
-             Param("uint32_t", "objectCount"),
-             Param("VkObjectTableEntryNVX**", "ppObjectTableEntries"),
-             Param("uint32_t*", "pObjectIndices")]),
-
-        Proto("VkResult", "UnregisterObjectsNVX)",
-            [Param("VkDevice", "device"),
-             Param("VkObjectTableNVX*", "objectTable"),
-             Param("uint32_t*", "objectCount"),
-             Param("VkObjectEntryTypeNVX*", "pObjectEntryTypes"),
-             Param("uint32_t*", "pObjectIndices")]),
-
-        Proto("void", "GetPhysicalDeviceGeneratedCommandsPropertiesNVX",
-            [Param("VkPhysicalDevice", "physicalDevice"),
-             Param("VkDeviceGeneratedCommandsFeaturesNVX*", "pFeatures"),
-             Param("VkDeviceGeneratedCommandsLimitsNVX*", "pLimits")]),
-    ],
-)
-
-VK_NVX_device_generated_commands = Extension(
-    name="VK_EXT_debug_marker",
+    name="VK_NVX_device_generated_commands",
     headers=["vulkan/vulkan.h"],
     objects=[
         "VkObjectTableNVX",

@@ -266,6 +266,8 @@ struct loader_icd_term {
     // KHX_device_group
     PFN_vkGetDeviceGroupSurfacePresentModesKHX
         GetDeviceGroupSurfacePresentModesKHX;
+    PFN_vkGetPhysicalDevicePresentRectanglesKHX
+        GetPhysicalDevicePresentRectanglesKHX;
 
     // KHX_device_group_creation
     PFN_vkEnumeratePhysicalDeviceGroupsKHX EnumeratePhysicalDeviceGroupsKHX;

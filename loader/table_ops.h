@@ -296,18 +296,21 @@ static inline void loader_init_device_extension_dispatch_table(
             dev, "vkGetDeviceGroupSurfacePresentModesKHX");
     table->AcquireNextImage2KHX =
         (PFN_vkAcquireNextImage2KHX)gpa(dev, "vkAcquireNextImage2KHX");
-
-    // KHX_push_descriptor
-    table->CmdPushDescriptorSetKHX =
-        (PFN_vkCmdPushDescriptorSetKHX)gpa(dev, "vkCmdPushDescriptorSetKHX");
+    table->CmdDispatchBaseKHX =
+        (PFN_vkCmdDispatchBaseKHX)gpa(dev, "vkCmdDispatchBaseKHX");
 
     // KHX_external_memory_fd
     table->GetMemoryFdKHX = (PFN_vkGetMemoryFdKHX)gpa(dev, "vkGetMemoryFdKHX");
+    table->GetMemoryFdPropertiesKHX =
+        (PFN_vkGetMemoryFdPropertiesKHX)gpa(dev, "vkGetMemoryFdPropertiesKHX");
 
 #ifdef VK_USE_PLATFORM_WIN32_KHR
     // KHX_external_memory_win32
     table->GetMemoryWin32HandleKHX =
         (PFN_vkGetMemoryWin32HandleKHX)gpa(dev, "vkGetMemoryWin32HandleKHX");
+    table->GetMemoryWin32HandlePropertiesKHX =
+        (PFN_vkGetMemoryWin32HandlePropertiesKHX)gpa(
+            dev, "vkGetMemoryWin32HandlePropertiesKHX");
 #endif
 
     // KHX_external_semaphore_fd
@@ -805,6 +808,11 @@ static inline void loader_init_instance_extension_dispatch_table(
         (PFN_vkGetPhysicalDeviceSparseImageFormatProperties2KHR)gpa(
             inst, "vkGetPhysicalDeviceSparseImageFormatProperties2KHR");
 
+    // KHX_device_group (physical device procs)
+    table->GetPhysicalDevicePresentRectanglesKHX =
+        (PFN_vkGetPhysicalDevicePresentRectanglesKHX)gpa(
+            inst, "vkGetPhysicalDevicePresentRectanglesKHX");
+
     // KHX_device_group_creation
     table->EnumeratePhysicalDeviceGroupsKHX =
         (PFN_vkEnumeratePhysicalDeviceGroupsKHX)gpa(
@@ -829,11 +837,9 @@ static inline void loader_init_instance_extension_dispatch_table(
 #ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
     // EXT_acquire_xlib_display
     table->AcquireXlibDisplayEXT =
-        (PFN_vkAcquireXlibDisplayEXT)gpa(
-            inst, "vkAcquireXlibDisplayEXT");
+        (PFN_vkAcquireXlibDisplayEXT)gpa(inst, "vkAcquireXlibDisplayEXT");
     table->GetRandROutputDisplayEXT =
-        (PFN_vkGetRandROutputDisplayEXT)gpa(
-            inst, "vkGetRandROutputDisplayEXT");
+        (PFN_vkGetRandROutputDisplayEXT)gpa(inst, "vkGetRandROutputDisplayEXT");
 #endif
 
     // EXT_debug_report
@@ -848,8 +854,7 @@ static inline void loader_init_instance_extension_dispatch_table(
 
     // EXT_direct_mode_display
     table->ReleaseDisplayEXT =
-        (PFN_vkReleaseDisplayEXT)gpa(
-            inst, "vkReleaseDisplayEXT");
+        (PFN_vkReleaseDisplayEXT)gpa(inst, "vkReleaseDisplayEXT");
 
     // EXT_display_surface_counter
     table->GetPhysicalDeviceSurfaceCapabilities2EXT =
@@ -889,6 +894,10 @@ static inline void *loader_lookup_instance_extension_dispatch_table(
     if (!strcmp(name, "GetPhysicalDeviceSparseImageFormatProperties2KHR"))
         return (void *)table->GetPhysicalDeviceSparseImageFormatProperties2KHR;
 
+    // KHX_device_group (physical device procs)
+    if (!strcmp(name, "GetPhysicalDevicePresentRectanglesKHX"))
+        return (void *)table->GetPhysicalDevicePresentRectanglesKHX;
+
     // KHX_device_group_creation
     if (!strcmp(name, "EnumeratePhysicalDeviceGroupsKHX"))
         return (void *)table->EnumeratePhysicalDeviceGroupsKHX;
@@ -905,7 +914,7 @@ static inline void *loader_lookup_instance_extension_dispatch_table(
     if (!strcmp(name, "GetPhysicalDeviceExternalSemaphorePropertiesKHX"))
         return (void *)table->GetPhysicalDeviceExternalSemaphorePropertiesKHX;
 
-    // EXT_acquire_xlib_display
+// EXT_acquire_xlib_display
 #ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
     if (!strcmp(name, "AcquireXlibDisplayEXT"))
         return (void *)table->AcquireXlibDisplayEXT;

@@ -169,6 +169,10 @@ const VkLayerInstanceDispatchTable instance_disp = {
     .GetPhysicalDeviceSparseImageFormatProperties2KHR =
         terminator_GetPhysicalDeviceSparseImageFormatProperties2KHR,
 
+    // KHX_device_group (physical device procs)
+    .GetPhysicalDevicePresentRectanglesKHX =
+        terminator_GetPhysicalDevicePresentRectanglesKHX,
+
     // KHX_device_group_creation
     .EnumeratePhysicalDeviceGroupsKHX =
         terminator_EnumeratePhysicalDeviceGroupsKHX,
@@ -1736,6 +1740,8 @@ static bool loader_icd_init_entrys(struct loader_icd_term *icd_term,
     LOOKUP_GIPA(GetPhysicalDeviceQueueFamilyProperties2KHR, false);
     LOOKUP_GIPA(GetPhysicalDeviceMemoryProperties2KHR, false);
     LOOKUP_GIPA(GetPhysicalDeviceSparseImageFormatProperties2KHR, false);
+    // KHX_device_group (physical device procs)
+    LOOKUP_GIPA(GetPhysicalDevicePresentRectanglesKHX, false);
     // KHX_device_group_creation
     LOOKUP_GIPA(EnumeratePhysicalDeviceGroupsKHX, false);
     // KHX_device_group (ones requiring trampoline/terminator funcs only)

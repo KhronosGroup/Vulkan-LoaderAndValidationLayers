@@ -166,6 +166,8 @@ typedef struct VkLayerDispatchTable_ {
     PFN_vkCmdDrawIndexedIndirectCountAMD CmdDrawIndexedIndirectCountAMD;
 #ifdef VK_USE_PLATFORM_WIN32_KHR
     PFN_vkGetMemoryWin32HandleNV GetMemoryWin32HandleNV;
+    PFN_vkGetMemoryWin32HandlePropertiesKHX
+        GetMemoryWin32HandlePropertiesKHX;
 #endif
     PFN_vkCreateSharedSwapchainsKHR CreateSharedSwapchainsKHR;
     PFN_vkDebugMarkerSetObjectTagEXT DebugMarkerSetObjectTagEXT;
@@ -189,6 +191,7 @@ typedef struct VkLayerDispatchTable_ {
     PFN_vkCmdDispatchBaseKHX CmdDispatchBaseKHX;
     // KHX_external_memory_fd
     PFN_vkGetMemoryFdKHX GetMemoryFdKHX;
+    PFN_vkGetMemoryFdPropertiesKHX GetMemoryFdPropertiesKHX;
 #ifdef VK_USE_PLATFORM_WIN32_KHX
     // KHX_external_memory_win32
     PFN_vkGetMemoryWin32HandleKHX GetMemoryWin32HandleKHX;
@@ -297,6 +300,9 @@ typedef struct VkLayerInstanceDispatchTable_ {
         GetPhysicalDeviceMemoryProperties2KHR;
     PFN_vkGetPhysicalDeviceSparseImageFormatProperties2KHR
         GetPhysicalDeviceSparseImageFormatProperties2KHR;
+    // KHX_device_group (physical device procs)
+    PFN_vkGetPhysicalDevicePresentRectanglesKHX
+        GetPhysicalDevicePresentRectanglesKHX;
     // KHX_device_group_creation
     PFN_vkEnumeratePhysicalDeviceGroupsKHX EnumeratePhysicalDeviceGroupsKHX;
     // KHX_external_memory_capabilities

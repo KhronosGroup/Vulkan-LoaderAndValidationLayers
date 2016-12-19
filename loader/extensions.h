@@ -63,6 +63,12 @@ terminator_GetPhysicalDeviceSparseImageFormatProperties2KHR(
     const VkPhysicalDeviceSparseImageFormatInfo2KHR *pFormatInfo,
     uint32_t *pPropertyCount, VkSparseImageFormatProperties2KHR *pProperties);
 
+// Instance extension terminators for the VK_KHX_device_group extension
+
+VKAPI_ATTR VkResult VKAPI_CALL terminator_GetPhysicalDevicePresentRectanglesKHX(
+    VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, uint32_t *pRectCount,
+    VkRect2D *pRects);
+
 // Instance extension terminators for the VK_KHX_device_group_creation extension
 
 VKAPI_ATTR VkResult VKAPI_CALL terminator_EnumeratePhysicalDeviceGroupsKHX(
@@ -108,32 +114,26 @@ terminator_GetPhysicalDeviceExternalSemaphorePropertiesKHX(
 
 #ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
 VKAPI_ATTR VkResult VKAPI_CALL terminator_AcquireXlibDisplayEXT(
-    VkPhysicalDevice physicalDevice,
-    Display* dpy,
-    VkDisplayKHR display);
+    VkPhysicalDevice physicalDevice, Display *dpy, VkDisplayKHR display);
 
 VKAPI_ATTR VkResult VKAPI_CALL terminator_GetRandROutputDisplayEXT(
-    VkPhysicalDevice physicalDevice,
-    Display* dpy,
-    RROutput rrOutput,
-    VkDisplayKHR* pDisplay);
+    VkPhysicalDevice physicalDevice, Display *dpy, RROutput rrOutput,
+    VkDisplayKHR *pDisplay);
 #endif /* VK_USE_PLATFORM_XLIB_XRANDR_EXT */
 
 // Instance extension terminators for the VK_EXT_direct_mode_display
 // extension
 
 VKAPI_ATTR VkResult VKAPI_CALL terminator_ReleaseDisplayEXT(
-    VkPhysicalDevice physicalDevice,
-    VkDisplayKHR display);
+    VkPhysicalDevice physicalDevice, VkDisplayKHR display);
 
 // Instance extension terminators for the VK_EXT_display_surface_counter
 // extension
 
 VKAPI_ATTR VkResult VKAPI_CALL
 terminator_GetPhysicalDeviceSurfaceCapabilities2EXT(
-    VkPhysicalDevice physicalDevice,
-    VkSurfaceKHR surface,
-    VkSurfaceCapabilities2EXT* pSurfaceCapabilities);
+    VkPhysicalDevice physicalDevice, VkSurfaceKHR surface,
+    VkSurfaceCapabilities2EXT *pSurfaceCapabilities);
 
 // Device extension terminators for the VK_NV_external_memory_capabilities
 // extension

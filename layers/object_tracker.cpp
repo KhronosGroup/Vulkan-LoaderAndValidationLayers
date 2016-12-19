@@ -3209,7 +3209,6 @@ static void CheckDeviceRegisterExtensions(const VkDeviceCreateInfo *pCreateInfo,
 
 static void CheckInstanceRegisterExtensions(const VkInstanceCreateInfo *pCreateInfo, VkInstance instance) {
     VkLayerInstanceDispatchTable *pDisp = get_dispatch_table(ot_instance_table_map, instance);
- 
 
     instanceExtMap[pDisp] = {};
 
@@ -4249,6 +4248,20 @@ VKAPI_ATTR void VKAPI_CALL CmdDispatchBaseKHX(VkCommandBuffer commandBuffer, uin
     }
 }
 
+VKAPI_ATTR void VKAPI_CALL GetPhysicalDevicePresentRectanglesKHX(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface,
+                                                                 uint32_t *pRectCount, VkRect2D *pRects) {
+    bool skip = false;
+    {
+        std::unique_lock<std::mutex> lock(global_lock);
+        skip |= ValidateObject(physicalDevice, physicalDevice, VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, false,
+                               VALIDATION_ERROR_UNDEFINED);
+    }
+    if (!skip) {
+        get_dispatch_table(ot_instance_table_map, physicalDevice)
+            ->GetPhysicalDevicePresentRectanglesKHX(physicalDevice, surface, pRectCount, pRects);
+    }
+}
+
 // VK_KHX_device_group_creation Extension
 VKAPI_ATTR VkResult VKAPI_CALL EnumeratePhysicalDeviceGroupsKHX(
     VkInstance instance, uint32_t *pPhysicalDeviceGroupCount, VkPhysicalDeviceGroupPropertiesKHX *pPhysicalDeviceGroupProperties) {
@@ -4345,6 +4358,25 @@ VKAPI_ATTR VkResult VKAPI_CALL GetMemoryWin32HandleKHX(VkDevice device, VkDevice
     }
     return result;
 }
+
+VKAPI_ATTR VkResult VKAPI_CALL GetMemoryWin32HandlePropertiesKHX(VkDevice device, VkExternalMemoryHandleTypeFlagBitsKHX handleType,
+                                                                 HANDLE handle,
+                                                                 VkMemoryWin32HandlePropertiesKHX *pMemoryWin32HandleProperties) {
+    bool skip_call = VK_FALSE;
+    std::unique_lock<std::mutex> lock(global_lock);
+    skip_call |= ValidateObject(device, device, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_EXT, false, VALIDATION_ERROR_UNDEFINED);
+    lock.unlock();
+    if (skip_call) {
+        return VK_ERROR_VALIDATION_FAILED_EXT;
+    }
+    layer_data *dev_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
+    VkResult result = VK_SUCCESS;
+    if (dev_data->dispatch_table.GetMemoryWin32HandlePropertiesKHX) {
+        result =
+            dev_data->dispatch_table.GetMemoryWin32HandlePropertiesKHX(device, handleType, handle, pMemoryWin32HandleProperties);
+    }
+    return result;
+}
 #endif // VK_USE_PLATFORM_WIN32_KHR
 
 // VK_KHX_external_memory_fd Extension
@@ -4362,6 +4394,23 @@ VKAPI_ATTR VkResult VKAPI_CALL GetMemoryFdKHX(VkDevice device, VkDeviceMemory me
     VkResult result = VK_SUCCESS;
     if (dev_data->dispatch_table.GetMemoryFdKHX) {
         result = dev_data->dispatch_table.GetMemoryFdKHX(device, memory, handleType, pFd);
+    }
+    return result;
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL GetMemoryFdPropertiesKHX(VkDevice device, VkExternalMemoryHandleTypeFlagBitsKHX handleType, int fd,
+                                                        VkMemoryFdPropertiesKHX *pMemoryFdProperties) {
+    bool skip_call = VK_FALSE;
+    std::unique_lock<std::mutex> lock(global_lock);
+    skip_call |= ValidateObject(device, device, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_EXT, false, VALIDATION_ERROR_UNDEFINED);
+    lock.unlock();
+    if (skip_call) {
+        return VK_ERROR_VALIDATION_FAILED_EXT;
+    }
+    layer_data *dev_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
+    VkResult result = VK_SUCCESS;
+    if (dev_data->dispatch_table.GetMemoryFdPropertiesKHX) {
+        result = dev_data->dispatch_table.GetMemoryFdPropertiesKHX(device, handleType, fd, pMemoryFdProperties);
     }
     return result;
 }
@@ -5108,11 +5157,15 @@ static inline PFN_vkVoidFunction InterceptDeviceExtensionCommand(const char *nam
         if (device_data->khx_external_memory_win32_enabled) {
             if (!strcmp(name, "GetMemoryWin32HandleKHX"))
                 return (PFN_vkVoidFunction)GetMemoryWin32HandleKHX;
+            if (!strcmp(name, "GetMemoryWin32HandlePropertiesKHX"))
+                return (PFN_vkVoidFunction)GetMemoryWin32HandlePropertiesKHX;
         }
 #endif // VK_USE_PLATFORM_WIN32_KHR
         if (device_data->khx_external_memory_fd_enabled) {
             if (!strcmp(name, "GetMemoryFdKHX"))
                 return (PFN_vkVoidFunction)GetMemoryFdKHX;
+            if (!strcmp(name, "GetMemoryFdPropertiesKHX"))
+                return (PFN_vkVoidFunction)GetMemoryFdPropertiesKHX;
         }
 #ifdef VK_USE_PLATFORM_WIN32_KHR
         if (device_data->khx_external_semaphore_win32_enabled) {
@@ -5186,6 +5239,9 @@ static inline PFN_vkVoidFunction InterceptInstanceExtensionCommand(const char *n
         return (PFN_vkVoidFunction)GetPhysicalDeviceMemoryProperties2KHR;
     if (!strcmp(name, "GetPhysicalDeviceSparseImageFormatProperties2KHR"))
         return (PFN_vkVoidFunction)GetPhysicalDeviceSparseImageFormatProperties2KHR;
+    // VK_KHX_device_group Extension
+    if (!strcmp(name, "GetPhysicalDevicePresentRectanglesKHX"))
+        return (PFN_vkVoidFunction)GetPhysicalDevicePresentRectanglesKHX;
     // VK_KHX_device_group_creation Extension
     if (!strcmp(name, "EnumeratePhysicalDeviceGroupsKHX"))
         return (PFN_vkVoidFunction)EnumeratePhysicalDeviceGroupsKHX;
@@ -5205,8 +5261,8 @@ static inline PFN_vkVoidFunction InterceptInstanceExtensionCommand(const char *n
     // VK_EXT_direct_mode_display Extension
     if (!strcmp(name, "ReleaseDisplayEXT"))
         return (PFN_vkVoidFunction)ReleaseDisplayEXT;
-    // VK_EXT_acquire_xlib_display Extension
 #ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
+    // VK_EXT_acquire_xlib_display Extension
     if (!strcmp(name, "AcquireXlibDisplayEXT"))
         return (PFN_vkVoidFunction)AcquireXlibDisplayEXT;
     if (!strcmp(name, "GetRandROutputDisplayEXT"))
