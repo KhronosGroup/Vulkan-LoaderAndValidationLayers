@@ -1564,9 +1564,7 @@ VK_KHX_push_descriptor = Extension(
 VK_EXT_debug_report = Extension(
     name="VK_EXT_debug_report",
     headers=["vulkan/vulkan.h"],
-    objects=[
-        "VkDebugReportCallbackEXT",
-    ],
+    objects=["VkDebugReportCallbackEXT"],
     protos=[
         Proto("VkResult", "CreateDebugReportCallbackEXT",
             [Param("VkInstance", "instance"),
