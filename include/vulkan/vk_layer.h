@@ -50,7 +50,8 @@ typedef PFN_vkVoidFunction (VKAPI_PTR *PFN_GetPhysicalDeviceProcAddr)(VkInstance
 
 // Version negotiation values
 typedef enum VkNegotiateLayerStructType {
-    LAYER_NEGOTIATE_INTERFACE_STRUCT = 0,
+    LAYER_NEGOTIATE_UNINTIALIZED = 0,
+    LAYER_NEGOTIATE_INTERFACE_STRUCT = 1,
 } VkNegotiateLayerStructType;
 
 // Version negotiation structures
