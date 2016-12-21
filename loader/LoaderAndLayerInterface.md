@@ -32,7 +32,7 @@
  * [Vulkan Installable Client Driver interface with the loader](#vulkan-installable-client-driver-interface-with-the-loader)
   * [ICD Discovery](#icd-discovery)
   * [ICD Manifest File Format](#icd-manifest-file-format)
-  * [ICD Vulkan Entry Point Discovery](#icd-vulkan-entry-point-discovery)
+  * [ICD Vulkan Entry-Point Discovery](#icd-vulkan-entry-point-discovery)
   * [ICD Unknown Physical Device Extensions](#icd-unknown-physical-device-extensions)
   * [ICD Dispatchable Object Creation](#icd-dispatchable-object-creation)
   * [Handling KHR Surface Objects in WSI Extensions](#handling-khr-surface-objects-in-wsi-extensions)
@@ -150,7 +150,7 @@ Instance functions are:
 
 You query Vulkan Instance functions using `vkGetInstanceProcAddr`.
 `vkGetInstanceProcAddr` can be used to query either device or instance entry-
-points in addition to all core entry points.  The returned function pointer is
+points in addition to all core entry-points.  The returned function pointer is
 valid for this Instance and any object created under this Instance (including
 all `VkDevice` objects).  
 
@@ -356,9 +356,9 @@ passing down the rest of the function's information to the ICD.
 
 Remember:
  * `vkGetInstanceProcAddr` can be used to query
-either device or instance entry points in addition to all core entry points.
+either device or instance entry-points in addition to all core entry-points.
  * `vkGetDeviceProcAddr` can only be used to query for device
-extension or core device entry points.
+extension or core device entry-points.
 
 
 ##### ABI Versioning
@@ -966,24 +966,25 @@ functions to the first entity in the call chain.
 
 Originally, if the loader was called with `vkGetInstanceProcAddr`, it would
 result in the following behavior:
- 1. Check if core function:
-    - If it is, return the function pointer
-  2. Check if known extension function:
-    - If it is, return the function pointer
-  3. Call down using `GetInstanceProcAddr`
-    - If it returns non-NULL, treat it as an unknown logical device command.
-This means setting up a generic trampoline function that takes in a VkDevice as
-the first parameter and adjusting the dispatch table to call the ICD/Layers
-function after getting the dispatch table from the VkDevice.
-  4. Return NULL
+ 1. The loader would check if core function:
+    - If it was, it would return the function pointer
+ 2. The loader would check if known extension function:
+    - If it was, it would return the function pointer
+ 3. If the loader knew nothing about it, it would call down using
+`GetInstanceProcAddr`
+    - If it returned non-NULL, treat it as an unknown logical device command.
+    - This meant setting up a generic trampoline function that takes in a
+VkDevice as the first parameter and adjusting the dispatch table to call the
+ICD/Layers function after getting the dispatch table from the VkDevice.
+ 4. If all the above failed, the loader would return NULL to the application.
 
 This caused problems when a layer attempted to expose new physical device
 extensions the loader knew nothing about, but an application did.  Because the
-loader didn't know about it, it would go through the process and get to step 3
-which would treat the function as an unknown logical device command.  The
+loader knew nothing about it, the loader would get to step 3 in the above
+process and would treat the function as an unknown logical device command.  The
 problem is, this would create a generic VkDevice trampoline function which, on
-the first call, would attempt to dereference The VkPhysicalDevice as a VkDevice.
-This lead to crashes or corruption.
+the first call, would attempt to dereference the VkPhysicalDevice as a VkDevice.
+This would lead to a crash or corruption.
 
 In order to identify the extension entry-points specific to physical device
 extensions, the following function can be added to a layer:
@@ -994,8 +995,9 @@ PFN_vkVoidFunction vk_layerGetPhysicalDeviceProcAddr(VkInstance instance,
 ```
 
 This function behaves similar to `vkGetInstanceProcAddr` and
-`vkGetDeviceProcAddr`.  It should compare "pName" to every physical device
-function supported in the layer.
+`vkGetDeviceProcAddr` except it should only return values for physical device
+extension entry-points.  In this way, it compares "pName" to every physical
+device function supported in the layer.
 
 The following rules apply:
  * If it is the name of a physical device function supported by the layer, the
@@ -1022,13 +1024,13 @@ chain_info->u.pLayerInfo->pfnNextGetPhysicalDeviceProcAddr
 
 This support is optional and should not be considered a requirement.  This is
 only required if a layer intends to support some functionality not directly
-supported by a significant population of loaders in the public.  If a layer
-does implent this support, it should return the address of its
-`vk_layerGetPhysicalDeviceProcAddr` function in the
-"pfnGetPhysicalDeviceProcAddr" member of the `VkNegotiateLayerInterface`
-structure during [Layer Version Negotiation](#layer-version-negotiation).
-Additionally, the layer should also make sure `vkGetInstanceProcAddr` returns
-a valid function pointer to a query of `vk_layerGetPhysicalDeviceProcAddr`.
+supported by loaders released in the public.  If a layer does implent this
+support, it should return the address of its `vk_layerGetPhysicalDeviceProcAddr`
+function in the "pfnGetPhysicalDeviceProcAddr" member of the
+`VkNegotiateLayerInterface` structure during
+[Layer Version Negotiation](#layer-version-negotiation).  Additionally, the
+layer should also make sure `vkGetInstanceProcAddr` returns a valid function
+pointer to a query of `vk_layerGetPhysicalDeviceProcAddr`.
 
 The new behavior of the loader's `vkGetInstanceProcAddr` with support for the
 `vk_layerGetPhysicalDeviceProcAddr` function is as follows:
@@ -1096,7 +1098,7 @@ functions should be added.
 
 #### Distributed Dispatching Requirements
 
-- For each entry point a layer intercepts, it must keep track of the entry
+- For each entry-point a layer intercepts, it must keep track of the entry
 point residing in the next entity in the chain it will call down into.
  * In other words, the layer must have a list of pointers to functions of the
 appropriate type to call into the next entity.
@@ -1155,11 +1157,11 @@ enumerate the layer itself.
 names and extension names.
   - It may assume the layer names and extension names have been validated.
  - `vkGetInstanceProcAddr` intercepts a Vulkan function by returning a local
-entry point
+entry-point
   - Otherwise it returns the value obtained by calling down the instance call
 chain.
  - `vkGetDeviceProcAddr` intercepts a Vulkan function by returning a local
-entry point
+entry-point
   - Otherwise it returns the value obtained by calling down the device call
 chain.
   - These additional functions must be intercepted if the layer implements
@@ -1682,7 +1684,7 @@ ICD to properly hand-shake.
  * [ICD Manifest File Format](#icd-manifest-file-format)
   * [ICD Manifest File Versions](#icd-manifest-file-versions)
     * [ICD Manifest File Version 1.0.0](#icd-manifest-file-version-1.0.0)
- * [ICD Vulkan Entry Point Discovery](#icd-vulkan-entry-point-discovery)
+ * [ICD Vulkan Entry-Point Discovery](#icd-vulkan-entry-point-discovery)
  * [ICD Unknown Physical Device Extensions](#icd-unknown-physical-device-extensions)
  * [ICD Dispatchable Object Creation](#icd-dispatchable-object-creation)
  * [Handling KHR Surface Objects in WSI Extensions](#handling-khr-surface-objects-in-wsi-extensions)
@@ -1872,12 +1874,12 @@ fields of a layer JSON file.  The fields of the 1.0.0 file format include:
  * "api\_version"
 
  
-###  ICD Vulkan Entry Point Discovery
+###  ICD Vulkan Entry-Point Discovery
 
 The Vulkan symbols exported by an ICD must not clash with the loader's exported
 Vulkan symbols.  This could be for several reasons.  Because of this, all ICDs
 must export the following function that is used for discovery of ICD Vulkan
-entry points.  This entry point is not a part of the Vulkan API itself, only a
+entry-points.  This entry-point is not a part of the Vulkan API itself, only a
 private interface between the loader and ICDs for version 1 and higher
 interfaces.
 
@@ -1893,17 +1895,17 @@ level and instance-level Vulkan functions, and also for `vkGetDeviceProcAddr`.
 Global-level functions are those which contain no dispatchable object as the
 first parameter, such as `vkCreateInstance` and
 `vkEnumerateInstanceExtensionProperties`. The ICD must support querying global-
-level entry points by calling `vk_icdGetInstanceProcAddr` with a NULL
+level entry-points by calling `vk_icdGetInstanceProcAddr` with a NULL
 `VkInstance` parameter. Instance-level functions are those that have either
 `VkInstance`, or `VkPhysicalDevice` as the first parameter dispatchable object.
-Both core entry points and any instance extension entry points the ICD supports
+Both core entry-points and any instance extension entry-points the ICD supports
 should be available via `vk_icdGetInstanceProcAddr`. Future Vulkan instance
 extensions may define and use new instance-level dispatchable objects other
-than `VkInstance` and `VkPhysicalDevice`, in which case extension entry points
+than `VkInstance` and `VkPhysicalDevice`, in which case extension entry-points
 using these newly defined dispatchable objects must be queryable via
 `vk_icdGetInstanceProcAddr`.
 
-All other Vulkan entry points must either:
+All other Vulkan entry-points must either:
  * NOT be exported directly from the ICD library
  * or NOT use the official Vulkan function names if they are exported
  
@@ -1921,24 +1923,25 @@ linked with -Bsymbolic.
 
 Originally, if the loader was called with `vkGetInstanceProcAddr`, it would
 result in the following behavior:
- 1. Check if core function:
-    - If it is, return the function pointer
-  2. Check if known extension function:
-    - If it is, return the function pointer
-  3. Call down using GetInstanceProcAddr
-    - If it returns non-NULL, treat it as an unknown logical device command.
-This means setting up a generic trampoline function that takes in a VkDevice as
-the first parameter and adjusting the dispatch table to call the ICD/Layers
-function after getting the dispatch table from the VkDevice.
-  4. Return NULL
+ 1. The loader would check if core function:
+    - If it was, it would return the function pointer
+ 2. The loader would check if known extension function:
+    - If it was, it would return the function pointer
+ 3. If the loader knew nothing about it, it would call down using
+`GetInstanceProcAddr`
+    - If it returned non-NULL, treat it as an unknown logical device command.
+    - This meant setting up a generic trampoline function that takes in a
+VkDevice as the first parameter and adjusting the dispatch table to call the
+ICD/Layers function after getting the dispatch table from the VkDevice.
+ 4. If all the above failed, the loader would return NULL to the application.
 
 This caused problems when an ICD attempted to expose new physical device
 extensions the loader knew nothing about, but an application did.  Because the
-loader didn't know about it, it would go through the process and get to step 3
-which would treat the function as an unknown logical device command.  The
+loader knew nothing about it, the loader would get to step 3 in the above
+process and would treat the function as an unknown logical device command.  The
 problem is, this would create a generic VkDevice trampoline function which, on
-the first call, would attempt to dereference The VkPhysicalDevice as a VkDevice.
-This lead to crashes or corruption.
+the first call, would attempt to dereference the VkPhysicalDevice as a VkDevice.
+This would lead to a crash or corruption.
 
 In order to identify the extension entry-points specific to physical device
 extensions, the following function can be added to an ICD:
@@ -1949,8 +1952,9 @@ PFN_vkVoidFunction vk_icdGetPhysicalDeviceProcAddr(VkInstance instance,
 ```
 
 This function behaves similar to `vkGetInstanceProcAddr` and
-`vkGetDeviceProcAddr`.  It should compare "pName" to every physical device
-function supported in the ICD.
+`vkGetDeviceProcAddr` except it should only return values for physical device
+extension entry-points.  In this way, it compares "pName" to every physical
+device function supported in the ICD.
 
 The following rules apply:
  * If it is the name of a physical device function supported by the ICD, the
@@ -2006,8 +2010,10 @@ dispatchable objects created by ICDs are as follows:
   1. The ICD must return a pointer for the opaque dispatchable object handle
   2. This pointer points to a regular C structure with the first entry being a
    pointer.
-   * **NOTE:** For any C\++ ICD's that implement VK objects directly as C\++ classes.
-     * The C\++ compiler may put a vtable at offset zero if your class is non-POD due to the use of a virtual function.
+   * **NOTE:** For any C\++ ICD's that implement VK objects directly as C\++
+classes.
+     * The C\++ compiler may put a vtable at offset zero if your class is non-
+POD due to the use of a virtual function.
      * In this case use a regular C structure (see below).
   3. The loader checks for a magic value (ICD\_LOADER\_MAGIC) in all the created
    dispatchable objects, as follows (see `include/vulkan/vk_icd.h`):
@@ -2038,12 +2044,13 @@ vkObj alloc_icd_obj()
 Normally, ICDs handle object creation and destruction for various Vulkan
 objects. The WSI surface extensions for Linux and Windows
 ("VK\_KHR\_win32\_surface", "VK\_KHR\_xcb\_surface", "VK\_KHR\_xlib\_surface",
-"VK\_KHR\_mir\_surface", "VK\_KHR\_wayland\_surface", and "VK\_KHR\_surface") are
-handled differently.  For these extensions, the `VkSurfaceKHR` object creation and
-destruction may be handled by either the loader, or an ICD.
+"VK\_KHR\_mir\_surface", "VK\_KHR\_wayland\_surface", and "VK\_KHR\_surface")
+are handled differently.  For these extensions, the `VkSurfaceKHR` object
+creation and destruction may be handled by either the loader, or an ICD.
 
 If the loader handles the management of the `VkSurfaceKHR` objects:
- 1. The loader will handle the calls to `vkCreateXXXSurfaceKHR` and `vkDestroySurfaceKHR`
+ 1. The loader will handle the calls to `vkCreateXXXSurfaceKHR` and
+`vkDestroySurfaceKHR`
     functions without involving the ICDs.
     * Where XXX stands for the Windowing System name:
       * Mir
@@ -2052,17 +2059,20 @@ If the loader handles the management of the `VkSurfaceKHR` objects:
       * Xlib
       * Windows
       * Android
- 2. The loader creates a `VkIcdSurfaceXXX` object for the corresponding `vkCreateXXXSurfaceKHR` call.
+ 2. The loader creates a `VkIcdSurfaceXXX` object for the corresponding
+`vkCreateXXXSurfaceKHR` call.
     * The `VkIcdSurfaceXXX` structures are defined in `include/vulkan/vk_icd.h`.
  3. ICDs can cast any `VkSurfaceKHR` object to a pointer to the appropriate
     `VkIcdSurfaceXXX` structure.
- 4. The first field of all the `VkIcdSurfaceXXX` structures is a `VkIcdSurfaceBase` enumerant that indicates whether the
+ 4. The first field of all the `VkIcdSurfaceXXX` structures is a
+`VkIcdSurfaceBase` enumerant that indicates whether the
     surface object is Win32, Xcb, Xlib, Mir, or Wayland.
 
 The ICD may choose to handle `VkSurfaceKHR` object creation instead.  If an ICD
 desires to handle creating and destroying it must do the following:
  1. Support version 3 or newer of the loader/ICD interface.
- 2. Export and handle all functions that take in a `VkSurfaceKHR` object, including:
+ 2. Export and handle all functions that take in a `VkSurfaceKHR` object,
+including:
      * `vkCreateXXXSurfaceKHR`
      * `vkGetPhysicalDeviceSurfaceSupportKHR`
      * `vkGetPhysicalDeviceSurfaceCapabilitiesKHR`
@@ -2090,7 +2100,7 @@ NULL.  Then the loader destroys the container object before returning.
 
 Generally, for functions issued by an application, the loader can be
 viewed as a pass through. That is, the loader generally doesn't modify the
-functions or their parameters, but simply calls the ICDs entry point for that
+functions or their parameters, but simply calls the ICDs entry-point for that
 function. There are specific additional interface requirements an ICD needs to
 comply with that are not part of any requirements from the Vulkan specification.
 These addtional requirements are versioned to allow flexibility in the future.
@@ -2103,7 +2113,7 @@ These addtional requirements are versioned to allow flexibility in the future.
 
 All ICDs (supporting interface version 2 or higher) must export the following
 function that is used for determination of the interface version that will be
-used.  This entry point is not a part of the Vulkan API itself, only a private
+used.  This entry-point is not a part of the Vulkan API itself, only a private
 interface between the loader and ICDs.
 
 ```cpp
@@ -2168,13 +2178,15 @@ functions and cause invalid behavior.
 
 ##### Loader Version 3 Interface Requirements
 
-The primary change that occurred in version 3 of the loader/ICD interface was to allow an ICD to
-handle creation/destruction of their own KHR_surfaces.  Up until this point, the loader created
-a surface object that was used by all ICDs.  However, some ICDs may want to provide their
-own surface handles.  If an ICD chooses to enable this support, it must export support for
-version 3 of the loader/ICD interface, as well as any Vulkan function that uses a KHR_surface handle,
-such as:
-- `vkCreateXXXSurfaceKHR` (where XXX is the platform specific identifier [i.e. `vkCreateWin32SurfaceKHR` for Windows])
+The primary change that occurred in version 3 of the loader/ICD interface was to
+allow an ICD to handle creation/destruction of their own KHR_surfaces.  Up until
+this point, the loader created a surface object that was used by all ICDs.
+However, some ICDs may want to provide their own surface handles.  If an ICD
+chooses to enable this support, it must export support for version 3 of the
+loader/ICD interface, as well as any Vulkan function that uses a KHR_surface
+handle, such as:
+- `vkCreateXXXSurfaceKHR` (where XXX is the platform specific identifier [i.e.
+`vkCreateWin32SurfaceKHR` for Windows])
 - `vkDestroySurfaceKHR`
 - `vkCreateSwapchainKHR`
 - `vkGetPhysicalDeviceSurfaceSupportKHR`
@@ -2182,31 +2194,33 @@ such as:
 - `vkGetPhysicalDeviceSurfaceFormatsKHR`
 - `vkGetPhysicalDeviceSurfacePresentModesKHR`
 
-An ICD can still choose to not take advantage of this functionality by simply not exposing the
-above the `vkCreateXXXSurfaceKHR` and `vkDestroySurfaceKHR` functions.
+An ICD can still choose to not take advantage of this functionality by simply
+not exposing the above the `vkCreateXXXSurfaceKHR` and `vkDestroySurfaceKHR`
+functions.
 
 
 ##### Loader Version 2 Interface Requirements
 
 Version 2 interface has requirements in three areas:
- 1. ICD Vulkan entry point discovery,
+ 1. ICD Vulkan entry-point discovery,
  2. `KHR_surface` related requirements in the WSI extensions,
  3. Vulkan dispatchable object creation requirements.
 
 ##### Loader Versions 0 and 1 Interface Requirements
 
-Version 0 and 1 interfaces do not support version negotiation via `vk_icdNegotiateLoaderICDInterfaceVersion`.
-ICDs can distinguish version 0 and version 1 interfaces as follows:
-if the loader calls `vk_icdGetInstanceProcAddr` first it supports version 1;
-otherwise the loader only supports version 0.
+Version 0 and 1 interfaces do not support version negotiation via
+`vk_icdNegotiateLoaderICDInterfaceVersion`.  ICDs can distinguish version 0 and
+version 1 interfaces as follows: if the loader calls `vk_icdGetInstanceProcAddr`
+first it supports version 1; otherwise the loader only supports version 0.
 
-Version 0 interface does not support `vk_icdGetInstanceProcAddr`.  Version 0 interface requirements for
-obtaining ICD Vulkan entry points are as follows:
+Version 0 interface does not support `vk_icdGetInstanceProcAddr`.  Version 0
+interface requirements for obtaining ICD Vulkan entry-points are as follows:
 
-- The function `vkGetInstanceProcAddr` **must be exported** in the ICD library and returns valid function
-  pointers for all the Vulkan API entry points.
+- The function `vkGetInstanceProcAddr` **must be exported** in the ICD library
+and returns valid function pointers for all the Vulkan API entry-points.
 - `vkCreateInstance` **must be exported** by the ICD library.
-- `vkEnumerateInstanceExtensionProperties` **must be exported** by the ICD library.
+- `vkEnumerateInstanceExtensionProperties` **must be exported** by the ICD
+library.
 
 Additional Notes:
 
@@ -2215,16 +2229,17 @@ Additional Notes:
 advertised by entities (e.g. layers) different from the ICD in question.
 - The loader will not call the ICD for `vkEnumerate\*LayerProperties`() as layer
 properties are obtained from the layer libraries and layer JSON files.
-- If an ICD library author wants to implement a layer, it can do so by having the
-appropriate layer JSON manifest file refer to the ICD library file.
+- If an ICD library author wants to implement a layer, it can do so by having
+the appropriate layer JSON manifest file refer to the ICD library file.
 - The loader will not call the ICD for
   `vkEnumerate\*ExtensionProperties` if "pLayerName" is not equal to `NULL`.
-- ICDs creating new dispatchable objects via device extensions need to initialize
-the created dispatchable object.  The loader has generic *trampoline* code for unknown
-device extensions.  This generic *trampoline* code doesn't initialize the dispatch table within
-the newly created object.  See the
-[Creating New Dispatchable Objects](#creating-new-dispatchable-objects) section for more information on how to initialize created
-dispatchable objects for extensions non known by the loader.
+- ICDs creating new dispatchable objects via device extensions need to
+initialize the created dispatchable object.  The loader has generic *trampoline*
+code for unknown device extensions.  This generic *trampoline* code doesn't
+initialize the dispatch table within the newly created object.  See the
+[Creating New Dispatchable Objects](#creating-new-dispatchable-objects) section
+for more information on how to initialize created dispatchable objects for
+extensions non known by the loader.
 
 
 #### Android ICD Negotiation
