@@ -248,8 +248,9 @@ VKAPI_ATTR VkResult VKAPI_CALL vkEnumeratePhysicalDeviceGroupsKHX(
         goto out;
     }
 
-    res = setupLoaderTrampPhysDevs(inst);
-    if (VK_SUCCESS != res) {
+    VkResult setup_res = setupLoaderTrampPhysDevs(inst);
+    if (VK_SUCCESS != setup_res) {
+        res = setup_res;
         goto out;
     }
 
@@ -483,7 +484,9 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_GetPhysicalDevicePresentRectanglesKHX(
         if (NULL != icd_surface->real_icd_surfaces) {
             if (NULL != (void *)icd_surface->real_icd_surfaces[icd_index]) {
                 icd_term->GetPhysicalDevicePresentRectanglesKHX(
-                    phys_dev_term->phys_dev, surface, pRectCount, pRects);
+                    phys_dev_term->phys_dev,
+                    icd_surface->real_icd_surfaces[icd_index], pRectCount,
+                    pRects);
             }
         }
         return icd_term->GetPhysicalDevicePresentRectanglesKHX(
