@@ -43,7 +43,7 @@
  //   Version 2    - Add support for vk_layerGetPhysicalDeviceProcAddr and
  //                  vk_icdNegotiateLoaderLayerInterfaceVersion.
 #define CURRENT_LOADER_LAYER_INTERFACE_VERSION 2
-#define MIN_SUPPORTED_LOADER_LAYER_INTERFACE_VERSION 0
+#define MIN_SUPPORTED_LOADER_LAYER_INTERFACE_VERSION 1
 
  // Internal function
 typedef PFN_vkVoidFunction (VKAPI_PTR *PFN_GetPhysicalDeviceProcAddr)(VkInstance instance, const char* pName);

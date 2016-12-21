@@ -4235,6 +4235,9 @@ bool loader_get_layer_interface_version(
 
     memset(interface_struct, 0, sizeof(VkNegotiateLayerInterface));
 
+    // Base assumption is that all layers are version 1 at least.
+    interface_struct->loaderLayerInterfaceVersion = 1;
+
     if (fp_negotiate_layer_version != NULL) {
         // Layer supports the negotiation API, so call it with the loader's
         // latest version supported
