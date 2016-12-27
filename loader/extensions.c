@@ -240,17 +240,18 @@ VKAPI_ATTR VkResult VKAPI_CALL vkEnumeratePhysicalDeviceGroupsKHX(
         goto out;
     }
 
-    res = inst->disp->layer_inst_disp.EnumeratePhysicalDeviceGroupsKHX(
-        instance, pPhysicalDeviceGroupCount, pPhysicalDeviceGroupProperties);
-
-    if ((VK_SUCCESS != res && VK_INCOMPLETE != res) ||
-        NULL == pPhysicalDeviceGroupProperties) {
-        goto out;
+    if (pPhysicalDeviceGroupProperties == NULL || 0 == inst->total_gpu_count) {
+        VkResult setup_res = setupLoaderTrampPhysDevs(inst);
+        if (VK_SUCCESS != setup_res) {
+            res = setup_res;
+            goto out;
+        }
     }
 
-    VkResult setup_res = setupLoaderTrampPhysDevs(inst);
-    if (VK_SUCCESS != setup_res) {
-        res = setup_res;
+    res = inst->disp->layer_inst_disp.EnumeratePhysicalDeviceGroupsKHX(
+        instance, pPhysicalDeviceGroupCount, pPhysicalDeviceGroupProperties);
+    if ((VK_SUCCESS != res && VK_INCOMPLETE != res) ||
+        NULL == pPhysicalDeviceGroupProperties) {
         goto out;
     }
 
@@ -259,11 +260,11 @@ VKAPI_ATTR VkResult VKAPI_CALL vkEnumeratePhysicalDeviceGroupsKHX(
              dev < pPhysicalDeviceGroupProperties[group].physicalDeviceCount;
              dev++) {
             for (uint32_t tramp = 0; tramp < inst->total_gpu_count; tramp++) {
-                if (inst->phys_devs_tramp[tramp].phys_dev ==
+                if (inst->phys_devs_tramp[tramp]->phys_dev ==
                     pPhysicalDeviceGroupProperties[group]
                         .physicalDevices[dev]) {
                     pPhysicalDeviceGroupProperties[group].physicalDevices[dev] =
-                        (VkPhysicalDevice)&inst->phys_devs_tramp[tramp];
+                        (VkPhysicalDevice)inst->phys_devs_tramp[tramp];
                 }
             }
         }
@@ -283,15 +284,6 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_EnumeratePhysicalDeviceGroupsKHX(
     uint32_t total_group_count = 0;
     uint32_t max_group_count = *pPhysicalDeviceGroupCount;
     uint32_t i = 0;
-
-    // Only do the setup if we're re-querying the number of devices, or
-    // our count is currently 0.
-    if (NULL == pPhysicalDeviceGroupProperties || 0 == inst->total_gpu_count) {
-        res = setupLoaderTermPhysDevs(inst);
-        if (VK_SUCCESS != res) {
-            goto out;
-        }
-    }
 
     // We have to loop through all ICDs which may be capable of handling this
     // call and sum all the possible physical device groups together.
@@ -319,14 +311,14 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_EnumeratePhysicalDeviceGroupsKHX(
             // For ICDs which don't directly support this, create a group
             // for each physical device
             for (uint32_t j = 0; j < inst->total_gpu_count; j++) {
-                if (inst->phys_devs_term[j].icd_index == i) {
+                if (inst->phys_devs_term[j]->icd_index == i) {
                     if (NULL != pPhysicalDeviceGroupProperties &&
                         max_group_count > total_group_count) {
                         pPhysicalDeviceGroupProperties[total_group_count]
                             .physicalDeviceCount = 1;
                         pPhysicalDeviceGroupProperties[total_group_count]
                             .physicalDevices[0] =
-                            inst->phys_devs_term[j].phys_dev;
+                            inst->phys_devs_term[j]->phys_dev;
                     }
                     total_group_count++;
                 }
@@ -346,10 +338,10 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_EnumeratePhysicalDeviceGroupsKHX(
                 &pPhysicalDeviceGroupProperties[group];
             for (i = 0; i < cur_props->physicalDeviceCount; i++) {
                 for (uint32_t term = 0; term < inst->total_gpu_count; term++) {
-                    if (inst->phys_devs_term[term].phys_dev ==
+                    if (inst->phys_devs_term[term]->phys_dev ==
                         cur_props->physicalDevices[i]) {
                         cur_props->physicalDevices[i] =
-                            (VkPhysicalDevice)&inst->phys_devs_term[term];
+                            (VkPhysicalDevice)inst->phys_devs_term[term];
                     }
                 }
             }

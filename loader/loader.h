@@ -363,8 +363,10 @@ struct loader_instance {
     struct loader_instance_dispatch_table *disp; // must be first entry in structure
 
     uint32_t total_gpu_count;
-    struct loader_physical_device_term *phys_devs_term;
-    struct loader_physical_device_tramp *phys_devs_tramp;
+    uint32_t phys_dev_count_term;
+    struct loader_physical_device_term **phys_devs_term;
+    uint32_t phys_dev_count_tramp;
+    struct loader_physical_device_tramp **phys_devs_tramp;
 
     struct loader_instance *next;
 

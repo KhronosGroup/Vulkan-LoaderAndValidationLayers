@@ -509,8 +509,13 @@ LOADER_EXPORT VKAPI_ATTR void VKAPI_CALL vkDestroyInstance(
                              &ptr_instance->activated_layer_list);
 
     if (ptr_instance->phys_devs_tramp) {
+        for (uint32_t i = 0; i < ptr_instance->phys_dev_count_tramp; i++) {
+            loader_instance_heap_free(ptr_instance,
+                ptr_instance->phys_devs_tramp[i]);
+        }
         loader_instance_heap_free(ptr_instance, ptr_instance->phys_devs_tramp);
     }
+
     if (callback_setup) {
         util_DestroyDebugReportCallbacks(ptr_instance, pAllocator,
                                          ptr_instance->num_tmp_callbacks,
@@ -564,7 +569,7 @@ vkEnumeratePhysicalDevices(VkInstance instance, uint32_t *pPhysicalDeviceCount,
     *pPhysicalDeviceCount = count;
 
     for (i = 0; i < count; i++) {
-        pPhysicalDevices[i] = (VkPhysicalDevice)&inst->phys_devs_tramp[i];
+        pPhysicalDevices[i] = (VkPhysicalDevice)inst->phys_devs_tramp[i];
     }
 
 out:
