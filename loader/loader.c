@@ -5317,7 +5317,6 @@ VkResult setupLoaderTermPhysDevs(struct loader_instance *inst) {
     struct loader_phys_dev_per_icd *icd_phys_dev_array = NULL;
     struct loader_physical_device_term **new_phys_devs = NULL;
     uint32_t i = 0;
-    uint32_t cur_dev = 0;
 
     inst->total_gpu_count = 0;
 
