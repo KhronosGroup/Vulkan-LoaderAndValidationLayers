@@ -2685,12 +2685,6 @@ TEST_F(VkLayerTest, ImageSampleCounts) {
 }
 
 TEST_F(VkLayerTest, BlitImageFormats) {
-
-    // Image blit with mismatched formats
-    const char * expected_message =
-        "vkCmdBlitImage: If one of srcImage and dstImage images has signed/unsigned integer format,"
-        " the other one must also have signed/unsigned integer format";
-
     ASSERT_NO_FATAL_FAILURE(InitState());
 
     VkImageObj src_image(m_device);
@@ -2710,7 +2704,10 @@ TEST_F(VkLayerTest, BlitImageFormats) {
     blitRegion.dstSubresource.layerCount = 1;
     blitRegion.dstSubresource.mipLevel = 0;
 
-    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, expected_message);
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_02191);
+
+    // TODO: there are 9 permutations of signed, unsigned, & other for source and dest
+    //       this test is only checking 2 of them at the moment
 
     // Unsigned int vs not an int
     BeginCommandBuffer();
@@ -2719,12 +2716,16 @@ TEST_F(VkLayerTest, BlitImageFormats) {
 
     m_errorMonitor->VerifyFound();
 
-    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, expected_message);
+    // Test should generate 2 VU failures
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_02190);
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_02191);
 
     // Unsigned int vs signed int
     vkCmdBlitImage(m_commandBuffer->handle(), src_image.image(), src_image.layout(), dst_image2.image(),
                    dst_image2.layout(), 1, &blitRegion, VK_FILTER_NEAREST);
 
+    // TODO: Note that this only verifies that at least one of the VU enums was found
+    //       Also, if any were not seen, they'll remain in the target list (Soln TBD, JIRA task: VL-72)
     m_errorMonitor->VerifyFound();
 
     EndCommandBuffer();
@@ -4142,6 +4143,7 @@ TEST_F(VkLayerTest, InvalidCmdBufferBufferDestroyed) {
     vkQueueSubmit(m_device->m_queue, 1, &submit_info, VK_NULL_HANDLE);
 
     m_errorMonitor->VerifyFound();
+    vkQueueWaitIdle(m_device->m_queue);
     vkFreeMemory(m_device->handle(), mem, NULL);
 }
 
@@ -7129,12 +7131,10 @@ VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 }
 */
 
-TEST_F(VkLayerTest, PSOViewportScissorCountMismatch) {
+TEST_F(VkLayerTest, PSOViewportScissorCountTests) {
     VkResult err;
 
-    TEST_DESCRIPTION("Set scissor and viewport counts to different numbers");
-
-    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_01434);
+    TEST_DESCRIPTION("Test various cases of viewport and scissor count validation");
 
     ASSERT_NO_FATAL_FAILURE(InitState());
     ASSERT_NO_FATAL_FAILURE(InitRenderTarget());
@@ -7187,11 +7187,9 @@ TEST_F(VkLayerTest, PSOViewportScissorCountMismatch) {
     ASSERT_VK_SUCCESS(err);
 
     VkViewport vp = {};
-
     VkPipelineViewportStateCreateInfo vp_state_ci = {};
     vp_state_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    vp_state_ci.scissorCount = 0;
-    // Count mismatch should cause error
+    vp_state_ci.scissorCount = 1;
     vp_state_ci.viewportCount = 1;
     vp_state_ci.pViewports = &vp;
 
@@ -7229,7 +7227,6 @@ TEST_F(VkLayerTest, PSOViewportScissorCountMismatch) {
 
     VkShaderObj vs(m_device, bindStateVertShaderText, VK_SHADER_STAGE_VERTEX_BIT, this);
     VkShaderObj fs(m_device, bindStateFragShaderText, VK_SHADER_STAGE_FRAGMENT_BIT, this);
-    // We shouldn't need a fragment shader but add it to be able to run on more devices
     shaderStages[0] = vs.GetStageCreateInfo();
     shaderStages[1] = fs.GetStageCreateInfo();
 
@@ -7251,12 +7248,44 @@ TEST_F(VkLayerTest, PSOViewportScissorCountMismatch) {
 
     VkPipeline pipeline;
     VkPipelineCache pipelineCache;
-
     err = vkCreatePipelineCache(m_device->device(), &pc_ci, NULL, &pipelineCache);
     ASSERT_VK_SUCCESS(err);
-    err = vkCreateGraphicsPipelines(m_device->device(), pipelineCache, 1, &gp_ci, NULL, &pipeline);
 
-    m_errorMonitor->VerifyFound();
+    if (!m_device->phy().features().multiViewport) {
+        printf("MultiViewport feature is disabled -- skipping enabled-state checks.\n");
+
+        // Check case where multiViewport is disabled and viewport count is not 1
+        // We check scissor/viewport simultaneously since separating them would trigger the mismatch error, 1434.
+        m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_01430);
+        m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_01431);
+        vp_state_ci.scissorCount = 0;
+        vp_state_ci.viewportCount = 0;
+        err = vkCreateGraphicsPipelines(m_device->device(), pipelineCache, 1, &gp_ci, NULL, &pipeline);
+        m_errorMonitor->VerifyFound();
+    } else {
+        if (m_device->props.limits.maxViewports == 1) {
+            printf("Device limit maxViewports is 1, skipping tests that require higher limits.\n");
+        } else {
+            printf("MultiViewport feature is enabled -- skipping disabled-state checks.\n");
+
+            // Check is that viewportcount and scissorcount match
+            m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_01434);
+            vp_state_ci.scissorCount = 1;
+            vp_state_ci.viewportCount = m_device->props.limits.maxViewports;
+            err = vkCreateGraphicsPipelines(m_device->device(), pipelineCache, 1, &gp_ci, NULL, &pipeline);
+            m_errorMonitor->VerifyFound();
+
+
+            // Check case where multiViewport is enabled and viewport count is greater than max
+            // We check scissor/viewport simultaneously since separating them would trigger the mismatch error, 1434.
+            m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_01432);
+            m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_01433);
+            vp_state_ci.scissorCount = m_device->props.limits.maxViewports + 1;
+            vp_state_ci.viewportCount = m_device->props.limits.maxViewports + 1;
+            err = vkCreateGraphicsPipelines(m_device->device(), pipelineCache, 1, &gp_ci, NULL, &pipeline);
+            m_errorMonitor->VerifyFound();
+        }
+    }
 
     vkDestroyPipelineCache(m_device->device(), pipelineCache, NULL);
     vkDestroyPipelineLayout(m_device->device(), pipeline_layout, NULL);
@@ -14656,14 +14685,14 @@ TEST_F(VkLayerTest, MiscImageLayerTests) {
 
     ASSERT_NO_FATAL_FAILURE(InitState());
 
+    // TODO: Ideally we should check if a format is supported, before using it.
     VkImageObj image(m_device);
-    image.init(128, 128, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-               VK_IMAGE_TILING_OPTIMAL, 0);
+    image.init(128, 128, VK_FORMAT_R16G16B16A16_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+               VK_IMAGE_TILING_OPTIMAL, 0); // 64bpp
     ASSERT_TRUE(image.initialized());
-
     vk_testing::Buffer buffer;
     VkMemoryPropertyFlags reqs = 0;
-    buffer.init_as_src(*m_device, 128 * 128 * 4, reqs);
+    buffer.init_as_src(*m_device, 128 * 128 * 8, reqs);
     VkBufferImageCopy region = {};
     region.bufferRowLength = 128;
     region.bufferImageHeight = 128;
@@ -14673,6 +14702,23 @@ TEST_F(VkLayerTest, MiscImageLayerTests) {
     region.imageExtent.height = 4;
     region.imageExtent.width = 4;
     region.imageExtent.depth = 1;
+
+    VkImageObj image2(m_device);
+    image2.init(128, 128, VK_FORMAT_R8G8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+               VK_IMAGE_TILING_OPTIMAL, 0); // 16bpp
+    ASSERT_TRUE(image2.initialized());
+    vk_testing::Buffer buffer2;
+    VkMemoryPropertyFlags reqs2 = 0;
+    buffer2.init_as_src(*m_device, 128 * 128 * 2, reqs2);
+    VkBufferImageCopy region2 = {};
+    region2.bufferRowLength = 128;
+    region2.bufferImageHeight = 128;
+    region2.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    // layerCount can't be 0 - Expect MISMATCHED_IMAGE_ASPECT
+    region2.imageSubresource.layerCount = 1;
+    region2.imageExtent.height = 4;
+    region2.imageExtent.width = 4;
+    region2.imageExtent.depth = 1;
     m_commandBuffer->BeginCommandBuffer();
 
     // Image must have offset.z of 0 and extent.depth of 1
@@ -14696,7 +14742,7 @@ TEST_F(VkLayerTest, MiscImageLayerTests) {
     region.imageOffset.z = 0;
     // BufferOffset must be a multiple of the calling command's VkImage parameter's texel size
     // Introduce failure by setting bufferOffset to 1 and 1/2 texels
-    region.bufferOffset = 6;
+    region.bufferOffset = 4;
     m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_01263);
     vkCmdCopyBufferToImage(m_commandBuffer->GetBufferHandle(), buffer.handle(), image.handle(),
                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
@@ -14704,10 +14750,10 @@ TEST_F(VkLayerTest, MiscImageLayerTests) {
 
     // BufferOffset must be a multiple of 4
     // Introduce failure by setting bufferOffset to a value not divisible by 4
-    region.bufferOffset = 6;
+    region2.bufferOffset = 6;
     m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_01264);
-    vkCmdCopyBufferToImage(m_commandBuffer->GetBufferHandle(), buffer.handle(), image.handle(),
-                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+    vkCmdCopyBufferToImage(m_commandBuffer->GetBufferHandle(), buffer2.handle(), image2.handle(),
+                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region2);
     m_errorMonitor->VerifyFound();
 
     // BufferRowLength must be 0, or greater than or equal to the width member of imageExtent
@@ -14731,8 +14777,7 @@ TEST_F(VkLayerTest, MiscImageLayerTests) {
     m_errorMonitor->VerifyFound();
 
     region.bufferImageHeight = 128;
-    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT,
-                                         "If the format of srcImage is a depth, stencil, depth stencil or "
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, "If the format of srcImage is an "
                                          "integer-based format then filter must be VK_FILTER_NEAREST");
     // Expect INVALID_FILTER
     VkImageObj intImage1(m_device);

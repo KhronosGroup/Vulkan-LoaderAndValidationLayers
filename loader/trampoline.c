@@ -68,8 +68,7 @@ vkGetInstanceProcAddr(VkInstance instance, const char *pName) {
     // extensions.
     // Device extensions are returned if a layer or ICD supports the extension.
     // Instance extensions are returned if the extension is enabled and the
-    // loader
-    // or someone else supports the extension
+    // loader or someone else supports the extension
     return trampolineGetProcAddr(ptr_instance, pName);
 }
 
@@ -511,7 +510,7 @@ LOADER_EXPORT VKAPI_ATTR void VKAPI_CALL vkDestroyInstance(
     if (ptr_instance->phys_devs_tramp) {
         for (uint32_t i = 0; i < ptr_instance->phys_dev_count_tramp; i++) {
             loader_instance_heap_free(ptr_instance,
-                ptr_instance->phys_devs_tramp[i]);
+                                      ptr_instance->phys_devs_tramp[i]);
         }
         loader_instance_heap_free(ptr_instance, ptr_instance->phys_devs_tramp);
     }

@@ -4735,7 +4735,7 @@ VkResult loader_validate_layers(const struct loader_instance *inst,
 VkResult loader_validate_instance_extensions(
     const struct loader_instance *inst,
     const struct loader_extension_list *icd_exts,
-    const struct loader_layer_list *instance_layer,
+    const struct loader_layer_list *instance_layers,
     const VkInstanceCreateInfo *pCreateInfo) {
 
     VkExtensionProperties *extension_prop;
@@ -4763,7 +4763,7 @@ VkResult loader_validate_instance_extensions(
         /* Not in global list, search layer extension lists */
         for (uint32_t j = 0; j < pCreateInfo->enabledLayerCount; j++) {
             layer_prop = loader_get_layer_property(
-                pCreateInfo->ppEnabledLayerNames[j], instance_layer);
+                pCreateInfo->ppEnabledLayerNames[j], instance_layers);
             if (!layer_prop) {
                 /* Should NOT get here, loader_validate_layers
                  * should have already filtered this case out.
@@ -5031,7 +5031,7 @@ VKAPI_ATTR void VKAPI_CALL terminator_DestroyInstance(
     if (NULL != ptr_instance->phys_devs_term) {
         for (uint32_t i = 0; i < ptr_instance->phys_dev_count_term; i++) {
             loader_instance_heap_free(ptr_instance,
-                ptr_instance->phys_devs_term[i]);
+                                      ptr_instance->phys_devs_term[i]);
         }
         loader_instance_heap_free(ptr_instance, ptr_instance->phys_devs_term);
     }
@@ -5213,7 +5213,7 @@ VkResult setupLoaderTrampPhysDevs(struct loader_instance *inst) {
     // Create an array for the new physical devices, which will be stored
     // in the instance for the trampoline code.
     new_phys_devs =
-        (struct loader_physical_device_tramp *)loader_instance_heap_alloc(
+        (struct loader_physical_device_tramp **)loader_instance_heap_alloc(
             inst,
             total_count * sizeof(struct loader_physical_device_tramp *),
             VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
@@ -5317,7 +5317,6 @@ VkResult setupLoaderTermPhysDevs(struct loader_instance *inst) {
     struct loader_phys_dev_per_icd *icd_phys_dev_array = NULL;
     struct loader_physical_device_term **new_phys_devs = NULL;
     uint32_t i = 0;
-    uint32_t j;
     uint32_t cur_dev = 0;
 
     inst->total_gpu_count = 0;
@@ -5728,8 +5727,11 @@ VkStringErrorFlags vk_string_validate(const int max_length, const char *utf8) {
     int num_char_bytes = 0;
     int i, j;
 
-    for (i = 0; i < max_length; i++) {
+    for (i = 0; i <= max_length; i++) {
         if (utf8[i] == 0) {
+            break;
+        } else if (i == max_length) {
+            result |= VK_STRING_ERROR_LENGTH;
             break;
         } else if ((utf8[i] >= 0x20) && (utf8[i] < 0x7f)) {
             num_char_bytes = 0;

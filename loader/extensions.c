@@ -352,8 +352,6 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_EnumeratePhysicalDeviceGroupsKHX(
         }
     }
 
-out:
-
     return res;
 }
 
