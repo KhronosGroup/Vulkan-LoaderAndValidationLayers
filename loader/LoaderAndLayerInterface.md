@@ -98,10 +98,10 @@ Layers are optional components that augment the Vulkan system.  They can
 intercept, evaluate, and modify existing Vulkan functions on their way from the
 application down to the hardware.  Layers are implemented as libraries that can
 be enabled in different ways (including by application request) and are loaded
-during CreateInstance.  Each layer can chooses to hook (intercept) any Vulkan
-functions which in turn can be ignored, augmented, or simply passed along.  A
-layer does not need to intercept all Vulkan functions.  It may choose to
-intercept all known functions, or, it may choose to intercept only one function.
+during CreateInstance.  Each layer can choose to hook (intercept) any Vulkan
+functions which in turn can be ignored or augmented.  A layer does not need to
+intercept all Vulkan functions.  It may choose to intercept all known functions,
+or, it may choose to intercept only one function.
 
 Some examples of features that layers may expose include:
  * Validating API usage
