@@ -47,6 +47,9 @@
 // This intentionally includes a cpp file
 #include "vk_safe_struct.cpp"
 
+// This intentionally includes a cpp file
+#include "vk_safe_struct.cpp"
+
 #include "unique_objects_wrappers.h"
 
 namespace unique_objects {
