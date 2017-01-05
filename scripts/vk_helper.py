@@ -38,7 +38,6 @@ def handle_args():
     parser.add_argument('input_file', help='The input header file from which code will be generated.')
     parser.add_argument('--rel_out_dir', required=False, default='vktrace_gen', help='Path relative to exec path to write output files. Will be created if needed.')
     parser.add_argument('--abs_out_dir', required=False, default=None, help='Absolute path to write output files. Will be created if needed.')
-    parser.add_argument('--gen_enum_string_helper', required=False, action='store_true', default=False, help='Enable generation of helper header file to print string versions of enums.')
     parser.add_argument('--gen_struct_wrappers', required=False, action='store_true', default=False, help='Enable generation of struct wrapper classes.')
     parser.add_argument('--gen_struct_sizes', required=False, action='store_true', default=False, help='Enable generation of struct sizes.')
     parser.add_argument('--quiet', required=False, action='store_true', default=False, help='Suppress output from running the script.')
@@ -267,18 +266,19 @@ class HeaderFileParser:
     #  3a. Name of dynam array must end in 's' char OR
     #  3b. Name of count var minus 'count' must be contained in name of dynamic array
     def _is_dynamic_array(self, full_type, name):
-        exceptions = ['pEnabledFeatures', 'pWaitDstStageMask', 'pSampleMask']
-        if name in exceptions:
+        negative_exceptions = ['pEnabledFeatures', 'pSampleMask']
+        positive_exceptions = ['pWaitDstStageMask']
+        if name in negative_exceptions:
             return False
+        if name in positive_exceptions:
+            return True
         if '' != self.last_struct_count_name:
             if 'const' in full_type and '*' in full_type:
                 if name.endswith('s') or self.last_struct_count_name.lower().replace('count', '') in name.lower():
                     return True
-
                 # VkWriteDescriptorSet
                 if self.last_struct_count_name == "descriptorCount":
                     return True
-
         return False
 
     # populate struct dicts based on struct lines
@@ -498,13 +498,9 @@ class StructWrapperGen:
             self.api_prefix = prefix
         self.safe_struct_header_filename = os.path.join(out_dir, self.api_prefix+"_safe_struct.h")
         self.safe_struct_source_filename = os.path.join(out_dir, self.api_prefix+"_safe_struct.cpp")
-        self.string_helper_filename = os.path.join(out_dir, self.api_prefix+"_struct_string_helper.h")
-        self.string_helper_cpp_filename = os.path.join(out_dir, self.api_prefix+"_struct_string_helper_cpp.h")
         # Safe Struct (ss) header and source files
         self.ssh = CommonFileGen(self.safe_struct_header_filename)
         self.sss = CommonFileGen(self.safe_struct_source_filename)
-        self.shg = CommonFileGen(self.string_helper_filename)
-        self.shcppg = CommonFileGen(self.string_helper_cpp_filename)
         self.size_helper_filename = os.path.join(out_dir, self.api_prefix+"_struct_size_helper.h")
         self.size_helper_c_filename = os.path.join(out_dir, self.api_prefix+"_struct_size_helper.c")
         self.size_helper_gen = CommonFileGen(self.size_helper_filename)
@@ -537,24 +533,6 @@ class StructWrapperGen:
         self.sss.setHeader(self._generateSafeStructSourceHeader())
         self.sss.setBody(self._generateSafeStructSource())
         self.sss.generate()
-
-    # Generate c-style .h file that contains functions for printing structs
-    def generateStringHelper(self):
-        if not self.quiet:
-            print("Generating struct string helper")
-        self.shg.setCopyright(self._generateCopyright())
-        self.shg.setHeader(self._generateStringHelperHeader())
-        self.shg.setBody(self._generateStringHelperFunctions())
-        self.shg.generate()
-
-    # Generate cpp-style .h file that contains functions for printing structs
-    def generateStringHelperCpp(self):
-        if not self.quiet:
-            print("Generating struct string helper cpp")
-        self.shcppg.setCopyright(self._generateCopyright())
-        self.shcppg.setHeader(self._generateStringHelperHeaderCpp())
-        self.shcppg.setBody(self._generateStringHelperFunctionsCpp())
-        self.shcppg.generate()
 
     def generateSizeHelper(self):
         if not self.quiet:
@@ -609,62 +587,8 @@ class StructWrapperGen:
         header.append("#include <stdio.h>\n#include <%s>\n#include <%s_enum_string_helper.h>\n" % (os.path.basename(self.header_filename), self.api_prefix))
         return "".join(header)
 
-    def _generateClassDefinition(self):
-        class_def = []
-        if 'vk' == self.api:
-            class_def.append(self._generateDynamicPrintFunctions())
-        for s in sorted(self.struct_dict):
-            class_def.append("\n// %s class definition" % self.get_class_name(s))
-            class_def.append(self._generateConstructorDefinitions(s))
-            class_def.append(self._generateDestructorDefinitions(s))
-            class_def.append(self._generateDisplayDefinitions(s))
-        return "\n".join(class_def)
-
-    def _generateConstructorDefinitions(self, s):
-        con_defs = []
-        con_defs.append("%s::%s() : m_struct(), m_indent(0), m_dummy_prefix('\\0'), m_origStructAddr(NULL) {}" % (self.get_class_name(s), self.get_class_name(s)))
-        # TODO : This is a shallow copy of ptrs
-        con_defs.append("%s::%s(%s* pInStruct) : m_indent(0), m_dummy_prefix('\\0')\n{\n    m_struct = *pInStruct;\n    m_origStructAddr = pInStruct;\n}" % (self.get_class_name(s), self.get_class_name(s), typedef_fwd_dict[s]))
-        con_defs.append("%s::%s(const %s* pInStruct) : m_indent(0), m_dummy_prefix('\\0')\n{\n    m_struct = *pInStruct;\n    m_origStructAddr = pInStruct;\n}" % (self.get_class_name(s), self.get_class_name(s), typedef_fwd_dict[s]))
-        return "\n".join(con_defs)
-
-    def _generateDestructorDefinitions(self, s):
-        return "%s::~%s() {}" % (self.get_class_name(s), self.get_class_name(s))
-
-    def _generateDynamicPrintFunctions(self):
-        dp_funcs = []
-        dp_funcs.append("\nvoid dynamic_display_full_txt(const void* pStruct, uint32_t indent)\n{\n    // Cast to APP_INFO ptr initially just to pull sType off struct")
-        dp_funcs.append("    VkStructureType sType = ((VkApplicationInfo*)pStruct)->sType;\n")
-        dp_funcs.append("    switch (sType)\n    {")
-        for e in enum_type_dict:
-            class_num = 0
-            if "StructureType" in e:
-                for v in sorted(enum_type_dict[e]):
-                    struct_name = get_struct_name_from_struct_type(v)
-                    if struct_name not in self.struct_dict:
-                        continue
-
-                    class_name = self.get_class_name(struct_name)
-                    instance_name = "swc%i" % class_num
-                    dp_funcs.append("        case %s:\n        {" % (v))
-                    dp_funcs.append("            %s %s((%s*)pStruct);" % (class_name, instance_name, struct_name))
-                    dp_funcs.append("            %s.set_indent(indent);" % (instance_name))
-                    dp_funcs.append("            %s.display_full_txt();" % (instance_name))
-                    dp_funcs.append("        }")
-                    dp_funcs.append("        break;")
-                    class_num += 1
-                dp_funcs.append("    }")
-        dp_funcs.append("}\n")
-        return "\n".join(dp_funcs)
-
     def _get_func_name(self, struct, mid_str):
         return "%s_%s_%s" % (self.api_prefix, mid_str, struct.lower().strip("_"))
-
-    def _get_sh_func_name(self, struct):
-        return self._get_func_name(struct, 'print')
-
-    def _get_vh_func_name(self, struct):
-        return self._get_func_name(struct, 'validate')
 
     def _get_size_helper_func_name(self, struct):
         return self._get_func_name(struct, 'size')
@@ -1285,7 +1209,6 @@ class StructWrapperGen:
 
         return "\n".join(sh_funcs)
 
-
     def _generateSizeHelperFunctionsC(self):
         sh_funcs = []
         # generate function definitions
@@ -1510,9 +1433,6 @@ class StructWrapperGen:
         for m in self.struct_dict[s]:
             if self.struct_dict[s][m]['ptr']:
                 return True
-        inclusions = ['VkDisplayPlanePropertiesKHR', 'VkDisplayModePropertiesKHR', 'VkDisplayPropertiesKHR']
-        if s in inclusions:
-            return True
         return False
 
     def _generateSafeStructHeader(self):
@@ -1698,9 +1618,9 @@ class StructWrapperGen:
                 init_list = init_list[:-1] # hack off final comma
             if s in custom_construct_txt:
                 construct_txt = custom_construct_txt[s]
-            ss_src.append("\n%s::%s(const %s* pInStruct) : %s\n{\n%s}" % (ss_name, ss_name, s, init_list, construct_txt))
+            ss_src.append("\n%s::%s(const %s* pInStruct) :%s\n{\n%s}" % (ss_name, ss_name, s, init_list, construct_txt))
             if '' != default_init_list:
-                default_init_list = " : %s" % (default_init_list[:-1])
+                default_init_list = " :%s" % (default_init_list[:-1])
             ss_src.append("\n%s::%s()%s\n{}" % (ss_name, ss_name, default_init_list))
             # Create slight variation of init and construct txt for copy constructor that takes a src object reference vs. struct ptr
             copy_construct_init = init_func_txt.replace('pInStruct->', 'src.')
@@ -1717,43 +1637,6 @@ class StructWrapperGen:
             if s in ifdef_dict:
                 ss_src.append('#endif')
         return "\n".join(ss_src)
-
-class EnumCodeGen:
-    def __init__(self, enum_type_dict=None, enum_val_dict=None, typedef_fwd_dict=None, in_file=None, out_sh_file=None):
-        self.et_dict = enum_type_dict
-        self.ev_dict = enum_val_dict
-        self.tf_dict = typedef_fwd_dict
-        self.in_file = in_file
-        self.out_sh_file = out_sh_file
-        self.eshfg = CommonFileGen(self.out_sh_file)
-
-    def generateStringHelper(self):
-        self.eshfg.setHeader(self._generateSHHeader())
-        self.eshfg.setBody(self._generateSHBody())
-        self.eshfg.generate()
-
-    def _generateSHBody(self):
-        body = []
-#        with open(self.out_file, "a") as hf:
-            # bet == base_enum_type, fet == final_enum_type
-        for bet in sorted(self.et_dict):
-            fet = self.tf_dict[bet]
-            body.append("static inline const char* string_%s(%s input_value)\n{\n    switch ((%s)input_value)\n    {" % (fet, fet, fet))
-            for e in sorted(self.et_dict[bet]):
-                if (self.ev_dict[e]['unique']):
-                    body.append('        case %s:\n            return "%s";' % (e, e))
-            body.append('        default:\n            return "Unhandled %s";\n    }\n}\n\n' % (fet))
-        return "\n".join(body)
-
-    def _generateSHHeader(self):
-        header = []
-        header.append('#pragma once\n')
-        header.append('#ifdef _WIN32\n')
-        header.append('#pragma warning( disable : 4065 )\n')
-        header.append('#endif\n')
-        header.append('#include <vulkan/%s>\n\n\n' % self.in_file)
-        return "\n".join(header)
-
 
 def main(argv=None):
     opts = handle_args()
@@ -1793,20 +1676,10 @@ def main(argv=None):
         if not opts.quiet:
             print("Creating output dir %s" % os.path.dirname(enum_sh_filename))
         os.mkdir(os.path.dirname(enum_sh_filename))
-    if opts.gen_enum_string_helper:
-        if not opts.quiet:
-            print("Generating enum string helper to %s" % enum_sh_filename)
-        eg = EnumCodeGen(enum_type_dict, enum_val_dict, typedef_fwd_dict, os.path.basename(opts.input_file), enum_sh_filename)
-        eg.generateStringHelper()
-    #for struct in struct_dict:
-    #print(struct)
     if opts.gen_struct_wrappers:
         sw = StructWrapperGen(struct_dict, os.path.basename(opts.input_file).strip(".h"), os.path.dirname(enum_sh_filename), opts.quiet)
         #print(sw.get_class_name(struct))
         sw.set_include_headers([input_header,os.path.basename(enum_sh_filename),"stdint.h","cinttypes", "stdio.h","stdlib.h"])
-        sw.generateStringHelper()
-        sw.set_include_headers([input_header,os.path.basename(enum_sh_filename),"stdint.h","stdio.h","stdlib.h","iostream","sstream","string"])
-        sw.generateStringHelperCpp()
         sw.set_include_headers(["stdio.h", "stdlib.h", input_header])
         sw.generateSizeHelper()
         sw.generateSizeHelperC()

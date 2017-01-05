@@ -36,10 +36,11 @@
 #include <unordered_map>
 #include <vector>
 #include <bitset>
+#include <sstream>
 
 #include "vk_loader_platform.h"
 #include "vk_dispatch_table_helper.h"
-#include "vk_struct_string_helper_cpp.h"
+#include "vk_enum_string_helper.h"
 #include "image.h"
 #include "vk_layer_config.h"
 #include "vk_layer_extension_utils.h"
@@ -441,14 +442,6 @@ VKAPI_ATTR void VKAPI_CALL CmdClearColorImage(VkCommandBuffer commandBuffer, VkI
                                               const VkImageSubresourceRange *pRanges) {
     bool skipCall = false;
     layer_data *device_data = get_my_data_ptr(get_dispatch_key(commandBuffer), layer_data_map);
-
-    if (imageLayout != VK_IMAGE_LAYOUT_GENERAL && imageLayout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
-        char const str[] =
-            "vkCmdClearColorImage parameter, imageLayout, must be VK_IMAGE_LAYOUT_GENERAL or VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL";
-        skipCall |= log_msg(device_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                            (uint64_t)commandBuffer, __LINE__, VALIDATION_ERROR_01086, "IMAGE", "%s. %s", str,
-                            validation_error_map[VALIDATION_ERROR_01086]);
-    }
 
     // For each range, image aspect must be color only
     // TODO: this is a 'must' in the spec, so there should be a VU enum for it
