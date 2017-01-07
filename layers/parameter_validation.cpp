@@ -1605,10 +1605,6 @@ static void CheckInstanceRegisterExtensions(const VkInstanceCreateInfo *pCreateI
 #endif
         } else if (strcmp(name, VK_KHR_DISPLAY_EXTENSION_NAME) == 0) {
             instance_data->extensions.display_enabled = true;
-        } else if (strcmp(name, VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME) == 0) {
-            instance_data->extensions.khr_get_phys_dev_properties2_enabled = true;
-        } else if (strcmp(name, VK_KHX_DEVICE_GROUP_CREATION_EXTENSION_NAME) == 0) {
-            instance_data->extensions.khx_device_group_creation_enabled = true;
         } else if (strcmp(name, VK_KHX_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME) == 0) {
             instance_data->extensions.khx_external_memory_capabilities_enabled = true;
         } else if (strcmp(name, VK_KHX_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME) == 0) {
@@ -1617,12 +1613,6 @@ static void CheckInstanceRegisterExtensions(const VkInstanceCreateInfo *pCreateI
             instance_data->extensions.nv_external_memory_capabilities_enabled = true;
         } else if (strcmp(name, VK_KHX_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME) == 0) {
             instance_data->extensions.khx_external_semaphore_capabilities_enabled = true;
-#ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
-        } else if (strcmp(name, VK_EXT_ACQUIRE_XLIB_DISPLAY_EXTENSION_NAME) == 0) {
-            instance_data->extensions.ext_acquire_xlib_display_enabled = true;
-#endif
-        } else if (strcmp(name, VK_EXT_DIRECT_MODE_DISPLAY_EXTENSION_NAME) == 0) {
-            instance_data->extensions.ext_direct_mode_display_enabled = true;
         } else if (strcmp(name, VK_EXT_DISPLAY_SURFACE_COUNTER_EXTENSION_NAME) == 0) {
             instance_data->extensions.ext_display_surface_counter_enabled = true;
         } else if (strcmp(name, VK_NV_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME) == 0) {
@@ -1638,12 +1628,6 @@ static void CheckDeviceRegisterExtensions(const VkDeviceCreateInfo *pCreateInfo,
             device_data->enables.khr_swapchain_enabled = true;
         } else if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_KHR_DISPLAY_SWAPCHAIN_EXTENSION_NAME) == 0) {
             device_data->enables.khr_display_swapchain_enabled = true;
-        } else if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_KHR_MAINTENANCE1_EXTENSION_NAME) == 0) {
-            device_data->enables.khr_maintenance1 = true;
-        } else if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_KHX_DEVICE_GROUP_EXTENSION_NAME) == 0) {
-            device_data->enables.khx_device_group = true;
-        } else if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_KHX_PUSH_DESCRIPTOR_EXTENSION_NAME) == 0) {
-            device_data->enables.khx_push_descriptor = true;
         } else if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_KHX_EXTERNAL_MEMORY_FD_EXTENSION_NAME) == 0) {
             device_data->enables.khx_external_memory_fd = true;
         } else if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_KHX_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME) == 0) {
@@ -5490,352 +5474,6 @@ VKAPI_ATTR VkResult VKAPI_CALL CreateDisplayPlaneSurfaceKHR(VkInstance instance,
     return result;
 }
 
-// Definitions for the VK_KHR_get_physical_device_properties2 extension
-
-VKAPI_ATTR void VKAPI_CALL GetPhysicalDeviceFeatures2KHR(VkPhysicalDevice physicalDevice, VkPhysicalDeviceFeatures2KHR *pFeatures) {
-    bool skip_call = false;
-    auto my_data = get_my_data_ptr(get_dispatch_key(physicalDevice), instance_layer_data_map);
-    assert(my_data != NULL);
-
-    skip_call |=
-        require_instance_extension(physicalDevice, &instance_extension_enables::khr_get_phys_dev_properties2_enabled,
-                                   "vkGetPhysicalDeviceFeatures2KHR", VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
-
-    skip_call |= parameter_validation_vkGetPhysicalDeviceFeatures2KHR(my_data->report_data, pFeatures);
-
-    if (!skip_call) {
-        my_data->dispatch_table.GetPhysicalDeviceFeatures2KHR(physicalDevice, pFeatures);
-    }
-}
-
-VKAPI_ATTR void VKAPI_CALL GetPhysicalDeviceProperties2KHR(VkPhysicalDevice physicalDevice,
-                                                           VkPhysicalDeviceProperties2KHR *pProperties) {
-    bool skip_call = false;
-    auto my_data = get_my_data_ptr(get_dispatch_key(physicalDevice), instance_layer_data_map);
-    assert(my_data != NULL);
-
-    skip_call |=
-        require_instance_extension(physicalDevice, &instance_extension_enables::khr_get_phys_dev_properties2_enabled,
-                                   "vkGetPhysicalDeviceProperties2KHR", VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
-
-    skip_call |= parameter_validation_vkGetPhysicalDeviceProperties2KHR(my_data->report_data, pProperties);
-
-    if (!skip_call) {
-        my_data->dispatch_table.GetPhysicalDeviceProperties2KHR(physicalDevice, pProperties);
-    }
-}
-
-VKAPI_ATTR void VKAPI_CALL GetPhysicalDeviceFormatProperties2KHR(VkPhysicalDevice physicalDevice, VkFormat format,
-                                                                 VkFormatProperties2KHR *pFormatProperties) {
-    bool skip_call = false;
-    auto my_data = get_my_data_ptr(get_dispatch_key(physicalDevice), instance_layer_data_map);
-    assert(my_data != NULL);
-
-    skip_call |= require_instance_extension(physicalDevice, &instance_extension_enables::khr_get_phys_dev_properties2_enabled,
-                                            "vkGetPhysicalDeviceFormatProperties2KHR",
-                                            VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
-
-    skip_call |= parameter_validation_vkGetPhysicalDeviceFormatProperties2KHR(my_data->report_data, format, pFormatProperties);
-
-    if (!skip_call) {
-        my_data->dispatch_table.GetPhysicalDeviceFormatProperties2KHR(physicalDevice, format, pFormatProperties);
-    }
-}
-
-VKAPI_ATTR VkResult VKAPI_CALL GetPhysicalDeviceImageFormatProperties2KHR(
-    VkPhysicalDevice physicalDevice, const VkPhysicalDeviceImageFormatInfo2KHR *pImageFormatInfo,
-    VkImageFormatProperties2KHR *pImageFormatProperties) {
-    VkResult result = VK_ERROR_VALIDATION_FAILED_EXT;
-    bool skip_call = false;
-    auto my_data = get_my_data_ptr(get_dispatch_key(physicalDevice), instance_layer_data_map);
-    assert(my_data != NULL);
-
-    skip_call |= require_instance_extension(physicalDevice, &instance_extension_enables::khr_get_phys_dev_properties2_enabled,
-                                            "vkGetPhysicalDeviceImageFormatProperties2KHR",
-                                            VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
-
-    skip_call |= parameter_validation_vkGetPhysicalDeviceImageFormatProperties2KHR(my_data->report_data, pImageFormatInfo,
-                                                                                   pImageFormatProperties);
-
-    if (!skip_call) {
-        result = my_data->dispatch_table.GetPhysicalDeviceImageFormatProperties2KHR(physicalDevice, pImageFormatInfo,
-                                                                                    pImageFormatProperties);
-        validate_result(my_data->report_data, "vkGetPhysicalDeviceImageFormatProperties2KHR", result);
-    }
-
-    return result;
-}
-
-VKAPI_ATTR void VKAPI_CALL GetPhysicalDeviceQueueFamilyProperties2KHR(VkPhysicalDevice physicalDevice,
-                                                                      uint32_t *pQueueFamilyPropertyCount,
-                                                                      VkQueueFamilyProperties2KHR *pQueueFamilyProperties) {
-    bool skip_call = false;
-    auto my_data = get_my_data_ptr(get_dispatch_key(physicalDevice), instance_layer_data_map);
-    assert(my_data != NULL);
-
-    skip_call |= require_instance_extension(physicalDevice, &instance_extension_enables::khr_get_phys_dev_properties2_enabled,
-                                            "vkGetPhysicalDeviceQueueFamilyProperties2KHR",
-                                            VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
-
-    skip_call |= parameter_validation_vkGetPhysicalDeviceQueueFamilyProperties2KHR(my_data->report_data, pQueueFamilyPropertyCount,
-                                                                                   pQueueFamilyProperties);
-
-    if (!skip_call) {
-        my_data->dispatch_table.GetPhysicalDeviceQueueFamilyProperties2KHR(physicalDevice, pQueueFamilyPropertyCount,
-                                                                           pQueueFamilyProperties);
-    }
-}
-
-VKAPI_ATTR void VKAPI_CALL GetPhysicalDeviceMemoryProperties2KHR(VkPhysicalDevice physicalDevice,
-                                                                 VkPhysicalDeviceMemoryProperties2KHR *pMemoryProperties) {
-    bool skip_call = false;
-    auto my_data = get_my_data_ptr(get_dispatch_key(physicalDevice), instance_layer_data_map);
-    assert(my_data != NULL);
-
-    skip_call |= require_instance_extension(physicalDevice, &instance_extension_enables::khr_get_phys_dev_properties2_enabled,
-                                            "vkGetPhysicalDeviceMemoryProperties2KHR",
-                                            VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
-
-    skip_call |= parameter_validation_vkGetPhysicalDeviceMemoryProperties2KHR(my_data->report_data, pMemoryProperties);
-
-    if (!skip_call) {
-        my_data->dispatch_table.GetPhysicalDeviceMemoryProperties2KHR(physicalDevice, pMemoryProperties);
-    }
-}
-
-VKAPI_ATTR void VKAPI_CALL GetPhysicalDeviceSparseImageFormatProperties2KHR(
-    VkPhysicalDevice physicalDevice, const VkPhysicalDeviceSparseImageFormatInfo2KHR *pFormatInfo, uint32_t *pPropertyCount,
-    VkSparseImageFormatProperties2KHR *pProperties) {
-    bool skip_call = false;
-    auto my_data = get_my_data_ptr(get_dispatch_key(physicalDevice), instance_layer_data_map);
-    assert(my_data != NULL);
-
-    skip_call |= require_instance_extension(physicalDevice, &instance_extension_enables::khr_get_phys_dev_properties2_enabled,
-                                            "vkGetPhysicalDeviceSparseImageFormatProperties2KHR",
-                                            VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
-
-    skip_call |= parameter_validation_vkGetPhysicalDeviceSparseImageFormatProperties2KHR(my_data->report_data, pFormatInfo,
-                                                                                         pPropertyCount, pProperties);
-
-    if (!skip_call) {
-        my_data->dispatch_table.GetPhysicalDeviceSparseImageFormatProperties2KHR(physicalDevice, pFormatInfo, pPropertyCount,
-                                                                                 pProperties);
-    }
-}
-
-// Definitions for the VK_KHR_maintenance1 extension
-
-VKAPI_ATTR void VKAPI_CALL TrimCommandPoolKHR(VkDevice device, VkCommandPool commandPool, VkCommandPoolTrimFlagsKHR flags) {
-    bool skip_call = false;
-    layer_data *my_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
-    assert(my_data != NULL);
-
-    skip_call |= require_device_extension(my_data, my_data->enables.khr_maintenance1, "vkTrimCommandPoolKHR",
-                                          VK_KHR_MAINTENANCE1_EXTENSION_NAME);
-
-    skip_call |= parameter_validation_vkTrimCommandPoolKHR(my_data->report_data, commandPool, flags);
-
-    if (!skip_call) {
-        my_data->dispatch_table.TrimCommandPoolKHR(device, commandPool, flags);
-    }
-}
-
-// Definitions for the VK_KHX_device_group_creation extension
-
-VKAPI_ATTR VkResult VKAPI_CALL EnumeratePhysicalDeviceGroupsKHX(
-    VkInstance instance, uint32_t *pPhysicalDeviceGroupCount, VkPhysicalDeviceGroupPropertiesKHX *pPhysicalDeviceGroupProperties) {
-    VkResult result = VK_ERROR_VALIDATION_FAILED_EXT;
-    bool skip_call = false;
-    auto my_data = get_my_data_ptr(get_dispatch_key(instance), instance_layer_data_map);
-    assert(my_data != NULL);
-
-    skip_call |= require_instance_extension(instance, &instance_extension_enables::khx_device_group_creation_enabled,
-                                            "vkEnumeratePhysicalDeviceGroupsKHX", VK_KHX_DEVICE_GROUP_CREATION_EXTENSION_NAME);
-
-    skip_call |= parameter_validation_vkEnumeratePhysicalDeviceGroupsKHX(my_data->report_data, pPhysicalDeviceGroupCount,
-                                                                         pPhysicalDeviceGroupProperties);
-
-    if (!skip_call) {
-        result = my_data->dispatch_table.EnumeratePhysicalDeviceGroupsKHX(instance, pPhysicalDeviceGroupCount,
-                                                                          pPhysicalDeviceGroupProperties);
-        validate_result(my_data->report_data, "vkEnumeratePhysicalDeviceGroupsKHX", result);
-
-        if ((result == VK_SUCCESS) && (NULL != pPhysicalDeviceGroupProperties)) {
-            for (uint32_t group = 0; group < *pPhysicalDeviceGroupCount; group++) {
-                for (uint32_t device = 0; device < pPhysicalDeviceGroupProperties[group].physicalDeviceCount; device++) {
-                    VkPhysicalDevice phys_dev = pPhysicalDeviceGroupProperties[group].physicalDevices[device];
-                    layer_data *phy_dev_data = get_my_data_ptr(get_dispatch_key(phys_dev), layer_data_map);
-                    // Save the supported features for each physical device
-                    my_data->dispatch_table.GetPhysicalDeviceFeatures(phys_dev, &(phy_dev_data->physical_device_features));
-                }
-            }
-        }
-    }
-    return result;
-}
-
-// Definitions for the VK_KHX_device_group extension
-
-VKAPI_ATTR void VKAPI_CALL GetDeviceGroupPeerMemoryFeaturesKHX(VkDevice device, uint32_t heapIndex, uint32_t localDeviceIndex,
-                                                               uint32_t remoteDeviceIndex,
-                                                               VkPeerMemoryFeatureFlagsKHX *pPeerMemoryFeatures) {
-    bool skip_call = false;
-    layer_data *my_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
-    assert(my_data != NULL);
-
-    skip_call |= require_device_extension(my_data, my_data->enables.khx_device_group, "vkGetDeviceGroupPeerMemoryFeaturesKHX",
-                                          VK_KHX_DEVICE_GROUP_EXTENSION_NAME);
-
-    skip_call |= parameter_validation_vkGetDeviceGroupPeerMemoryFeaturesKHX(my_data->report_data, heapIndex, localDeviceIndex,
-                                                                            remoteDeviceIndex, pPeerMemoryFeatures);
-
-    if (!skip_call) {
-        my_data->dispatch_table.GetDeviceGroupPeerMemoryFeaturesKHX(device, heapIndex, localDeviceIndex, remoteDeviceIndex,
-                                                                    pPeerMemoryFeatures);
-    }
-}
-
-VKAPI_ATTR VkResult VKAPI_CALL BindBufferMemory2KHX(VkDevice device, uint32_t bindInfoCount,
-                                                    const VkBindBufferMemoryInfoKHX *pBindInfos) {
-    VkResult result = VK_ERROR_VALIDATION_FAILED_EXT;
-    bool skip_call = false;
-    layer_data *my_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
-    assert(my_data != NULL);
-
-    skip_call |= require_device_extension(my_data, my_data->enables.khx_device_group, "vkBindBufferMemory2KHX",
-                                          VK_KHX_DEVICE_GROUP_EXTENSION_NAME);
-
-    skip_call |= parameter_validation_vkBindBufferMemory2KHX(my_data->report_data, bindInfoCount, pBindInfos);
-
-    if (!skip_call) {
-        result = my_data->dispatch_table.BindBufferMemory2KHX(device, bindInfoCount, pBindInfos);
-        validate_result(my_data->report_data, "vkBindBufferMemory2KHX", result);
-    }
-
-    return result;
-}
-
-VKAPI_ATTR VkResult VKAPI_CALL BindImageMemory2KHX(VkDevice device, uint32_t bindInfoCount,
-                                                   const VkBindImageMemoryInfoKHX *pBindInfos) {
-    VkResult result = VK_ERROR_VALIDATION_FAILED_EXT;
-    bool skip_call = false;
-    layer_data *my_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
-    assert(my_data != NULL);
-
-    skip_call |= require_device_extension(my_data, my_data->enables.khx_device_group, "vkBindImageMemory2KHX",
-                                          VK_KHX_DEVICE_GROUP_EXTENSION_NAME);
-
-    skip_call |= parameter_validation_vkBindImageMemory2KHX(my_data->report_data, bindInfoCount, pBindInfos);
-
-    if (!skip_call) {
-        result = my_data->dispatch_table.BindImageMemory2KHX(device, bindInfoCount, pBindInfos);
-        validate_result(my_data->report_data, "vkBindImageMemory2KHX", result);
-    }
-
-    return result;
-}
-
-// No functionality to validate for vkCmdSetDeviceMaskKHX
-
-VKAPI_ATTR VkResult VKAPI_CALL
-GetDeviceGroupPresentCapabilitiesKHX(VkDevice device, VkDeviceGroupPresentCapabilitiesKHX *pDeviceGroupPresentCapabilities) {
-    VkResult result = VK_ERROR_VALIDATION_FAILED_EXT;
-    bool skip_call = false;
-    layer_data *my_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
-    assert(my_data != NULL);
-
-    skip_call |= require_device_extension(my_data, my_data->enables.khx_device_group, "vkGetDeviceGroupPresentCapabilitiesKHX",
-                                          VK_KHX_DEVICE_GROUP_EXTENSION_NAME);
-
-    skip_call |= parameter_validation_vkGetDeviceGroupPresentCapabilitiesKHX(my_data->report_data, pDeviceGroupPresentCapabilities);
-
-    if (!skip_call) {
-        result = my_data->dispatch_table.GetDeviceGroupPresentCapabilitiesKHX(device, pDeviceGroupPresentCapabilities);
-        validate_result(my_data->report_data, "vkGetDeviceGroupPresentCapabilitiesKHX", result);
-    }
-
-    return result;
-}
-
-VKAPI_ATTR VkResult VKAPI_CALL GetDeviceGroupSurfacePresentModesKHX(VkDevice device, VkSurfaceKHR surface,
-                                                                    VkDeviceGroupPresentModeFlagsKHX *pModes) {
-    VkResult result = VK_ERROR_VALIDATION_FAILED_EXT;
-    bool skip_call = false;
-    layer_data *my_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
-    assert(my_data != NULL);
-
-    skip_call |= require_device_extension(my_data, my_data->enables.khx_device_group, "vkGetDeviceGroupSurfacePresentModesKHX",
-                                          VK_KHX_DEVICE_GROUP_EXTENSION_NAME);
-
-    skip_call |= parameter_validation_vkGetDeviceGroupSurfacePresentModesKHX(my_data->report_data, surface, pModes);
-
-    if (!skip_call) {
-        result = my_data->dispatch_table.GetDeviceGroupSurfacePresentModesKHX(device, surface, pModes);
-        validate_result(my_data->report_data, "vkGetDeviceGroupSurfacePresentModesKHX", result);
-    }
-
-    return result;
-}
-
-VKAPI_ATTR VkResult VKAPI_CALL AcquireNextImage2KHX(VkDevice device, const VkAcquireNextImageInfoKHX *pAcquireInfo,
-                                                    uint32_t *pImageIndex) {
-    VkResult result = VK_ERROR_VALIDATION_FAILED_EXT;
-    bool skip_call = false;
-    layer_data *my_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
-    assert(my_data != NULL);
-
-    skip_call |= require_device_extension(my_data, my_data->enables.khx_device_group, "vkAcquireNextImage2KHX",
-                                          VK_KHX_DEVICE_GROUP_EXTENSION_NAME);
-
-    skip_call |= parameter_validation_vkAcquireNextImage2KHX(my_data->report_data, pAcquireInfo, pImageIndex);
-
-    if (!skip_call) {
-        result = my_data->dispatch_table.AcquireNextImage2KHX(device, pAcquireInfo, pImageIndex);
-        validate_result(my_data->report_data, "vkAcquireNextImage2KHX", result);
-    }
-
-    return result;
-}
-
-VKAPI_ATTR void VKAPI_CALL CmdDispatchBaseKHX(VkCommandBuffer commandBuffer, uint32_t baseGroupX, uint32_t baseGroupY,
-                                              uint32_t baseGroupZ, uint32_t groupCountX, uint32_t groupCountY,
-                                              uint32_t groupCountZ) {
-    bool skip_call = false;
-    layer_data *my_data = get_my_data_ptr(get_dispatch_key(commandBuffer), layer_data_map);
-    assert(my_data != NULL);
-
-    skip_call |= require_device_extension(my_data, my_data->enables.khx_device_group, "vkCmdDispatchBaseKHX",
-                                          VK_KHX_DEVICE_GROUP_EXTENSION_NAME);
-
-#if 0 // Validation not automatically generated
-    skip_call |= parameter_validation_vkCmdDispatchBaseKHX(my_data->report_data, baseGroupX, baseGroupY, baseGroupZ,
-                                                           groupCountX, groupCountY, groupCountZ);
-#endif
-
-    if (!skip_call) {
-        my_data->dispatch_table.CmdDispatchBaseKHX(commandBuffer, baseGroupX, baseGroupY, baseGroupZ, groupCountX, groupCountY,
-                                                   groupCountZ);
-    }
-}
-
-VKAPI_ATTR VkResult VKAPI_CALL GetPhysicalDevicePresentRectanglesKHX(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface,
-                                                                     uint32_t *pRectCount, VkRect2D *pRects) {
-    VkResult result = VK_ERROR_VALIDATION_FAILED_EXT;
-    bool skip = false;
-    auto my_data = get_my_data_ptr(get_dispatch_key(physicalDevice), instance_layer_data_map);
-    assert(my_data != NULL);
-
-    skip |= parameter_validation_vkGetPhysicalDevicePresentRectanglesKHX(my_data->report_data, surface, pRectCount, pRects);
-
-    if (!skip) {
-        result = my_data->dispatch_table.GetPhysicalDevicePresentRectanglesKHX(physicalDevice, surface, pRectCount, pRects);
-
-        validate_result(my_data->report_data, "vkGetPhysicalDevicePresentRectanglesKHX", result);
-    }
-
-    return result;
-}
-
 // Definitions for the VK_KHX_external_memory_capabilities extension
 
 VKAPI_ATTR void VKAPI_CALL GetPhysicalDeviceExternalBufferPropertiesKHX(
@@ -6070,64 +5708,6 @@ VKAPI_ATTR VkResult VKAPI_CALL GetSemaphoreWin32HandleKHX(VkDevice device, VkSem
 }
 #endif // VK_USE_PLATFORM_WIN32_KHX
 
-// Definitions for the VK_KHX_push_descriptor extension
-
-VKAPI_ATTR void VKAPI_CALL CmdPushDescriptorSetKHX(VkCommandBuffer commandBuffer, VkPipelineBindPoint pipelineBindPoint,
-                                                   VkPipelineLayout layout, uint32_t set, uint32_t descriptorWriteCount,
-                                                   const VkWriteDescriptorSet *pDescriptorWrites) {
-    bool skip_call = false;
-    layer_data *my_data = get_my_data_ptr(get_dispatch_key(commandBuffer), layer_data_map);
-    assert(my_data != NULL);
-
-    skip_call |= require_device_extension(my_data, my_data->enables.khx_push_descriptor, "vkCmdPushDescriptorSetKHX",
-                                          VK_KHX_PUSH_DESCRIPTOR_EXTENSION_NAME);
-
-    skip_call |= parameter_validation_vkCmdPushDescriptorSetKHX(my_data->report_data, pipelineBindPoint, layout, set,
-                                                                descriptorWriteCount, pDescriptorWrites);
-
-    if (!skip_call) {
-        my_data->dispatch_table.CmdPushDescriptorSetKHX(commandBuffer, pipelineBindPoint, layout, set, descriptorWriteCount,
-                                                        pDescriptorWrites);
-    }
-}
-
-// Definitions for the VK_EXT_acquire_xlib_display extension
-
-#ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
-VKAPI_ATTR VkResult VKAPI_CALL AcquireXlibDisplayEXT(VkPhysicalDevice physicalDevice, Display *dpy, VkDisplayKHR display) {
-
-    VkResult result = VK_ERROR_VALIDATION_FAILED_EXT;
-    auto my_data = get_my_data_ptr(get_dispatch_key(physicalDevice), instance_layer_data_map);
-    assert(my_data != NULL);
-    bool skip = false;
-    skip |= require_instance_extension(physicalDevice, &instance_extension_enables::ext_acquire_xlib_display_enabled,
-                                       "vkAcquireXlibDisplayEXT", VK_EXT_ACQUIRE_XLIB_DISPLAY_EXTENSION_NAME);
-    skip |= parameter_validation_vkAcquireXlibDisplayEXT(my_data->report_data, dpy, display);
-    if (!skip) {
-        result = my_data->dispatch_table.AcquireXlibDisplayEXT(physicalDevice, dpy, display);
-        validate_result(my_data->report_data, "vkAcquireXlibDisplayEXT", result);
-    }
-    return result;
-}
-
-VKAPI_ATTR VkResult VKAPI_CALL GetRandROutputDisplayEXT(VkPhysicalDevice physicalDevice, Display *dpy, RROutput rrOutput,
-                                                        VkDisplayKHR *pDisplay) {
-
-    VkResult result = VK_ERROR_VALIDATION_FAILED_EXT;
-    auto my_data = get_my_data_ptr(get_dispatch_key(physicalDevice), instance_layer_data_map);
-    assert(my_data != NULL);
-    bool skip = false;
-    skip |= require_instance_extension(physicalDevice, &instance_extension_enables::ext_acquire_xlib_display_enabled,
-                                       "vkGetRandROutputDisplayEXT", VK_EXT_ACQUIRE_XLIB_DISPLAY_EXTENSION_NAME);
-    skip |= parameter_validation_vkGetRandROutputDisplayEXT(my_data->report_data, dpy, rrOutput, pDisplay);
-    if (!skip) {
-        result = my_data->dispatch_table.GetRandROutputDisplayEXT(physicalDevice, dpy, rrOutput, pDisplay);
-        validate_result(my_data->report_data, "vkGetRandROutputDisplayEXT", result);
-    }
-    return result;
-}
-#endif // VK_USE_PLATFORM_XLIB_XRANDR_EXT
-
 // Definitions for the VK_EXT_debug_marker Extension
 
 VKAPI_ATTR VkResult VKAPI_CALL DebugMarkerSetObjectTagEXT(VkDevice device, VkDebugMarkerObjectTagInfoEXT *pTagInfo) {
@@ -6204,26 +5784,6 @@ VKAPI_ATTR void VKAPI_CALL CmdDebugMarkerInsertEXT(VkCommandBuffer commandBuffer
     if (!skip && my_data->dispatch_table.CmdDebugMarkerInsertEXT) {
         my_data->dispatch_table.CmdDebugMarkerInsertEXT(commandBuffer, pMarkerInfo);
     }
-}
-
-// Definitions for the VK_EXT_direct_mode_display extension
-
-VKAPI_ATTR VkResult VKAPI_CALL ReleaseDisplayEXT(VkPhysicalDevice physicalDevice, VkDisplayKHR display) {
-
-    VkResult result = VK_ERROR_VALIDATION_FAILED_EXT;
-    auto my_data = get_my_data_ptr(get_dispatch_key(physicalDevice), instance_layer_data_map);
-    assert(my_data != NULL);
-    bool skip = false;
-    skip |= require_instance_extension(physicalDevice, &instance_extension_enables::ext_direct_mode_display_enabled,
-                                       "vkReleaseDisplayEXT", VK_EXT_DIRECT_MODE_DISPLAY_EXTENSION_NAME);
-#if 0 // Validation not automatically generated
-    skip |= parameter_validation_vkReleaseDisplayEXT(my_data->report_data, display);
-#endif
-    if (!skip) {
-        result = my_data->dispatch_table.ReleaseDisplayEXT(physicalDevice, display);
-        validate_result(my_data->report_data, "vkGetRandROutputDisplayEXT", result);
-    }
-    return result;
 }
 
 // Definitions for the VK_EXT_display_surface_counter extension
@@ -6789,17 +6349,6 @@ static PFN_vkVoidFunction intercept_extension_instance_command(const char *name,
         const char *name;
         PFN_vkVoidFunction proc;
     } extension_instance_commands[] = {
-        {"vkGetPhysicalDeviceFeatures2KHR", reinterpret_cast<PFN_vkVoidFunction>(GetPhysicalDeviceFeatures2KHR)},
-        {"vkGetPhysicalDeviceProperties2KHR", reinterpret_cast<PFN_vkVoidFunction>(GetPhysicalDeviceProperties2KHR)},
-        {"vkGetPhysicalDeviceFormatProperties2KHR", reinterpret_cast<PFN_vkVoidFunction>(GetPhysicalDeviceFormatProperties2KHR)},
-        {"vkGetPhysicalDeviceImageFormatProperties2KHR", reinterpret_cast<PFN_vkVoidFunction>(GetPhysicalDeviceImageFormatProperties2KHR)},
-        {"vkGetPhysicalDeviceQueueFamilyProperties2KHR", reinterpret_cast<PFN_vkVoidFunction>(GetPhysicalDeviceQueueFamilyProperties2KHR)},
-        {"vkGetPhysicalDeviceMemoryProperties2KHR", reinterpret_cast<PFN_vkVoidFunction>(GetPhysicalDeviceMemoryProperties2KHR)},
-        {"vkGetPhysicalDeviceSparseImageFormatProperties2KHR", reinterpret_cast<PFN_vkVoidFunction>(GetPhysicalDeviceSparseImageFormatProperties2KHR)},
-        // KHX_device_group (physical device procs)
-        {"vkGetPhysicalDevicePresentRectanglesKHX", reinterpret_cast<PFN_vkVoidFunction>(GetPhysicalDevicePresentRectanglesKHX)},
-        // KHX_device_group_creation
-        {"vkEnumeratePhysicalDeviceGroupsKHX", reinterpret_cast<PFN_vkVoidFunction>(EnumeratePhysicalDeviceGroupsKHX)},
         // KHX_external_memory_capabilities
         {"vkGetPhysicalDeviceExternalBufferPropertiesKHX", reinterpret_cast<PFN_vkVoidFunction>(GetPhysicalDeviceExternalBufferPropertiesKHX)},
         {"vkGetPhysicalDeviceProperties2KHX", reinterpret_cast<PFN_vkVoidFunction>(GetPhysicalDeviceProperties2KHX)},
@@ -6826,17 +6375,6 @@ static PFN_vkVoidFunction intercept_extension_device_command(const char *name, V
         const char *name;
         PFN_vkVoidFunction proc;
     } extension_device_commands[] = {
-        // KHR_maintenance1
-        {"vkTrimCommandPoolKHR", reinterpret_cast<PFN_vkVoidFunction>(TrimCommandPoolKHR)},
-        // KHX_device_group
-        {"vkGetDeviceGroupPeerMemoryFeaturesKHX", reinterpret_cast<PFN_vkVoidFunction>(GetDeviceGroupPeerMemoryFeaturesKHX)},
-        {"vkBindBufferMemory2KHX", reinterpret_cast<PFN_vkVoidFunction>(BindBufferMemory2KHX)},
-        {"vkBindImageMemory2KHX", reinterpret_cast<PFN_vkVoidFunction>(BindImageMemory2KHX)},
-        // Nothing to validate: {"vkCmdSetDeviceMaskKHX", reinterpret_cast<PFN_vkVoidFunction>(vkCmdSetDeviceMaskKHX) },
-        {"vkGetDeviceGroupPresentCapabilitiesKHX", reinterpret_cast<PFN_vkVoidFunction>(GetDeviceGroupPresentCapabilitiesKHX)},
-        {"vkGetDeviceGroupSurfacePresentModesKHX", reinterpret_cast<PFN_vkVoidFunction>(GetDeviceGroupSurfacePresentModesKHX)},
-        {"vkAcquireNextImage2KHX", reinterpret_cast<PFN_vkVoidFunction>(AcquireNextImage2KHX)},
-        {"vkCmdDispatchBaseKHX", reinterpret_cast<PFN_vkVoidFunction>(CmdDispatchBaseKHX)},
         // KHX_external_memory_fd
         {"vkGetMemoryFdKHX", reinterpret_cast<PFN_vkVoidFunction>(GetMemoryFdKHX)},
         {"vkGetMemoryFdPropertiesKHX", reinterpret_cast<PFN_vkVoidFunction>(GetMemoryFdPropertiesKHX)},
@@ -6851,8 +6389,6 @@ static PFN_vkVoidFunction intercept_extension_device_command(const char *name, V
         {"vkImportSemaphoreWin32HandleKHX", reinterpret_cast<PFN_vkVoidFunction>(ImportSemaphoreWin32HandleKHX)},
         {"vkGetSemaphoreWin32HandleKHX", reinterpret_cast<PFN_vkVoidFunction>(GetSemaphoreWin32HandleKHX)},
 #endif // VK_USE_PLATFORM_WIN32_KHR
-        // KHX_push_descriptor
-        {"vkCmdPushDescriptorSetKHX", reinterpret_cast<PFN_vkVoidFunction>(CmdPushDescriptorSetKHX)},
 #ifdef VK_USE_PLATFORM_WIN32_KHR
         // NV_external_memory_win32
         {"vkGetMemoryWin32HandleNV", reinterpret_cast<PFN_vkVoidFunction>(GetMemoryWin32HandleNV)},

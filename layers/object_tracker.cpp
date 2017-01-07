@@ -3154,7 +3154,6 @@ static void CheckDeviceRegisterExtensions(const VkDeviceCreateInfo *pCreateInfo,
     device_data->wsi_display_swapchain_enabled = false;
     device_data->wsi_display_extension_enabled = false;
     device_data->objtrack_extensions_enabled = false;
-    device_data->khx_device_group_enabled = false;
 #ifdef VK_USE_PLATFORM_WIN32_KHR
     device_data->khx_external_memory_win32_enabled = false;
 #endif // VK_USE_PLATFORM_WIN32_KHR
@@ -3163,9 +3162,7 @@ static void CheckDeviceRegisterExtensions(const VkDeviceCreateInfo *pCreateInfo,
     device_data->khx_external_semaphore_win32_enabled = false;
 #endif // VK_USE_PLATFORM_WIN32_KHR
     device_data->khx_external_semaphore_fd_enabled = false;
-    device_data->khx_push_descriptor_enabled = false;
     device_data->nvx_device_generated_commands_enabled = false;
-    device_data->ext_display_control_enabled = false;
 
     for (uint32_t i = 0; i < pCreateInfo->enabledExtensionCount; i++) {
         if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_KHR_SWAPCHAIN_EXTENSION_NAME) == 0) {
@@ -3179,9 +3176,6 @@ static void CheckDeviceRegisterExtensions(const VkDeviceCreateInfo *pCreateInfo,
         }
         if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], "OBJTRACK_EXTENSIONS") == 0) {
             device_data->objtrack_extensions_enabled = true;
-        }
-        if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_KHX_DEVICE_GROUP_EXTENSION_NAME) == 0) {
-            device_data->khx_device_group_enabled = true;
         }
 #ifdef VK_USE_PLATFORM_WIN32_KHR
         if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_KHX_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME) == 0) {
@@ -3198,15 +3192,6 @@ static void CheckDeviceRegisterExtensions(const VkDeviceCreateInfo *pCreateInfo,
 #endif // VK_USE_PLATFORM_WIN32_KHR
         if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_KHX_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME) == 0) {
             device_data->khx_external_semaphore_fd_enabled = true;
-        }
-        if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_KHX_PUSH_DESCRIPTOR_EXTENSION_NAME) == 0) {
-            device_data->khx_push_descriptor_enabled = true;
-        }
-        if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_NVX_DEVICE_GENERATED_COMMANDS_EXTENSION_NAME) == 0) {
-            device_data->nvx_device_generated_commands_enabled = true;
-        }
-        if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_EXT_DISPLAY_CONTROL_EXTENSION_NAME) == 0) {
-            device_data->ext_display_control_enabled = true;
         }
     }
 }
@@ -4022,279 +4007,6 @@ VKAPI_ATTR void VKAPI_CALL CmdDrawIndexedIndirectCountAMD(VkCommandBuffer comman
     }
 }
 
-// VK_KHR_get_physical_device_properties2 Extension
-VKAPI_ATTR void VKAPI_CALL GetPhysicalDeviceFeatures2KHR(VkPhysicalDevice physicalDevice, VkPhysicalDeviceFeatures2KHR *pFeatures) {
-    bool skip = false;
-    {
-        std::unique_lock<std::mutex> lock(global_lock);
-        skip |= ValidateObject(physicalDevice, physicalDevice, VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, false,
-                               VALIDATION_ERROR_UNDEFINED);
-    }
-    if (!skip) {
-        get_dispatch_table(ot_instance_table_map, physicalDevice)->GetPhysicalDeviceFeatures2KHR(physicalDevice, pFeatures);
-    }
-}
-
-VKAPI_ATTR void VKAPI_CALL GetPhysicalDeviceProperties2KHR(VkPhysicalDevice physicalDevice,
-                                                           VkPhysicalDeviceProperties2KHR *pProperties) {
-    bool skip = false;
-    {
-        std::unique_lock<std::mutex> lock(global_lock);
-        skip |= ValidateObject(physicalDevice, physicalDevice, VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, false,
-                               VALIDATION_ERROR_UNDEFINED);
-    }
-    if (!skip) {
-        get_dispatch_table(ot_instance_table_map, physicalDevice)->GetPhysicalDeviceProperties2KHR(physicalDevice, pProperties);
-    }
-}
-
-VKAPI_ATTR void VKAPI_CALL GetPhysicalDeviceFormatProperties2KHR(VkPhysicalDevice physicalDevice, VkFormat format,
-                                                                 VkFormatProperties2KHR *pFormatProperties) {
-    bool skip = false;
-    {
-        std::unique_lock<std::mutex> lock(global_lock);
-        skip |= ValidateObject(physicalDevice, physicalDevice, VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, false,
-                               VALIDATION_ERROR_UNDEFINED);
-    }
-    if (!skip) {
-        get_dispatch_table(ot_instance_table_map, physicalDevice)
-            ->GetPhysicalDeviceFormatProperties2KHR(physicalDevice, format, pFormatProperties);
-    }
-}
-
-VKAPI_ATTR VkResult VKAPI_CALL GetPhysicalDeviceImageFormatProperties2KHR(
-    VkPhysicalDevice physicalDevice, const VkPhysicalDeviceImageFormatInfo2KHR *pImageFormatInfo,
-    VkImageFormatProperties2KHR *pImageFormatProperties) {
-    VkResult result = VK_ERROR_VALIDATION_FAILED_EXT;
-    bool skip = false;
-    {
-        std::unique_lock<std::mutex> lock(global_lock);
-        skip |= ValidateObject(physicalDevice, physicalDevice, VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, false,
-                               VALIDATION_ERROR_UNDEFINED);
-    }
-    if (skip) {
-        return VK_ERROR_VALIDATION_FAILED_EXT;
-    }
-    result = get_dispatch_table(ot_instance_table_map, physicalDevice)
-                 ->GetPhysicalDeviceImageFormatProperties2KHR(physicalDevice, pImageFormatInfo, pImageFormatProperties);
-
-    return result;
-}
-
-VKAPI_ATTR void VKAPI_CALL GetPhysicalDeviceQueueFamilyProperties2KHR(VkPhysicalDevice physicalDevice,
-                                                                      uint32_t *pQueueFamilyPropertyCount,
-                                                                      VkQueueFamilyProperties2KHR *pQueueFamilyProperties) {
-    bool skip = false;
-    {
-        std::unique_lock<std::mutex> lock(global_lock);
-        skip |= ValidateObject(physicalDevice, physicalDevice, VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, false,
-                               VALIDATION_ERROR_UNDEFINED);
-    }
-    if (!skip) {
-        get_dispatch_table(ot_instance_table_map, physicalDevice)
-            ->GetPhysicalDeviceQueueFamilyProperties2KHR(physicalDevice, pQueueFamilyPropertyCount, pQueueFamilyProperties);
-    }
-}
-
-VKAPI_ATTR void VKAPI_CALL GetPhysicalDeviceMemoryProperties2KHR(VkPhysicalDevice physicalDevice,
-                                                                 VkPhysicalDeviceMemoryProperties2KHR *pMemoryProperties) {
-    bool skip = false;
-    {
-        std::unique_lock<std::mutex> lock(global_lock);
-        skip |= ValidateObject(physicalDevice, physicalDevice, VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, false,
-                               VALIDATION_ERROR_UNDEFINED);
-    }
-    if (!skip) {
-        get_dispatch_table(ot_instance_table_map, physicalDevice)
-            ->GetPhysicalDeviceMemoryProperties2KHR(physicalDevice, pMemoryProperties);
-    }
-}
-
-VKAPI_ATTR void VKAPI_CALL GetPhysicalDeviceSparseImageFormatProperties2KHR(
-    VkPhysicalDevice physicalDevice, const VkPhysicalDeviceSparseImageFormatInfo2KHR *pFormatInfo, uint32_t *pPropertyCount,
-    VkSparseImageFormatProperties2KHR *pProperties) {
-    bool skip = false;
-    {
-        std::unique_lock<std::mutex> lock(global_lock);
-        skip |= ValidateObject(physicalDevice, physicalDevice, VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, false,
-                               VALIDATION_ERROR_UNDEFINED);
-    }
-    if (!skip) {
-        get_dispatch_table(ot_instance_table_map, physicalDevice)
-            ->GetPhysicalDeviceSparseImageFormatProperties2KHR(physicalDevice, pFormatInfo, pPropertyCount, pProperties);
-    }
-}
-
-// VK_KHX_device_group Extension
-VKAPI_ATTR void VKAPI_CALL GetDeviceGroupPeerMemoryFeaturesKHX(VkDevice device, uint32_t heapIndex, uint32_t localDeviceIndex,
-                                                               uint32_t remoteDeviceIndex,
-                                                               VkPeerMemoryFeatureFlagsKHX *pPeerMemoryFeatures) {
-    bool skip_call = VK_FALSE;
-    std::unique_lock<std::mutex> lock(global_lock);
-    skip_call |= ValidateObject(device, device, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_EXT, false, VALIDATION_ERROR_UNDEFINED);
-    lock.unlock();
-    layer_data *dev_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
-    if (!skip_call && dev_data->dispatch_table.GetDeviceGroupPeerMemoryFeaturesKHX) {
-        dev_data->dispatch_table.GetDeviceGroupPeerMemoryFeaturesKHX(device, heapIndex, localDeviceIndex, remoteDeviceIndex,
-                                                                     pPeerMemoryFeatures);
-    }
-}
-
-VKAPI_ATTR VkResult VKAPI_CALL BindBufferMemory2KHX(VkDevice device, uint32_t bindInfoCount,
-                                                    const VkBindBufferMemoryInfoKHX *pBindInfos) {
-    bool skip_call = VK_FALSE;
-    std::unique_lock<std::mutex> lock(global_lock);
-    skip_call |= ValidateObject(device, device, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_EXT, false, VALIDATION_ERROR_UNDEFINED);
-    lock.unlock();
-    if (skip_call) {
-        return VK_ERROR_VALIDATION_FAILED_EXT;
-    }
-    layer_data *dev_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
-    VkResult result = VK_SUCCESS;
-    if (dev_data->dispatch_table.BindBufferMemory2KHX) {
-        result = dev_data->dispatch_table.BindBufferMemory2KHX(device, bindInfoCount, pBindInfos);
-    }
-    return result;
-}
-
-VKAPI_ATTR VkResult VKAPI_CALL BindImageMemory2KHX(VkDevice device, uint32_t bindInfoCount,
-                                                   const VkBindImageMemoryInfoKHX *pBindInfos) {
-    bool skip_call = VK_FALSE;
-    std::unique_lock<std::mutex> lock(global_lock);
-    skip_call |= ValidateObject(device, device, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_EXT, false, VALIDATION_ERROR_UNDEFINED);
-    lock.unlock();
-    if (skip_call) {
-        return VK_ERROR_VALIDATION_FAILED_EXT;
-    }
-    layer_data *dev_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
-    VkResult result = VK_SUCCESS;
-    if (dev_data->dispatch_table.BindImageMemory2KHX) {
-        result = dev_data->dispatch_table.BindImageMemory2KHX(device, bindInfoCount, pBindInfos);
-    }
-    return result;
-}
-
-VKAPI_ATTR void VKAPI_CALL CmdSetDeviceMaskKHX(VkCommandBuffer commandBuffer, uint32_t deviceMask) {
-    bool skip_call = VK_FALSE;
-    std::unique_lock<std::mutex> lock(global_lock);
-    skip_call |= ValidateObject(commandBuffer, commandBuffer, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT, false,
-                                VALIDATION_ERROR_UNDEFINED);
-    lock.unlock();
-    layer_data *dev_data = get_my_data_ptr(get_dispatch_key(commandBuffer), layer_data_map);
-    if (!skip_call && dev_data->dispatch_table.CmdSetDeviceMaskKHX) {
-        dev_data->dispatch_table.CmdSetDeviceMaskKHX(commandBuffer, deviceMask);
-    }
-}
-
-VKAPI_ATTR VkResult VKAPI_CALL
-GetDeviceGroupPresentCapabilitiesKHX(VkDevice device, VkDeviceGroupPresentCapabilitiesKHX *pDeviceGroupPresentCapabilities) {
-    bool skip_call = VK_FALSE;
-    std::unique_lock<std::mutex> lock(global_lock);
-    skip_call |= ValidateObject(device, device, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_EXT, false, VALIDATION_ERROR_UNDEFINED);
-    lock.unlock();
-    if (skip_call) {
-        return VK_ERROR_VALIDATION_FAILED_EXT;
-    }
-    layer_data *dev_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
-    VkResult result = VK_SUCCESS;
-    if (dev_data->dispatch_table.GetDeviceGroupPresentCapabilitiesKHX) {
-        result = dev_data->dispatch_table.GetDeviceGroupPresentCapabilitiesKHX(device, pDeviceGroupPresentCapabilities);
-    }
-    return result;
-}
-
-VKAPI_ATTR VkResult VKAPI_CALL GetDeviceGroupSurfacePresentModesKHX(VkDevice device, VkSurfaceKHR surface,
-                                                                    VkDeviceGroupPresentModeFlagsKHX *pModes) {
-    bool skip_call = VK_FALSE;
-    std::unique_lock<std::mutex> lock(global_lock);
-    skip_call |= ValidateObject(device, device, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_EXT, false, VALIDATION_ERROR_UNDEFINED);
-    lock.unlock();
-    if (skip_call) {
-        return VK_ERROR_VALIDATION_FAILED_EXT;
-    }
-    layer_data *dev_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
-    VkResult result = VK_SUCCESS;
-    if (dev_data->dispatch_table.GetDeviceGroupSurfacePresentModesKHX) {
-        result = dev_data->dispatch_table.GetDeviceGroupSurfacePresentModesKHX(device, surface, pModes);
-    }
-    return result;
-}
-
-VKAPI_ATTR VkResult VKAPI_CALL AcquireNextImage2KHX(VkDevice device, const VkAcquireNextImageInfoKHX *pAcquireInfo,
-                                                    uint32_t *pImageIndex) {
-    bool skip_call = VK_FALSE;
-    std::unique_lock<std::mutex> lock(global_lock);
-    skip_call |= ValidateObject(device, device, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_EXT, false, VALIDATION_ERROR_UNDEFINED);
-    lock.unlock();
-    if (skip_call) {
-        return VK_ERROR_VALIDATION_FAILED_EXT;
-    }
-    layer_data *dev_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
-    VkResult result = VK_SUCCESS;
-    if (dev_data->dispatch_table.AcquireNextImage2KHX) {
-        result = dev_data->dispatch_table.AcquireNextImage2KHX(device, pAcquireInfo, pImageIndex);
-    }
-    return result;
-}
-
-VKAPI_ATTR void VKAPI_CALL CmdDispatchBaseKHX(VkCommandBuffer commandBuffer, uint32_t baseGroupX, uint32_t baseGroupY,
-                                              uint32_t baseGroupZ, uint32_t groupCountX, uint32_t groupCountY,
-                                              uint32_t groupCountZ) {
-    bool skip_call = VK_FALSE;
-    std::unique_lock<std::mutex> lock(global_lock);
-    skip_call |= ValidateObject(commandBuffer, commandBuffer, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT, false,
-                                VALIDATION_ERROR_UNDEFINED);
-    lock.unlock();
-    layer_data *dev_data = get_my_data_ptr(get_dispatch_key(commandBuffer), layer_data_map);
-    if (!skip_call && dev_data->dispatch_table.CmdDispatchBaseKHX) {
-        dev_data->dispatch_table.CmdDispatchBaseKHX(commandBuffer, baseGroupX, baseGroupY, baseGroupZ, groupCountX, groupCountY,
-                                                    groupCountZ);
-    }
-}
-
-VKAPI_ATTR void VKAPI_CALL GetPhysicalDevicePresentRectanglesKHX(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface,
-                                                                 uint32_t *pRectCount, VkRect2D *pRects) {
-    bool skip = false;
-    {
-        std::unique_lock<std::mutex> lock(global_lock);
-        skip |= ValidateObject(physicalDevice, physicalDevice, VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, false,
-                               VALIDATION_ERROR_UNDEFINED);
-    }
-    if (!skip) {
-        get_dispatch_table(ot_instance_table_map, physicalDevice)
-            ->GetPhysicalDevicePresentRectanglesKHX(physicalDevice, surface, pRectCount, pRects);
-    }
-}
-
-// VK_KHX_device_group_creation Extension
-VKAPI_ATTR VkResult VKAPI_CALL EnumeratePhysicalDeviceGroupsKHX(
-    VkInstance instance, uint32_t *pPhysicalDeviceGroupCount, VkPhysicalDeviceGroupPropertiesKHX *pPhysicalDeviceGroupProperties) {
-    bool skip_call = false;
-    std::unique_lock<std::mutex> lock(global_lock);
-    skip_call |= ValidateObject(instance, instance, VK_DEBUG_REPORT_OBJECT_TYPE_INSTANCE_EXT, false, VALIDATION_ERROR_UNDEFINED);
-    lock.unlock();
-    if (skip_call) {
-        return VK_ERROR_VALIDATION_FAILED_EXT;
-    }
-    VkResult result = get_dispatch_table(ot_instance_table_map, instance)
-                          ->EnumeratePhysicalDeviceGroupsKHX(instance, pPhysicalDeviceGroupCount, pPhysicalDeviceGroupProperties);
-    {
-        lock.lock();
-        if (result == VK_SUCCESS) {
-            if (nullptr != pPhysicalDeviceGroupProperties) {
-                for (uint32_t i = 0; i < *pPhysicalDeviceGroupCount; i++) {
-                    for (uint32_t j = 0; j < pPhysicalDeviceGroupProperties[i].physicalDeviceCount; j++) {
-                        CreateObject(instance, pPhysicalDeviceGroupProperties[i].physicalDevices[j],
-                                     VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, nullptr);
-                    }
-                }
-            }
-        }
-        lock.unlock();
-    }
-    return result;
-}
-
 // VK_KHX_external_memory_capabilities Extension
 VKAPI_ATTR void VKAPI_CALL GetPhysicalDeviceExternalBufferPropertiesKHX(
     VkPhysicalDevice physicalDevice, const VkPhysicalDeviceExternalBufferInfoKHX *pExternalBufferInfo,
@@ -4506,22 +4218,6 @@ VKAPI_ATTR VkResult VKAPI_CALL GetSemaphoreFdKHX(VkDevice device, VkSemaphore se
     return result;
 }
 
-// VK_KHX_push_descriptor Extension
-VKAPI_ATTR void VKAPI_CALL CmdPushDescriptorSetKHX(VkCommandBuffer commandBuffer, VkPipelineBindPoint pipelineBindPoint,
-                                                   VkPipelineLayout layout, uint32_t set, uint32_t descriptorWriteCount,
-                                                   const VkWriteDescriptorSet *pDescriptorWrites) {
-    bool skip_call = VK_FALSE;
-    std::unique_lock<std::mutex> lock(global_lock);
-    skip_call |= ValidateObject(commandBuffer, commandBuffer, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT, false,
-                                VALIDATION_ERROR_UNDEFINED);
-    lock.unlock();
-    layer_data *dev_data = get_my_data_ptr(get_dispatch_key(commandBuffer), layer_data_map);
-    if (!skip_call && dev_data->dispatch_table.CmdPushDescriptorSetKHX) {
-        dev_data->dispatch_table.CmdPushDescriptorSetKHX(commandBuffer, pipelineBindPoint, layout, set, descriptorWriteCount,
-                                                         pDescriptorWrites);
-    }
-}
-
 // VK_NVX_device_generated_commands Extension
 VKAPI_ATTR void VKAPI_CALL CmdProcessCommandsNVX(VkCommandBuffer commandBuffer,
                                                  const VkCmdProcessCommandsInfoNVX *pProcessCommandsInfo) {
@@ -4664,64 +4360,6 @@ VKAPI_ATTR void VKAPI_CALL GetPhysicalDeviceGeneratedCommandsPropertiesNVX(VkPhy
     }
 }
 
-// VK_EXT_direct_mode_display Extension
-VKAPI_ATTR VkResult VKAPI_CALL ReleaseDisplayEXT(VkPhysicalDevice physicalDevice, VkDisplayKHR display) {
-    VkResult result = VK_ERROR_VALIDATION_FAILED_EXT;
-    bool skip = false;
-    {
-        std::unique_lock<std::mutex> lock(global_lock);
-        skip |= ValidateObject(physicalDevice, physicalDevice, VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, false,
-                               VALIDATION_ERROR_UNDEFINED);
-    }
-    if (skip) {
-        return VK_ERROR_VALIDATION_FAILED_EXT;
-    }
-    result = get_dispatch_table(ot_instance_table_map, physicalDevice)->ReleaseDisplayEXT(physicalDevice, display);
-
-    return result;
-}
-
-// VK_EXT_acquire_xlib_display Extension
-#ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
-VKAPI_ATTR VkResult VKAPI_CALL AcquireXlibDisplayEXT(VkPhysicalDevice physicalDevice, Display *dpy, VkDisplayKHR display) {
-    VkResult result = VK_ERROR_VALIDATION_FAILED_EXT;
-    bool skip = false;
-    {
-        std::unique_lock<std::mutex> lock(global_lock);
-        skip |= ValidateObject(physicalDevice, physicalDevice, VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, false,
-                               VALIDATION_ERROR_UNDEFINED);
-    }
-    if (skip) {
-        return VK_ERROR_VALIDATION_FAILED_EXT;
-    }
-    result = get_dispatch_table(ot_instance_table_map, physicalDevice)->AcquireXlibDisplayEXT(physicalDevice, dpy, display);
-
-    return result;
-}
-
-VKAPI_ATTR VkResult VKAPI_CALL GetRandROutputDisplayEXT(VkPhysicalDevice physicalDevice, Display *dpy, RROutput rrOutput,
-                                                        VkDisplayKHR *pDisplay) {
-    VkResult result = VK_ERROR_VALIDATION_FAILED_EXT;
-    bool skip = false;
-    {
-        std::unique_lock<std::mutex> lock(global_lock);
-        skip |= ValidateObject(physicalDevice, physicalDevice, VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, false,
-                               VALIDATION_ERROR_UNDEFINED);
-    }
-    if (skip) {
-        return VK_ERROR_VALIDATION_FAILED_EXT;
-    }
-    result = get_dispatch_table(ot_instance_table_map, physicalDevice)
-                 ->GetRandROutputDisplayEXT(physicalDevice, dpy, rrOutput, pDisplay);
-    if (result == VK_SUCCESS && pDisplay != NULL) {
-        std::lock_guard<std::mutex> lock(global_lock);
-        CreateObject(physicalDevice, pDisplay, VK_DEBUG_REPORT_OBJECT_TYPE_DISPLAY_KHR_EXT, nullptr);
-    }
-
-    return result;
-}
-#endif // VK_USE_PLATFORM_XLIB_XRANDR_EXT
-
 // VK_EXT_display_surface_counter Extension
 VKAPI_ATTR VkResult VKAPI_CALL GetPhysicalDeviceSurfaceCapabilities2EXT(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface,
                                                                         VkSurfaceCapabilities2EXT *pSurfaceCapabilities) {
@@ -4741,83 +4379,6 @@ VKAPI_ATTR VkResult VKAPI_CALL GetPhysicalDeviceSurfaceCapabilities2EXT(VkPhysic
     return result;
 }
 
-// VK_EXT_display_control Extension
-VKAPI_ATTR VkResult VKAPI_CALL DisplayPowerControlEXT(VkDevice device, VkDisplayKHR display,
-                                                      const VkDisplayPowerInfoEXT *pDisplayPowerInfo) {
-    bool skip_call = VK_FALSE;
-    std::unique_lock<std::mutex> lock(global_lock);
-    skip_call |= ValidateObject(device, device, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_EXT, false, VALIDATION_ERROR_UNDEFINED);
-    lock.unlock();
-    if (skip_call) {
-        return VK_ERROR_VALIDATION_FAILED_EXT;
-    }
-    layer_data *dev_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
-    VkResult result = VK_SUCCESS;
-    if (dev_data->dispatch_table.DisplayPowerControlEXT) {
-        result = dev_data->dispatch_table.DisplayPowerControlEXT(device, display, pDisplayPowerInfo);
-    }
-    return result;
-}
-
-VKAPI_ATTR VkResult VKAPI_CALL RegisterDeviceEventEXT(VkDevice device, const VkDeviceEventInfoEXT *pDeviceEventInfo,
-                                                      const VkAllocationCallbacks *pAllocator, VkFence *pFence) {
-    bool skip_call = VK_FALSE;
-    std::unique_lock<std::mutex> lock(global_lock);
-    skip_call |= ValidateObject(device, device, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_EXT, false, VALIDATION_ERROR_UNDEFINED);
-    lock.unlock();
-    if (skip_call) {
-        return VK_ERROR_VALIDATION_FAILED_EXT;
-    }
-    layer_data *dev_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
-    VkResult result = VK_SUCCESS;
-    if (dev_data->dispatch_table.RegisterDeviceEventEXT) {
-        result = dev_data->dispatch_table.RegisterDeviceEventEXT(device, pDeviceEventInfo, pAllocator, pFence);
-        if (result == VK_SUCCESS && pFence != NULL) {
-            std::lock_guard<std::mutex> lock(global_lock);
-            CreateObject(device, *pFence, VK_DEBUG_REPORT_OBJECT_TYPE_FENCE_EXT, pAllocator);
-        }
-    }
-    return result;
-}
-
-VKAPI_ATTR VkResult VKAPI_CALL RegisterDisplayEventEXT(VkDevice device, VkDisplayKHR display,
-                                                       const VkDisplayEventInfoEXT *pDisplayEventInfo,
-                                                       const VkAllocationCallbacks *pAllocator, VkFence *pFence) {
-    bool skip_call = VK_FALSE;
-    std::unique_lock<std::mutex> lock(global_lock);
-    skip_call |= ValidateObject(device, device, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_EXT, false, VALIDATION_ERROR_UNDEFINED);
-    lock.unlock();
-    if (skip_call) {
-        return VK_ERROR_VALIDATION_FAILED_EXT;
-    }
-    layer_data *dev_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
-    VkResult result = VK_SUCCESS;
-    if (dev_data->dispatch_table.RegisterDisplayEventEXT) {
-        result = dev_data->dispatch_table.RegisterDisplayEventEXT(device, display, pDisplayEventInfo, pAllocator, pFence);
-        if (result == VK_SUCCESS && pFence != NULL) {
-            std::lock_guard<std::mutex> lock(global_lock);
-            CreateObject(device, *pFence, VK_DEBUG_REPORT_OBJECT_TYPE_FENCE_EXT, pAllocator);
-        }
-    }
-    return result;
-}
-
-VKAPI_ATTR VkResult VKAPI_CALL GetSwapchainCounterEXT(VkDevice device, VkSwapchainKHR swapchain,
-                                                      VkSurfaceCounterFlagBitsEXT counter, uint64_t *pCounterValue) {
-    bool skip_call = VK_FALSE;
-    std::unique_lock<std::mutex> lock(global_lock);
-    skip_call |= ValidateObject(device, device, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_EXT, false, VALIDATION_ERROR_UNDEFINED);
-    lock.unlock();
-    if (skip_call) {
-        return VK_ERROR_VALIDATION_FAILED_EXT;
-    }
-    layer_data *dev_data = get_my_data_ptr(get_dispatch_key(device), layer_data_map);
-    VkResult result = VK_SUCCESS;
-    if (dev_data->dispatch_table.GetSwapchainCounterEXT) {
-        result = dev_data->dispatch_table.GetSwapchainCounterEXT(device, swapchain, counter, pCounterValue);
-    }
-    return result;
-}
 
 static inline PFN_vkVoidFunction InterceptCoreDeviceCommand(const char *name) {
     if (!name || name[0] != 'v' || name[1] != 'k')
@@ -5140,25 +4701,6 @@ static inline PFN_vkVoidFunction InterceptDeviceExtensionCommand(const char *nam
 
         name += 2;
 
-        if (device_data->khx_device_group_enabled) {
-            // VK_KHX_device_group Extension
-            if (!strcmp(name, "GetDeviceGroupPeerMemoryFeaturesKHX"))
-                return (PFN_vkVoidFunction)GetDeviceGroupPeerMemoryFeaturesKHX;
-            if (!strcmp(name, "BindBufferMemory2KHX"))
-                return (PFN_vkVoidFunction)BindBufferMemory2KHX;
-            if (!strcmp(name, "BindImageMemory2KHX"))
-                return (PFN_vkVoidFunction)BindImageMemory2KHX;
-            if (!strcmp(name, "CmdSetDeviceMaskKHX"))
-                return (PFN_vkVoidFunction)CmdSetDeviceMaskKHX;
-            if (!strcmp(name, "GetDeviceGroupPresentCapabilitiesKHX"))
-                return (PFN_vkVoidFunction)GetDeviceGroupPresentCapabilitiesKHX;
-            if (!strcmp(name, "GetDeviceGroupSurfacePresentModesKHX"))
-                return (PFN_vkVoidFunction)GetDeviceGroupSurfacePresentModesKHX;
-            if (!strcmp(name, "AcquireNextImage2KHX"))
-                return (PFN_vkVoidFunction)AcquireNextImage2KHX;
-            if (!strcmp(name, "CmdDispatchBaseKHX"))
-                return (PFN_vkVoidFunction)CmdDispatchBaseKHX;
-        }
 #ifdef VK_USE_PLATFORM_WIN32_KHR
         if (device_data->khx_external_memory_win32_enabled) {
             if (!strcmp(name, "GetMemoryWin32HandleKHX"))
@@ -5187,10 +4729,6 @@ static inline PFN_vkVoidFunction InterceptDeviceExtensionCommand(const char *nam
             if (!strcmp(name, "GetSemaphoreFdKHX"))
                 return (PFN_vkVoidFunction)GetSemaphoreFdKHX;
         }
-        if (device_data->khx_push_descriptor_enabled) {
-            if (!strcmp(name, "CmdPushDescriptorSetKHX"))
-                return (PFN_vkVoidFunction)CmdPushDescriptorSetKHX;
-        }
         if (device_data->nvx_device_generated_commands_enabled) {
             if (!strcmp(name, "CmdProcessCommandsNVX"))
                 return (PFN_vkVoidFunction)CmdProcessCommandsNVX;
@@ -5209,16 +4747,6 @@ static inline PFN_vkVoidFunction InterceptDeviceExtensionCommand(const char *nam
             if (!strcmp(name, "UnregisterObjectsNVX"))
                 return (PFN_vkVoidFunction)UnregisterObjectsNVX;
         }
-        if (device_data->ext_display_control_enabled) {
-            if (!strcmp(name, "DisplayPowerControlEXT"))
-                return (PFN_vkVoidFunction)DisplayPowerControlEXT;
-            if (!strcmp(name, "RegisterDeviceEventEXT"))
-                return (PFN_vkVoidFunction)RegisterDeviceEventEXT;
-            if (!strcmp(name, "RegisterDisplayEventEXT"))
-                return (PFN_vkVoidFunction)RegisterDisplayEventEXT;
-            if (!strcmp(name, "GetSwapchainCounterEXT"))
-                return (PFN_vkVoidFunction)GetSwapchainCounterEXT;
-        }
     }
 
     return NULL;
@@ -5230,27 +4758,6 @@ static inline PFN_vkVoidFunction InterceptInstanceExtensionCommand(const char *n
 
     name += 2;
 
-    // VK_KHR_get_physical_device_properties2 Extension
-    if (!strcmp(name, "GetPhysicalDeviceFeatures2KHR"))
-        return (PFN_vkVoidFunction)GetPhysicalDeviceFeatures2KHR;
-    if (!strcmp(name, "GetPhysicalDeviceProperties2KHR"))
-        return (PFN_vkVoidFunction)GetPhysicalDeviceProperties2KHR;
-    if (!strcmp(name, "GetPhysicalDeviceFormatProperties2KHR"))
-        return (PFN_vkVoidFunction)GetPhysicalDeviceFormatProperties2KHR;
-    if (!strcmp(name, "GetPhysicalDeviceImageFormatProperties2KHR"))
-        return (PFN_vkVoidFunction)GetPhysicalDeviceImageFormatProperties2KHR;
-    if (!strcmp(name, "GetPhysicalDeviceQueueFamilyProperties2KHR"))
-        return (PFN_vkVoidFunction)GetPhysicalDeviceQueueFamilyProperties2KHR;
-    if (!strcmp(name, "GetPhysicalDeviceMemoryProperties2KHR"))
-        return (PFN_vkVoidFunction)GetPhysicalDeviceMemoryProperties2KHR;
-    if (!strcmp(name, "GetPhysicalDeviceSparseImageFormatProperties2KHR"))
-        return (PFN_vkVoidFunction)GetPhysicalDeviceSparseImageFormatProperties2KHR;
-    // VK_KHX_device_group Extension
-    if (!strcmp(name, "GetPhysicalDevicePresentRectanglesKHX"))
-        return (PFN_vkVoidFunction)GetPhysicalDevicePresentRectanglesKHX;
-    // VK_KHX_device_group_creation Extension
-    if (!strcmp(name, "EnumeratePhysicalDeviceGroupsKHX"))
-        return (PFN_vkVoidFunction)EnumeratePhysicalDeviceGroupsKHX;
     // VK_KHX_external_memory_capabilities Extension
     if (!strcmp(name, "GetPhysicalDeviceExternalBufferPropertiesKHX"))
         return (PFN_vkVoidFunction)GetPhysicalDeviceExternalBufferPropertiesKHX;
@@ -5264,16 +4771,6 @@ static inline PFN_vkVoidFunction InterceptInstanceExtensionCommand(const char *n
     // VK_NVX_device_generated_commands Extension
     if (!strcmp(name, "GetPhysicalDeviceGeneratedCommandsPropertiesNVX"))
         return (PFN_vkVoidFunction)GetPhysicalDeviceGeneratedCommandsPropertiesNVX;
-    // VK_EXT_direct_mode_display Extension
-    if (!strcmp(name, "ReleaseDisplayEXT"))
-        return (PFN_vkVoidFunction)ReleaseDisplayEXT;
-#ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
-    // VK_EXT_acquire_xlib_display Extension
-    if (!strcmp(name, "AcquireXlibDisplayEXT"))
-        return (PFN_vkVoidFunction)AcquireXlibDisplayEXT;
-    if (!strcmp(name, "GetRandROutputDisplayEXT"))
-        return (PFN_vkVoidFunction)GetRandROutputDisplayEXT;
-#endif // VK_USE_PLATFORM_XLIB_XRANDR_EXT
     // VK_EXT_display_surface_counter Extension
     if (!strcmp(name, "GetPhysicalDeviceSurfaceCapabilities2EXT"))
         return (PFN_vkVoidFunction)GetPhysicalDeviceSurfaceCapabilities2EXT;

@@ -155,29 +155,6 @@ const VkLayerInstanceDispatchTable instance_disp = {
     .GetDisplayPlaneCapabilitiesKHR = terminator_GetDisplayPlaneCapabilitiesKHR,
     .CreateDisplayPlaneSurfaceKHR = terminator_CreateDisplayPlaneSurfaceKHR,
 
-    // KHR_get_physical_device_properties2
-    .GetPhysicalDeviceFeatures2KHR = terminator_GetPhysicalDeviceFeatures2KHR,
-    .GetPhysicalDeviceProperties2KHR =
-        terminator_GetPhysicalDeviceProperties2KHR,
-    .GetPhysicalDeviceFormatProperties2KHR =
-        terminator_GetPhysicalDeviceFormatProperties2KHR,
-    .GetPhysicalDeviceImageFormatProperties2KHR =
-        terminator_GetPhysicalDeviceImageFormatProperties2KHR,
-    .GetPhysicalDeviceQueueFamilyProperties2KHR =
-        terminator_GetPhysicalDeviceQueueFamilyProperties2KHR,
-    .GetPhysicalDeviceMemoryProperties2KHR =
-        terminator_GetPhysicalDeviceMemoryProperties2KHR,
-    .GetPhysicalDeviceSparseImageFormatProperties2KHR =
-        terminator_GetPhysicalDeviceSparseImageFormatProperties2KHR,
-
-    // KHX_device_group (physical device procs)
-    .GetPhysicalDevicePresentRectanglesKHX =
-        terminator_GetPhysicalDevicePresentRectanglesKHX,
-
-    // KHX_device_group_creation
-    .EnumeratePhysicalDeviceGroupsKHX =
-        terminator_EnumeratePhysicalDeviceGroupsKHX,
-
     // KHX_external_memory_capabilities
     .GetPhysicalDeviceExternalBufferPropertiesKHX =
         terminator_GetPhysicalDeviceExternalBufferPropertiesKHX,
@@ -190,19 +167,10 @@ const VkLayerInstanceDispatchTable instance_disp = {
     .GetPhysicalDeviceExternalSemaphorePropertiesKHX =
         terminator_GetPhysicalDeviceExternalSemaphorePropertiesKHX,
 
-#ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
-    // EXT_acquire_xlib_display
-    .AcquireXlibDisplayEXT = terminator_AcquireXlibDisplayEXT,
-    .GetRandROutputDisplayEXT = terminator_GetRandROutputDisplayEXT,
-#endif
-
     // EXT_debug_report
     .CreateDebugReportCallbackEXT = terminator_CreateDebugReportCallback,
     .DestroyDebugReportCallbackEXT = terminator_DestroyDebugReportCallback,
     .DebugReportMessageEXT = terminator_DebugReportMessage,
-
-    // EXT_direct_mode_display
-    .ReleaseDisplayEXT = terminator_ReleaseDisplayEXT,
 
     // EXT_display_surface_counter
     .GetPhysicalDeviceSurfaceCapabilities2EXT =
@@ -242,14 +210,8 @@ static const char *const LOADER_INSTANCE_EXTENSIONS[] = {
 #endif
     VK_EXT_DEBUG_REPORT_EXTENSION_NAME,
     VK_NV_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME,
-    VK_EXT_VALIDATION_FLAGS_EXTENSION_NAME,
-    VK_KHX_DEVICE_GROUP_CREATION_EXTENSION_NAME,
     VK_KHX_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME,
     VK_KHX_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME,
-    VK_EXT_DIRECT_MODE_DISPLAY_EXTENSION_NAME,
-#ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
-    VK_EXT_ACQUIRE_XLIB_DISPLAY_EXTENSION_NAME,
-#endif
     VK_EXT_DISPLAY_SURFACE_COUNTER_EXTENSION_NAME,
     NULL};
 
@@ -1798,20 +1760,6 @@ static bool loader_icd_init_entrys(struct loader_icd_term *icd_term,
     LOOKUP_GIPA(CreateWaylandSurfaceKHR, false);
     LOOKUP_GIPA(GetPhysicalDeviceWaylandPresentationSupportKHR, false);
 #endif
-    // KHR_get_physical_device_properties2
-    LOOKUP_GIPA(GetPhysicalDeviceFeatures2KHR, false);
-    LOOKUP_GIPA(GetPhysicalDeviceProperties2KHR, false);
-    LOOKUP_GIPA(GetPhysicalDeviceFormatProperties2KHR, false);
-    LOOKUP_GIPA(GetPhysicalDeviceImageFormatProperties2KHR, false);
-    LOOKUP_GIPA(GetPhysicalDeviceQueueFamilyProperties2KHR, false);
-    LOOKUP_GIPA(GetPhysicalDeviceMemoryProperties2KHR, false);
-    LOOKUP_GIPA(GetPhysicalDeviceSparseImageFormatProperties2KHR, false);
-    // KHX_device_group (physical device procs)
-    LOOKUP_GIPA(GetPhysicalDevicePresentRectanglesKHX, false);
-    // KHX_device_group_creation
-    LOOKUP_GIPA(EnumeratePhysicalDeviceGroupsKHX, false);
-    // KHX_device_group (ones requiring trampoline/terminator funcs only)
-    LOOKUP_GIPA(GetDeviceGroupSurfacePresentModesKHX, false);
     // KHX_external_memory_capabilities
     LOOKUP_GIPA(GetPhysicalDeviceExternalBufferPropertiesKHX, false);
     LOOKUP_GIPA(GetPhysicalDeviceProperties2KHX, false);
@@ -1822,19 +1770,10 @@ static bool loader_icd_init_entrys(struct loader_icd_term *icd_term,
     LOOKUP_GIPA(DebugMarkerSetObjectTagEXT, false);
     LOOKUP_GIPA(DebugMarkerSetObjectNameEXT, false);
 
-#ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
-    // EXT_acquire_xlib_display
-    LOOKUP_GIPA(AcquireXlibDisplayEXT, false);
-    LOOKUP_GIPA(GetRandROutputDisplayEXT, false);
-#endif
-
     // EXT_debug_report
     LOOKUP_GIPA(CreateDebugReportCallbackEXT, false);
     LOOKUP_GIPA(DestroyDebugReportCallbackEXT, false);
     LOOKUP_GIPA(DebugReportMessageEXT, false);
-
-    // EXT_direct_mode_display
-    LOOKUP_GIPA(ReleaseDisplayEXT, false);
 
     // EXT_display_surface_counter
     LOOKUP_GIPA(GetPhysicalDeviceSurfaceCapabilities2EXT, false);
@@ -3573,9 +3512,6 @@ loader_gpa_device_internal(VkDevice device, const char *pName) {
         return (PFN_vkVoidFunction)loader_gpa_device_internal;
     } else if (!strcmp(pName, "vkCreateSwapchainKHR")) {
         return (PFN_vkVoidFunction)terminator_vkCreateSwapchainKHR;
-    } else if (!strcmp(pName, "vkGetDeviceGroupSurfacePresentModesKHX")) {
-        return (
-            PFN_vkVoidFunction)terminator_GetDeviceGroupSurfacePresentModesKHX;
     } else if (!strcmp(pName, "vkDebugMarkerSetObjectTagEXT")) {
         return (PFN_vkVoidFunction)terminator_DebugMarkerSetObjectTagEXT;
     } else if (!strcmp(pName, "vkDebugMarkerSetObjectNameEXT")) {
@@ -4541,67 +4477,6 @@ loader_create_device_chain(const struct loader_physical_device_tramp *pd,
 
     memcpy(&loader_create_info, pCreateInfo, sizeof(VkDeviceCreateInfo));
 
-    // Before we continue, we need to find out if the KHX_device_group
-    // extension is in the enabled list.  If it is, we then need to look
-    // for the corresponding VkDeviceGroupDeviceCreateInfoKHX struct
-    // in the device list.  This is because we need to replace all
-    // the incoming physical device values (which are really loader
-    // trampoline physical device values) with the layer/ICD version.
-    if (inst->enabled_known_extensions.khx_device_group_creation == 1) {
-        struct VkStructureHeader *pNext =
-            (struct VkStructureHeader *)loader_create_info.pNext;
-        struct VkStructureHeader *pPrev =
-            (struct VkStructureHeader *)&loader_create_info;
-        while (NULL != pNext) {
-            if (VK_STRUCTURE_TYPE_DEVICE_GROUP_DEVICE_CREATE_INFO_KHX ==
-                pNext->sType) {
-                VkDeviceGroupDeviceCreateInfoKHX *cur_struct =
-                    (VkDeviceGroupDeviceCreateInfoKHX *)pNext;
-                if (0 < cur_struct->physicalDeviceCount &&
-                    NULL != cur_struct->pPhysicalDevices) {
-                    VkDeviceGroupDeviceCreateInfoKHX *temp_struct =
-                        loader_stack_alloc(
-                            sizeof(VkDeviceGroupDeviceCreateInfoKHX));
-                    VkPhysicalDevice *phys_dev_array = NULL;
-                    if (NULL == temp_struct) {
-                        return VK_ERROR_OUT_OF_HOST_MEMORY;
-                    }
-                    memcpy(temp_struct, cur_struct,
-                           sizeof(VkDeviceGroupDeviceCreateInfoKHX));
-                    phys_dev_array =
-                        loader_stack_alloc(sizeof(VkPhysicalDevice) *
-                                           cur_struct->physicalDeviceCount);
-                    if (NULL == phys_dev_array) {
-                        return VK_ERROR_OUT_OF_HOST_MEMORY;
-                    }
-
-                    // Before calling down, replace the incoming physical
-                    // device values (which are really loader trampoline
-                    // physical devices) with the next layer (or possibly
-                    // even the terminator) physical device values.
-                    struct loader_physical_device_tramp *cur_tramp;
-                    for (uint32_t phys_dev = 0;
-                         phys_dev < cur_struct->physicalDeviceCount;
-                         phys_dev++) {
-                        cur_tramp = (struct loader_physical_device_tramp *)
-                                        cur_struct->pPhysicalDevices[phys_dev];
-                        phys_dev_array[phys_dev] = cur_tramp->phys_dev;
-                    }
-                    temp_struct->pPhysicalDevices = phys_dev_array;
-
-                    // Replace the old struct in the pNext chain with
-                    // this one.
-                    pPrev->pNext = (const void *)temp_struct;
-                    pNext = (struct VkStructureHeader *)(temp_struct);
-                }
-                break;
-            }
-
-            pPrev = pNext;
-            pNext = (struct VkStructureHeader *)(pPrev->pNext);
-        }
-    }
-
     layer_device_link_info = loader_stack_alloc(
         sizeof(VkLayerDeviceLink) * dev->activated_layer_list.count);
     if (!layer_device_link_info) {
@@ -5190,67 +5065,6 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_CreateDevice(
                        0, "vkCreateDevice extension %s not available for "
                           "devices associated with ICD %s",
                        extension_name, icd_term->scanned_icd->lib_name);
-        }
-    }
-
-    // Before we continue, If KHX_device_group is the list of enabled
-    // and viable extensions, then we then need to look for the
-    // corresponding VkDeviceGroupDeviceCreateInfoKHX struct in the
-    // device list and replace all the physical device values (which
-    // are really loader physical device terminator values) with
-    // the ICD versions.
-    if (icd_term->this_instance->enabled_known_extensions
-            .khx_device_group_creation == 1) {
-        struct VkStructureHeader *pNext =
-            (struct VkStructureHeader *)localCreateInfo.pNext;
-        struct VkStructureHeader *pPrev =
-            (struct VkStructureHeader *)&localCreateInfo;
-        while (NULL != pNext) {
-            if (VK_STRUCTURE_TYPE_DEVICE_GROUP_DEVICE_CREATE_INFO_KHX ==
-                pNext->sType) {
-                VkDeviceGroupDeviceCreateInfoKHX *cur_struct =
-                    (VkDeviceGroupDeviceCreateInfoKHX *)pNext;
-                if (0 < cur_struct->physicalDeviceCount &&
-                    NULL != cur_struct->pPhysicalDevices) {
-                    VkDeviceGroupDeviceCreateInfoKHX *temp_struct =
-                        loader_stack_alloc(
-                            sizeof(VkDeviceGroupDeviceCreateInfoKHX));
-                    VkPhysicalDevice *phys_dev_array = NULL;
-                    if (NULL == temp_struct) {
-                        return VK_ERROR_OUT_OF_HOST_MEMORY;
-                    }
-                    memcpy(temp_struct, cur_struct,
-                           sizeof(VkDeviceGroupDeviceCreateInfoKHX));
-                    phys_dev_array =
-                        loader_stack_alloc(sizeof(VkPhysicalDevice) *
-                                           cur_struct->physicalDeviceCount);
-                    if (NULL == phys_dev_array) {
-                        return VK_ERROR_OUT_OF_HOST_MEMORY;
-                    }
-
-                    // Before calling down, replace the incoming physical
-                    // device values (which are really loader terminator
-                    // physical devices) with the ICDs physical device
-                    // values.
-                    struct loader_physical_device_term *cur_term;
-                    for (uint32_t phys_dev = 0;
-                         phys_dev < cur_struct->physicalDeviceCount;
-                         phys_dev++) {
-                        cur_term = (struct loader_physical_device_term *)
-                                       cur_struct->pPhysicalDevices[phys_dev];
-                        phys_dev_array[phys_dev] = cur_term->phys_dev;
-                    }
-                    temp_struct->pPhysicalDevices = phys_dev_array;
-
-                    // Replace the old struct in the pNext chain with this one.
-                    pPrev->pNext = (const void *)temp_struct;
-                    pNext = (struct VkStructureHeader *)(temp_struct);
-                }
-                break;
-            }
-
-            pPrev = pNext;
-            pNext = (struct VkStructureHeader *)(pPrev->pNext);
         }
     }
 

@@ -210,20 +210,6 @@ typedef struct VkLayerDispatchTable_ {
     PFN_vkCmdDebugMarkerBeginEXT CmdDebugMarkerBeginEXT;
     PFN_vkCmdDebugMarkerEndEXT CmdDebugMarkerEndEXT;
     PFN_vkCmdDebugMarkerInsertEXT CmdDebugMarkerInsertEXT;
-    // KHR_maintenance1
-    PFN_vkTrimCommandPoolKHR TrimCommandPoolKHR;
-    // KHX_device_group
-    PFN_vkGetDeviceGroupPeerMemoryFeaturesKHX
-        GetDeviceGroupPeerMemoryFeaturesKHX;
-    PFN_vkBindBufferMemory2KHX BindBufferMemory2KHX;
-    PFN_vkBindImageMemory2KHX BindImageMemory2KHX;
-    PFN_vkCmdSetDeviceMaskKHX CmdSetDeviceMaskKHX;
-    PFN_vkGetDeviceGroupPresentCapabilitiesKHX
-        GetDeviceGroupPresentCapabilitiesKHX;
-    PFN_vkGetDeviceGroupSurfacePresentModesKHX
-        GetDeviceGroupSurfacePresentModesKHX;
-    PFN_vkAcquireNextImage2KHX AcquireNextImage2KHX;
-    PFN_vkCmdDispatchBaseKHX CmdDispatchBaseKHX;
     // KHX_external_memory_fd
     PFN_vkGetMemoryFdKHX GetMemoryFdKHX;
     PFN_vkGetMemoryFdPropertiesKHX GetMemoryFdPropertiesKHX;
@@ -239,13 +225,6 @@ typedef struct VkLayerDispatchTable_ {
     PFN_vkImportSemaphoreWin32HandleKHX ImportSemaphoreWin32HandleKHX;
     PFN_vkGetSemaphoreWin32HandleKHX GetSemaphoreWin32HandleKHX;
 #endif
-    // KHX_push_descriptor
-    PFN_vkCmdPushDescriptorSetKHX CmdPushDescriptorSetKHX;
-    // EXT_display_control
-    PFN_vkDisplayPowerControlEXT DisplayPowerControlEXT;
-    PFN_vkRegisterDeviceEventEXT RegisterDeviceEventEXT;
-    PFN_vkRegisterDisplayEventEXT RegisterDisplayEventEXT;
-    PFN_vkGetSwapchainCounterEXT GetSwapchainCounterEXT;
     // NVX_device_generated_commands
     PFN_vkCmdProcessCommandsNVX CmdProcessCommandsNVX;
     PFN_vkCmdReserveSpaceForCommandsNVX CmdReserveSpaceForCommandsNVX;
@@ -323,24 +302,6 @@ typedef struct VkLayerInstanceDispatchTable_ {
         GetDisplayPlaneCapabilitiesKHR;
     PFN_vkCreateDisplayPlaneSurfaceKHR
         CreateDisplayPlaneSurfaceKHR;
-    // KHR_get_physical_device_properties2
-    PFN_vkGetPhysicalDeviceFeatures2KHR GetPhysicalDeviceFeatures2KHR;
-    PFN_vkGetPhysicalDeviceProperties2KHR GetPhysicalDeviceProperties2KHR;
-    PFN_vkGetPhysicalDeviceFormatProperties2KHR
-        GetPhysicalDeviceFormatProperties2KHR;
-    PFN_vkGetPhysicalDeviceImageFormatProperties2KHR
-        GetPhysicalDeviceImageFormatProperties2KHR;
-    PFN_vkGetPhysicalDeviceQueueFamilyProperties2KHR
-        GetPhysicalDeviceQueueFamilyProperties2KHR;
-    PFN_vkGetPhysicalDeviceMemoryProperties2KHR
-        GetPhysicalDeviceMemoryProperties2KHR;
-    PFN_vkGetPhysicalDeviceSparseImageFormatProperties2KHR
-        GetPhysicalDeviceSparseImageFormatProperties2KHR;
-    // KHX_device_group (physical device procs)
-    PFN_vkGetPhysicalDevicePresentRectanglesKHX
-        GetPhysicalDevicePresentRectanglesKHX;
-    // KHX_device_group_creation
-    PFN_vkEnumeratePhysicalDeviceGroupsKHX EnumeratePhysicalDeviceGroupsKHX;
     // KHX_external_memory_capabilities
     PFN_vkGetPhysicalDeviceExternalBufferPropertiesKHX
         GetPhysicalDeviceExternalBufferPropertiesKHX;
@@ -350,17 +311,10 @@ typedef struct VkLayerInstanceDispatchTable_ {
     // KHX_external_semaphore_capabilities
     PFN_vkGetPhysicalDeviceExternalSemaphorePropertiesKHX
         GetPhysicalDeviceExternalSemaphorePropertiesKHX;
-#ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
-    // EXT_acquire_xlib_display
-    PFN_vkAcquireXlibDisplayEXT AcquireXlibDisplayEXT;
-    PFN_vkGetRandROutputDisplayEXT GetRandROutputDisplayEXT;
-#endif
     // EXT_debug_report
     PFN_vkCreateDebugReportCallbackEXT CreateDebugReportCallbackEXT;
     PFN_vkDestroyDebugReportCallbackEXT DestroyDebugReportCallbackEXT;
     PFN_vkDebugReportMessageEXT DebugReportMessageEXT;
-    // EXT_direct_mode_display
-    PFN_vkReleaseDisplayEXT ReleaseDisplayEXT;
     // EXT_display_surface_counter
     PFN_vkGetPhysicalDeviceSurfaceCapabilities2EXT
         GetPhysicalDeviceSurfaceCapabilities2EXT;
