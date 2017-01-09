@@ -804,14 +804,6 @@ static inline void *loader_lookup_instance_extension_dispatch_table(
     if (!strcmp(name, "GetPhysicalDeviceExternalSemaphorePropertiesKHX"))
         return (void *)table->GetPhysicalDeviceExternalSemaphorePropertiesKHX;
 
-// EXT_acquire_xlib_display
-#ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
-    if (!strcmp(name, "AcquireXlibDisplayEXT"))
-        return (void *)table->AcquireXlibDisplayEXT;
-    if (!strcmp(name, "GetRandROutputDisplayEXT"))
-        return (void *)table->GetRandROutputDisplayEXT;
-#endif
-
     // EXT_debug_report
     if (!strcmp(name, "CreateDebugReportCallbackEXT"))
         return (void *)table->CreateDebugReportCallbackEXT;
