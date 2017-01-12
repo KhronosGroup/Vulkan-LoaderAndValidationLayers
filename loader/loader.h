@@ -650,7 +650,7 @@ VkResult loader_validate_device_extensions(
     const struct loader_extension_list *icd_exts,
     const VkDeviceCreateInfo *pCreateInfo);
 
-VkResult setupLoaderTrampPhysDevs(struct loader_instance *inst);
+VkResult setupLoaderTrampPhysDevs(VkInstance instance);
 VkResult setupLoaderTermPhysDevs(struct loader_instance *inst);
 
 /* instance layer chain termination entrypoint definitions */

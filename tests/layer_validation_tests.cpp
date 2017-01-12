@@ -3911,12 +3911,7 @@ TEST_F(VkLayerTest, WriteDescriptorSetIntegrityCheck) {
                      "     the descriptor types and stageflags must all be the same."
                      "3) Immutable Sampler state must match across descriptors");
 
-    const char *invalid_BufferInfo_ErrorMessage =
-        "vkUpdateDescriptorSets: if pDescriptorWrites[0].descriptorType is VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, "
-        "VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC or "
-        "VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, pDescriptorWrites[0].pBufferInfo must not be NULL";
-
-    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, invalid_BufferInfo_ErrorMessage);
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_00941);
 
     ASSERT_NO_FATAL_FAILURE(InitState());
     VkDescriptorPoolSize ds_type_count[4] = {};
@@ -9968,6 +9963,11 @@ TEST_F(VkLayerTest, NumSamplesMismatch) {
     m_commandBuffer->BeginRenderPass(m_renderPassBeginInfo);
     vkCmdBindPipeline(m_commandBuffer->GetBufferHandle(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipe.handle());
 
+    VkViewport viewport = {0, 0, 16, 16, 0, 1};
+    vkCmdSetViewport(m_commandBuffer->handle(), 0, 1, &viewport);
+    VkRect2D scissor = {{0, 0}, {16, 16}};
+    vkCmdSetScissor(m_commandBuffer->handle(), 0, 1, &scissor);
+
     // Render triangle (the error should trigger on the attempt to draw).
     Draw(3, 1, 0, 0);
 
@@ -10902,7 +10902,7 @@ TEST_F(VkLayerTest, InvalidImageLayout) {
     image_barrier[0].subresourceRange.layerCount = image_create_info.arrayLayers;
     image_barrier[0].subresourceRange.levelCount = image_create_info.mipLevels;
     image_barrier[0].subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, "You cannot transition the layout from "
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, "You cannot transition the layout of aspect 1 from "
                                                                         "VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL when "
                                                                         "current layout is VK_IMAGE_LAYOUT_GENERAL.");
     vkCmdPipelineBarrier(m_commandBuffer->handle(), VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0,
@@ -12891,7 +12891,7 @@ TEST_F(VkLayerTest, CreatePipelineVsFsTypeMismatchArraySize) {
                      "across the vertex->fragment shader interface");
     m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, "Type mismatch on location 0.0: 'ptr to "
                                                                         "output arr[2] of float32' vs 'ptr to "
-                                                                        "input arr[3] of float32'");
+                                                                        "input arr[1] of float32'");
 
     ASSERT_NO_FATAL_FAILURE(InitState());
     ASSERT_NO_FATAL_FAILURE(InitRenderTarget());
@@ -12908,10 +12908,10 @@ TEST_F(VkLayerTest, CreatePipelineVsFsTypeMismatchArraySize) {
                            "}\n";
     char const *fsSource = "#version 450\n"
                            "\n"
-                           "layout(location=0) in float x[3];\n"
+                           "layout(location=0) in float x[1];\n"
                            "layout(location=0) out vec4 color;\n"
                            "void main(){\n"
-                           "   color = vec4(x[0] + x[1] + x[2]);\n"
+                           "   color = vec4(x[0]);\n"
                            "}\n";
 
     VkShaderObj vs(m_device, vsSource, VK_SHADER_STAGE_VERTEX_BIT, this);
@@ -12930,7 +12930,6 @@ TEST_F(VkLayerTest, CreatePipelineVsFsTypeMismatchArraySize) {
 
     m_errorMonitor->VerifyFound();
 }
-
 
 TEST_F(VkLayerTest, CreatePipelineVsFsTypeMismatch) {
     TEST_DESCRIPTION("Test that an error is produced for mismatched types across "
@@ -14697,8 +14696,9 @@ TEST_F(VkLayerTest, ImageLayerViewTests) {
     m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_02171);
     // TODO: Update framework to easily passing mutable flag into ImageObj init
     //   For now just allowing image for this one test to not have memory bound
-    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT,
-                                         " used with no memory bound. Memory should be bound by calling vkBindImageMemory().");
+    // TODO: The following line is preventing the intended validation from occurring because of the way the error monitor works.
+    // m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT,
+    //                                      " used with no memory bound. Memory should be bound by calling vkBindImageMemory().");
     // Have MUTABLE_FORMAT bit but not in same compatibility class - Expect
     // VIEW_CREATE_ERROR
     VkImageCreateInfo mutImgInfo = image.create_info();
@@ -14892,11 +14892,11 @@ TEST_F(VkLayerTest, ImageFormatLimits) {
     VkImageFormatProperties imgFmtProps;
     vkGetPhysicalDeviceImageFormatProperties(gpu(), image_create_info.format, image_create_info.imageType, image_create_info.tiling,
                                              image_create_info.usage, image_create_info.flags, &imgFmtProps);
-    image_create_info.extent.depth = imgFmtProps.maxExtent.depth + 1;
+    image_create_info.extent.width = imgFmtProps.maxExtent.width + 1;
     // Expect INVALID_FORMAT_LIMITS_VIOLATION
     vkCreateImage(m_device->handle(), &image_create_info, NULL, &nullImg);
     m_errorMonitor->VerifyFound();
-    image_create_info.extent.depth = 1;
+    image_create_info.extent.width = 1;
 
     m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, "exceeds allowable maximum supported by format of");
     image_create_info.mipLevels = imgFmtProps.maxMipLevels + 1;
