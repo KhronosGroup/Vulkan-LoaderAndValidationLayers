@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2016 The Khronos Group Inc.
+// Copyright (c) 2015-2017 The Khronos Group Inc.
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a
 // copy of this software and/or associated documentation files (the
@@ -344,8 +344,7 @@ namespace vk
     eErrorIncompatibleDisplayKHR = VK_ERROR_INCOMPATIBLE_DISPLAY_KHR,
     eErrorValidationFailedEXT = VK_ERROR_VALIDATION_FAILED_EXT,
     eErrorInvalidShaderNV = VK_ERROR_INVALID_SHADER_NV,
-    eErrorOutOfPoolMemoryKHR = VK_ERROR_OUT_OF_POOL_MEMORY_KHR,
-    eErrorInvalidExternalHandleKHX = VK_ERROR_INVALID_EXTERNAL_HANDLE_KHX
+    eErrorOutOfPoolMemoryKHR = VK_ERROR_OUT_OF_POOL_MEMORY_KHR
   };
 
   VULKAN_HPP_INLINE std::string to_string(Result value)
@@ -378,7 +377,6 @@ namespace vk
     case Result::eErrorValidationFailedEXT: return "ErrorValidationFailedEXT";
     case Result::eErrorInvalidShaderNV: return "ErrorInvalidShaderNV";
     case Result::eErrorOutOfPoolMemoryKHR: return "ErrorOutOfPoolMemoryKHR";
-    case Result::eErrorInvalidExternalHandleKHX: return "ErrorInvalidExternalHandleKHX";
     default: return "invalid";
     }
   }
@@ -695,6 +693,17 @@ namespace vk
     return PipelineShaderStageCreateFlags( bit0 ) | bit1;
   }
 
+  enum class DescriptorSetLayoutCreateFlagBits
+  {
+  };
+
+  using DescriptorSetLayoutCreateFlags = Flags<DescriptorSetLayoutCreateFlagBits, VkDescriptorSetLayoutCreateFlags>;
+
+  VULKAN_HPP_INLINE DescriptorSetLayoutCreateFlags operator|( DescriptorSetLayoutCreateFlagBits bit0, DescriptorSetLayoutCreateFlagBits bit1 )
+  {
+    return DescriptorSetLayoutCreateFlags( bit0 ) | bit1;
+  }
+
   enum class BufferViewCreateFlagBits
   {
   };
@@ -816,6 +825,17 @@ namespace vk
     return DescriptorPoolResetFlags( bit0 ) | bit1;
   }
 
+  enum class SwapchainCreateFlagBitsKHR
+  {
+  };
+
+  using SwapchainCreateFlagsKHR = Flags<SwapchainCreateFlagBitsKHR, VkSwapchainCreateFlagsKHR>;
+
+  VULKAN_HPP_INLINE SwapchainCreateFlagsKHR operator|( SwapchainCreateFlagBitsKHR bit0, SwapchainCreateFlagBitsKHR bit1 )
+  {
+    return SwapchainCreateFlagsKHR( bit0 ) | bit1;
+  }
+
   enum class DisplayModeCreateFlagBitsKHR
   {
   };
@@ -867,6 +887,21 @@ namespace vk
     return MirSurfaceCreateFlagsKHR( bit0 ) | bit1;
   }
 #endif /*VK_USE_PLATFORM_MIR_KHR*/
+
+#ifdef VK_USE_PLATFORM_VI_NN
+  enum class ViSurfaceCreateFlagBitsNN
+  {
+  };
+#endif /*VK_USE_PLATFORM_VI_NN*/
+
+#ifdef VK_USE_PLATFORM_VI_NN
+  using ViSurfaceCreateFlagsNN = Flags<ViSurfaceCreateFlagBitsNN, VkViSurfaceCreateFlagsNN>;
+
+  VULKAN_HPP_INLINE ViSurfaceCreateFlagsNN operator|( ViSurfaceCreateFlagBitsNN bit0, ViSurfaceCreateFlagBitsNN bit1 )
+  {
+    return ViSurfaceCreateFlagsNN( bit0 ) | bit1;
+  }
+#endif /*VK_USE_PLATFORM_VI_NN*/
 
 #ifdef VK_USE_PLATFORM_WAYLAND_KHR
   enum class WaylandSurfaceCreateFlagBitsKHR
@@ -4351,119 +4386,6 @@ namespace vk
   };
   static_assert( sizeof( DisplayModePropertiesKHR ) == sizeof( VkDisplayModePropertiesKHR ), "struct and wrapper have different size!" );
 
-  struct RectLayerKHR
-  {
-    RectLayerKHR( Offset2D offset_ = Offset2D(), Extent2D extent_ = Extent2D(), uint32_t layer_ = 0 )
-      : offset( offset_ )
-      , extent( extent_ )
-      , layer( layer_ )
-    {
-    }
-
-    RectLayerKHR( VkRectLayerKHR const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(RectLayerKHR) );
-    }
-
-    RectLayerKHR& operator=( VkRectLayerKHR const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(RectLayerKHR) );
-      return *this;
-    }
-
-    RectLayerKHR& setOffset( Offset2D offset_ )
-    {
-      offset = offset_;
-      return *this;
-    }
-
-    RectLayerKHR& setExtent( Extent2D extent_ )
-    {
-      extent = extent_;
-      return *this;
-    }
-
-    RectLayerKHR& setLayer( uint32_t layer_ )
-    {
-      layer = layer_;
-      return *this;
-    }
-
-    operator const VkRectLayerKHR&() const
-    {
-      return *reinterpret_cast<const VkRectLayerKHR*>(this);
-    }
-
-    bool operator==( RectLayerKHR const& rhs ) const
-    {
-      return ( offset == rhs.offset )
-          && ( extent == rhs.extent )
-          && ( layer == rhs.layer );
-    }
-
-    bool operator!=( RectLayerKHR const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-    Offset2D offset;
-    Extent2D extent;
-    uint32_t layer;
-  };
-  static_assert( sizeof( RectLayerKHR ) == sizeof( VkRectLayerKHR ), "struct and wrapper have different size!" );
-
-  struct PresentRegionKHR
-  {
-    PresentRegionKHR( uint32_t rectangleCount_ = 0, const RectLayerKHR* pRectangles_ = nullptr )
-      : rectangleCount( rectangleCount_ )
-      , pRectangles( pRectangles_ )
-    {
-    }
-
-    PresentRegionKHR( VkPresentRegionKHR const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(PresentRegionKHR) );
-    }
-
-    PresentRegionKHR& operator=( VkPresentRegionKHR const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(PresentRegionKHR) );
-      return *this;
-    }
-
-    PresentRegionKHR& setRectangleCount( uint32_t rectangleCount_ )
-    {
-      rectangleCount = rectangleCount_;
-      return *this;
-    }
-
-    PresentRegionKHR& setPRectangles( const RectLayerKHR* pRectangles_ )
-    {
-      pRectangles = pRectangles_;
-      return *this;
-    }
-
-    operator const VkPresentRegionKHR&() const
-    {
-      return *reinterpret_cast<const VkPresentRegionKHR*>(this);
-    }
-
-    bool operator==( PresentRegionKHR const& rhs ) const
-    {
-      return ( rectangleCount == rhs.rectangleCount )
-          && ( pRectangles == rhs.pRectangles );
-    }
-
-    bool operator!=( PresentRegionKHR const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-    uint32_t rectangleCount;
-    const RectLayerKHR* pRectangles;
-  };
-  static_assert( sizeof( PresentRegionKHR ) == sizeof( VkPresentRegionKHR ), "struct and wrapper have different size!" );
-
   enum class ImageLayout
   {
     eUndefined = VK_IMAGE_LAYOUT_UNDEFINED,
@@ -5624,9 +5546,6 @@ namespace vk
     eDedicatedAllocationImageCreateInfoNV = VK_STRUCTURE_TYPE_DEDICATED_ALLOCATION_IMAGE_CREATE_INFO_NV,
     eDedicatedAllocationBufferCreateInfoNV = VK_STRUCTURE_TYPE_DEDICATED_ALLOCATION_BUFFER_CREATE_INFO_NV,
     eDedicatedAllocationMemoryAllocateInfoNV = VK_STRUCTURE_TYPE_DEDICATED_ALLOCATION_MEMORY_ALLOCATE_INFO_NV,
-    eRenderPassMultiviewCreateInfoKHX = VK_STRUCTURE_TYPE_RENDER_PASS_MULTIVIEW_CREATE_INFO_KHX,
-    ePhysicalDeviceMultiviewFeaturesKHX = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES_KHX,
-    ePhysicalDeviceMultiviewPropertiesKHX = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PROPERTIES_KHX,
     eExternalMemoryImageCreateInfoNV = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO_NV,
     eExportMemoryAllocateInfoNV = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO_NV,
     eImportMemoryWin32HandleInfoNV = VK_STRUCTURE_TYPE_IMPORT_MEMORY_WIN32_HANDLE_INFO_NV,
@@ -5641,48 +5560,8 @@ namespace vk
     ePhysicalDeviceMemoryProperties2KHR = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2_KHR,
     eSparseImageFormatProperties2KHR = VK_STRUCTURE_TYPE_SPARSE_IMAGE_FORMAT_PROPERTIES_2_KHR,
     ePhysicalDeviceSparseImageFormatInfo2KHR = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SPARSE_IMAGE_FORMAT_INFO_2_KHR,
-    eMemoryAllocateFlagsInfoKHX = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO_KHX,
-    eBindBufferMemoryInfoKHX = VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_INFO_KHX,
-    eBindImageMemoryInfoKHX = VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_INFO_KHX,
-    eDeviceGroupRenderPassBeginInfoKHX = VK_STRUCTURE_TYPE_DEVICE_GROUP_RENDER_PASS_BEGIN_INFO_KHX,
-    eDeviceGroupCommandBufferBeginInfoKHX = VK_STRUCTURE_TYPE_DEVICE_GROUP_COMMAND_BUFFER_BEGIN_INFO_KHX,
-    eDeviceGroupSubmitInfoKHX = VK_STRUCTURE_TYPE_DEVICE_GROUP_SUBMIT_INFO_KHX,
-    eDeviceGroupBindSparseInfoKHX = VK_STRUCTURE_TYPE_DEVICE_GROUP_BIND_SPARSE_INFO_KHX,
-    eDeviceGroupPresentCapabilitiesKHX = VK_STRUCTURE_TYPE_DEVICE_GROUP_PRESENT_CAPABILITIES_KHX,
-    eImageSwapchainCreateInfoKHX = VK_STRUCTURE_TYPE_IMAGE_SWAPCHAIN_CREATE_INFO_KHX,
-    eBindImageMemorySwapchainInfoKHX = VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_SWAPCHAIN_INFO_KHX,
-    eAcquireNextImageInfoKHX = VK_STRUCTURE_TYPE_ACQUIRE_NEXT_IMAGE_INFO_KHX,
-    eDeviceGroupPresentInfoKHX = VK_STRUCTURE_TYPE_DEVICE_GROUP_PRESENT_INFO_KHX,
-    eDeviceGroupSwapchainCreateInfoKHX = VK_STRUCTURE_TYPE_DEVICE_GROUP_SWAPCHAIN_CREATE_INFO_KHX,
     eValidationFlagsEXT = VK_STRUCTURE_TYPE_VALIDATION_FLAGS_EXT,
-    ePhysicalDeviceGroupPropertiesKHX = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GROUP_PROPERTIES_KHX,
-    eDeviceGroupDeviceCreateInfoKHX = VK_STRUCTURE_TYPE_DEVICE_GROUP_DEVICE_CREATE_INFO_KHX,
-    ePhysicalDeviceExternalImageFormatInfoKHX = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_IMAGE_FORMAT_INFO_KHX,
-    eExternalImageFormatPropertiesKHX = VK_STRUCTURE_TYPE_EXTERNAL_IMAGE_FORMAT_PROPERTIES_KHX,
-    ePhysicalDeviceExternalBufferInfoKHX = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_BUFFER_INFO_KHX,
-    eExternalBufferPropertiesKHX = VK_STRUCTURE_TYPE_EXTERNAL_BUFFER_PROPERTIES_KHX,
-    ePhysicalDeviceIdPropertiesKHX = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES_KHX,
-    ePhysicalDeviceProperties2KHX = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2_KHX,
-    eImageFormatProperties2KHX = VK_STRUCTURE_TYPE_IMAGE_FORMAT_PROPERTIES_2_KHX,
-    ePhysicalDeviceImageFormatInfo2KHX = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_FORMAT_INFO_2_KHX,
-    eExternalMemoryBufferCreateInfoKHX = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO_KHX,
-    eExternalMemoryImageCreateInfoKHX = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO_KHX,
-    eExportMemoryAllocateInfoKHX = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO_KHX,
-    eImportMemoryWin32HandleInfoKHX = VK_STRUCTURE_TYPE_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHX,
-    eExportMemoryWin32HandleInfoKHX = VK_STRUCTURE_TYPE_EXPORT_MEMORY_WIN32_HANDLE_INFO_KHX,
-    eMemoryWin32HandlePropertiesKHX = VK_STRUCTURE_TYPE_MEMORY_WIN32_HANDLE_PROPERTIES_KHX,
-    eImportMemoryFdInfoKHX = VK_STRUCTURE_TYPE_IMPORT_MEMORY_FD_INFO_KHX,
-    eMemoryFdPropertiesKHX = VK_STRUCTURE_TYPE_MEMORY_FD_PROPERTIES_KHX,
-    eWin32KeyedMutexAcquireReleaseInfoKHX = VK_STRUCTURE_TYPE_WIN32_KEYED_MUTEX_ACQUIRE_RELEASE_INFO_KHX,
-    ePhysicalDeviceExternalSemaphoreInfoKHX = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_SEMAPHORE_INFO_KHX,
-    eExternalSemaphorePropertiesKHX = VK_STRUCTURE_TYPE_EXTERNAL_SEMAPHORE_PROPERTIES_KHX,
-    eExportSemaphoreCreateInfoKHX = VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_CREATE_INFO_KHX,
-    eImportSemaphoreWin32HandleInfoKHX = VK_STRUCTURE_TYPE_IMPORT_SEMAPHORE_WIN32_HANDLE_INFO_KHX,
-    eExportSemaphoreWin32HandleInfoKHX = VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_WIN32_HANDLE_INFO_KHX,
-    eD3D12FenceSubmitInfoKHX = VK_STRUCTURE_TYPE_D3D12_FENCE_SUBMIT_INFO_KHX,
-    eImportSemaphoreFdInfoKHX = VK_STRUCTURE_TYPE_IMPORT_SEMAPHORE_FD_INFO_KHX,
-    ePhysicalDevicePushDescriptorPropertiesKHX = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PUSH_DESCRIPTOR_PROPERTIES_KHX,
-    ePresentRegionsKHR = VK_STRUCTURE_TYPE_PRESENT_REGIONS_KHR,
+    eViSurfaceCreateInfoNN = VK_STRUCTURE_TYPE_VI_SURFACE_CREATE_INFO_NN,
     eObjectTableCreateInfoNVX = VK_STRUCTURE_TYPE_OBJECT_TABLE_CREATE_INFO_NVX,
     eIndirectCommandsLayoutCreateInfoNVX = VK_STRUCTURE_TYPE_INDIRECT_COMMANDS_LAYOUT_CREATE_INFO_NVX,
     eCmdProcessCommandsInfoNVX = VK_STRUCTURE_TYPE_CMD_PROCESS_COMMANDS_INFO_NVX,
@@ -8464,6 +8343,81 @@ namespace vk
   static_assert( sizeof( MirSurfaceCreateInfoKHR ) == sizeof( VkMirSurfaceCreateInfoKHR ), "struct and wrapper have different size!" );
 #endif /*VK_USE_PLATFORM_MIR_KHR*/
 
+#ifdef VK_USE_PLATFORM_VI_NN
+  struct ViSurfaceCreateInfoNN
+  {
+    ViSurfaceCreateInfoNN( ViSurfaceCreateFlagsNN flags_ = ViSurfaceCreateFlagsNN(), void* window_ = nullptr )
+      : sType( StructureType::eViSurfaceCreateInfoNN )
+      , pNext( nullptr )
+      , flags( flags_ )
+      , window( window_ )
+    {
+    }
+
+    ViSurfaceCreateInfoNN( VkViSurfaceCreateInfoNN const & rhs )
+    {
+      memcpy( this, &rhs, sizeof(ViSurfaceCreateInfoNN) );
+    }
+
+    ViSurfaceCreateInfoNN& operator=( VkViSurfaceCreateInfoNN const & rhs )
+    {
+      memcpy( this, &rhs, sizeof(ViSurfaceCreateInfoNN) );
+      return *this;
+    }
+
+    ViSurfaceCreateInfoNN& setSType( StructureType sType_ )
+    {
+      sType = sType_;
+      return *this;
+    }
+
+    ViSurfaceCreateInfoNN& setPNext( const void* pNext_ )
+    {
+      pNext = pNext_;
+      return *this;
+    }
+
+    ViSurfaceCreateInfoNN& setFlags( ViSurfaceCreateFlagsNN flags_ )
+    {
+      flags = flags_;
+      return *this;
+    }
+
+    ViSurfaceCreateInfoNN& setWindow( void* window_ )
+    {
+      window = window_;
+      return *this;
+    }
+
+    operator const VkViSurfaceCreateInfoNN&() const
+    {
+      return *reinterpret_cast<const VkViSurfaceCreateInfoNN*>(this);
+    }
+
+    bool operator==( ViSurfaceCreateInfoNN const& rhs ) const
+    {
+      return ( sType == rhs.sType )
+          && ( pNext == rhs.pNext )
+          && ( flags == rhs.flags )
+          && ( window == rhs.window );
+    }
+
+    bool operator!=( ViSurfaceCreateInfoNN const& rhs ) const
+    {
+      return !operator==( rhs );
+    }
+
+  private:
+    StructureType sType;
+
+  public:
+    const void* pNext;
+    ViSurfaceCreateFlagsNN flags;
+    void* window;
+  };
+  static_assert( sizeof( ViSurfaceCreateInfoNN ) == sizeof( VkViSurfaceCreateInfoNN ), "struct and wrapper have different size!" );
+#endif /*VK_USE_PLATFORM_VI_NN*/
+
 #ifdef VK_USE_PLATFORM_WAYLAND_KHR
   struct WaylandSurfaceCreateInfoKHR
   {
@@ -9579,1620 +9533,6 @@ namespace vk
   };
   static_assert( sizeof( PhysicalDeviceFeatures2KHR ) == sizeof( VkPhysicalDeviceFeatures2KHR ), "struct and wrapper have different size!" );
 
-  struct PhysicalDevicePushDescriptorPropertiesKHX
-  {
-    PhysicalDevicePushDescriptorPropertiesKHX( uint32_t maxPushDescriptors_ = 0 )
-      : sType( StructureType::ePhysicalDevicePushDescriptorPropertiesKHX )
-      , pNext( nullptr )
-      , maxPushDescriptors( maxPushDescriptors_ )
-    {
-    }
-
-    PhysicalDevicePushDescriptorPropertiesKHX( VkPhysicalDevicePushDescriptorPropertiesKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(PhysicalDevicePushDescriptorPropertiesKHX) );
-    }
-
-    PhysicalDevicePushDescriptorPropertiesKHX& operator=( VkPhysicalDevicePushDescriptorPropertiesKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(PhysicalDevicePushDescriptorPropertiesKHX) );
-      return *this;
-    }
-
-    PhysicalDevicePushDescriptorPropertiesKHX& setSType( StructureType sType_ )
-    {
-      sType = sType_;
-      return *this;
-    }
-
-    PhysicalDevicePushDescriptorPropertiesKHX& setPNext( void* pNext_ )
-    {
-      pNext = pNext_;
-      return *this;
-    }
-
-    PhysicalDevicePushDescriptorPropertiesKHX& setMaxPushDescriptors( uint32_t maxPushDescriptors_ )
-    {
-      maxPushDescriptors = maxPushDescriptors_;
-      return *this;
-    }
-
-    operator const VkPhysicalDevicePushDescriptorPropertiesKHX&() const
-    {
-      return *reinterpret_cast<const VkPhysicalDevicePushDescriptorPropertiesKHX*>(this);
-    }
-
-    bool operator==( PhysicalDevicePushDescriptorPropertiesKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( maxPushDescriptors == rhs.maxPushDescriptors );
-    }
-
-    bool operator!=( PhysicalDevicePushDescriptorPropertiesKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    void* pNext;
-    uint32_t maxPushDescriptors;
-  };
-  static_assert( sizeof( PhysicalDevicePushDescriptorPropertiesKHX ) == sizeof( VkPhysicalDevicePushDescriptorPropertiesKHX ), "struct and wrapper have different size!" );
-
-  struct PresentRegionsKHR
-  {
-    PresentRegionsKHR( uint32_t swapchainCount_ = 0, const PresentRegionKHR* pRegions_ = nullptr )
-      : sType( StructureType::ePresentRegionsKHR )
-      , pNext( nullptr )
-      , swapchainCount( swapchainCount_ )
-      , pRegions( pRegions_ )
-    {
-    }
-
-    PresentRegionsKHR( VkPresentRegionsKHR const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(PresentRegionsKHR) );
-    }
-
-    PresentRegionsKHR& operator=( VkPresentRegionsKHR const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(PresentRegionsKHR) );
-      return *this;
-    }
-
-    PresentRegionsKHR& setSType( StructureType sType_ )
-    {
-      sType = sType_;
-      return *this;
-    }
-
-    PresentRegionsKHR& setPNext( const void* pNext_ )
-    {
-      pNext = pNext_;
-      return *this;
-    }
-
-    PresentRegionsKHR& setSwapchainCount( uint32_t swapchainCount_ )
-    {
-      swapchainCount = swapchainCount_;
-      return *this;
-    }
-
-    PresentRegionsKHR& setPRegions( const PresentRegionKHR* pRegions_ )
-    {
-      pRegions = pRegions_;
-      return *this;
-    }
-
-    operator const VkPresentRegionsKHR&() const
-    {
-      return *reinterpret_cast<const VkPresentRegionsKHR*>(this);
-    }
-
-    bool operator==( PresentRegionsKHR const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( swapchainCount == rhs.swapchainCount )
-          && ( pRegions == rhs.pRegions );
-    }
-
-    bool operator!=( PresentRegionsKHR const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    const void* pNext;
-    uint32_t swapchainCount;
-    const PresentRegionKHR* pRegions;
-  };
-  static_assert( sizeof( PresentRegionsKHR ) == sizeof( VkPresentRegionsKHR ), "struct and wrapper have different size!" );
-
-  struct PhysicalDeviceIDPropertiesKHX
-  {
-    operator const VkPhysicalDeviceIDPropertiesKHX&() const
-    {
-      return *reinterpret_cast<const VkPhysicalDeviceIDPropertiesKHX*>(this);
-    }
-
-    bool operator==( PhysicalDeviceIDPropertiesKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( memcmp( deviceUUID, rhs.deviceUUID, VK_UUID_SIZE * sizeof( uint8_t ) ) == 0 )
-          && ( memcmp( driverUUID, rhs.driverUUID, VK_UUID_SIZE * sizeof( uint8_t ) ) == 0 )
-          && ( memcmp( deviceLUID, rhs.deviceLUID, VK_LUID_SIZE_KHX * sizeof( uint8_t ) ) == 0 )
-          && ( deviceLUIDValid == rhs.deviceLUIDValid );
-    }
-
-    bool operator!=( PhysicalDeviceIDPropertiesKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    void* pNext;
-    uint8_t deviceUUID[VK_UUID_SIZE];
-    uint8_t driverUUID[VK_UUID_SIZE];
-    uint8_t deviceLUID[VK_LUID_SIZE_KHX];
-    Bool32 deviceLUIDValid;
-  };
-  static_assert( sizeof( PhysicalDeviceIDPropertiesKHX ) == sizeof( VkPhysicalDeviceIDPropertiesKHX ), "struct and wrapper have different size!" );
-
-#ifdef VK_USE_PLATFORM_WIN32_KHR
-  struct ExportMemoryWin32HandleInfoKHX
-  {
-    ExportMemoryWin32HandleInfoKHX( const SECURITY_ATTRIBUTES* pAttributes_ = nullptr, DWORD dwAccess_ = 0, LPCWSTR name_ = 0 )
-      : sType( StructureType::eExportMemoryWin32HandleInfoKHX )
-      , pNext( nullptr )
-      , pAttributes( pAttributes_ )
-      , dwAccess( dwAccess_ )
-      , name( name_ )
-    {
-    }
-
-    ExportMemoryWin32HandleInfoKHX( VkExportMemoryWin32HandleInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(ExportMemoryWin32HandleInfoKHX) );
-    }
-
-    ExportMemoryWin32HandleInfoKHX& operator=( VkExportMemoryWin32HandleInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(ExportMemoryWin32HandleInfoKHX) );
-      return *this;
-    }
-
-    ExportMemoryWin32HandleInfoKHX& setSType( StructureType sType_ )
-    {
-      sType = sType_;
-      return *this;
-    }
-
-    ExportMemoryWin32HandleInfoKHX& setPNext( const void* pNext_ )
-    {
-      pNext = pNext_;
-      return *this;
-    }
-
-    ExportMemoryWin32HandleInfoKHX& setPAttributes( const SECURITY_ATTRIBUTES* pAttributes_ )
-    {
-      pAttributes = pAttributes_;
-      return *this;
-    }
-
-    ExportMemoryWin32HandleInfoKHX& setDwAccess( DWORD dwAccess_ )
-    {
-      dwAccess = dwAccess_;
-      return *this;
-    }
-
-    ExportMemoryWin32HandleInfoKHX& setName( LPCWSTR name_ )
-    {
-      name = name_;
-      return *this;
-    }
-
-    operator const VkExportMemoryWin32HandleInfoKHX&() const
-    {
-      return *reinterpret_cast<const VkExportMemoryWin32HandleInfoKHX*>(this);
-    }
-
-    bool operator==( ExportMemoryWin32HandleInfoKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( pAttributes == rhs.pAttributes )
-          && ( dwAccess == rhs.dwAccess )
-          && ( name == rhs.name );
-    }
-
-    bool operator!=( ExportMemoryWin32HandleInfoKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    const void* pNext;
-    const SECURITY_ATTRIBUTES* pAttributes;
-    DWORD dwAccess;
-    LPCWSTR name;
-  };
-  static_assert( sizeof( ExportMemoryWin32HandleInfoKHX ) == sizeof( VkExportMemoryWin32HandleInfoKHX ), "struct and wrapper have different size!" );
-#endif /*VK_USE_PLATFORM_WIN32_KHR*/
-
-#ifdef VK_USE_PLATFORM_WIN32_KHR
-  struct MemoryWin32HandlePropertiesKHX
-  {
-    operator const VkMemoryWin32HandlePropertiesKHX&() const
-    {
-      return *reinterpret_cast<const VkMemoryWin32HandlePropertiesKHX*>(this);
-    }
-
-    bool operator==( MemoryWin32HandlePropertiesKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( memoryTypeBits == rhs.memoryTypeBits );
-    }
-
-    bool operator!=( MemoryWin32HandlePropertiesKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    void* pNext;
-    uint32_t memoryTypeBits;
-  };
-  static_assert( sizeof( MemoryWin32HandlePropertiesKHX ) == sizeof( VkMemoryWin32HandlePropertiesKHX ), "struct and wrapper have different size!" );
-#endif /*VK_USE_PLATFORM_WIN32_KHR*/
-
-  struct MemoryFdPropertiesKHX
-  {
-    operator const VkMemoryFdPropertiesKHX&() const
-    {
-      return *reinterpret_cast<const VkMemoryFdPropertiesKHX*>(this);
-    }
-
-    bool operator==( MemoryFdPropertiesKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( memoryTypeBits == rhs.memoryTypeBits );
-    }
-
-    bool operator!=( MemoryFdPropertiesKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    void* pNext;
-    uint32_t memoryTypeBits;
-  };
-  static_assert( sizeof( MemoryFdPropertiesKHX ) == sizeof( VkMemoryFdPropertiesKHX ), "struct and wrapper have different size!" );
-
-#ifdef VK_USE_PLATFORM_WIN32_KHR
-  struct Win32KeyedMutexAcquireReleaseInfoKHX
-  {
-    Win32KeyedMutexAcquireReleaseInfoKHX( uint32_t acquireCount_ = 0, const DeviceMemory* pAcquireSyncs_ = nullptr, const uint64_t* pAcquireKeys_ = nullptr, const uint32_t* pAcquireTimeouts_ = nullptr, uint32_t releaseCount_ = 0, const DeviceMemory* pReleaseSyncs_ = nullptr, const uint64_t* pReleaseKeys_ = nullptr )
-      : sType( StructureType::eWin32KeyedMutexAcquireReleaseInfoKHX )
-      , pNext( nullptr )
-      , acquireCount( acquireCount_ )
-      , pAcquireSyncs( pAcquireSyncs_ )
-      , pAcquireKeys( pAcquireKeys_ )
-      , pAcquireTimeouts( pAcquireTimeouts_ )
-      , releaseCount( releaseCount_ )
-      , pReleaseSyncs( pReleaseSyncs_ )
-      , pReleaseKeys( pReleaseKeys_ )
-    {
-    }
-
-    Win32KeyedMutexAcquireReleaseInfoKHX( VkWin32KeyedMutexAcquireReleaseInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(Win32KeyedMutexAcquireReleaseInfoKHX) );
-    }
-
-    Win32KeyedMutexAcquireReleaseInfoKHX& operator=( VkWin32KeyedMutexAcquireReleaseInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(Win32KeyedMutexAcquireReleaseInfoKHX) );
-      return *this;
-    }
-
-    Win32KeyedMutexAcquireReleaseInfoKHX& setSType( StructureType sType_ )
-    {
-      sType = sType_;
-      return *this;
-    }
-
-    Win32KeyedMutexAcquireReleaseInfoKHX& setPNext( const void* pNext_ )
-    {
-      pNext = pNext_;
-      return *this;
-    }
-
-    Win32KeyedMutexAcquireReleaseInfoKHX& setAcquireCount( uint32_t acquireCount_ )
-    {
-      acquireCount = acquireCount_;
-      return *this;
-    }
-
-    Win32KeyedMutexAcquireReleaseInfoKHX& setPAcquireSyncs( const DeviceMemory* pAcquireSyncs_ )
-    {
-      pAcquireSyncs = pAcquireSyncs_;
-      return *this;
-    }
-
-    Win32KeyedMutexAcquireReleaseInfoKHX& setPAcquireKeys( const uint64_t* pAcquireKeys_ )
-    {
-      pAcquireKeys = pAcquireKeys_;
-      return *this;
-    }
-
-    Win32KeyedMutexAcquireReleaseInfoKHX& setPAcquireTimeouts( const uint32_t* pAcquireTimeouts_ )
-    {
-      pAcquireTimeouts = pAcquireTimeouts_;
-      return *this;
-    }
-
-    Win32KeyedMutexAcquireReleaseInfoKHX& setReleaseCount( uint32_t releaseCount_ )
-    {
-      releaseCount = releaseCount_;
-      return *this;
-    }
-
-    Win32KeyedMutexAcquireReleaseInfoKHX& setPReleaseSyncs( const DeviceMemory* pReleaseSyncs_ )
-    {
-      pReleaseSyncs = pReleaseSyncs_;
-      return *this;
-    }
-
-    Win32KeyedMutexAcquireReleaseInfoKHX& setPReleaseKeys( const uint64_t* pReleaseKeys_ )
-    {
-      pReleaseKeys = pReleaseKeys_;
-      return *this;
-    }
-
-    operator const VkWin32KeyedMutexAcquireReleaseInfoKHX&() const
-    {
-      return *reinterpret_cast<const VkWin32KeyedMutexAcquireReleaseInfoKHX*>(this);
-    }
-
-    bool operator==( Win32KeyedMutexAcquireReleaseInfoKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( acquireCount == rhs.acquireCount )
-          && ( pAcquireSyncs == rhs.pAcquireSyncs )
-          && ( pAcquireKeys == rhs.pAcquireKeys )
-          && ( pAcquireTimeouts == rhs.pAcquireTimeouts )
-          && ( releaseCount == rhs.releaseCount )
-          && ( pReleaseSyncs == rhs.pReleaseSyncs )
-          && ( pReleaseKeys == rhs.pReleaseKeys );
-    }
-
-    bool operator!=( Win32KeyedMutexAcquireReleaseInfoKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    const void* pNext;
-    uint32_t acquireCount;
-    const DeviceMemory* pAcquireSyncs;
-    const uint64_t* pAcquireKeys;
-    const uint32_t* pAcquireTimeouts;
-    uint32_t releaseCount;
-    const DeviceMemory* pReleaseSyncs;
-    const uint64_t* pReleaseKeys;
-  };
-  static_assert( sizeof( Win32KeyedMutexAcquireReleaseInfoKHX ) == sizeof( VkWin32KeyedMutexAcquireReleaseInfoKHX ), "struct and wrapper have different size!" );
-#endif /*VK_USE_PLATFORM_WIN32_KHR*/
-
-#ifdef VK_USE_PLATFORM_WIN32_KHX
-  struct ExportSemaphoreWin32HandleInfoKHX
-  {
-    ExportSemaphoreWin32HandleInfoKHX( const SECURITY_ATTRIBUTES* pAttributes_ = nullptr, DWORD dwAccess_ = 0, LPCWSTR name_ = 0 )
-      : sType( StructureType::eExportSemaphoreWin32HandleInfoKHX )
-      , pNext( nullptr )
-      , pAttributes( pAttributes_ )
-      , dwAccess( dwAccess_ )
-      , name( name_ )
-    {
-    }
-
-    ExportSemaphoreWin32HandleInfoKHX( VkExportSemaphoreWin32HandleInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(ExportSemaphoreWin32HandleInfoKHX) );
-    }
-
-    ExportSemaphoreWin32HandleInfoKHX& operator=( VkExportSemaphoreWin32HandleInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(ExportSemaphoreWin32HandleInfoKHX) );
-      return *this;
-    }
-
-    ExportSemaphoreWin32HandleInfoKHX& setSType( StructureType sType_ )
-    {
-      sType = sType_;
-      return *this;
-    }
-
-    ExportSemaphoreWin32HandleInfoKHX& setPNext( const void* pNext_ )
-    {
-      pNext = pNext_;
-      return *this;
-    }
-
-    ExportSemaphoreWin32HandleInfoKHX& setPAttributes( const SECURITY_ATTRIBUTES* pAttributes_ )
-    {
-      pAttributes = pAttributes_;
-      return *this;
-    }
-
-    ExportSemaphoreWin32HandleInfoKHX& setDwAccess( DWORD dwAccess_ )
-    {
-      dwAccess = dwAccess_;
-      return *this;
-    }
-
-    ExportSemaphoreWin32HandleInfoKHX& setName( LPCWSTR name_ )
-    {
-      name = name_;
-      return *this;
-    }
-
-    operator const VkExportSemaphoreWin32HandleInfoKHX&() const
-    {
-      return *reinterpret_cast<const VkExportSemaphoreWin32HandleInfoKHX*>(this);
-    }
-
-    bool operator==( ExportSemaphoreWin32HandleInfoKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( pAttributes == rhs.pAttributes )
-          && ( dwAccess == rhs.dwAccess )
-          && ( name == rhs.name );
-    }
-
-    bool operator!=( ExportSemaphoreWin32HandleInfoKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    const void* pNext;
-    const SECURITY_ATTRIBUTES* pAttributes;
-    DWORD dwAccess;
-    LPCWSTR name;
-  };
-  static_assert( sizeof( ExportSemaphoreWin32HandleInfoKHX ) == sizeof( VkExportSemaphoreWin32HandleInfoKHX ), "struct and wrapper have different size!" );
-#endif /*VK_USE_PLATFORM_WIN32_KHX*/
-
-#ifdef VK_USE_PLATFORM_WIN32_KHX
-  struct D3D12FenceSubmitInfoKHX
-  {
-    D3D12FenceSubmitInfoKHX( uint32_t waitSemaphoreValuesCount_ = 0, const uint64_t* pWaitSemaphoreValues_ = nullptr, uint32_t signalSemaphoreValuesCount_ = 0, const uint64_t* pSignalSemaphoreValues_ = nullptr )
-      : sType( StructureType::eD3D12FenceSubmitInfoKHX )
-      , pNext( nullptr )
-      , waitSemaphoreValuesCount( waitSemaphoreValuesCount_ )
-      , pWaitSemaphoreValues( pWaitSemaphoreValues_ )
-      , signalSemaphoreValuesCount( signalSemaphoreValuesCount_ )
-      , pSignalSemaphoreValues( pSignalSemaphoreValues_ )
-    {
-    }
-
-    D3D12FenceSubmitInfoKHX( VkD3D12FenceSubmitInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(D3D12FenceSubmitInfoKHX) );
-    }
-
-    D3D12FenceSubmitInfoKHX& operator=( VkD3D12FenceSubmitInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(D3D12FenceSubmitInfoKHX) );
-      return *this;
-    }
-
-    D3D12FenceSubmitInfoKHX& setSType( StructureType sType_ )
-    {
-      sType = sType_;
-      return *this;
-    }
-
-    D3D12FenceSubmitInfoKHX& setPNext( const void* pNext_ )
-    {
-      pNext = pNext_;
-      return *this;
-    }
-
-    D3D12FenceSubmitInfoKHX& setWaitSemaphoreValuesCount( uint32_t waitSemaphoreValuesCount_ )
-    {
-      waitSemaphoreValuesCount = waitSemaphoreValuesCount_;
-      return *this;
-    }
-
-    D3D12FenceSubmitInfoKHX& setPWaitSemaphoreValues( const uint64_t* pWaitSemaphoreValues_ )
-    {
-      pWaitSemaphoreValues = pWaitSemaphoreValues_;
-      return *this;
-    }
-
-    D3D12FenceSubmitInfoKHX& setSignalSemaphoreValuesCount( uint32_t signalSemaphoreValuesCount_ )
-    {
-      signalSemaphoreValuesCount = signalSemaphoreValuesCount_;
-      return *this;
-    }
-
-    D3D12FenceSubmitInfoKHX& setPSignalSemaphoreValues( const uint64_t* pSignalSemaphoreValues_ )
-    {
-      pSignalSemaphoreValues = pSignalSemaphoreValues_;
-      return *this;
-    }
-
-    operator const VkD3D12FenceSubmitInfoKHX&() const
-    {
-      return *reinterpret_cast<const VkD3D12FenceSubmitInfoKHX*>(this);
-    }
-
-    bool operator==( D3D12FenceSubmitInfoKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( waitSemaphoreValuesCount == rhs.waitSemaphoreValuesCount )
-          && ( pWaitSemaphoreValues == rhs.pWaitSemaphoreValues )
-          && ( signalSemaphoreValuesCount == rhs.signalSemaphoreValuesCount )
-          && ( pSignalSemaphoreValues == rhs.pSignalSemaphoreValues );
-    }
-
-    bool operator!=( D3D12FenceSubmitInfoKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    const void* pNext;
-    uint32_t waitSemaphoreValuesCount;
-    const uint64_t* pWaitSemaphoreValues;
-    uint32_t signalSemaphoreValuesCount;
-    const uint64_t* pSignalSemaphoreValues;
-  };
-  static_assert( sizeof( D3D12FenceSubmitInfoKHX ) == sizeof( VkD3D12FenceSubmitInfoKHX ), "struct and wrapper have different size!" );
-#endif /*VK_USE_PLATFORM_WIN32_KHX*/
-
-  struct PhysicalDeviceMultiviewFeaturesKHX
-  {
-    PhysicalDeviceMultiviewFeaturesKHX( Bool32 multiview_ = 0, Bool32 multiviewGeometryShader_ = 0, Bool32 multiviewTessellationShader_ = 0 )
-      : sType( StructureType::ePhysicalDeviceMultiviewFeaturesKHX )
-      , pNext( nullptr )
-      , multiview( multiview_ )
-      , multiviewGeometryShader( multiviewGeometryShader_ )
-      , multiviewTessellationShader( multiviewTessellationShader_ )
-    {
-    }
-
-    PhysicalDeviceMultiviewFeaturesKHX( VkPhysicalDeviceMultiviewFeaturesKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(PhysicalDeviceMultiviewFeaturesKHX) );
-    }
-
-    PhysicalDeviceMultiviewFeaturesKHX& operator=( VkPhysicalDeviceMultiviewFeaturesKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(PhysicalDeviceMultiviewFeaturesKHX) );
-      return *this;
-    }
-
-    PhysicalDeviceMultiviewFeaturesKHX& setSType( StructureType sType_ )
-    {
-      sType = sType_;
-      return *this;
-    }
-
-    PhysicalDeviceMultiviewFeaturesKHX& setPNext( void* pNext_ )
-    {
-      pNext = pNext_;
-      return *this;
-    }
-
-    PhysicalDeviceMultiviewFeaturesKHX& setMultiview( Bool32 multiview_ )
-    {
-      multiview = multiview_;
-      return *this;
-    }
-
-    PhysicalDeviceMultiviewFeaturesKHX& setMultiviewGeometryShader( Bool32 multiviewGeometryShader_ )
-    {
-      multiviewGeometryShader = multiviewGeometryShader_;
-      return *this;
-    }
-
-    PhysicalDeviceMultiviewFeaturesKHX& setMultiviewTessellationShader( Bool32 multiviewTessellationShader_ )
-    {
-      multiviewTessellationShader = multiviewTessellationShader_;
-      return *this;
-    }
-
-    operator const VkPhysicalDeviceMultiviewFeaturesKHX&() const
-    {
-      return *reinterpret_cast<const VkPhysicalDeviceMultiviewFeaturesKHX*>(this);
-    }
-
-    bool operator==( PhysicalDeviceMultiviewFeaturesKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( multiview == rhs.multiview )
-          && ( multiviewGeometryShader == rhs.multiviewGeometryShader )
-          && ( multiviewTessellationShader == rhs.multiviewTessellationShader );
-    }
-
-    bool operator!=( PhysicalDeviceMultiviewFeaturesKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    void* pNext;
-    Bool32 multiview;
-    Bool32 multiviewGeometryShader;
-    Bool32 multiviewTessellationShader;
-  };
-  static_assert( sizeof( PhysicalDeviceMultiviewFeaturesKHX ) == sizeof( VkPhysicalDeviceMultiviewFeaturesKHX ), "struct and wrapper have different size!" );
-
-  struct PhysicalDeviceMultiviewPropertiesKHX
-  {
-    operator const VkPhysicalDeviceMultiviewPropertiesKHX&() const
-    {
-      return *reinterpret_cast<const VkPhysicalDeviceMultiviewPropertiesKHX*>(this);
-    }
-
-    bool operator==( PhysicalDeviceMultiviewPropertiesKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( maxMultiviewViewCount == rhs.maxMultiviewViewCount )
-          && ( maxMultiviewInstanceIndex == rhs.maxMultiviewInstanceIndex );
-    }
-
-    bool operator!=( PhysicalDeviceMultiviewPropertiesKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    void* pNext;
-    uint32_t maxMultiviewViewCount;
-    uint32_t maxMultiviewInstanceIndex;
-  };
-  static_assert( sizeof( PhysicalDeviceMultiviewPropertiesKHX ) == sizeof( VkPhysicalDeviceMultiviewPropertiesKHX ), "struct and wrapper have different size!" );
-
-  struct RenderPassMultiviewCreateInfoKHX
-  {
-    RenderPassMultiviewCreateInfoKHX( uint32_t subpassCount_ = 0, const uint32_t* pViewMasks_ = nullptr, uint32_t dependencyCount_ = 0, const int32_t* pViewOffsets_ = nullptr, uint32_t correlationMaskCount_ = 0, const uint32_t* pCorrelationMasks_ = nullptr )
-      : sType( StructureType::eRenderPassMultiviewCreateInfoKHX )
-      , pNext( nullptr )
-      , subpassCount( subpassCount_ )
-      , pViewMasks( pViewMasks_ )
-      , dependencyCount( dependencyCount_ )
-      , pViewOffsets( pViewOffsets_ )
-      , correlationMaskCount( correlationMaskCount_ )
-      , pCorrelationMasks( pCorrelationMasks_ )
-    {
-    }
-
-    RenderPassMultiviewCreateInfoKHX( VkRenderPassMultiviewCreateInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(RenderPassMultiviewCreateInfoKHX) );
-    }
-
-    RenderPassMultiviewCreateInfoKHX& operator=( VkRenderPassMultiviewCreateInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(RenderPassMultiviewCreateInfoKHX) );
-      return *this;
-    }
-
-    RenderPassMultiviewCreateInfoKHX& setSType( StructureType sType_ )
-    {
-      sType = sType_;
-      return *this;
-    }
-
-    RenderPassMultiviewCreateInfoKHX& setPNext( const void* pNext_ )
-    {
-      pNext = pNext_;
-      return *this;
-    }
-
-    RenderPassMultiviewCreateInfoKHX& setSubpassCount( uint32_t subpassCount_ )
-    {
-      subpassCount = subpassCount_;
-      return *this;
-    }
-
-    RenderPassMultiviewCreateInfoKHX& setPViewMasks( const uint32_t* pViewMasks_ )
-    {
-      pViewMasks = pViewMasks_;
-      return *this;
-    }
-
-    RenderPassMultiviewCreateInfoKHX& setDependencyCount( uint32_t dependencyCount_ )
-    {
-      dependencyCount = dependencyCount_;
-      return *this;
-    }
-
-    RenderPassMultiviewCreateInfoKHX& setPViewOffsets( const int32_t* pViewOffsets_ )
-    {
-      pViewOffsets = pViewOffsets_;
-      return *this;
-    }
-
-    RenderPassMultiviewCreateInfoKHX& setCorrelationMaskCount( uint32_t correlationMaskCount_ )
-    {
-      correlationMaskCount = correlationMaskCount_;
-      return *this;
-    }
-
-    RenderPassMultiviewCreateInfoKHX& setPCorrelationMasks( const uint32_t* pCorrelationMasks_ )
-    {
-      pCorrelationMasks = pCorrelationMasks_;
-      return *this;
-    }
-
-    operator const VkRenderPassMultiviewCreateInfoKHX&() const
-    {
-      return *reinterpret_cast<const VkRenderPassMultiviewCreateInfoKHX*>(this);
-    }
-
-    bool operator==( RenderPassMultiviewCreateInfoKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( subpassCount == rhs.subpassCount )
-          && ( pViewMasks == rhs.pViewMasks )
-          && ( dependencyCount == rhs.dependencyCount )
-          && ( pViewOffsets == rhs.pViewOffsets )
-          && ( correlationMaskCount == rhs.correlationMaskCount )
-          && ( pCorrelationMasks == rhs.pCorrelationMasks );
-    }
-
-    bool operator!=( RenderPassMultiviewCreateInfoKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    const void* pNext;
-    uint32_t subpassCount;
-    const uint32_t* pViewMasks;
-    uint32_t dependencyCount;
-    const int32_t* pViewOffsets;
-    uint32_t correlationMaskCount;
-    const uint32_t* pCorrelationMasks;
-  };
-  static_assert( sizeof( RenderPassMultiviewCreateInfoKHX ) == sizeof( VkRenderPassMultiviewCreateInfoKHX ), "struct and wrapper have different size!" );
-
-  struct BindBufferMemoryInfoKHX
-  {
-    BindBufferMemoryInfoKHX( Buffer buffer_ = Buffer(), DeviceMemory memory_ = DeviceMemory(), DeviceSize memoryOffset_ = 0, uint32_t deviceIndexCount_ = 0, const uint32_t* pDeviceIndices_ = nullptr )
-      : sType( StructureType::eBindBufferMemoryInfoKHX )
-      , pNext( nullptr )
-      , buffer( buffer_ )
-      , memory( memory_ )
-      , memoryOffset( memoryOffset_ )
-      , deviceIndexCount( deviceIndexCount_ )
-      , pDeviceIndices( pDeviceIndices_ )
-    {
-    }
-
-    BindBufferMemoryInfoKHX( VkBindBufferMemoryInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(BindBufferMemoryInfoKHX) );
-    }
-
-    BindBufferMemoryInfoKHX& operator=( VkBindBufferMemoryInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(BindBufferMemoryInfoKHX) );
-      return *this;
-    }
-
-    BindBufferMemoryInfoKHX& setSType( StructureType sType_ )
-    {
-      sType = sType_;
-      return *this;
-    }
-
-    BindBufferMemoryInfoKHX& setPNext( const void* pNext_ )
-    {
-      pNext = pNext_;
-      return *this;
-    }
-
-    BindBufferMemoryInfoKHX& setBuffer( Buffer buffer_ )
-    {
-      buffer = buffer_;
-      return *this;
-    }
-
-    BindBufferMemoryInfoKHX& setMemory( DeviceMemory memory_ )
-    {
-      memory = memory_;
-      return *this;
-    }
-
-    BindBufferMemoryInfoKHX& setMemoryOffset( DeviceSize memoryOffset_ )
-    {
-      memoryOffset = memoryOffset_;
-      return *this;
-    }
-
-    BindBufferMemoryInfoKHX& setDeviceIndexCount( uint32_t deviceIndexCount_ )
-    {
-      deviceIndexCount = deviceIndexCount_;
-      return *this;
-    }
-
-    BindBufferMemoryInfoKHX& setPDeviceIndices( const uint32_t* pDeviceIndices_ )
-    {
-      pDeviceIndices = pDeviceIndices_;
-      return *this;
-    }
-
-    operator const VkBindBufferMemoryInfoKHX&() const
-    {
-      return *reinterpret_cast<const VkBindBufferMemoryInfoKHX*>(this);
-    }
-
-    bool operator==( BindBufferMemoryInfoKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( buffer == rhs.buffer )
-          && ( memory == rhs.memory )
-          && ( memoryOffset == rhs.memoryOffset )
-          && ( deviceIndexCount == rhs.deviceIndexCount )
-          && ( pDeviceIndices == rhs.pDeviceIndices );
-    }
-
-    bool operator!=( BindBufferMemoryInfoKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    const void* pNext;
-    Buffer buffer;
-    DeviceMemory memory;
-    DeviceSize memoryOffset;
-    uint32_t deviceIndexCount;
-    const uint32_t* pDeviceIndices;
-  };
-  static_assert( sizeof( BindBufferMemoryInfoKHX ) == sizeof( VkBindBufferMemoryInfoKHX ), "struct and wrapper have different size!" );
-
-  struct BindImageMemoryInfoKHX
-  {
-    BindImageMemoryInfoKHX( Image image_ = Image(), DeviceMemory memory_ = DeviceMemory(), DeviceSize memoryOffset_ = 0, uint32_t deviceIndexCount_ = 0, const uint32_t* pDeviceIndices_ = nullptr, uint32_t SFRRectCount_ = 0, const Rect2D* pSFRRects_ = nullptr )
-      : sType( StructureType::eBindImageMemoryInfoKHX )
-      , pNext( nullptr )
-      , image( image_ )
-      , memory( memory_ )
-      , memoryOffset( memoryOffset_ )
-      , deviceIndexCount( deviceIndexCount_ )
-      , pDeviceIndices( pDeviceIndices_ )
-      , SFRRectCount( SFRRectCount_ )
-      , pSFRRects( pSFRRects_ )
-    {
-    }
-
-    BindImageMemoryInfoKHX( VkBindImageMemoryInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(BindImageMemoryInfoKHX) );
-    }
-
-    BindImageMemoryInfoKHX& operator=( VkBindImageMemoryInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(BindImageMemoryInfoKHX) );
-      return *this;
-    }
-
-    BindImageMemoryInfoKHX& setSType( StructureType sType_ )
-    {
-      sType = sType_;
-      return *this;
-    }
-
-    BindImageMemoryInfoKHX& setPNext( const void* pNext_ )
-    {
-      pNext = pNext_;
-      return *this;
-    }
-
-    BindImageMemoryInfoKHX& setImage( Image image_ )
-    {
-      image = image_;
-      return *this;
-    }
-
-    BindImageMemoryInfoKHX& setMemory( DeviceMemory memory_ )
-    {
-      memory = memory_;
-      return *this;
-    }
-
-    BindImageMemoryInfoKHX& setMemoryOffset( DeviceSize memoryOffset_ )
-    {
-      memoryOffset = memoryOffset_;
-      return *this;
-    }
-
-    BindImageMemoryInfoKHX& setDeviceIndexCount( uint32_t deviceIndexCount_ )
-    {
-      deviceIndexCount = deviceIndexCount_;
-      return *this;
-    }
-
-    BindImageMemoryInfoKHX& setPDeviceIndices( const uint32_t* pDeviceIndices_ )
-    {
-      pDeviceIndices = pDeviceIndices_;
-      return *this;
-    }
-
-    BindImageMemoryInfoKHX& setSFRRectCount( uint32_t SFRRectCount_ )
-    {
-      SFRRectCount = SFRRectCount_;
-      return *this;
-    }
-
-    BindImageMemoryInfoKHX& setPSFRRects( const Rect2D* pSFRRects_ )
-    {
-      pSFRRects = pSFRRects_;
-      return *this;
-    }
-
-    operator const VkBindImageMemoryInfoKHX&() const
-    {
-      return *reinterpret_cast<const VkBindImageMemoryInfoKHX*>(this);
-    }
-
-    bool operator==( BindImageMemoryInfoKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( image == rhs.image )
-          && ( memory == rhs.memory )
-          && ( memoryOffset == rhs.memoryOffset )
-          && ( deviceIndexCount == rhs.deviceIndexCount )
-          && ( pDeviceIndices == rhs.pDeviceIndices )
-          && ( SFRRectCount == rhs.SFRRectCount )
-          && ( pSFRRects == rhs.pSFRRects );
-    }
-
-    bool operator!=( BindImageMemoryInfoKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    const void* pNext;
-    Image image;
-    DeviceMemory memory;
-    DeviceSize memoryOffset;
-    uint32_t deviceIndexCount;
-    const uint32_t* pDeviceIndices;
-    uint32_t SFRRectCount;
-    const Rect2D* pSFRRects;
-  };
-  static_assert( sizeof( BindImageMemoryInfoKHX ) == sizeof( VkBindImageMemoryInfoKHX ), "struct and wrapper have different size!" );
-
-  struct DeviceGroupRenderPassBeginInfoKHX
-  {
-    DeviceGroupRenderPassBeginInfoKHX( uint32_t deviceMask_ = 0, uint32_t deviceRenderAreaCount_ = 0, const Rect2D* pDeviceRenderAreas_ = nullptr )
-      : sType( StructureType::eDeviceGroupRenderPassBeginInfoKHX )
-      , pNext( nullptr )
-      , deviceMask( deviceMask_ )
-      , deviceRenderAreaCount( deviceRenderAreaCount_ )
-      , pDeviceRenderAreas( pDeviceRenderAreas_ )
-    {
-    }
-
-    DeviceGroupRenderPassBeginInfoKHX( VkDeviceGroupRenderPassBeginInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(DeviceGroupRenderPassBeginInfoKHX) );
-    }
-
-    DeviceGroupRenderPassBeginInfoKHX& operator=( VkDeviceGroupRenderPassBeginInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(DeviceGroupRenderPassBeginInfoKHX) );
-      return *this;
-    }
-
-    DeviceGroupRenderPassBeginInfoKHX& setSType( StructureType sType_ )
-    {
-      sType = sType_;
-      return *this;
-    }
-
-    DeviceGroupRenderPassBeginInfoKHX& setPNext( const void* pNext_ )
-    {
-      pNext = pNext_;
-      return *this;
-    }
-
-    DeviceGroupRenderPassBeginInfoKHX& setDeviceMask( uint32_t deviceMask_ )
-    {
-      deviceMask = deviceMask_;
-      return *this;
-    }
-
-    DeviceGroupRenderPassBeginInfoKHX& setDeviceRenderAreaCount( uint32_t deviceRenderAreaCount_ )
-    {
-      deviceRenderAreaCount = deviceRenderAreaCount_;
-      return *this;
-    }
-
-    DeviceGroupRenderPassBeginInfoKHX& setPDeviceRenderAreas( const Rect2D* pDeviceRenderAreas_ )
-    {
-      pDeviceRenderAreas = pDeviceRenderAreas_;
-      return *this;
-    }
-
-    operator const VkDeviceGroupRenderPassBeginInfoKHX&() const
-    {
-      return *reinterpret_cast<const VkDeviceGroupRenderPassBeginInfoKHX*>(this);
-    }
-
-    bool operator==( DeviceGroupRenderPassBeginInfoKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( deviceMask == rhs.deviceMask )
-          && ( deviceRenderAreaCount == rhs.deviceRenderAreaCount )
-          && ( pDeviceRenderAreas == rhs.pDeviceRenderAreas );
-    }
-
-    bool operator!=( DeviceGroupRenderPassBeginInfoKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    const void* pNext;
-    uint32_t deviceMask;
-    uint32_t deviceRenderAreaCount;
-    const Rect2D* pDeviceRenderAreas;
-  };
-  static_assert( sizeof( DeviceGroupRenderPassBeginInfoKHX ) == sizeof( VkDeviceGroupRenderPassBeginInfoKHX ), "struct and wrapper have different size!" );
-
-  struct DeviceGroupCommandBufferBeginInfoKHX
-  {
-    DeviceGroupCommandBufferBeginInfoKHX( uint32_t deviceMask_ = 0 )
-      : sType( StructureType::eDeviceGroupCommandBufferBeginInfoKHX )
-      , pNext( nullptr )
-      , deviceMask( deviceMask_ )
-    {
-    }
-
-    DeviceGroupCommandBufferBeginInfoKHX( VkDeviceGroupCommandBufferBeginInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(DeviceGroupCommandBufferBeginInfoKHX) );
-    }
-
-    DeviceGroupCommandBufferBeginInfoKHX& operator=( VkDeviceGroupCommandBufferBeginInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(DeviceGroupCommandBufferBeginInfoKHX) );
-      return *this;
-    }
-
-    DeviceGroupCommandBufferBeginInfoKHX& setSType( StructureType sType_ )
-    {
-      sType = sType_;
-      return *this;
-    }
-
-    DeviceGroupCommandBufferBeginInfoKHX& setPNext( const void* pNext_ )
-    {
-      pNext = pNext_;
-      return *this;
-    }
-
-    DeviceGroupCommandBufferBeginInfoKHX& setDeviceMask( uint32_t deviceMask_ )
-    {
-      deviceMask = deviceMask_;
-      return *this;
-    }
-
-    operator const VkDeviceGroupCommandBufferBeginInfoKHX&() const
-    {
-      return *reinterpret_cast<const VkDeviceGroupCommandBufferBeginInfoKHX*>(this);
-    }
-
-    bool operator==( DeviceGroupCommandBufferBeginInfoKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( deviceMask == rhs.deviceMask );
-    }
-
-    bool operator!=( DeviceGroupCommandBufferBeginInfoKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    const void* pNext;
-    uint32_t deviceMask;
-  };
-  static_assert( sizeof( DeviceGroupCommandBufferBeginInfoKHX ) == sizeof( VkDeviceGroupCommandBufferBeginInfoKHX ), "struct and wrapper have different size!" );
-
-  struct DeviceGroupSubmitInfoKHX
-  {
-    DeviceGroupSubmitInfoKHX( uint32_t waitSemaphoreCount_ = 0, const uint32_t* pWaitSemaphoreDeviceIndices_ = nullptr, uint32_t commandBufferCount_ = 0, const uint32_t* pCommandBufferDeviceMasks_ = nullptr, uint32_t signalSemaphoreCount_ = 0, const uint32_t* pSignalSemaphoreDeviceIndices_ = nullptr )
-      : sType( StructureType::eDeviceGroupSubmitInfoKHX )
-      , pNext( nullptr )
-      , waitSemaphoreCount( waitSemaphoreCount_ )
-      , pWaitSemaphoreDeviceIndices( pWaitSemaphoreDeviceIndices_ )
-      , commandBufferCount( commandBufferCount_ )
-      , pCommandBufferDeviceMasks( pCommandBufferDeviceMasks_ )
-      , signalSemaphoreCount( signalSemaphoreCount_ )
-      , pSignalSemaphoreDeviceIndices( pSignalSemaphoreDeviceIndices_ )
-    {
-    }
-
-    DeviceGroupSubmitInfoKHX( VkDeviceGroupSubmitInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(DeviceGroupSubmitInfoKHX) );
-    }
-
-    DeviceGroupSubmitInfoKHX& operator=( VkDeviceGroupSubmitInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(DeviceGroupSubmitInfoKHX) );
-      return *this;
-    }
-
-    DeviceGroupSubmitInfoKHX& setSType( StructureType sType_ )
-    {
-      sType = sType_;
-      return *this;
-    }
-
-    DeviceGroupSubmitInfoKHX& setPNext( const void* pNext_ )
-    {
-      pNext = pNext_;
-      return *this;
-    }
-
-    DeviceGroupSubmitInfoKHX& setWaitSemaphoreCount( uint32_t waitSemaphoreCount_ )
-    {
-      waitSemaphoreCount = waitSemaphoreCount_;
-      return *this;
-    }
-
-    DeviceGroupSubmitInfoKHX& setPWaitSemaphoreDeviceIndices( const uint32_t* pWaitSemaphoreDeviceIndices_ )
-    {
-      pWaitSemaphoreDeviceIndices = pWaitSemaphoreDeviceIndices_;
-      return *this;
-    }
-
-    DeviceGroupSubmitInfoKHX& setCommandBufferCount( uint32_t commandBufferCount_ )
-    {
-      commandBufferCount = commandBufferCount_;
-      return *this;
-    }
-
-    DeviceGroupSubmitInfoKHX& setPCommandBufferDeviceMasks( const uint32_t* pCommandBufferDeviceMasks_ )
-    {
-      pCommandBufferDeviceMasks = pCommandBufferDeviceMasks_;
-      return *this;
-    }
-
-    DeviceGroupSubmitInfoKHX& setSignalSemaphoreCount( uint32_t signalSemaphoreCount_ )
-    {
-      signalSemaphoreCount = signalSemaphoreCount_;
-      return *this;
-    }
-
-    DeviceGroupSubmitInfoKHX& setPSignalSemaphoreDeviceIndices( const uint32_t* pSignalSemaphoreDeviceIndices_ )
-    {
-      pSignalSemaphoreDeviceIndices = pSignalSemaphoreDeviceIndices_;
-      return *this;
-    }
-
-    operator const VkDeviceGroupSubmitInfoKHX&() const
-    {
-      return *reinterpret_cast<const VkDeviceGroupSubmitInfoKHX*>(this);
-    }
-
-    bool operator==( DeviceGroupSubmitInfoKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( waitSemaphoreCount == rhs.waitSemaphoreCount )
-          && ( pWaitSemaphoreDeviceIndices == rhs.pWaitSemaphoreDeviceIndices )
-          && ( commandBufferCount == rhs.commandBufferCount )
-          && ( pCommandBufferDeviceMasks == rhs.pCommandBufferDeviceMasks )
-          && ( signalSemaphoreCount == rhs.signalSemaphoreCount )
-          && ( pSignalSemaphoreDeviceIndices == rhs.pSignalSemaphoreDeviceIndices );
-    }
-
-    bool operator!=( DeviceGroupSubmitInfoKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    const void* pNext;
-    uint32_t waitSemaphoreCount;
-    const uint32_t* pWaitSemaphoreDeviceIndices;
-    uint32_t commandBufferCount;
-    const uint32_t* pCommandBufferDeviceMasks;
-    uint32_t signalSemaphoreCount;
-    const uint32_t* pSignalSemaphoreDeviceIndices;
-  };
-  static_assert( sizeof( DeviceGroupSubmitInfoKHX ) == sizeof( VkDeviceGroupSubmitInfoKHX ), "struct and wrapper have different size!" );
-
-  struct DeviceGroupBindSparseInfoKHX
-  {
-    DeviceGroupBindSparseInfoKHX( uint32_t resourceDeviceIndex_ = 0, uint32_t memoryDeviceIndex_ = 0 )
-      : sType( StructureType::eDeviceGroupBindSparseInfoKHX )
-      , pNext( nullptr )
-      , resourceDeviceIndex( resourceDeviceIndex_ )
-      , memoryDeviceIndex( memoryDeviceIndex_ )
-    {
-    }
-
-    DeviceGroupBindSparseInfoKHX( VkDeviceGroupBindSparseInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(DeviceGroupBindSparseInfoKHX) );
-    }
-
-    DeviceGroupBindSparseInfoKHX& operator=( VkDeviceGroupBindSparseInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(DeviceGroupBindSparseInfoKHX) );
-      return *this;
-    }
-
-    DeviceGroupBindSparseInfoKHX& setSType( StructureType sType_ )
-    {
-      sType = sType_;
-      return *this;
-    }
-
-    DeviceGroupBindSparseInfoKHX& setPNext( const void* pNext_ )
-    {
-      pNext = pNext_;
-      return *this;
-    }
-
-    DeviceGroupBindSparseInfoKHX& setResourceDeviceIndex( uint32_t resourceDeviceIndex_ )
-    {
-      resourceDeviceIndex = resourceDeviceIndex_;
-      return *this;
-    }
-
-    DeviceGroupBindSparseInfoKHX& setMemoryDeviceIndex( uint32_t memoryDeviceIndex_ )
-    {
-      memoryDeviceIndex = memoryDeviceIndex_;
-      return *this;
-    }
-
-    operator const VkDeviceGroupBindSparseInfoKHX&() const
-    {
-      return *reinterpret_cast<const VkDeviceGroupBindSparseInfoKHX*>(this);
-    }
-
-    bool operator==( DeviceGroupBindSparseInfoKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( resourceDeviceIndex == rhs.resourceDeviceIndex )
-          && ( memoryDeviceIndex == rhs.memoryDeviceIndex );
-    }
-
-    bool operator!=( DeviceGroupBindSparseInfoKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    const void* pNext;
-    uint32_t resourceDeviceIndex;
-    uint32_t memoryDeviceIndex;
-  };
-  static_assert( sizeof( DeviceGroupBindSparseInfoKHX ) == sizeof( VkDeviceGroupBindSparseInfoKHX ), "struct and wrapper have different size!" );
-
-  struct ImageSwapchainCreateInfoKHX
-  {
-    ImageSwapchainCreateInfoKHX( SwapchainKHR swapchain_ = SwapchainKHR() )
-      : sType( StructureType::eImageSwapchainCreateInfoKHX )
-      , pNext( nullptr )
-      , swapchain( swapchain_ )
-    {
-    }
-
-    ImageSwapchainCreateInfoKHX( VkImageSwapchainCreateInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(ImageSwapchainCreateInfoKHX) );
-    }
-
-    ImageSwapchainCreateInfoKHX& operator=( VkImageSwapchainCreateInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(ImageSwapchainCreateInfoKHX) );
-      return *this;
-    }
-
-    ImageSwapchainCreateInfoKHX& setSType( StructureType sType_ )
-    {
-      sType = sType_;
-      return *this;
-    }
-
-    ImageSwapchainCreateInfoKHX& setPNext( const void* pNext_ )
-    {
-      pNext = pNext_;
-      return *this;
-    }
-
-    ImageSwapchainCreateInfoKHX& setSwapchain( SwapchainKHR swapchain_ )
-    {
-      swapchain = swapchain_;
-      return *this;
-    }
-
-    operator const VkImageSwapchainCreateInfoKHX&() const
-    {
-      return *reinterpret_cast<const VkImageSwapchainCreateInfoKHX*>(this);
-    }
-
-    bool operator==( ImageSwapchainCreateInfoKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( swapchain == rhs.swapchain );
-    }
-
-    bool operator!=( ImageSwapchainCreateInfoKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    const void* pNext;
-    SwapchainKHR swapchain;
-  };
-  static_assert( sizeof( ImageSwapchainCreateInfoKHX ) == sizeof( VkImageSwapchainCreateInfoKHX ), "struct and wrapper have different size!" );
-
-  struct BindImageMemorySwapchainInfoKHX
-  {
-    BindImageMemorySwapchainInfoKHX( SwapchainKHR swapchain_ = SwapchainKHR(), uint32_t imageIndex_ = 0 )
-      : sType( StructureType::eBindImageMemorySwapchainInfoKHX )
-      , pNext( nullptr )
-      , swapchain( swapchain_ )
-      , imageIndex( imageIndex_ )
-    {
-    }
-
-    BindImageMemorySwapchainInfoKHX( VkBindImageMemorySwapchainInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(BindImageMemorySwapchainInfoKHX) );
-    }
-
-    BindImageMemorySwapchainInfoKHX& operator=( VkBindImageMemorySwapchainInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(BindImageMemorySwapchainInfoKHX) );
-      return *this;
-    }
-
-    BindImageMemorySwapchainInfoKHX& setSType( StructureType sType_ )
-    {
-      sType = sType_;
-      return *this;
-    }
-
-    BindImageMemorySwapchainInfoKHX& setPNext( const void* pNext_ )
-    {
-      pNext = pNext_;
-      return *this;
-    }
-
-    BindImageMemorySwapchainInfoKHX& setSwapchain( SwapchainKHR swapchain_ )
-    {
-      swapchain = swapchain_;
-      return *this;
-    }
-
-    BindImageMemorySwapchainInfoKHX& setImageIndex( uint32_t imageIndex_ )
-    {
-      imageIndex = imageIndex_;
-      return *this;
-    }
-
-    operator const VkBindImageMemorySwapchainInfoKHX&() const
-    {
-      return *reinterpret_cast<const VkBindImageMemorySwapchainInfoKHX*>(this);
-    }
-
-    bool operator==( BindImageMemorySwapchainInfoKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( swapchain == rhs.swapchain )
-          && ( imageIndex == rhs.imageIndex );
-    }
-
-    bool operator!=( BindImageMemorySwapchainInfoKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    const void* pNext;
-    SwapchainKHR swapchain;
-    uint32_t imageIndex;
-  };
-  static_assert( sizeof( BindImageMemorySwapchainInfoKHX ) == sizeof( VkBindImageMemorySwapchainInfoKHX ), "struct and wrapper have different size!" );
-
-  struct AcquireNextImageInfoKHX
-  {
-    AcquireNextImageInfoKHX( SwapchainKHR swapchain_ = SwapchainKHR(), uint64_t timeout_ = 0, Semaphore semaphore_ = Semaphore(), Fence fence_ = Fence(), uint32_t deviceMask_ = 0 )
-      : sType( StructureType::eAcquireNextImageInfoKHX )
-      , pNext( nullptr )
-      , swapchain( swapchain_ )
-      , timeout( timeout_ )
-      , semaphore( semaphore_ )
-      , fence( fence_ )
-      , deviceMask( deviceMask_ )
-    {
-    }
-
-    AcquireNextImageInfoKHX( VkAcquireNextImageInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(AcquireNextImageInfoKHX) );
-    }
-
-    AcquireNextImageInfoKHX& operator=( VkAcquireNextImageInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(AcquireNextImageInfoKHX) );
-      return *this;
-    }
-
-    AcquireNextImageInfoKHX& setSType( StructureType sType_ )
-    {
-      sType = sType_;
-      return *this;
-    }
-
-    AcquireNextImageInfoKHX& setPNext( const void* pNext_ )
-    {
-      pNext = pNext_;
-      return *this;
-    }
-
-    AcquireNextImageInfoKHX& setSwapchain( SwapchainKHR swapchain_ )
-    {
-      swapchain = swapchain_;
-      return *this;
-    }
-
-    AcquireNextImageInfoKHX& setTimeout( uint64_t timeout_ )
-    {
-      timeout = timeout_;
-      return *this;
-    }
-
-    AcquireNextImageInfoKHX& setSemaphore( Semaphore semaphore_ )
-    {
-      semaphore = semaphore_;
-      return *this;
-    }
-
-    AcquireNextImageInfoKHX& setFence( Fence fence_ )
-    {
-      fence = fence_;
-      return *this;
-    }
-
-    AcquireNextImageInfoKHX& setDeviceMask( uint32_t deviceMask_ )
-    {
-      deviceMask = deviceMask_;
-      return *this;
-    }
-
-    operator const VkAcquireNextImageInfoKHX&() const
-    {
-      return *reinterpret_cast<const VkAcquireNextImageInfoKHX*>(this);
-    }
-
-    bool operator==( AcquireNextImageInfoKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( swapchain == rhs.swapchain )
-          && ( timeout == rhs.timeout )
-          && ( semaphore == rhs.semaphore )
-          && ( fence == rhs.fence )
-          && ( deviceMask == rhs.deviceMask );
-    }
-
-    bool operator!=( AcquireNextImageInfoKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    const void* pNext;
-    SwapchainKHR swapchain;
-    uint64_t timeout;
-    Semaphore semaphore;
-    Fence fence;
-    uint32_t deviceMask;
-  };
-  static_assert( sizeof( AcquireNextImageInfoKHX ) == sizeof( VkAcquireNextImageInfoKHX ), "struct and wrapper have different size!" );
-
   enum class SubpassContents
   {
     eInline = VK_SUBPASS_CONTENTS_INLINE,
@@ -11540,8 +9880,7 @@ namespace vk
 
   enum class MemoryHeapFlagBits
   {
-    eDeviceLocal = VK_MEMORY_HEAP_DEVICE_LOCAL_BIT,
-    eMultiInstanceKHX = VK_MEMORY_HEAP_MULTI_INSTANCE_BIT_KHX
+    eDeviceLocal = VK_MEMORY_HEAP_DEVICE_LOCAL_BIT
   };
 
   using MemoryHeapFlags = Flags<MemoryHeapFlagBits, VkMemoryHeapFlags>;
@@ -11560,7 +9899,7 @@ namespace vk
   {
     enum
     {
-      allFlags = VkFlags(MemoryHeapFlagBits::eDeviceLocal) | VkFlags(MemoryHeapFlagBits::eMultiInstanceKHX)
+      allFlags = VkFlags(MemoryHeapFlagBits::eDeviceLocal)
     };
   };
 
@@ -12156,6 +10495,88 @@ namespace vk
   };
   static_assert( sizeof( DescriptorSetLayoutBinding ) == sizeof( VkDescriptorSetLayoutBinding ), "struct and wrapper have different size!" );
 
+  struct DescriptorSetLayoutCreateInfo
+  {
+    DescriptorSetLayoutCreateInfo( DescriptorSetLayoutCreateFlags flags_ = DescriptorSetLayoutCreateFlags(), uint32_t bindingCount_ = 0, const DescriptorSetLayoutBinding* pBindings_ = nullptr )
+      : sType( StructureType::eDescriptorSetLayoutCreateInfo )
+      , pNext( nullptr )
+      , flags( flags_ )
+      , bindingCount( bindingCount_ )
+      , pBindings( pBindings_ )
+    {
+    }
+
+    DescriptorSetLayoutCreateInfo( VkDescriptorSetLayoutCreateInfo const & rhs )
+    {
+      memcpy( this, &rhs, sizeof(DescriptorSetLayoutCreateInfo) );
+    }
+
+    DescriptorSetLayoutCreateInfo& operator=( VkDescriptorSetLayoutCreateInfo const & rhs )
+    {
+      memcpy( this, &rhs, sizeof(DescriptorSetLayoutCreateInfo) );
+      return *this;
+    }
+
+    DescriptorSetLayoutCreateInfo& setSType( StructureType sType_ )
+    {
+      sType = sType_;
+      return *this;
+    }
+
+    DescriptorSetLayoutCreateInfo& setPNext( const void* pNext_ )
+    {
+      pNext = pNext_;
+      return *this;
+    }
+
+    DescriptorSetLayoutCreateInfo& setFlags( DescriptorSetLayoutCreateFlags flags_ )
+    {
+      flags = flags_;
+      return *this;
+    }
+
+    DescriptorSetLayoutCreateInfo& setBindingCount( uint32_t bindingCount_ )
+    {
+      bindingCount = bindingCount_;
+      return *this;
+    }
+
+    DescriptorSetLayoutCreateInfo& setPBindings( const DescriptorSetLayoutBinding* pBindings_ )
+    {
+      pBindings = pBindings_;
+      return *this;
+    }
+
+    operator const VkDescriptorSetLayoutCreateInfo&() const
+    {
+      return *reinterpret_cast<const VkDescriptorSetLayoutCreateInfo*>(this);
+    }
+
+    bool operator==( DescriptorSetLayoutCreateInfo const& rhs ) const
+    {
+      return ( sType == rhs.sType )
+          && ( pNext == rhs.pNext )
+          && ( flags == rhs.flags )
+          && ( bindingCount == rhs.bindingCount )
+          && ( pBindings == rhs.pBindings );
+    }
+
+    bool operator!=( DescriptorSetLayoutCreateInfo const& rhs ) const
+    {
+      return !operator==( rhs );
+    }
+
+  private:
+    StructureType sType;
+
+  public:
+    const void* pNext;
+    DescriptorSetLayoutCreateFlags flags;
+    uint32_t bindingCount;
+    const DescriptorSetLayoutBinding* pBindings;
+  };
+  static_assert( sizeof( DescriptorSetLayoutCreateInfo ) == sizeof( VkDescriptorSetLayoutCreateInfo ), "struct and wrapper have different size!" );
+
   struct PipelineShaderStageCreateInfo
   {
     PipelineShaderStageCreateInfo( PipelineShaderStageCreateFlags flags_ = PipelineShaderStageCreateFlags(), ShaderStageFlagBits stage_ = ShaderStageFlagBits::eVertex, ShaderModule module_ = ShaderModule(), const char* pName_ = nullptr, const SpecializationInfo* pSpecializationInfo_ = nullptr )
@@ -12456,7 +10877,6 @@ namespace vk
     eSparseAliased = VK_IMAGE_CREATE_SPARSE_ALIASED_BIT,
     eMutableFormat = VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT,
     eCubeCompatible = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT,
-    eBindSfrKHX = VK_IMAGE_CREATE_BIND_SFR_BIT_KHX,
     e2DArrayCompatibleKHR = VK_IMAGE_CREATE_2D_ARRAY_COMPATIBLE_BIT_KHR
   };
 
@@ -12476,7 +10896,7 @@ namespace vk
   {
     enum
     {
-      allFlags = VkFlags(ImageCreateFlagBits::eSparseBinding) | VkFlags(ImageCreateFlagBits::eSparseResidency) | VkFlags(ImageCreateFlagBits::eSparseAliased) | VkFlags(ImageCreateFlagBits::eMutableFormat) | VkFlags(ImageCreateFlagBits::eCubeCompatible) | VkFlags(ImageCreateFlagBits::eBindSfrKHX) | VkFlags(ImageCreateFlagBits::e2DArrayCompatibleKHR)
+      allFlags = VkFlags(ImageCreateFlagBits::eSparseBinding) | VkFlags(ImageCreateFlagBits::eSparseResidency) | VkFlags(ImageCreateFlagBits::eSparseAliased) | VkFlags(ImageCreateFlagBits::eMutableFormat) | VkFlags(ImageCreateFlagBits::eCubeCompatible) | VkFlags(ImageCreateFlagBits::e2DArrayCompatibleKHR)
     };
   };
 
@@ -12510,7 +10930,7 @@ namespace vk
       return *this;
     }
 
-    PhysicalDeviceImageFormatInfo2KHR& setPNext( const void* pNext_ )
+    PhysicalDeviceImageFormatInfo2KHR& setPNext( void* pNext_ )
     {
       pNext = pNext_;
       return *this;
@@ -12571,7 +10991,7 @@ namespace vk
     StructureType sType;
 
   public:
-    const void* pNext;
+    void* pNext;
     Format format;
     ImageType type;
     ImageTiling tiling;
@@ -12580,113 +11000,11 @@ namespace vk
   };
   static_assert( sizeof( PhysicalDeviceImageFormatInfo2KHR ) == sizeof( VkPhysicalDeviceImageFormatInfo2KHR ), "struct and wrapper have different size!" );
 
-  struct PhysicalDeviceImageFormatInfo2KHX
-  {
-    PhysicalDeviceImageFormatInfo2KHX( Format format_ = Format::eUndefined, ImageType type_ = ImageType::e1D, ImageTiling tiling_ = ImageTiling::eOptimal, ImageUsageFlags usage_ = ImageUsageFlags(), ImageCreateFlags flags_ = ImageCreateFlags() )
-      : sType( StructureType::ePhysicalDeviceImageFormatInfo2KHX )
-      , pNext( nullptr )
-      , format( format_ )
-      , type( type_ )
-      , tiling( tiling_ )
-      , usage( usage_ )
-      , flags( flags_ )
-    {
-    }
-
-    PhysicalDeviceImageFormatInfo2KHX( VkPhysicalDeviceImageFormatInfo2KHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(PhysicalDeviceImageFormatInfo2KHX) );
-    }
-
-    PhysicalDeviceImageFormatInfo2KHX& operator=( VkPhysicalDeviceImageFormatInfo2KHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(PhysicalDeviceImageFormatInfo2KHX) );
-      return *this;
-    }
-
-    PhysicalDeviceImageFormatInfo2KHX& setSType( StructureType sType_ )
-    {
-      sType = sType_;
-      return *this;
-    }
-
-    PhysicalDeviceImageFormatInfo2KHX& setPNext( const void* pNext_ )
-    {
-      pNext = pNext_;
-      return *this;
-    }
-
-    PhysicalDeviceImageFormatInfo2KHX& setFormat( Format format_ )
-    {
-      format = format_;
-      return *this;
-    }
-
-    PhysicalDeviceImageFormatInfo2KHX& setType( ImageType type_ )
-    {
-      type = type_;
-      return *this;
-    }
-
-    PhysicalDeviceImageFormatInfo2KHX& setTiling( ImageTiling tiling_ )
-    {
-      tiling = tiling_;
-      return *this;
-    }
-
-    PhysicalDeviceImageFormatInfo2KHX& setUsage( ImageUsageFlags usage_ )
-    {
-      usage = usage_;
-      return *this;
-    }
-
-    PhysicalDeviceImageFormatInfo2KHX& setFlags( ImageCreateFlags flags_ )
-    {
-      flags = flags_;
-      return *this;
-    }
-
-    operator const VkPhysicalDeviceImageFormatInfo2KHX&() const
-    {
-      return *reinterpret_cast<const VkPhysicalDeviceImageFormatInfo2KHX*>(this);
-    }
-
-    bool operator==( PhysicalDeviceImageFormatInfo2KHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( format == rhs.format )
-          && ( type == rhs.type )
-          && ( tiling == rhs.tiling )
-          && ( usage == rhs.usage )
-          && ( flags == rhs.flags );
-    }
-
-    bool operator!=( PhysicalDeviceImageFormatInfo2KHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    const void* pNext;
-    Format format;
-    ImageType type;
-    ImageTiling tiling;
-    ImageUsageFlags usage;
-    ImageCreateFlags flags;
-  };
-  static_assert( sizeof( PhysicalDeviceImageFormatInfo2KHX ) == sizeof( VkPhysicalDeviceImageFormatInfo2KHX ), "struct and wrapper have different size!" );
-
   enum class PipelineCreateFlagBits
   {
     eDisableOptimization = VK_PIPELINE_CREATE_DISABLE_OPTIMIZATION_BIT,
     eAllowDerivatives = VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT,
-    eDerivative = VK_PIPELINE_CREATE_DERIVATIVE_BIT,
-    eViewIndexFromDeviceIndexKHX = VK_PIPELINE_CREATE_VIEW_INDEX_FROM_DEVICE_INDEX_BIT_KHX,
-    eDispatchBaseKHX = VK_PIPELINE_CREATE_DISPATCH_BASE_KHX
+    eDerivative = VK_PIPELINE_CREATE_DERIVATIVE_BIT
   };
 
   using PipelineCreateFlags = Flags<PipelineCreateFlagBits, VkPipelineCreateFlags>;
@@ -12705,7 +11023,7 @@ namespace vk
   {
     enum
     {
-      allFlags = VkFlags(PipelineCreateFlagBits::eDisableOptimization) | VkFlags(PipelineCreateFlagBits::eAllowDerivatives) | VkFlags(PipelineCreateFlagBits::eDerivative) | VkFlags(PipelineCreateFlagBits::eViewIndexFromDeviceIndexKHX) | VkFlags(PipelineCreateFlagBits::eDispatchBaseKHX)
+      allFlags = VkFlags(PipelineCreateFlagBits::eDisableOptimization) | VkFlags(PipelineCreateFlagBits::eAllowDerivatives) | VkFlags(PipelineCreateFlagBits::eDerivative)
     };
   };
 
@@ -16263,62 +14581,6 @@ namespace vk
   };
   static_assert( sizeof( PhysicalDeviceSparseImageFormatInfo2KHR ) == sizeof( VkPhysicalDeviceSparseImageFormatInfo2KHR ), "struct and wrapper have different size!" );
 
-  struct PhysicalDeviceProperties2KHX
-  {
-    operator const VkPhysicalDeviceProperties2KHX&() const
-    {
-      return *reinterpret_cast<const VkPhysicalDeviceProperties2KHX*>(this);
-    }
-
-    bool operator==( PhysicalDeviceProperties2KHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( properties == rhs.properties );
-    }
-
-    bool operator!=( PhysicalDeviceProperties2KHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    void* pNext;
-    PhysicalDeviceProperties properties;
-  };
-  static_assert( sizeof( PhysicalDeviceProperties2KHX ) == sizeof( VkPhysicalDeviceProperties2KHX ), "struct and wrapper have different size!" );
-
-  struct ImageFormatProperties2KHX
-  {
-    operator const VkImageFormatProperties2KHX&() const
-    {
-      return *reinterpret_cast<const VkImageFormatProperties2KHX*>(this);
-    }
-
-    bool operator==( ImageFormatProperties2KHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( imageFormatProperties == rhs.imageFormatProperties );
-    }
-
-    bool operator!=( ImageFormatProperties2KHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    void* pNext;
-    ImageFormatProperties imageFormatProperties;
-  };
-  static_assert( sizeof( ImageFormatProperties2KHX ) == sizeof( VkImageFormatProperties2KHX ), "struct and wrapper have different size!" );
-
   enum class AttachmentDescriptionFlagBits
   {
     eMayAlias = VK_ATTACHMENT_DESCRIPTION_MAY_ALIAS_BIT
@@ -16604,9 +14866,7 @@ namespace vk
 
   enum class DependencyFlagBits
   {
-    eByRegion = VK_DEPENDENCY_BY_REGION_BIT,
-    eViewLocalKHX = VK_DEPENDENCY_VIEW_LOCAL_BIT_KHX,
-    eDeviceGroupKHX = VK_DEPENDENCY_DEVICE_GROUP_BIT_KHX
+    eByRegion = VK_DEPENDENCY_BY_REGION_BIT
   };
 
   using DependencyFlags = Flags<DependencyFlagBits, VkDependencyFlags>;
@@ -16625,7 +14885,7 @@ namespace vk
   {
     enum
     {
-      allFlags = VkFlags(DependencyFlagBits::eByRegion) | VkFlags(DependencyFlagBits::eViewLocalKHX) | VkFlags(DependencyFlagBits::eDeviceGroupKHX)
+      allFlags = VkFlags(DependencyFlagBits::eByRegion)
     };
   };
 
@@ -17204,6 +15464,205 @@ namespace vk
     ImageUsageFlags supportedUsageFlags;
   };
   static_assert( sizeof( SurfaceCapabilitiesKHR ) == sizeof( VkSurfaceCapabilitiesKHR ), "struct and wrapper have different size!" );
+
+  struct SwapchainCreateInfoKHR
+  {
+    SwapchainCreateInfoKHR( SwapchainCreateFlagsKHR flags_ = SwapchainCreateFlagsKHR(), SurfaceKHR surface_ = SurfaceKHR(), uint32_t minImageCount_ = 0, Format imageFormat_ = Format::eUndefined, ColorSpaceKHR imageColorSpace_ = ColorSpaceKHR::eSrgbNonlinear, Extent2D imageExtent_ = Extent2D(), uint32_t imageArrayLayers_ = 0, ImageUsageFlags imageUsage_ = ImageUsageFlags(), SharingMode imageSharingMode_ = SharingMode::eExclusive, uint32_t queueFamilyIndexCount_ = 0, const uint32_t* pQueueFamilyIndices_ = nullptr, SurfaceTransformFlagBitsKHR preTransform_ = SurfaceTransformFlagBitsKHR::eIdentity, CompositeAlphaFlagBitsKHR compositeAlpha_ = CompositeAlphaFlagBitsKHR::eOpaque, PresentModeKHR presentMode_ = PresentModeKHR::eImmediate, Bool32 clipped_ = 0, SwapchainKHR oldSwapchain_ = SwapchainKHR() )
+      : sType( StructureType::eSwapchainCreateInfoKHR )
+      , pNext( nullptr )
+      , flags( flags_ )
+      , surface( surface_ )
+      , minImageCount( minImageCount_ )
+      , imageFormat( imageFormat_ )
+      , imageColorSpace( imageColorSpace_ )
+      , imageExtent( imageExtent_ )
+      , imageArrayLayers( imageArrayLayers_ )
+      , imageUsage( imageUsage_ )
+      , imageSharingMode( imageSharingMode_ )
+      , queueFamilyIndexCount( queueFamilyIndexCount_ )
+      , pQueueFamilyIndices( pQueueFamilyIndices_ )
+      , preTransform( preTransform_ )
+      , compositeAlpha( compositeAlpha_ )
+      , presentMode( presentMode_ )
+      , clipped( clipped_ )
+      , oldSwapchain( oldSwapchain_ )
+    {
+    }
+
+    SwapchainCreateInfoKHR( VkSwapchainCreateInfoKHR const & rhs )
+    {
+      memcpy( this, &rhs, sizeof(SwapchainCreateInfoKHR) );
+    }
+
+    SwapchainCreateInfoKHR& operator=( VkSwapchainCreateInfoKHR const & rhs )
+    {
+      memcpy( this, &rhs, sizeof(SwapchainCreateInfoKHR) );
+      return *this;
+    }
+
+    SwapchainCreateInfoKHR& setSType( StructureType sType_ )
+    {
+      sType = sType_;
+      return *this;
+    }
+
+    SwapchainCreateInfoKHR& setPNext( const void* pNext_ )
+    {
+      pNext = pNext_;
+      return *this;
+    }
+
+    SwapchainCreateInfoKHR& setFlags( SwapchainCreateFlagsKHR flags_ )
+    {
+      flags = flags_;
+      return *this;
+    }
+
+    SwapchainCreateInfoKHR& setSurface( SurfaceKHR surface_ )
+    {
+      surface = surface_;
+      return *this;
+    }
+
+    SwapchainCreateInfoKHR& setMinImageCount( uint32_t minImageCount_ )
+    {
+      minImageCount = minImageCount_;
+      return *this;
+    }
+
+    SwapchainCreateInfoKHR& setImageFormat( Format imageFormat_ )
+    {
+      imageFormat = imageFormat_;
+      return *this;
+    }
+
+    SwapchainCreateInfoKHR& setImageColorSpace( ColorSpaceKHR imageColorSpace_ )
+    {
+      imageColorSpace = imageColorSpace_;
+      return *this;
+    }
+
+    SwapchainCreateInfoKHR& setImageExtent( Extent2D imageExtent_ )
+    {
+      imageExtent = imageExtent_;
+      return *this;
+    }
+
+    SwapchainCreateInfoKHR& setImageArrayLayers( uint32_t imageArrayLayers_ )
+    {
+      imageArrayLayers = imageArrayLayers_;
+      return *this;
+    }
+
+    SwapchainCreateInfoKHR& setImageUsage( ImageUsageFlags imageUsage_ )
+    {
+      imageUsage = imageUsage_;
+      return *this;
+    }
+
+    SwapchainCreateInfoKHR& setImageSharingMode( SharingMode imageSharingMode_ )
+    {
+      imageSharingMode = imageSharingMode_;
+      return *this;
+    }
+
+    SwapchainCreateInfoKHR& setQueueFamilyIndexCount( uint32_t queueFamilyIndexCount_ )
+    {
+      queueFamilyIndexCount = queueFamilyIndexCount_;
+      return *this;
+    }
+
+    SwapchainCreateInfoKHR& setPQueueFamilyIndices( const uint32_t* pQueueFamilyIndices_ )
+    {
+      pQueueFamilyIndices = pQueueFamilyIndices_;
+      return *this;
+    }
+
+    SwapchainCreateInfoKHR& setPreTransform( SurfaceTransformFlagBitsKHR preTransform_ )
+    {
+      preTransform = preTransform_;
+      return *this;
+    }
+
+    SwapchainCreateInfoKHR& setCompositeAlpha( CompositeAlphaFlagBitsKHR compositeAlpha_ )
+    {
+      compositeAlpha = compositeAlpha_;
+      return *this;
+    }
+
+    SwapchainCreateInfoKHR& setPresentMode( PresentModeKHR presentMode_ )
+    {
+      presentMode = presentMode_;
+      return *this;
+    }
+
+    SwapchainCreateInfoKHR& setClipped( Bool32 clipped_ )
+    {
+      clipped = clipped_;
+      return *this;
+    }
+
+    SwapchainCreateInfoKHR& setOldSwapchain( SwapchainKHR oldSwapchain_ )
+    {
+      oldSwapchain = oldSwapchain_;
+      return *this;
+    }
+
+    operator const VkSwapchainCreateInfoKHR&() const
+    {
+      return *reinterpret_cast<const VkSwapchainCreateInfoKHR*>(this);
+    }
+
+    bool operator==( SwapchainCreateInfoKHR const& rhs ) const
+    {
+      return ( sType == rhs.sType )
+          && ( pNext == rhs.pNext )
+          && ( flags == rhs.flags )
+          && ( surface == rhs.surface )
+          && ( minImageCount == rhs.minImageCount )
+          && ( imageFormat == rhs.imageFormat )
+          && ( imageColorSpace == rhs.imageColorSpace )
+          && ( imageExtent == rhs.imageExtent )
+          && ( imageArrayLayers == rhs.imageArrayLayers )
+          && ( imageUsage == rhs.imageUsage )
+          && ( imageSharingMode == rhs.imageSharingMode )
+          && ( queueFamilyIndexCount == rhs.queueFamilyIndexCount )
+          && ( pQueueFamilyIndices == rhs.pQueueFamilyIndices )
+          && ( preTransform == rhs.preTransform )
+          && ( compositeAlpha == rhs.compositeAlpha )
+          && ( presentMode == rhs.presentMode )
+          && ( clipped == rhs.clipped )
+          && ( oldSwapchain == rhs.oldSwapchain );
+    }
+
+    bool operator!=( SwapchainCreateInfoKHR const& rhs ) const
+    {
+      return !operator==( rhs );
+    }
+
+  private:
+    StructureType sType;
+
+  public:
+    const void* pNext;
+    SwapchainCreateFlagsKHR flags;
+    SurfaceKHR surface;
+    uint32_t minImageCount;
+    Format imageFormat;
+    ColorSpaceKHR imageColorSpace;
+    Extent2D imageExtent;
+    uint32_t imageArrayLayers;
+    ImageUsageFlags imageUsage;
+    SharingMode imageSharingMode;
+    uint32_t queueFamilyIndexCount;
+    const uint32_t* pQueueFamilyIndices;
+    SurfaceTransformFlagBitsKHR preTransform;
+    CompositeAlphaFlagBitsKHR compositeAlpha;
+    PresentModeKHR presentMode;
+    Bool32 clipped;
+    SwapchainKHR oldSwapchain;
+  };
+  static_assert( sizeof( SwapchainCreateInfoKHR ) == sizeof( VkSwapchainCreateInfoKHR ), "struct and wrapper have different size!" );
 
   enum class DebugReportFlagBitsEXT
   {
@@ -18782,1119 +17241,6 @@ namespace vk
   };
   static_assert( sizeof( ObjectTablePushConstantEntryNVX ) == sizeof( VkObjectTablePushConstantEntryNVX ), "struct and wrapper have different size!" );
 
-  enum class DescriptorSetLayoutCreateFlagBits
-  {
-    ePushDescriptorKHX = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHX
-  };
-
-  using DescriptorSetLayoutCreateFlags = Flags<DescriptorSetLayoutCreateFlagBits, VkDescriptorSetLayoutCreateFlags>;
-
-  VULKAN_HPP_INLINE DescriptorSetLayoutCreateFlags operator|( DescriptorSetLayoutCreateFlagBits bit0, DescriptorSetLayoutCreateFlagBits bit1 )
-  {
-    return DescriptorSetLayoutCreateFlags( bit0 ) | bit1;
-  }
-
-  VULKAN_HPP_INLINE DescriptorSetLayoutCreateFlags operator~( DescriptorSetLayoutCreateFlagBits bits )
-  {
-    return ~( DescriptorSetLayoutCreateFlags( bits ) );
-  }
-
-  template <> struct FlagTraits<DescriptorSetLayoutCreateFlagBits>
-  {
-    enum
-    {
-      allFlags = VkFlags(DescriptorSetLayoutCreateFlagBits::ePushDescriptorKHX)
-    };
-  };
-
-  struct DescriptorSetLayoutCreateInfo
-  {
-    DescriptorSetLayoutCreateInfo( DescriptorSetLayoutCreateFlags flags_ = DescriptorSetLayoutCreateFlags(), uint32_t bindingCount_ = 0, const DescriptorSetLayoutBinding* pBindings_ = nullptr )
-      : sType( StructureType::eDescriptorSetLayoutCreateInfo )
-      , pNext( nullptr )
-      , flags( flags_ )
-      , bindingCount( bindingCount_ )
-      , pBindings( pBindings_ )
-    {
-    }
-
-    DescriptorSetLayoutCreateInfo( VkDescriptorSetLayoutCreateInfo const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(DescriptorSetLayoutCreateInfo) );
-    }
-
-    DescriptorSetLayoutCreateInfo& operator=( VkDescriptorSetLayoutCreateInfo const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(DescriptorSetLayoutCreateInfo) );
-      return *this;
-    }
-
-    DescriptorSetLayoutCreateInfo& setSType( StructureType sType_ )
-    {
-      sType = sType_;
-      return *this;
-    }
-
-    DescriptorSetLayoutCreateInfo& setPNext( const void* pNext_ )
-    {
-      pNext = pNext_;
-      return *this;
-    }
-
-    DescriptorSetLayoutCreateInfo& setFlags( DescriptorSetLayoutCreateFlags flags_ )
-    {
-      flags = flags_;
-      return *this;
-    }
-
-    DescriptorSetLayoutCreateInfo& setBindingCount( uint32_t bindingCount_ )
-    {
-      bindingCount = bindingCount_;
-      return *this;
-    }
-
-    DescriptorSetLayoutCreateInfo& setPBindings( const DescriptorSetLayoutBinding* pBindings_ )
-    {
-      pBindings = pBindings_;
-      return *this;
-    }
-
-    operator const VkDescriptorSetLayoutCreateInfo&() const
-    {
-      return *reinterpret_cast<const VkDescriptorSetLayoutCreateInfo*>(this);
-    }
-
-    bool operator==( DescriptorSetLayoutCreateInfo const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( flags == rhs.flags )
-          && ( bindingCount == rhs.bindingCount )
-          && ( pBindings == rhs.pBindings );
-    }
-
-    bool operator!=( DescriptorSetLayoutCreateInfo const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    const void* pNext;
-    DescriptorSetLayoutCreateFlags flags;
-    uint32_t bindingCount;
-    const DescriptorSetLayoutBinding* pBindings;
-  };
-  static_assert( sizeof( DescriptorSetLayoutCreateInfo ) == sizeof( VkDescriptorSetLayoutCreateInfo ), "struct and wrapper have different size!" );
-
-  enum class ExternalMemoryHandleTypeFlagBitsKHX
-  {
-    eVkExternalMemoryHandleTypeOpaqueFdBit = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHX,
-    eVkExternalMemoryHandleTypeOpaqueWin32Bit = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT_KHX,
-    eVkExternalMemoryHandleTypeOpaqueWin32KmtBit = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT_KHX,
-    eVkExternalMemoryHandleTypeD3D11TextureBit = VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_BIT_KHX,
-    eVkExternalMemoryHandleTypeD3D11TextureKmtBit = VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_KMT_BIT_KHX,
-    eVkExternalMemoryHandleTypeD3D12HeapBit = VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_HEAP_BIT_KHX,
-    eVkExternalMemoryHandleTypeD3D12ResourceBit = VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_RESOURCE_BIT_KHX
-  };
-
-  using ExternalMemoryHandleTypeFlagsKHX = Flags<ExternalMemoryHandleTypeFlagBitsKHX, VkExternalMemoryHandleTypeFlagsKHX>;
-
-  VULKAN_HPP_INLINE ExternalMemoryHandleTypeFlagsKHX operator|( ExternalMemoryHandleTypeFlagBitsKHX bit0, ExternalMemoryHandleTypeFlagBitsKHX bit1 )
-  {
-    return ExternalMemoryHandleTypeFlagsKHX( bit0 ) | bit1;
-  }
-
-  VULKAN_HPP_INLINE ExternalMemoryHandleTypeFlagsKHX operator~( ExternalMemoryHandleTypeFlagBitsKHX bits )
-  {
-    return ~( ExternalMemoryHandleTypeFlagsKHX( bits ) );
-  }
-
-  template <> struct FlagTraits<ExternalMemoryHandleTypeFlagBitsKHX>
-  {
-    enum
-    {
-      allFlags = VkFlags(ExternalMemoryHandleTypeFlagBitsKHX::eVkExternalMemoryHandleTypeOpaqueFdBit) | VkFlags(ExternalMemoryHandleTypeFlagBitsKHX::eVkExternalMemoryHandleTypeOpaqueWin32Bit) | VkFlags(ExternalMemoryHandleTypeFlagBitsKHX::eVkExternalMemoryHandleTypeOpaqueWin32KmtBit) | VkFlags(ExternalMemoryHandleTypeFlagBitsKHX::eVkExternalMemoryHandleTypeD3D11TextureBit) | VkFlags(ExternalMemoryHandleTypeFlagBitsKHX::eVkExternalMemoryHandleTypeD3D11TextureKmtBit) | VkFlags(ExternalMemoryHandleTypeFlagBitsKHX::eVkExternalMemoryHandleTypeD3D12HeapBit) | VkFlags(ExternalMemoryHandleTypeFlagBitsKHX::eVkExternalMemoryHandleTypeD3D12ResourceBit)
-    };
-  };
-
-  struct PhysicalDeviceExternalImageFormatInfoKHX
-  {
-    PhysicalDeviceExternalImageFormatInfoKHX( ExternalMemoryHandleTypeFlagBitsKHX handleType_ = ExternalMemoryHandleTypeFlagBitsKHX::eVkExternalMemoryHandleTypeOpaqueFdBit )
-      : sType( StructureType::ePhysicalDeviceExternalImageFormatInfoKHX )
-      , pNext( nullptr )
-      , handleType( handleType_ )
-    {
-    }
-
-    PhysicalDeviceExternalImageFormatInfoKHX( VkPhysicalDeviceExternalImageFormatInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(PhysicalDeviceExternalImageFormatInfoKHX) );
-    }
-
-    PhysicalDeviceExternalImageFormatInfoKHX& operator=( VkPhysicalDeviceExternalImageFormatInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(PhysicalDeviceExternalImageFormatInfoKHX) );
-      return *this;
-    }
-
-    PhysicalDeviceExternalImageFormatInfoKHX& setSType( StructureType sType_ )
-    {
-      sType = sType_;
-      return *this;
-    }
-
-    PhysicalDeviceExternalImageFormatInfoKHX& setPNext( const void* pNext_ )
-    {
-      pNext = pNext_;
-      return *this;
-    }
-
-    PhysicalDeviceExternalImageFormatInfoKHX& setHandleType( ExternalMemoryHandleTypeFlagBitsKHX handleType_ )
-    {
-      handleType = handleType_;
-      return *this;
-    }
-
-    operator const VkPhysicalDeviceExternalImageFormatInfoKHX&() const
-    {
-      return *reinterpret_cast<const VkPhysicalDeviceExternalImageFormatInfoKHX*>(this);
-    }
-
-    bool operator==( PhysicalDeviceExternalImageFormatInfoKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( handleType == rhs.handleType );
-    }
-
-    bool operator!=( PhysicalDeviceExternalImageFormatInfoKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    const void* pNext;
-    ExternalMemoryHandleTypeFlagBitsKHX handleType;
-  };
-  static_assert( sizeof( PhysicalDeviceExternalImageFormatInfoKHX ) == sizeof( VkPhysicalDeviceExternalImageFormatInfoKHX ), "struct and wrapper have different size!" );
-
-  struct PhysicalDeviceExternalBufferInfoKHX
-  {
-    PhysicalDeviceExternalBufferInfoKHX( BufferCreateFlags flags_ = BufferCreateFlags(), BufferUsageFlags usage_ = BufferUsageFlags(), ExternalMemoryHandleTypeFlagBitsKHX handleType_ = ExternalMemoryHandleTypeFlagBitsKHX::eVkExternalMemoryHandleTypeOpaqueFdBit )
-      : sType( StructureType::ePhysicalDeviceExternalBufferInfoKHX )
-      , pNext( nullptr )
-      , flags( flags_ )
-      , usage( usage_ )
-      , handleType( handleType_ )
-    {
-    }
-
-    PhysicalDeviceExternalBufferInfoKHX( VkPhysicalDeviceExternalBufferInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(PhysicalDeviceExternalBufferInfoKHX) );
-    }
-
-    PhysicalDeviceExternalBufferInfoKHX& operator=( VkPhysicalDeviceExternalBufferInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(PhysicalDeviceExternalBufferInfoKHX) );
-      return *this;
-    }
-
-    PhysicalDeviceExternalBufferInfoKHX& setSType( StructureType sType_ )
-    {
-      sType = sType_;
-      return *this;
-    }
-
-    PhysicalDeviceExternalBufferInfoKHX& setPNext( const void* pNext_ )
-    {
-      pNext = pNext_;
-      return *this;
-    }
-
-    PhysicalDeviceExternalBufferInfoKHX& setFlags( BufferCreateFlags flags_ )
-    {
-      flags = flags_;
-      return *this;
-    }
-
-    PhysicalDeviceExternalBufferInfoKHX& setUsage( BufferUsageFlags usage_ )
-    {
-      usage = usage_;
-      return *this;
-    }
-
-    PhysicalDeviceExternalBufferInfoKHX& setHandleType( ExternalMemoryHandleTypeFlagBitsKHX handleType_ )
-    {
-      handleType = handleType_;
-      return *this;
-    }
-
-    operator const VkPhysicalDeviceExternalBufferInfoKHX&() const
-    {
-      return *reinterpret_cast<const VkPhysicalDeviceExternalBufferInfoKHX*>(this);
-    }
-
-    bool operator==( PhysicalDeviceExternalBufferInfoKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( flags == rhs.flags )
-          && ( usage == rhs.usage )
-          && ( handleType == rhs.handleType );
-    }
-
-    bool operator!=( PhysicalDeviceExternalBufferInfoKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    const void* pNext;
-    BufferCreateFlags flags;
-    BufferUsageFlags usage;
-    ExternalMemoryHandleTypeFlagBitsKHX handleType;
-  };
-  static_assert( sizeof( PhysicalDeviceExternalBufferInfoKHX ) == sizeof( VkPhysicalDeviceExternalBufferInfoKHX ), "struct and wrapper have different size!" );
-
-  struct ExternalMemoryImageCreateInfoKHX
-  {
-    ExternalMemoryImageCreateInfoKHX( ExternalMemoryHandleTypeFlagsKHX handleTypes_ = ExternalMemoryHandleTypeFlagsKHX() )
-      : sType( StructureType::eExternalMemoryImageCreateInfoKHX )
-      , pNext( nullptr )
-      , handleTypes( handleTypes_ )
-    {
-    }
-
-    ExternalMemoryImageCreateInfoKHX( VkExternalMemoryImageCreateInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(ExternalMemoryImageCreateInfoKHX) );
-    }
-
-    ExternalMemoryImageCreateInfoKHX& operator=( VkExternalMemoryImageCreateInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(ExternalMemoryImageCreateInfoKHX) );
-      return *this;
-    }
-
-    ExternalMemoryImageCreateInfoKHX& setSType( StructureType sType_ )
-    {
-      sType = sType_;
-      return *this;
-    }
-
-    ExternalMemoryImageCreateInfoKHX& setPNext( const void* pNext_ )
-    {
-      pNext = pNext_;
-      return *this;
-    }
-
-    ExternalMemoryImageCreateInfoKHX& setHandleTypes( ExternalMemoryHandleTypeFlagsKHX handleTypes_ )
-    {
-      handleTypes = handleTypes_;
-      return *this;
-    }
-
-    operator const VkExternalMemoryImageCreateInfoKHX&() const
-    {
-      return *reinterpret_cast<const VkExternalMemoryImageCreateInfoKHX*>(this);
-    }
-
-    bool operator==( ExternalMemoryImageCreateInfoKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( handleTypes == rhs.handleTypes );
-    }
-
-    bool operator!=( ExternalMemoryImageCreateInfoKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    const void* pNext;
-    ExternalMemoryHandleTypeFlagsKHX handleTypes;
-  };
-  static_assert( sizeof( ExternalMemoryImageCreateInfoKHX ) == sizeof( VkExternalMemoryImageCreateInfoKHX ), "struct and wrapper have different size!" );
-
-  struct ExternalMemoryBufferCreateInfoKHX
-  {
-    ExternalMemoryBufferCreateInfoKHX( ExternalMemoryHandleTypeFlagsKHX handleTypes_ = ExternalMemoryHandleTypeFlagsKHX() )
-      : sType( StructureType::eExternalMemoryBufferCreateInfoKHX )
-      , pNext( nullptr )
-      , handleTypes( handleTypes_ )
-    {
-    }
-
-    ExternalMemoryBufferCreateInfoKHX( VkExternalMemoryBufferCreateInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(ExternalMemoryBufferCreateInfoKHX) );
-    }
-
-    ExternalMemoryBufferCreateInfoKHX& operator=( VkExternalMemoryBufferCreateInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(ExternalMemoryBufferCreateInfoKHX) );
-      return *this;
-    }
-
-    ExternalMemoryBufferCreateInfoKHX& setSType( StructureType sType_ )
-    {
-      sType = sType_;
-      return *this;
-    }
-
-    ExternalMemoryBufferCreateInfoKHX& setPNext( const void* pNext_ )
-    {
-      pNext = pNext_;
-      return *this;
-    }
-
-    ExternalMemoryBufferCreateInfoKHX& setHandleTypes( ExternalMemoryHandleTypeFlagsKHX handleTypes_ )
-    {
-      handleTypes = handleTypes_;
-      return *this;
-    }
-
-    operator const VkExternalMemoryBufferCreateInfoKHX&() const
-    {
-      return *reinterpret_cast<const VkExternalMemoryBufferCreateInfoKHX*>(this);
-    }
-
-    bool operator==( ExternalMemoryBufferCreateInfoKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( handleTypes == rhs.handleTypes );
-    }
-
-    bool operator!=( ExternalMemoryBufferCreateInfoKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    const void* pNext;
-    ExternalMemoryHandleTypeFlagsKHX handleTypes;
-  };
-  static_assert( sizeof( ExternalMemoryBufferCreateInfoKHX ) == sizeof( VkExternalMemoryBufferCreateInfoKHX ), "struct and wrapper have different size!" );
-
-  struct ExportMemoryAllocateInfoKHX
-  {
-    ExportMemoryAllocateInfoKHX( ExternalMemoryHandleTypeFlagsKHX handleTypes_ = ExternalMemoryHandleTypeFlagsKHX() )
-      : sType( StructureType::eExportMemoryAllocateInfoKHX )
-      , pNext( nullptr )
-      , handleTypes( handleTypes_ )
-    {
-    }
-
-    ExportMemoryAllocateInfoKHX( VkExportMemoryAllocateInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(ExportMemoryAllocateInfoKHX) );
-    }
-
-    ExportMemoryAllocateInfoKHX& operator=( VkExportMemoryAllocateInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(ExportMemoryAllocateInfoKHX) );
-      return *this;
-    }
-
-    ExportMemoryAllocateInfoKHX& setSType( StructureType sType_ )
-    {
-      sType = sType_;
-      return *this;
-    }
-
-    ExportMemoryAllocateInfoKHX& setPNext( const void* pNext_ )
-    {
-      pNext = pNext_;
-      return *this;
-    }
-
-    ExportMemoryAllocateInfoKHX& setHandleTypes( ExternalMemoryHandleTypeFlagsKHX handleTypes_ )
-    {
-      handleTypes = handleTypes_;
-      return *this;
-    }
-
-    operator const VkExportMemoryAllocateInfoKHX&() const
-    {
-      return *reinterpret_cast<const VkExportMemoryAllocateInfoKHX*>(this);
-    }
-
-    bool operator==( ExportMemoryAllocateInfoKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( handleTypes == rhs.handleTypes );
-    }
-
-    bool operator!=( ExportMemoryAllocateInfoKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    const void* pNext;
-    ExternalMemoryHandleTypeFlagsKHX handleTypes;
-  };
-  static_assert( sizeof( ExportMemoryAllocateInfoKHX ) == sizeof( VkExportMemoryAllocateInfoKHX ), "struct and wrapper have different size!" );
-
-#ifdef VK_USE_PLATFORM_WIN32_KHR
-  struct ImportMemoryWin32HandleInfoKHX
-  {
-    ImportMemoryWin32HandleInfoKHX( ExternalMemoryHandleTypeFlagBitsKHX handleType_ = ExternalMemoryHandleTypeFlagBitsKHX::eVkExternalMemoryHandleTypeOpaqueFdBit, HANDLE handle_ = 0 )
-      : sType( StructureType::eImportMemoryWin32HandleInfoKHX )
-      , pNext( nullptr )
-      , handleType( handleType_ )
-      , handle( handle_ )
-    {
-    }
-
-    ImportMemoryWin32HandleInfoKHX( VkImportMemoryWin32HandleInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(ImportMemoryWin32HandleInfoKHX) );
-    }
-
-    ImportMemoryWin32HandleInfoKHX& operator=( VkImportMemoryWin32HandleInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(ImportMemoryWin32HandleInfoKHX) );
-      return *this;
-    }
-
-    ImportMemoryWin32HandleInfoKHX& setSType( StructureType sType_ )
-    {
-      sType = sType_;
-      return *this;
-    }
-
-    ImportMemoryWin32HandleInfoKHX& setPNext( const void* pNext_ )
-    {
-      pNext = pNext_;
-      return *this;
-    }
-
-    ImportMemoryWin32HandleInfoKHX& setHandleType( ExternalMemoryHandleTypeFlagBitsKHX handleType_ )
-    {
-      handleType = handleType_;
-      return *this;
-    }
-
-    ImportMemoryWin32HandleInfoKHX& setHandle( HANDLE handle_ )
-    {
-      handle = handle_;
-      return *this;
-    }
-
-    operator const VkImportMemoryWin32HandleInfoKHX&() const
-    {
-      return *reinterpret_cast<const VkImportMemoryWin32HandleInfoKHX*>(this);
-    }
-
-    bool operator==( ImportMemoryWin32HandleInfoKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( handleType == rhs.handleType )
-          && ( handle == rhs.handle );
-    }
-
-    bool operator!=( ImportMemoryWin32HandleInfoKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    const void* pNext;
-    ExternalMemoryHandleTypeFlagBitsKHX handleType;
-    HANDLE handle;
-  };
-  static_assert( sizeof( ImportMemoryWin32HandleInfoKHX ) == sizeof( VkImportMemoryWin32HandleInfoKHX ), "struct and wrapper have different size!" );
-#endif /*VK_USE_PLATFORM_WIN32_KHR*/
-
-  struct ImportMemoryFdInfoKHX
-  {
-    ImportMemoryFdInfoKHX( ExternalMemoryHandleTypeFlagBitsKHX handleType_ = ExternalMemoryHandleTypeFlagBitsKHX::eVkExternalMemoryHandleTypeOpaqueFdBit, int fd_ = 0 )
-      : sType( StructureType::eImportMemoryFdInfoKHX )
-      , pNext( nullptr )
-      , handleType( handleType_ )
-      , fd( fd_ )
-    {
-    }
-
-    ImportMemoryFdInfoKHX( VkImportMemoryFdInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(ImportMemoryFdInfoKHX) );
-    }
-
-    ImportMemoryFdInfoKHX& operator=( VkImportMemoryFdInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(ImportMemoryFdInfoKHX) );
-      return *this;
-    }
-
-    ImportMemoryFdInfoKHX& setSType( StructureType sType_ )
-    {
-      sType = sType_;
-      return *this;
-    }
-
-    ImportMemoryFdInfoKHX& setPNext( const void* pNext_ )
-    {
-      pNext = pNext_;
-      return *this;
-    }
-
-    ImportMemoryFdInfoKHX& setHandleType( ExternalMemoryHandleTypeFlagBitsKHX handleType_ )
-    {
-      handleType = handleType_;
-      return *this;
-    }
-
-    ImportMemoryFdInfoKHX& setFd( int fd_ )
-    {
-      fd = fd_;
-      return *this;
-    }
-
-    operator const VkImportMemoryFdInfoKHX&() const
-    {
-      return *reinterpret_cast<const VkImportMemoryFdInfoKHX*>(this);
-    }
-
-    bool operator==( ImportMemoryFdInfoKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( handleType == rhs.handleType )
-          && ( fd == rhs.fd );
-    }
-
-    bool operator!=( ImportMemoryFdInfoKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    const void* pNext;
-    ExternalMemoryHandleTypeFlagBitsKHX handleType;
-    int fd;
-  };
-  static_assert( sizeof( ImportMemoryFdInfoKHX ) == sizeof( VkImportMemoryFdInfoKHX ), "struct and wrapper have different size!" );
-
-  enum class ExternalMemoryFeatureFlagBitsKHX
-  {
-    eVkExternalMemoryFeatureDedicatedOnlyBit = VK_EXTERNAL_MEMORY_FEATURE_DEDICATED_ONLY_BIT_KHX,
-    eVkExternalMemoryFeatureExportableBit = VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT_KHX,
-    eVkExternalMemoryFeatureImportableBit = VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT_KHX
-  };
-
-  using ExternalMemoryFeatureFlagsKHX = Flags<ExternalMemoryFeatureFlagBitsKHX, VkExternalMemoryFeatureFlagsKHX>;
-
-  VULKAN_HPP_INLINE ExternalMemoryFeatureFlagsKHX operator|( ExternalMemoryFeatureFlagBitsKHX bit0, ExternalMemoryFeatureFlagBitsKHX bit1 )
-  {
-    return ExternalMemoryFeatureFlagsKHX( bit0 ) | bit1;
-  }
-
-  VULKAN_HPP_INLINE ExternalMemoryFeatureFlagsKHX operator~( ExternalMemoryFeatureFlagBitsKHX bits )
-  {
-    return ~( ExternalMemoryFeatureFlagsKHX( bits ) );
-  }
-
-  template <> struct FlagTraits<ExternalMemoryFeatureFlagBitsKHX>
-  {
-    enum
-    {
-      allFlags = VkFlags(ExternalMemoryFeatureFlagBitsKHX::eVkExternalMemoryFeatureDedicatedOnlyBit) | VkFlags(ExternalMemoryFeatureFlagBitsKHX::eVkExternalMemoryFeatureExportableBit) | VkFlags(ExternalMemoryFeatureFlagBitsKHX::eVkExternalMemoryFeatureImportableBit)
-    };
-  };
-
-  struct ExternalMemoryPropertiesKHX
-  {
-    operator const VkExternalMemoryPropertiesKHX&() const
-    {
-      return *reinterpret_cast<const VkExternalMemoryPropertiesKHX*>(this);
-    }
-
-    bool operator==( ExternalMemoryPropertiesKHX const& rhs ) const
-    {
-      return ( externalMemoryFeatures == rhs.externalMemoryFeatures )
-          && ( exportFromImportedHandleTypes == rhs.exportFromImportedHandleTypes )
-          && ( compatibleHandleTypes == rhs.compatibleHandleTypes );
-    }
-
-    bool operator!=( ExternalMemoryPropertiesKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-    ExternalMemoryFeatureFlagsKHX externalMemoryFeatures;
-    ExternalMemoryHandleTypeFlagsKHX exportFromImportedHandleTypes;
-    ExternalMemoryHandleTypeFlagsKHX compatibleHandleTypes;
-  };
-  static_assert( sizeof( ExternalMemoryPropertiesKHX ) == sizeof( VkExternalMemoryPropertiesKHX ), "struct and wrapper have different size!" );
-
-  struct ExternalImageFormatPropertiesKHX
-  {
-    operator const VkExternalImageFormatPropertiesKHX&() const
-    {
-      return *reinterpret_cast<const VkExternalImageFormatPropertiesKHX*>(this);
-    }
-
-    bool operator==( ExternalImageFormatPropertiesKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( externalMemoryProperties == rhs.externalMemoryProperties );
-    }
-
-    bool operator!=( ExternalImageFormatPropertiesKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    void* pNext;
-    ExternalMemoryPropertiesKHX externalMemoryProperties;
-  };
-  static_assert( sizeof( ExternalImageFormatPropertiesKHX ) == sizeof( VkExternalImageFormatPropertiesKHX ), "struct and wrapper have different size!" );
-
-  struct ExternalBufferPropertiesKHX
-  {
-    operator const VkExternalBufferPropertiesKHX&() const
-    {
-      return *reinterpret_cast<const VkExternalBufferPropertiesKHX*>(this);
-    }
-
-    bool operator==( ExternalBufferPropertiesKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( externalMemoryProperties == rhs.externalMemoryProperties );
-    }
-
-    bool operator!=( ExternalBufferPropertiesKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    void* pNext;
-    ExternalMemoryPropertiesKHX externalMemoryProperties;
-  };
-  static_assert( sizeof( ExternalBufferPropertiesKHX ) == sizeof( VkExternalBufferPropertiesKHX ), "struct and wrapper have different size!" );
-
-  enum class ExternalSemaphoreHandleTypeFlagBitsKHX
-  {
-    eVkExternalSemaphoreHandleTypeOpaqueFdBit = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT_KHX,
-    eVkExternalSemaphoreHandleTypeOpaqueWin32Bit = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_BIT_KHX,
-    eVkExternalSemaphoreHandleTypeOpaqueWin32KmtBit = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT_KHX,
-    eVkExternalSemaphoreHandleTypeD3D12FenceBit = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_D3D12_FENCE_BIT_KHX,
-    eVkExternalSemaphoreHandleTypeFenceFdBit = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_FENCE_FD_BIT_KHX
-  };
-
-  using ExternalSemaphoreHandleTypeFlagsKHX = Flags<ExternalSemaphoreHandleTypeFlagBitsKHX, VkExternalSemaphoreHandleTypeFlagsKHX>;
-
-  VULKAN_HPP_INLINE ExternalSemaphoreHandleTypeFlagsKHX operator|( ExternalSemaphoreHandleTypeFlagBitsKHX bit0, ExternalSemaphoreHandleTypeFlagBitsKHX bit1 )
-  {
-    return ExternalSemaphoreHandleTypeFlagsKHX( bit0 ) | bit1;
-  }
-
-  VULKAN_HPP_INLINE ExternalSemaphoreHandleTypeFlagsKHX operator~( ExternalSemaphoreHandleTypeFlagBitsKHX bits )
-  {
-    return ~( ExternalSemaphoreHandleTypeFlagsKHX( bits ) );
-  }
-
-  template <> struct FlagTraits<ExternalSemaphoreHandleTypeFlagBitsKHX>
-  {
-    enum
-    {
-      allFlags = VkFlags(ExternalSemaphoreHandleTypeFlagBitsKHX::eVkExternalSemaphoreHandleTypeOpaqueFdBit) | VkFlags(ExternalSemaphoreHandleTypeFlagBitsKHX::eVkExternalSemaphoreHandleTypeOpaqueWin32Bit) | VkFlags(ExternalSemaphoreHandleTypeFlagBitsKHX::eVkExternalSemaphoreHandleTypeOpaqueWin32KmtBit) | VkFlags(ExternalSemaphoreHandleTypeFlagBitsKHX::eVkExternalSemaphoreHandleTypeD3D12FenceBit) | VkFlags(ExternalSemaphoreHandleTypeFlagBitsKHX::eVkExternalSemaphoreHandleTypeFenceFdBit)
-    };
-  };
-
-  struct PhysicalDeviceExternalSemaphoreInfoKHX
-  {
-    PhysicalDeviceExternalSemaphoreInfoKHX( ExternalSemaphoreHandleTypeFlagBitsKHX handleType_ = ExternalSemaphoreHandleTypeFlagBitsKHX::eVkExternalSemaphoreHandleTypeOpaqueFdBit )
-      : sType( StructureType::ePhysicalDeviceExternalSemaphoreInfoKHX )
-      , pNext( nullptr )
-      , handleType( handleType_ )
-    {
-    }
-
-    PhysicalDeviceExternalSemaphoreInfoKHX( VkPhysicalDeviceExternalSemaphoreInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(PhysicalDeviceExternalSemaphoreInfoKHX) );
-    }
-
-    PhysicalDeviceExternalSemaphoreInfoKHX& operator=( VkPhysicalDeviceExternalSemaphoreInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(PhysicalDeviceExternalSemaphoreInfoKHX) );
-      return *this;
-    }
-
-    PhysicalDeviceExternalSemaphoreInfoKHX& setSType( StructureType sType_ )
-    {
-      sType = sType_;
-      return *this;
-    }
-
-    PhysicalDeviceExternalSemaphoreInfoKHX& setPNext( const void* pNext_ )
-    {
-      pNext = pNext_;
-      return *this;
-    }
-
-    PhysicalDeviceExternalSemaphoreInfoKHX& setHandleType( ExternalSemaphoreHandleTypeFlagBitsKHX handleType_ )
-    {
-      handleType = handleType_;
-      return *this;
-    }
-
-    operator const VkPhysicalDeviceExternalSemaphoreInfoKHX&() const
-    {
-      return *reinterpret_cast<const VkPhysicalDeviceExternalSemaphoreInfoKHX*>(this);
-    }
-
-    bool operator==( PhysicalDeviceExternalSemaphoreInfoKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( handleType == rhs.handleType );
-    }
-
-    bool operator!=( PhysicalDeviceExternalSemaphoreInfoKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    const void* pNext;
-    ExternalSemaphoreHandleTypeFlagBitsKHX handleType;
-  };
-  static_assert( sizeof( PhysicalDeviceExternalSemaphoreInfoKHX ) == sizeof( VkPhysicalDeviceExternalSemaphoreInfoKHX ), "struct and wrapper have different size!" );
-
-  struct ExportSemaphoreCreateInfoKHX
-  {
-    ExportSemaphoreCreateInfoKHX( ExternalSemaphoreHandleTypeFlagsKHX handleTypes_ = ExternalSemaphoreHandleTypeFlagsKHX() )
-      : sType( StructureType::eExportSemaphoreCreateInfoKHX )
-      , pNext( nullptr )
-      , handleTypes( handleTypes_ )
-    {
-    }
-
-    ExportSemaphoreCreateInfoKHX( VkExportSemaphoreCreateInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(ExportSemaphoreCreateInfoKHX) );
-    }
-
-    ExportSemaphoreCreateInfoKHX& operator=( VkExportSemaphoreCreateInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(ExportSemaphoreCreateInfoKHX) );
-      return *this;
-    }
-
-    ExportSemaphoreCreateInfoKHX& setSType( StructureType sType_ )
-    {
-      sType = sType_;
-      return *this;
-    }
-
-    ExportSemaphoreCreateInfoKHX& setPNext( const void* pNext_ )
-    {
-      pNext = pNext_;
-      return *this;
-    }
-
-    ExportSemaphoreCreateInfoKHX& setHandleTypes( ExternalSemaphoreHandleTypeFlagsKHX handleTypes_ )
-    {
-      handleTypes = handleTypes_;
-      return *this;
-    }
-
-    operator const VkExportSemaphoreCreateInfoKHX&() const
-    {
-      return *reinterpret_cast<const VkExportSemaphoreCreateInfoKHX*>(this);
-    }
-
-    bool operator==( ExportSemaphoreCreateInfoKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( handleTypes == rhs.handleTypes );
-    }
-
-    bool operator!=( ExportSemaphoreCreateInfoKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    const void* pNext;
-    ExternalSemaphoreHandleTypeFlagsKHX handleTypes;
-  };
-  static_assert( sizeof( ExportSemaphoreCreateInfoKHX ) == sizeof( VkExportSemaphoreCreateInfoKHX ), "struct and wrapper have different size!" );
-
-#ifdef VK_USE_PLATFORM_WIN32_KHX
-  struct ImportSemaphoreWin32HandleInfoKHX
-  {
-    ImportSemaphoreWin32HandleInfoKHX( Semaphore semaphore_ = Semaphore(), ExternalSemaphoreHandleTypeFlagsKHX handleType_ = ExternalSemaphoreHandleTypeFlagsKHX(), HANDLE handle_ = 0 )
-      : sType( StructureType::eImportSemaphoreWin32HandleInfoKHX )
-      , pNext( nullptr )
-      , semaphore( semaphore_ )
-      , handleType( handleType_ )
-      , handle( handle_ )
-    {
-    }
-
-    ImportSemaphoreWin32HandleInfoKHX( VkImportSemaphoreWin32HandleInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(ImportSemaphoreWin32HandleInfoKHX) );
-    }
-
-    ImportSemaphoreWin32HandleInfoKHX& operator=( VkImportSemaphoreWin32HandleInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(ImportSemaphoreWin32HandleInfoKHX) );
-      return *this;
-    }
-
-    ImportSemaphoreWin32HandleInfoKHX& setSType( StructureType sType_ )
-    {
-      sType = sType_;
-      return *this;
-    }
-
-    ImportSemaphoreWin32HandleInfoKHX& setPNext( const void* pNext_ )
-    {
-      pNext = pNext_;
-      return *this;
-    }
-
-    ImportSemaphoreWin32HandleInfoKHX& setSemaphore( Semaphore semaphore_ )
-    {
-      semaphore = semaphore_;
-      return *this;
-    }
-
-    ImportSemaphoreWin32HandleInfoKHX& setHandleType( ExternalSemaphoreHandleTypeFlagsKHX handleType_ )
-    {
-      handleType = handleType_;
-      return *this;
-    }
-
-    ImportSemaphoreWin32HandleInfoKHX& setHandle( HANDLE handle_ )
-    {
-      handle = handle_;
-      return *this;
-    }
-
-    operator const VkImportSemaphoreWin32HandleInfoKHX&() const
-    {
-      return *reinterpret_cast<const VkImportSemaphoreWin32HandleInfoKHX*>(this);
-    }
-
-    bool operator==( ImportSemaphoreWin32HandleInfoKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( semaphore == rhs.semaphore )
-          && ( handleType == rhs.handleType )
-          && ( handle == rhs.handle );
-    }
-
-    bool operator!=( ImportSemaphoreWin32HandleInfoKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    const void* pNext;
-    Semaphore semaphore;
-    ExternalSemaphoreHandleTypeFlagsKHX handleType;
-    HANDLE handle;
-  };
-  static_assert( sizeof( ImportSemaphoreWin32HandleInfoKHX ) == sizeof( VkImportSemaphoreWin32HandleInfoKHX ), "struct and wrapper have different size!" );
-#endif /*VK_USE_PLATFORM_WIN32_KHX*/
-
-  struct ImportSemaphoreFdInfoKHX
-  {
-    ImportSemaphoreFdInfoKHX( Semaphore semaphore_ = Semaphore(), ExternalSemaphoreHandleTypeFlagBitsKHX handleType_ = ExternalSemaphoreHandleTypeFlagBitsKHX::eVkExternalSemaphoreHandleTypeOpaqueFdBit, int fd_ = 0 )
-      : sType( StructureType::eImportSemaphoreFdInfoKHX )
-      , pNext( nullptr )
-      , semaphore( semaphore_ )
-      , handleType( handleType_ )
-      , fd( fd_ )
-    {
-    }
-
-    ImportSemaphoreFdInfoKHX( VkImportSemaphoreFdInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(ImportSemaphoreFdInfoKHX) );
-    }
-
-    ImportSemaphoreFdInfoKHX& operator=( VkImportSemaphoreFdInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(ImportSemaphoreFdInfoKHX) );
-      return *this;
-    }
-
-    ImportSemaphoreFdInfoKHX& setSType( StructureType sType_ )
-    {
-      sType = sType_;
-      return *this;
-    }
-
-    ImportSemaphoreFdInfoKHX& setPNext( const void* pNext_ )
-    {
-      pNext = pNext_;
-      return *this;
-    }
-
-    ImportSemaphoreFdInfoKHX& setSemaphore( Semaphore semaphore_ )
-    {
-      semaphore = semaphore_;
-      return *this;
-    }
-
-    ImportSemaphoreFdInfoKHX& setHandleType( ExternalSemaphoreHandleTypeFlagBitsKHX handleType_ )
-    {
-      handleType = handleType_;
-      return *this;
-    }
-
-    ImportSemaphoreFdInfoKHX& setFd( int fd_ )
-    {
-      fd = fd_;
-      return *this;
-    }
-
-    operator const VkImportSemaphoreFdInfoKHX&() const
-    {
-      return *reinterpret_cast<const VkImportSemaphoreFdInfoKHX*>(this);
-    }
-
-    bool operator==( ImportSemaphoreFdInfoKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( semaphore == rhs.semaphore )
-          && ( handleType == rhs.handleType )
-          && ( fd == rhs.fd );
-    }
-
-    bool operator!=( ImportSemaphoreFdInfoKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    const void* pNext;
-    Semaphore semaphore;
-    ExternalSemaphoreHandleTypeFlagBitsKHX handleType;
-    int fd;
-  };
-  static_assert( sizeof( ImportSemaphoreFdInfoKHX ) == sizeof( VkImportSemaphoreFdInfoKHX ), "struct and wrapper have different size!" );
-
-  enum class ExternalSemaphoreFeatureFlagBitsKHX
-  {
-    eVkExternalSemaphoreFeatureExportableBit = VK_EXTERNAL_SEMAPHORE_FEATURE_EXPORTABLE_BIT_KHX,
-    eVkExternalSemaphoreFeatureImportableBit = VK_EXTERNAL_SEMAPHORE_FEATURE_IMPORTABLE_BIT_KHX
-  };
-
-  using ExternalSemaphoreFeatureFlagsKHX = Flags<ExternalSemaphoreFeatureFlagBitsKHX, VkExternalSemaphoreFeatureFlagsKHX>;
-
-  VULKAN_HPP_INLINE ExternalSemaphoreFeatureFlagsKHX operator|( ExternalSemaphoreFeatureFlagBitsKHX bit0, ExternalSemaphoreFeatureFlagBitsKHX bit1 )
-  {
-    return ExternalSemaphoreFeatureFlagsKHX( bit0 ) | bit1;
-  }
-
-  VULKAN_HPP_INLINE ExternalSemaphoreFeatureFlagsKHX operator~( ExternalSemaphoreFeatureFlagBitsKHX bits )
-  {
-    return ~( ExternalSemaphoreFeatureFlagsKHX( bits ) );
-  }
-
-  template <> struct FlagTraits<ExternalSemaphoreFeatureFlagBitsKHX>
-  {
-    enum
-    {
-      allFlags = VkFlags(ExternalSemaphoreFeatureFlagBitsKHX::eVkExternalSemaphoreFeatureExportableBit) | VkFlags(ExternalSemaphoreFeatureFlagBitsKHX::eVkExternalSemaphoreFeatureImportableBit)
-    };
-  };
-
-  struct ExternalSemaphorePropertiesKHX
-  {
-    operator const VkExternalSemaphorePropertiesKHX&() const
-    {
-      return *reinterpret_cast<const VkExternalSemaphorePropertiesKHX*>(this);
-    }
-
-    bool operator==( ExternalSemaphorePropertiesKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( exportFromImportedHandleTypes == rhs.exportFromImportedHandleTypes )
-          && ( compatibleHandleTypes == rhs.compatibleHandleTypes )
-          && ( externalSemaphoreFeatures == rhs.externalSemaphoreFeatures );
-    }
-
-    bool operator!=( ExternalSemaphorePropertiesKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    void* pNext;
-    ExternalSemaphoreHandleTypeFlagsKHX exportFromImportedHandleTypes;
-    ExternalSemaphoreHandleTypeFlagsKHX compatibleHandleTypes;
-    ExternalSemaphoreFeatureFlagsKHX externalSemaphoreFeatures;
-  };
-  static_assert( sizeof( ExternalSemaphorePropertiesKHX ) == sizeof( VkExternalSemaphorePropertiesKHX ), "struct and wrapper have different size!" );
-
   enum class SurfaceCounterFlagBitsEXT
   {
     eVblankExt = VK_SURFACE_COUNTER_VBLANK_EXT
@@ -20240,560 +17586,6 @@ namespace vk
     DisplayEventTypeEXT displayEvent;
   };
   static_assert( sizeof( DisplayEventInfoEXT ) == sizeof( VkDisplayEventInfoEXT ), "struct and wrapper have different size!" );
-
-  enum class PeerMemoryFeatureFlagBitsKHX
-  {
-    eCopySrc = VK_PEER_MEMORY_FEATURE_COPY_SRC_BIT_KHX,
-    eCopyDst = VK_PEER_MEMORY_FEATURE_COPY_DST_BIT_KHX,
-    eGenericSrc = VK_PEER_MEMORY_FEATURE_GENERIC_SRC_BIT_KHX,
-    eGenericDst = VK_PEER_MEMORY_FEATURE_GENERIC_DST_BIT_KHX
-  };
-
-  using PeerMemoryFeatureFlagsKHX = Flags<PeerMemoryFeatureFlagBitsKHX, VkPeerMemoryFeatureFlagsKHX>;
-
-  VULKAN_HPP_INLINE PeerMemoryFeatureFlagsKHX operator|( PeerMemoryFeatureFlagBitsKHX bit0, PeerMemoryFeatureFlagBitsKHX bit1 )
-  {
-    return PeerMemoryFeatureFlagsKHX( bit0 ) | bit1;
-  }
-
-  VULKAN_HPP_INLINE PeerMemoryFeatureFlagsKHX operator~( PeerMemoryFeatureFlagBitsKHX bits )
-  {
-    return ~( PeerMemoryFeatureFlagsKHX( bits ) );
-  }
-
-  template <> struct FlagTraits<PeerMemoryFeatureFlagBitsKHX>
-  {
-    enum
-    {
-      allFlags = VkFlags(PeerMemoryFeatureFlagBitsKHX::eCopySrc) | VkFlags(PeerMemoryFeatureFlagBitsKHX::eCopyDst) | VkFlags(PeerMemoryFeatureFlagBitsKHX::eGenericSrc) | VkFlags(PeerMemoryFeatureFlagBitsKHX::eGenericDst)
-    };
-  };
-
-  enum class MemoryAllocateFlagBitsKHX
-  {
-    eDeviceMask = VK_MEMORY_ALLOCATE_DEVICE_MASK_BIT_KHX
-  };
-
-  using MemoryAllocateFlagsKHX = Flags<MemoryAllocateFlagBitsKHX, VkMemoryAllocateFlagsKHX>;
-
-  VULKAN_HPP_INLINE MemoryAllocateFlagsKHX operator|( MemoryAllocateFlagBitsKHX bit0, MemoryAllocateFlagBitsKHX bit1 )
-  {
-    return MemoryAllocateFlagsKHX( bit0 ) | bit1;
-  }
-
-  VULKAN_HPP_INLINE MemoryAllocateFlagsKHX operator~( MemoryAllocateFlagBitsKHX bits )
-  {
-    return ~( MemoryAllocateFlagsKHX( bits ) );
-  }
-
-  template <> struct FlagTraits<MemoryAllocateFlagBitsKHX>
-  {
-    enum
-    {
-      allFlags = VkFlags(MemoryAllocateFlagBitsKHX::eDeviceMask)
-    };
-  };
-
-  struct MemoryAllocateFlagsInfoKHX
-  {
-    MemoryAllocateFlagsInfoKHX( MemoryAllocateFlagsKHX flags_ = MemoryAllocateFlagsKHX(), uint32_t deviceMask_ = 0 )
-      : sType( StructureType::eMemoryAllocateFlagsInfoKHX )
-      , pNext( nullptr )
-      , flags( flags_ )
-      , deviceMask( deviceMask_ )
-    {
-    }
-
-    MemoryAllocateFlagsInfoKHX( VkMemoryAllocateFlagsInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(MemoryAllocateFlagsInfoKHX) );
-    }
-
-    MemoryAllocateFlagsInfoKHX& operator=( VkMemoryAllocateFlagsInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(MemoryAllocateFlagsInfoKHX) );
-      return *this;
-    }
-
-    MemoryAllocateFlagsInfoKHX& setSType( StructureType sType_ )
-    {
-      sType = sType_;
-      return *this;
-    }
-
-    MemoryAllocateFlagsInfoKHX& setPNext( const void* pNext_ )
-    {
-      pNext = pNext_;
-      return *this;
-    }
-
-    MemoryAllocateFlagsInfoKHX& setFlags( MemoryAllocateFlagsKHX flags_ )
-    {
-      flags = flags_;
-      return *this;
-    }
-
-    MemoryAllocateFlagsInfoKHX& setDeviceMask( uint32_t deviceMask_ )
-    {
-      deviceMask = deviceMask_;
-      return *this;
-    }
-
-    operator const VkMemoryAllocateFlagsInfoKHX&() const
-    {
-      return *reinterpret_cast<const VkMemoryAllocateFlagsInfoKHX*>(this);
-    }
-
-    bool operator==( MemoryAllocateFlagsInfoKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( flags == rhs.flags )
-          && ( deviceMask == rhs.deviceMask );
-    }
-
-    bool operator!=( MemoryAllocateFlagsInfoKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    const void* pNext;
-    MemoryAllocateFlagsKHX flags;
-    uint32_t deviceMask;
-  };
-  static_assert( sizeof( MemoryAllocateFlagsInfoKHX ) == sizeof( VkMemoryAllocateFlagsInfoKHX ), "struct and wrapper have different size!" );
-
-  enum class DeviceGroupPresentModeFlagBitsKHX
-  {
-    eLocal = VK_DEVICE_GROUP_PRESENT_MODE_LOCAL_BIT_KHX,
-    eRemote = VK_DEVICE_GROUP_PRESENT_MODE_REMOTE_BIT_KHX,
-    eSum = VK_DEVICE_GROUP_PRESENT_MODE_SUM_BIT_KHX,
-    eLocalMultiDevice = VK_DEVICE_GROUP_PRESENT_MODE_LOCAL_MULTI_DEVICE_BIT_KHX
-  };
-
-  using DeviceGroupPresentModeFlagsKHX = Flags<DeviceGroupPresentModeFlagBitsKHX, VkDeviceGroupPresentModeFlagsKHX>;
-
-  VULKAN_HPP_INLINE DeviceGroupPresentModeFlagsKHX operator|( DeviceGroupPresentModeFlagBitsKHX bit0, DeviceGroupPresentModeFlagBitsKHX bit1 )
-  {
-    return DeviceGroupPresentModeFlagsKHX( bit0 ) | bit1;
-  }
-
-  VULKAN_HPP_INLINE DeviceGroupPresentModeFlagsKHX operator~( DeviceGroupPresentModeFlagBitsKHX bits )
-  {
-    return ~( DeviceGroupPresentModeFlagsKHX( bits ) );
-  }
-
-  template <> struct FlagTraits<DeviceGroupPresentModeFlagBitsKHX>
-  {
-    enum
-    {
-      allFlags = VkFlags(DeviceGroupPresentModeFlagBitsKHX::eLocal) | VkFlags(DeviceGroupPresentModeFlagBitsKHX::eRemote) | VkFlags(DeviceGroupPresentModeFlagBitsKHX::eSum) | VkFlags(DeviceGroupPresentModeFlagBitsKHX::eLocalMultiDevice)
-    };
-  };
-
-  struct DeviceGroupPresentCapabilitiesKHX
-  {
-    operator const VkDeviceGroupPresentCapabilitiesKHX&() const
-    {
-      return *reinterpret_cast<const VkDeviceGroupPresentCapabilitiesKHX*>(this);
-    }
-
-    bool operator==( DeviceGroupPresentCapabilitiesKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( memcmp( presentMask, rhs.presentMask, VK_MAX_DEVICE_GROUP_SIZE_KHX * sizeof( uint32_t ) ) == 0 )
-          && ( modes == rhs.modes );
-    }
-
-    bool operator!=( DeviceGroupPresentCapabilitiesKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    const void* pNext;
-    uint32_t presentMask[VK_MAX_DEVICE_GROUP_SIZE_KHX];
-    DeviceGroupPresentModeFlagsKHX modes;
-  };
-  static_assert( sizeof( DeviceGroupPresentCapabilitiesKHX ) == sizeof( VkDeviceGroupPresentCapabilitiesKHX ), "struct and wrapper have different size!" );
-
-  struct DeviceGroupPresentInfoKHX
-  {
-    DeviceGroupPresentInfoKHX( uint32_t swapchainCount_ = 0, const uint32_t* pDeviceMasks_ = nullptr, DeviceGroupPresentModeFlagBitsKHX mode_ = DeviceGroupPresentModeFlagBitsKHX::eLocal )
-      : sType( StructureType::eDeviceGroupPresentInfoKHX )
-      , pNext( nullptr )
-      , swapchainCount( swapchainCount_ )
-      , pDeviceMasks( pDeviceMasks_ )
-      , mode( mode_ )
-    {
-    }
-
-    DeviceGroupPresentInfoKHX( VkDeviceGroupPresentInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(DeviceGroupPresentInfoKHX) );
-    }
-
-    DeviceGroupPresentInfoKHX& operator=( VkDeviceGroupPresentInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(DeviceGroupPresentInfoKHX) );
-      return *this;
-    }
-
-    DeviceGroupPresentInfoKHX& setSType( StructureType sType_ )
-    {
-      sType = sType_;
-      return *this;
-    }
-
-    DeviceGroupPresentInfoKHX& setPNext( const void* pNext_ )
-    {
-      pNext = pNext_;
-      return *this;
-    }
-
-    DeviceGroupPresentInfoKHX& setSwapchainCount( uint32_t swapchainCount_ )
-    {
-      swapchainCount = swapchainCount_;
-      return *this;
-    }
-
-    DeviceGroupPresentInfoKHX& setPDeviceMasks( const uint32_t* pDeviceMasks_ )
-    {
-      pDeviceMasks = pDeviceMasks_;
-      return *this;
-    }
-
-    DeviceGroupPresentInfoKHX& setMode( DeviceGroupPresentModeFlagBitsKHX mode_ )
-    {
-      mode = mode_;
-      return *this;
-    }
-
-    operator const VkDeviceGroupPresentInfoKHX&() const
-    {
-      return *reinterpret_cast<const VkDeviceGroupPresentInfoKHX*>(this);
-    }
-
-    bool operator==( DeviceGroupPresentInfoKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( swapchainCount == rhs.swapchainCount )
-          && ( pDeviceMasks == rhs.pDeviceMasks )
-          && ( mode == rhs.mode );
-    }
-
-    bool operator!=( DeviceGroupPresentInfoKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    const void* pNext;
-    uint32_t swapchainCount;
-    const uint32_t* pDeviceMasks;
-    DeviceGroupPresentModeFlagBitsKHX mode;
-  };
-  static_assert( sizeof( DeviceGroupPresentInfoKHX ) == sizeof( VkDeviceGroupPresentInfoKHX ), "struct and wrapper have different size!" );
-
-  struct DeviceGroupSwapchainCreateInfoKHX
-  {
-    DeviceGroupSwapchainCreateInfoKHX( DeviceGroupPresentModeFlagsKHX modes_ = DeviceGroupPresentModeFlagsKHX() )
-      : sType( StructureType::eDeviceGroupSwapchainCreateInfoKHX )
-      , pNext( nullptr )
-      , modes( modes_ )
-    {
-    }
-
-    DeviceGroupSwapchainCreateInfoKHX( VkDeviceGroupSwapchainCreateInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(DeviceGroupSwapchainCreateInfoKHX) );
-    }
-
-    DeviceGroupSwapchainCreateInfoKHX& operator=( VkDeviceGroupSwapchainCreateInfoKHX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(DeviceGroupSwapchainCreateInfoKHX) );
-      return *this;
-    }
-
-    DeviceGroupSwapchainCreateInfoKHX& setSType( StructureType sType_ )
-    {
-      sType = sType_;
-      return *this;
-    }
-
-    DeviceGroupSwapchainCreateInfoKHX& setPNext( const void* pNext_ )
-    {
-      pNext = pNext_;
-      return *this;
-    }
-
-    DeviceGroupSwapchainCreateInfoKHX& setModes( DeviceGroupPresentModeFlagsKHX modes_ )
-    {
-      modes = modes_;
-      return *this;
-    }
-
-    operator const VkDeviceGroupSwapchainCreateInfoKHX&() const
-    {
-      return *reinterpret_cast<const VkDeviceGroupSwapchainCreateInfoKHX*>(this);
-    }
-
-    bool operator==( DeviceGroupSwapchainCreateInfoKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( modes == rhs.modes );
-    }
-
-    bool operator!=( DeviceGroupSwapchainCreateInfoKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    const void* pNext;
-    DeviceGroupPresentModeFlagsKHX modes;
-  };
-  static_assert( sizeof( DeviceGroupSwapchainCreateInfoKHX ) == sizeof( VkDeviceGroupSwapchainCreateInfoKHX ), "struct and wrapper have different size!" );
-
-  enum class SwapchainCreateFlagBitsKHR
-  {
-    eBindSfrKHX = VK_SWAPCHAIN_CREATE_BIND_SFR_BIT_KHX
-  };
-
-  using SwapchainCreateFlagsKHR = Flags<SwapchainCreateFlagBitsKHR, VkSwapchainCreateFlagsKHR>;
-
-  VULKAN_HPP_INLINE SwapchainCreateFlagsKHR operator|( SwapchainCreateFlagBitsKHR bit0, SwapchainCreateFlagBitsKHR bit1 )
-  {
-    return SwapchainCreateFlagsKHR( bit0 ) | bit1;
-  }
-
-  VULKAN_HPP_INLINE SwapchainCreateFlagsKHR operator~( SwapchainCreateFlagBitsKHR bits )
-  {
-    return ~( SwapchainCreateFlagsKHR( bits ) );
-  }
-
-  template <> struct FlagTraits<SwapchainCreateFlagBitsKHR>
-  {
-    enum
-    {
-      allFlags = VkFlags(SwapchainCreateFlagBitsKHR::eBindSfrKHX)
-    };
-  };
-
-  struct SwapchainCreateInfoKHR
-  {
-    SwapchainCreateInfoKHR( SwapchainCreateFlagsKHR flags_ = SwapchainCreateFlagsKHR(), SurfaceKHR surface_ = SurfaceKHR(), uint32_t minImageCount_ = 0, Format imageFormat_ = Format::eUndefined, ColorSpaceKHR imageColorSpace_ = ColorSpaceKHR::eSrgbNonlinear, Extent2D imageExtent_ = Extent2D(), uint32_t imageArrayLayers_ = 0, ImageUsageFlags imageUsage_ = ImageUsageFlags(), SharingMode imageSharingMode_ = SharingMode::eExclusive, uint32_t queueFamilyIndexCount_ = 0, const uint32_t* pQueueFamilyIndices_ = nullptr, SurfaceTransformFlagBitsKHR preTransform_ = SurfaceTransformFlagBitsKHR::eIdentity, CompositeAlphaFlagBitsKHR compositeAlpha_ = CompositeAlphaFlagBitsKHR::eOpaque, PresentModeKHR presentMode_ = PresentModeKHR::eImmediate, Bool32 clipped_ = 0, SwapchainKHR oldSwapchain_ = SwapchainKHR() )
-      : sType( StructureType::eSwapchainCreateInfoKHR )
-      , pNext( nullptr )
-      , flags( flags_ )
-      , surface( surface_ )
-      , minImageCount( minImageCount_ )
-      , imageFormat( imageFormat_ )
-      , imageColorSpace( imageColorSpace_ )
-      , imageExtent( imageExtent_ )
-      , imageArrayLayers( imageArrayLayers_ )
-      , imageUsage( imageUsage_ )
-      , imageSharingMode( imageSharingMode_ )
-      , queueFamilyIndexCount( queueFamilyIndexCount_ )
-      , pQueueFamilyIndices( pQueueFamilyIndices_ )
-      , preTransform( preTransform_ )
-      , compositeAlpha( compositeAlpha_ )
-      , presentMode( presentMode_ )
-      , clipped( clipped_ )
-      , oldSwapchain( oldSwapchain_ )
-    {
-    }
-
-    SwapchainCreateInfoKHR( VkSwapchainCreateInfoKHR const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(SwapchainCreateInfoKHR) );
-    }
-
-    SwapchainCreateInfoKHR& operator=( VkSwapchainCreateInfoKHR const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(SwapchainCreateInfoKHR) );
-      return *this;
-    }
-
-    SwapchainCreateInfoKHR& setSType( StructureType sType_ )
-    {
-      sType = sType_;
-      return *this;
-    }
-
-    SwapchainCreateInfoKHR& setPNext( const void* pNext_ )
-    {
-      pNext = pNext_;
-      return *this;
-    }
-
-    SwapchainCreateInfoKHR& setFlags( SwapchainCreateFlagsKHR flags_ )
-    {
-      flags = flags_;
-      return *this;
-    }
-
-    SwapchainCreateInfoKHR& setSurface( SurfaceKHR surface_ )
-    {
-      surface = surface_;
-      return *this;
-    }
-
-    SwapchainCreateInfoKHR& setMinImageCount( uint32_t minImageCount_ )
-    {
-      minImageCount = minImageCount_;
-      return *this;
-    }
-
-    SwapchainCreateInfoKHR& setImageFormat( Format imageFormat_ )
-    {
-      imageFormat = imageFormat_;
-      return *this;
-    }
-
-    SwapchainCreateInfoKHR& setImageColorSpace( ColorSpaceKHR imageColorSpace_ )
-    {
-      imageColorSpace = imageColorSpace_;
-      return *this;
-    }
-
-    SwapchainCreateInfoKHR& setImageExtent( Extent2D imageExtent_ )
-    {
-      imageExtent = imageExtent_;
-      return *this;
-    }
-
-    SwapchainCreateInfoKHR& setImageArrayLayers( uint32_t imageArrayLayers_ )
-    {
-      imageArrayLayers = imageArrayLayers_;
-      return *this;
-    }
-
-    SwapchainCreateInfoKHR& setImageUsage( ImageUsageFlags imageUsage_ )
-    {
-      imageUsage = imageUsage_;
-      return *this;
-    }
-
-    SwapchainCreateInfoKHR& setImageSharingMode( SharingMode imageSharingMode_ )
-    {
-      imageSharingMode = imageSharingMode_;
-      return *this;
-    }
-
-    SwapchainCreateInfoKHR& setQueueFamilyIndexCount( uint32_t queueFamilyIndexCount_ )
-    {
-      queueFamilyIndexCount = queueFamilyIndexCount_;
-      return *this;
-    }
-
-    SwapchainCreateInfoKHR& setPQueueFamilyIndices( const uint32_t* pQueueFamilyIndices_ )
-    {
-      pQueueFamilyIndices = pQueueFamilyIndices_;
-      return *this;
-    }
-
-    SwapchainCreateInfoKHR& setPreTransform( SurfaceTransformFlagBitsKHR preTransform_ )
-    {
-      preTransform = preTransform_;
-      return *this;
-    }
-
-    SwapchainCreateInfoKHR& setCompositeAlpha( CompositeAlphaFlagBitsKHR compositeAlpha_ )
-    {
-      compositeAlpha = compositeAlpha_;
-      return *this;
-    }
-
-    SwapchainCreateInfoKHR& setPresentMode( PresentModeKHR presentMode_ )
-    {
-      presentMode = presentMode_;
-      return *this;
-    }
-
-    SwapchainCreateInfoKHR& setClipped( Bool32 clipped_ )
-    {
-      clipped = clipped_;
-      return *this;
-    }
-
-    SwapchainCreateInfoKHR& setOldSwapchain( SwapchainKHR oldSwapchain_ )
-    {
-      oldSwapchain = oldSwapchain_;
-      return *this;
-    }
-
-    operator const VkSwapchainCreateInfoKHR&() const
-    {
-      return *reinterpret_cast<const VkSwapchainCreateInfoKHR*>(this);
-    }
-
-    bool operator==( SwapchainCreateInfoKHR const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( flags == rhs.flags )
-          && ( surface == rhs.surface )
-          && ( minImageCount == rhs.minImageCount )
-          && ( imageFormat == rhs.imageFormat )
-          && ( imageColorSpace == rhs.imageColorSpace )
-          && ( imageExtent == rhs.imageExtent )
-          && ( imageArrayLayers == rhs.imageArrayLayers )
-          && ( imageUsage == rhs.imageUsage )
-          && ( imageSharingMode == rhs.imageSharingMode )
-          && ( queueFamilyIndexCount == rhs.queueFamilyIndexCount )
-          && ( pQueueFamilyIndices == rhs.pQueueFamilyIndices )
-          && ( preTransform == rhs.preTransform )
-          && ( compositeAlpha == rhs.compositeAlpha )
-          && ( presentMode == rhs.presentMode )
-          && ( clipped == rhs.clipped )
-          && ( oldSwapchain == rhs.oldSwapchain );
-    }
-
-    bool operator!=( SwapchainCreateInfoKHR const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    const void* pNext;
-    SwapchainCreateFlagsKHR flags;
-    SurfaceKHR surface;
-    uint32_t minImageCount;
-    Format imageFormat;
-    ColorSpaceKHR imageColorSpace;
-    Extent2D imageExtent;
-    uint32_t imageArrayLayers;
-    ImageUsageFlags imageUsage;
-    SharingMode imageSharingMode;
-    uint32_t queueFamilyIndexCount;
-    const uint32_t* pQueueFamilyIndices;
-    SurfaceTransformFlagBitsKHR preTransform;
-    CompositeAlphaFlagBitsKHR compositeAlpha;
-    PresentModeKHR presentMode;
-    Bool32 clipped;
-    SwapchainKHR oldSwapchain;
-  };
-  static_assert( sizeof( SwapchainCreateInfoKHR ) == sizeof( VkSwapchainCreateInfoKHR ), "struct and wrapper have different size!" );
 
   VULKAN_HPP_INLINE Result enumerateInstanceLayerProperties( uint32_t* pPropertyCount, LayerProperties* pProperties )
   {
@@ -21168,16 +17960,16 @@ namespace vk
 #endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
 
 #ifdef VULKAN_HPP_DISABLE_ENHANCED_MODE
-    void dispatch( uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ ) const
+    void dispatch( uint32_t x, uint32_t y, uint32_t z ) const
     {
-      vkCmdDispatch( m_commandBuffer, groupCountX, groupCountY, groupCountZ );
+      vkCmdDispatch( m_commandBuffer, x, y, z );
     }
 #endif /*!VULKAN_HPP_DISABLE_ENHANCED_MODE*/
 
 #ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
-    void dispatch( uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ ) const
+    void dispatch( uint32_t x, uint32_t y, uint32_t z ) const
     {
-      vkCmdDispatch( m_commandBuffer, groupCountX, groupCountY, groupCountZ );
+      vkCmdDispatch( m_commandBuffer, x, y, z );
     }
 #endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
 
@@ -21608,46 +18400,6 @@ namespace vk
     void reserveSpaceForCommandsNVX( const CmdReserveSpaceForCommandsInfoNVX & reserveSpaceInfo ) const
     {
       vkCmdReserveSpaceForCommandsNVX( m_commandBuffer, reinterpret_cast<const VkCmdReserveSpaceForCommandsInfoNVX*>( &reserveSpaceInfo ) );
-    }
-#endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
-
-    void pushDescriptorSetKHX( PipelineBindPoint pipelineBindPoint, PipelineLayout layout, uint32_t set, uint32_t descriptorWriteCount, const WriteDescriptorSet* pDescriptorWrites ) const
-    {
-      vkCmdPushDescriptorSetKHX( m_commandBuffer, static_cast<VkPipelineBindPoint>( pipelineBindPoint ), static_cast<VkPipelineLayout>( layout ), set, descriptorWriteCount, reinterpret_cast<const VkWriteDescriptorSet*>( pDescriptorWrites ) );
-    }
-
-#ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
-    void pushDescriptorSetKHX( PipelineBindPoint pipelineBindPoint, PipelineLayout layout, uint32_t set, ArrayProxy<const WriteDescriptorSet> descriptorWrites ) const
-    {
-      vkCmdPushDescriptorSetKHX( m_commandBuffer, static_cast<VkPipelineBindPoint>( pipelineBindPoint ), static_cast<VkPipelineLayout>( layout ), set, descriptorWrites.size() , reinterpret_cast<const VkWriteDescriptorSet*>( descriptorWrites.data() ) );
-    }
-#endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
-
-#ifdef VULKAN_HPP_DISABLE_ENHANCED_MODE
-    void setDeviceMaskKHX( uint32_t deviceMask ) const
-    {
-      vkCmdSetDeviceMaskKHX( m_commandBuffer, deviceMask );
-    }
-#endif /*!VULKAN_HPP_DISABLE_ENHANCED_MODE*/
-
-#ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
-    void setDeviceMaskKHX( uint32_t deviceMask ) const
-    {
-      vkCmdSetDeviceMaskKHX( m_commandBuffer, deviceMask );
-    }
-#endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
-
-#ifdef VULKAN_HPP_DISABLE_ENHANCED_MODE
-    void dispatchBaseKHX( uint32_t baseGroupX, uint32_t baseGroupY, uint32_t baseGroupZ, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ ) const
-    {
-      vkCmdDispatchBaseKHX( m_commandBuffer, baseGroupX, baseGroupY, baseGroupZ, groupCountX, groupCountY, groupCountZ );
-    }
-#endif /*!VULKAN_HPP_DISABLE_ENHANCED_MODE*/
-
-#ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
-    void dispatchBaseKHX( uint32_t baseGroupX, uint32_t baseGroupY, uint32_t baseGroupZ, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ ) const
-    {
-      vkCmdDispatchBaseKHX( m_commandBuffer, baseGroupX, baseGroupY, baseGroupZ, groupCountX, groupCountY, groupCountZ );
     }
 #endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
 
@@ -23168,132 +19920,6 @@ namespace vk
     }
 #endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
 
-#ifdef VK_USE_PLATFORM_WIN32_KHR
-    Result getMemoryWin32HandleKHX( DeviceMemory memory, ExternalMemoryHandleTypeFlagBitsKHX handleType, HANDLE* pHandle ) const
-    {
-      return static_cast<Result>( vkGetMemoryWin32HandleKHX( m_device, static_cast<VkDeviceMemory>( memory ), static_cast<VkExternalMemoryHandleTypeFlagBitsKHX>( handleType ), pHandle ) );
-    }
-#endif /*VK_USE_PLATFORM_WIN32_KHR*/
-
-#ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
-#ifdef VK_USE_PLATFORM_WIN32_KHR
-    ResultValueType<HANDLE>::type getMemoryWin32HandleKHX( DeviceMemory memory, ExternalMemoryHandleTypeFlagBitsKHX handleType ) const
-    {
-      HANDLE handle;
-      Result result = static_cast<Result>( vkGetMemoryWin32HandleKHX( m_device, static_cast<VkDeviceMemory>( memory ), static_cast<VkExternalMemoryHandleTypeFlagBitsKHX>( handleType ), &handle ) );
-      return createResultValue( result, handle, "vk::Device::getMemoryWin32HandleKHX" );
-    }
-#endif /*VK_USE_PLATFORM_WIN32_KHR*/
-#endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
-
-#ifdef VK_USE_PLATFORM_WIN32_KHR
-    Result getMemoryWin32HandlePropertiesKHX( ExternalMemoryHandleTypeFlagBitsKHX handleType, HANDLE handle, MemoryWin32HandlePropertiesKHX* pMemoryWin32HandleProperties ) const
-    {
-      return static_cast<Result>( vkGetMemoryWin32HandlePropertiesKHX( m_device, static_cast<VkExternalMemoryHandleTypeFlagBitsKHX>( handleType ), handle, reinterpret_cast<VkMemoryWin32HandlePropertiesKHX*>( pMemoryWin32HandleProperties ) ) );
-    }
-#endif /*VK_USE_PLATFORM_WIN32_KHR*/
-
-#ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
-#ifdef VK_USE_PLATFORM_WIN32_KHR
-    ResultValueType<MemoryWin32HandlePropertiesKHX>::type getMemoryWin32HandlePropertiesKHX( ExternalMemoryHandleTypeFlagBitsKHX handleType, HANDLE handle ) const
-    {
-      MemoryWin32HandlePropertiesKHX memoryWin32HandleProperties;
-      Result result = static_cast<Result>( vkGetMemoryWin32HandlePropertiesKHX( m_device, static_cast<VkExternalMemoryHandleTypeFlagBitsKHX>( handleType ), handle, reinterpret_cast<VkMemoryWin32HandlePropertiesKHX*>( &memoryWin32HandleProperties ) ) );
-      return createResultValue( result, memoryWin32HandleProperties, "vk::Device::getMemoryWin32HandlePropertiesKHX" );
-    }
-#endif /*VK_USE_PLATFORM_WIN32_KHR*/
-#endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
-
-    Result getMemoryFdKHX( DeviceMemory memory, ExternalMemoryHandleTypeFlagBitsKHX handleType, int* pFd ) const
-    {
-      return static_cast<Result>( vkGetMemoryFdKHX( m_device, static_cast<VkDeviceMemory>( memory ), static_cast<VkExternalMemoryHandleTypeFlagBitsKHX>( handleType ), pFd ) );
-    }
-
-#ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
-    ResultValueType<int>::type getMemoryFdKHX( DeviceMemory memory, ExternalMemoryHandleTypeFlagBitsKHX handleType ) const
-    {
-      int fd;
-      Result result = static_cast<Result>( vkGetMemoryFdKHX( m_device, static_cast<VkDeviceMemory>( memory ), static_cast<VkExternalMemoryHandleTypeFlagBitsKHX>( handleType ), &fd ) );
-      return createResultValue( result, fd, "vk::Device::getMemoryFdKHX" );
-    }
-#endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
-
-    Result getMemoryFdPropertiesKHX( ExternalMemoryHandleTypeFlagBitsKHX handleType, int fd, MemoryFdPropertiesKHX* pMemoryFdProperties ) const
-    {
-      return static_cast<Result>( vkGetMemoryFdPropertiesKHX( m_device, static_cast<VkExternalMemoryHandleTypeFlagBitsKHX>( handleType ), fd, reinterpret_cast<VkMemoryFdPropertiesKHX*>( pMemoryFdProperties ) ) );
-    }
-
-#ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
-    ResultValueType<MemoryFdPropertiesKHX>::type getMemoryFdPropertiesKHX( ExternalMemoryHandleTypeFlagBitsKHX handleType, int fd ) const
-    {
-      MemoryFdPropertiesKHX memoryFdProperties;
-      Result result = static_cast<Result>( vkGetMemoryFdPropertiesKHX( m_device, static_cast<VkExternalMemoryHandleTypeFlagBitsKHX>( handleType ), fd, reinterpret_cast<VkMemoryFdPropertiesKHX*>( &memoryFdProperties ) ) );
-      return createResultValue( result, memoryFdProperties, "vk::Device::getMemoryFdPropertiesKHX" );
-    }
-#endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
-
-#ifdef VK_USE_PLATFORM_WIN32_KHX
-    Result getSemaphoreWin32HandleKHX( Semaphore semaphore, ExternalSemaphoreHandleTypeFlagBitsKHX handleType, HANDLE* pHandle ) const
-    {
-      return static_cast<Result>( vkGetSemaphoreWin32HandleKHX( m_device, static_cast<VkSemaphore>( semaphore ), static_cast<VkExternalSemaphoreHandleTypeFlagBitsKHX>( handleType ), pHandle ) );
-    }
-#endif /*VK_USE_PLATFORM_WIN32_KHX*/
-
-#ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
-#ifdef VK_USE_PLATFORM_WIN32_KHX
-    ResultValueType<HANDLE>::type getSemaphoreWin32HandleKHX( Semaphore semaphore, ExternalSemaphoreHandleTypeFlagBitsKHX handleType ) const
-    {
-      HANDLE handle;
-      Result result = static_cast<Result>( vkGetSemaphoreWin32HandleKHX( m_device, static_cast<VkSemaphore>( semaphore ), static_cast<VkExternalSemaphoreHandleTypeFlagBitsKHX>( handleType ), &handle ) );
-      return createResultValue( result, handle, "vk::Device::getSemaphoreWin32HandleKHX" );
-    }
-#endif /*VK_USE_PLATFORM_WIN32_KHX*/
-#endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
-
-#ifdef VK_USE_PLATFORM_WIN32_KHX
-    Result importSemaphoreWin32HandleKHX( const ImportSemaphoreWin32HandleInfoKHX* pImportSemaphoreWin32HandleInfo ) const
-    {
-      return static_cast<Result>( vkImportSemaphoreWin32HandleKHX( m_device, reinterpret_cast<const VkImportSemaphoreWin32HandleInfoKHX*>( pImportSemaphoreWin32HandleInfo ) ) );
-    }
-#endif /*VK_USE_PLATFORM_WIN32_KHX*/
-
-#ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
-#ifdef VK_USE_PLATFORM_WIN32_KHX
-    ResultValueType<void>::type importSemaphoreWin32HandleKHX( const ImportSemaphoreWin32HandleInfoKHX & importSemaphoreWin32HandleInfo ) const
-    {
-      Result result = static_cast<Result>( vkImportSemaphoreWin32HandleKHX( m_device, reinterpret_cast<const VkImportSemaphoreWin32HandleInfoKHX*>( &importSemaphoreWin32HandleInfo ) ) );
-      return createResultValue( result, "vk::Device::importSemaphoreWin32HandleKHX" );
-    }
-#endif /*VK_USE_PLATFORM_WIN32_KHX*/
-#endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
-
-    Result getSemaphoreFdKHX( Semaphore semaphore, ExternalSemaphoreHandleTypeFlagBitsKHX handleType, int* pFd ) const
-    {
-      return static_cast<Result>( vkGetSemaphoreFdKHX( m_device, static_cast<VkSemaphore>( semaphore ), static_cast<VkExternalSemaphoreHandleTypeFlagBitsKHX>( handleType ), pFd ) );
-    }
-
-#ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
-    ResultValueType<int>::type getSemaphoreFdKHX( Semaphore semaphore, ExternalSemaphoreHandleTypeFlagBitsKHX handleType ) const
-    {
-      int fd;
-      Result result = static_cast<Result>( vkGetSemaphoreFdKHX( m_device, static_cast<VkSemaphore>( semaphore ), static_cast<VkExternalSemaphoreHandleTypeFlagBitsKHX>( handleType ), &fd ) );
-      return createResultValue( result, fd, "vk::Device::getSemaphoreFdKHX" );
-    }
-#endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
-
-    Result importSemaphoreFdKHX( const ImportSemaphoreFdInfoKHX* pImportSemaphoreFdInfo ) const
-    {
-      return static_cast<Result>( vkImportSemaphoreFdKHX( m_device, reinterpret_cast<const VkImportSemaphoreFdInfoKHX*>( pImportSemaphoreFdInfo ) ) );
-    }
-
-#ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
-    ResultValueType<void>::type importSemaphoreFdKHX( const ImportSemaphoreFdInfoKHX & importSemaphoreFdInfo ) const
-    {
-      Result result = static_cast<Result>( vkImportSemaphoreFdKHX( m_device, reinterpret_cast<const VkImportSemaphoreFdInfoKHX*>( &importSemaphoreFdInfo ) ) );
-      return createResultValue( result, "vk::Device::importSemaphoreFdKHX" );
-    }
-#endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
-
     Result displayPowerControlEXT( DisplayKHR display, const DisplayPowerInfoEXT* pDisplayPowerInfo ) const
     {
       return static_cast<Result>( vkDisplayPowerControlEXT( m_device, static_cast<VkDisplayKHR>( display ), reinterpret_cast<const VkDisplayPowerInfoEXT*>( pDisplayPowerInfo ) ) );
@@ -23346,88 +19972,6 @@ namespace vk
       uint64_t counterValue;
       Result result = static_cast<Result>( vkGetSwapchainCounterEXT( m_device, static_cast<VkSwapchainKHR>( swapchain ), static_cast<VkSurfaceCounterFlagBitsEXT>( counter ), &counterValue ) );
       return createResultValue( result, counterValue, "vk::Device::getSwapchainCounterEXT", { Result::eSuccess, Result::eErrorDeviceLost, Result::eErrorOutOfDateKHR } );
-    }
-#endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
-
-    void getGroupPeerMemoryFeaturesKHX( uint32_t heapIndex, uint32_t localDeviceIndex, uint32_t remoteDeviceIndex, PeerMemoryFeatureFlagsKHX* pPeerMemoryFeatures ) const
-    {
-      vkGetDeviceGroupPeerMemoryFeaturesKHX( m_device, heapIndex, localDeviceIndex, remoteDeviceIndex, reinterpret_cast<VkPeerMemoryFeatureFlagsKHX*>( pPeerMemoryFeatures ) );
-    }
-
-#ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
-    PeerMemoryFeatureFlagsKHX getGroupPeerMemoryFeaturesKHX( uint32_t heapIndex, uint32_t localDeviceIndex, uint32_t remoteDeviceIndex ) const
-    {
-      PeerMemoryFeatureFlagsKHX peerMemoryFeatures;
-      vkGetDeviceGroupPeerMemoryFeaturesKHX( m_device, heapIndex, localDeviceIndex, remoteDeviceIndex, reinterpret_cast<VkPeerMemoryFeatureFlagsKHX*>( &peerMemoryFeatures ) );
-      return peerMemoryFeatures;
-    }
-#endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
-
-    Result bindBufferMemory2KHX( uint32_t bindInfoCount, const BindBufferMemoryInfoKHX* pBindInfos ) const
-    {
-      return static_cast<Result>( vkBindBufferMemory2KHX( m_device, bindInfoCount, reinterpret_cast<const VkBindBufferMemoryInfoKHX*>( pBindInfos ) ) );
-    }
-
-#ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
-    ResultValueType<void>::type bindBufferMemory2KHX( ArrayProxy<const BindBufferMemoryInfoKHX> bindInfos ) const
-    {
-      Result result = static_cast<Result>( vkBindBufferMemory2KHX( m_device, bindInfos.size() , reinterpret_cast<const VkBindBufferMemoryInfoKHX*>( bindInfos.data() ) ) );
-      return createResultValue( result, "vk::Device::bindBufferMemory2KHX" );
-    }
-#endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
-
-    Result bindImageMemory2KHX( uint32_t bindInfoCount, const BindImageMemoryInfoKHX* pBindInfos ) const
-    {
-      return static_cast<Result>( vkBindImageMemory2KHX( m_device, bindInfoCount, reinterpret_cast<const VkBindImageMemoryInfoKHX*>( pBindInfos ) ) );
-    }
-
-#ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
-    ResultValueType<void>::type bindImageMemory2KHX( ArrayProxy<const BindImageMemoryInfoKHX> bindInfos ) const
-    {
-      Result result = static_cast<Result>( vkBindImageMemory2KHX( m_device, bindInfos.size() , reinterpret_cast<const VkBindImageMemoryInfoKHX*>( bindInfos.data() ) ) );
-      return createResultValue( result, "vk::Device::bindImageMemory2KHX" );
-    }
-#endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
-
-    Result getGroupPresentCapabilitiesKHX( DeviceGroupPresentCapabilitiesKHX* pDeviceGroupPresentCapabilities ) const
-    {
-      return static_cast<Result>( vkGetDeviceGroupPresentCapabilitiesKHX( m_device, reinterpret_cast<VkDeviceGroupPresentCapabilitiesKHX*>( pDeviceGroupPresentCapabilities ) ) );
-    }
-
-#ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
-    ResultValueType<DeviceGroupPresentCapabilitiesKHX>::type getGroupPresentCapabilitiesKHX() const
-    {
-      DeviceGroupPresentCapabilitiesKHX deviceGroupPresentCapabilities;
-      Result result = static_cast<Result>( vkGetDeviceGroupPresentCapabilitiesKHX( m_device, reinterpret_cast<VkDeviceGroupPresentCapabilitiesKHX*>( &deviceGroupPresentCapabilities ) ) );
-      return createResultValue( result, deviceGroupPresentCapabilities, "vk::Device::getGroupPresentCapabilitiesKHX" );
-    }
-#endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
-
-    Result getGroupSurfacePresentModesKHX( SurfaceKHR surface, DeviceGroupPresentModeFlagsKHX* pModes ) const
-    {
-      return static_cast<Result>( vkGetDeviceGroupSurfacePresentModesKHX( m_device, static_cast<VkSurfaceKHR>( surface ), reinterpret_cast<VkDeviceGroupPresentModeFlagsKHX*>( pModes ) ) );
-    }
-
-#ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
-    ResultValueType<DeviceGroupPresentModeFlagsKHX>::type getGroupSurfacePresentModesKHX( SurfaceKHR surface ) const
-    {
-      DeviceGroupPresentModeFlagsKHX modes;
-      Result result = static_cast<Result>( vkGetDeviceGroupSurfacePresentModesKHX( m_device, static_cast<VkSurfaceKHR>( surface ), reinterpret_cast<VkDeviceGroupPresentModeFlagsKHX*>( &modes ) ) );
-      return createResultValue( result, modes, "vk::Device::getGroupSurfacePresentModesKHX" );
-    }
-#endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
-
-    Result acquireNextImage2KHX( const AcquireNextImageInfoKHX* pAcquireInfo, uint32_t* pImageIndex ) const
-    {
-      return static_cast<Result>( vkAcquireNextImage2KHX( m_device, reinterpret_cast<const VkAcquireNextImageInfoKHX*>( pAcquireInfo ), pImageIndex ) );
-    }
-
-#ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
-    ResultValue<uint32_t> acquireNextImage2KHX( const AcquireNextImageInfoKHX & acquireInfo ) const
-    {
-      uint32_t imageIndex;
-      Result result = static_cast<Result>( vkAcquireNextImage2KHX( m_device, reinterpret_cast<const VkAcquireNextImageInfoKHX*>( &acquireInfo ), &imageIndex ) );
-      return createResultValue( result, imageIndex, "vk::Device::acquireNextImage2KHX", { Result::eSuccess, Result::eTimeout, Result::eNotReady, Result::eSuboptimalKHR } );
     }
 #endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
 
@@ -24094,62 +20638,6 @@ namespace vk
     }
 #endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
 
-    void getProperties2KHX( PhysicalDeviceProperties2KHX* pProperties ) const
-    {
-      vkGetPhysicalDeviceProperties2KHX( m_physicalDevice, reinterpret_cast<VkPhysicalDeviceProperties2KHX*>( pProperties ) );
-    }
-
-#ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
-    PhysicalDeviceProperties2KHX getProperties2KHX() const
-    {
-      PhysicalDeviceProperties2KHX properties;
-      vkGetPhysicalDeviceProperties2KHX( m_physicalDevice, reinterpret_cast<VkPhysicalDeviceProperties2KHX*>( &properties ) );
-      return properties;
-    }
-#endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
-
-    Result getImageFormatProperties2KHX( const PhysicalDeviceImageFormatInfo2KHX* pImageFormatInfo, ImageFormatProperties2KHX* pImageFormatProperties ) const
-    {
-      return static_cast<Result>( vkGetPhysicalDeviceImageFormatProperties2KHX( m_physicalDevice, reinterpret_cast<const VkPhysicalDeviceImageFormatInfo2KHX*>( pImageFormatInfo ), reinterpret_cast<VkImageFormatProperties2KHX*>( pImageFormatProperties ) ) );
-    }
-
-#ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
-    ResultValueType<ImageFormatProperties2KHX>::type getImageFormatProperties2KHX( const PhysicalDeviceImageFormatInfo2KHX & imageFormatInfo ) const
-    {
-      ImageFormatProperties2KHX imageFormatProperties;
-      Result result = static_cast<Result>( vkGetPhysicalDeviceImageFormatProperties2KHX( m_physicalDevice, reinterpret_cast<const VkPhysicalDeviceImageFormatInfo2KHX*>( &imageFormatInfo ), reinterpret_cast<VkImageFormatProperties2KHX*>( &imageFormatProperties ) ) );
-      return createResultValue( result, imageFormatProperties, "vk::PhysicalDevice::getImageFormatProperties2KHX" );
-    }
-#endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
-
-    void getExternalBufferPropertiesKHX( const PhysicalDeviceExternalBufferInfoKHX* pExternalBufferInfo, ExternalBufferPropertiesKHX* pExternalBufferProperties ) const
-    {
-      vkGetPhysicalDeviceExternalBufferPropertiesKHX( m_physicalDevice, reinterpret_cast<const VkPhysicalDeviceExternalBufferInfoKHX*>( pExternalBufferInfo ), reinterpret_cast<VkExternalBufferPropertiesKHX*>( pExternalBufferProperties ) );
-    }
-
-#ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
-    ExternalBufferPropertiesKHX getExternalBufferPropertiesKHX( const PhysicalDeviceExternalBufferInfoKHX & externalBufferInfo ) const
-    {
-      ExternalBufferPropertiesKHX externalBufferProperties;
-      vkGetPhysicalDeviceExternalBufferPropertiesKHX( m_physicalDevice, reinterpret_cast<const VkPhysicalDeviceExternalBufferInfoKHX*>( &externalBufferInfo ), reinterpret_cast<VkExternalBufferPropertiesKHX*>( &externalBufferProperties ) );
-      return externalBufferProperties;
-    }
-#endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
-
-    void getExternalSemaphorePropertiesKHX( const PhysicalDeviceExternalSemaphoreInfoKHX* pExternalSemaphoreInfo, ExternalSemaphorePropertiesKHX* pExternalSemaphoreProperties ) const
-    {
-      vkGetPhysicalDeviceExternalSemaphorePropertiesKHX( m_physicalDevice, reinterpret_cast<const VkPhysicalDeviceExternalSemaphoreInfoKHX*>( pExternalSemaphoreInfo ), reinterpret_cast<VkExternalSemaphorePropertiesKHX*>( pExternalSemaphoreProperties ) );
-    }
-
-#ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
-    ExternalSemaphorePropertiesKHX getExternalSemaphorePropertiesKHX( const PhysicalDeviceExternalSemaphoreInfoKHX & externalSemaphoreInfo ) const
-    {
-      ExternalSemaphorePropertiesKHX externalSemaphoreProperties;
-      vkGetPhysicalDeviceExternalSemaphorePropertiesKHX( m_physicalDevice, reinterpret_cast<const VkPhysicalDeviceExternalSemaphoreInfoKHX*>( &externalSemaphoreInfo ), reinterpret_cast<VkExternalSemaphorePropertiesKHX*>( &externalSemaphoreProperties ) );
-      return externalSemaphoreProperties;
-    }
-#endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
-
 #ifdef VULKAN_HPP_DISABLE_ENHANCED_MODE
     Result releaseDisplayEXT( DisplayKHR display ) const
     {
@@ -24214,33 +20702,6 @@ namespace vk
     }
 #endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
 
-    Result getPresentRectanglesKHX( SurfaceKHR surface, uint32_t* pRectCount, Rect2D* pRects ) const
-    {
-      return static_cast<Result>( vkGetPhysicalDevicePresentRectanglesKHX( m_physicalDevice, static_cast<VkSurfaceKHR>( surface ), pRectCount, reinterpret_cast<VkRect2D*>( pRects ) ) );
-    }
-
-#ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
-    template <typename Allocator = std::allocator<Rect2D>>
-    typename ResultValueType<std::vector<Rect2D,Allocator>>::type getPresentRectanglesKHX( SurfaceKHR surface ) const
-    {
-      std::vector<Rect2D,Allocator> rects;
-      uint32_t rectCount;
-      Result result;
-      do
-      {
-        result = static_cast<Result>( vkGetPhysicalDevicePresentRectanglesKHX( m_physicalDevice, static_cast<VkSurfaceKHR>( surface ), &rectCount, nullptr ) );
-        if ( ( result == Result::eSuccess ) && rectCount )
-        {
-          rects.resize( rectCount );
-          result = static_cast<Result>( vkGetPhysicalDevicePresentRectanglesKHX( m_physicalDevice, static_cast<VkSurfaceKHR>( surface ), &rectCount, reinterpret_cast<VkRect2D*>( rects.data() ) ) );
-        }
-      } while ( result == Result::eIncomplete );
-      assert( rectCount <= rects.size() ); 
-      rects.resize( rectCount ); 
-      return createResultValue( result, rects, "vk::PhysicalDevice::getPresentRectanglesKHX" );
-    }
-#endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
-
 #if !defined(VULKAN_HPP_TYPESAFE_CONVERSION)
     explicit
 #endif
@@ -24263,183 +20724,6 @@ namespace vk
     VkPhysicalDevice m_physicalDevice;
   };
   static_assert( sizeof( PhysicalDevice ) == sizeof( VkPhysicalDevice ), "handle and wrapper have different size!" );
-
-  struct CmdProcessCommandsInfoNVX
-  {
-    CmdProcessCommandsInfoNVX( ObjectTableNVX objectTable_ = ObjectTableNVX(), IndirectCommandsLayoutNVX indirectCommandsLayout_ = IndirectCommandsLayoutNVX(), uint32_t indirectCommandsTokenCount_ = 0, const IndirectCommandsTokenNVX* pIndirectCommandsTokens_ = nullptr, uint32_t maxSequencesCount_ = 0, CommandBuffer targetCommandBuffer_ = CommandBuffer(), Buffer sequencesCountBuffer_ = Buffer(), DeviceSize sequencesCountOffset_ = 0, Buffer sequencesIndexBuffer_ = Buffer(), DeviceSize sequencesIndexOffset_ = 0 )
-      : sType( StructureType::eCmdProcessCommandsInfoNVX )
-      , pNext( nullptr )
-      , objectTable( objectTable_ )
-      , indirectCommandsLayout( indirectCommandsLayout_ )
-      , indirectCommandsTokenCount( indirectCommandsTokenCount_ )
-      , pIndirectCommandsTokens( pIndirectCommandsTokens_ )
-      , maxSequencesCount( maxSequencesCount_ )
-      , targetCommandBuffer( targetCommandBuffer_ )
-      , sequencesCountBuffer( sequencesCountBuffer_ )
-      , sequencesCountOffset( sequencesCountOffset_ )
-      , sequencesIndexBuffer( sequencesIndexBuffer_ )
-      , sequencesIndexOffset( sequencesIndexOffset_ )
-    {
-    }
-
-    CmdProcessCommandsInfoNVX( VkCmdProcessCommandsInfoNVX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(CmdProcessCommandsInfoNVX) );
-    }
-
-    CmdProcessCommandsInfoNVX& operator=( VkCmdProcessCommandsInfoNVX const & rhs )
-    {
-      memcpy( this, &rhs, sizeof(CmdProcessCommandsInfoNVX) );
-      return *this;
-    }
-
-    CmdProcessCommandsInfoNVX& setSType( StructureType sType_ )
-    {
-      sType = sType_;
-      return *this;
-    }
-
-    CmdProcessCommandsInfoNVX& setPNext( const void* pNext_ )
-    {
-      pNext = pNext_;
-      return *this;
-    }
-
-    CmdProcessCommandsInfoNVX& setObjectTable( ObjectTableNVX objectTable_ )
-    {
-      objectTable = objectTable_;
-      return *this;
-    }
-
-    CmdProcessCommandsInfoNVX& setIndirectCommandsLayout( IndirectCommandsLayoutNVX indirectCommandsLayout_ )
-    {
-      indirectCommandsLayout = indirectCommandsLayout_;
-      return *this;
-    }
-
-    CmdProcessCommandsInfoNVX& setIndirectCommandsTokenCount( uint32_t indirectCommandsTokenCount_ )
-    {
-      indirectCommandsTokenCount = indirectCommandsTokenCount_;
-      return *this;
-    }
-
-    CmdProcessCommandsInfoNVX& setPIndirectCommandsTokens( const IndirectCommandsTokenNVX* pIndirectCommandsTokens_ )
-    {
-      pIndirectCommandsTokens = pIndirectCommandsTokens_;
-      return *this;
-    }
-
-    CmdProcessCommandsInfoNVX& setMaxSequencesCount( uint32_t maxSequencesCount_ )
-    {
-      maxSequencesCount = maxSequencesCount_;
-      return *this;
-    }
-
-    CmdProcessCommandsInfoNVX& setTargetCommandBuffer( CommandBuffer targetCommandBuffer_ )
-    {
-      targetCommandBuffer = targetCommandBuffer_;
-      return *this;
-    }
-
-    CmdProcessCommandsInfoNVX& setSequencesCountBuffer( Buffer sequencesCountBuffer_ )
-    {
-      sequencesCountBuffer = sequencesCountBuffer_;
-      return *this;
-    }
-
-    CmdProcessCommandsInfoNVX& setSequencesCountOffset( DeviceSize sequencesCountOffset_ )
-    {
-      sequencesCountOffset = sequencesCountOffset_;
-      return *this;
-    }
-
-    CmdProcessCommandsInfoNVX& setSequencesIndexBuffer( Buffer sequencesIndexBuffer_ )
-    {
-      sequencesIndexBuffer = sequencesIndexBuffer_;
-      return *this;
-    }
-
-    CmdProcessCommandsInfoNVX& setSequencesIndexOffset( DeviceSize sequencesIndexOffset_ )
-    {
-      sequencesIndexOffset = sequencesIndexOffset_;
-      return *this;
-    }
-
-    operator const VkCmdProcessCommandsInfoNVX&() const
-    {
-      return *reinterpret_cast<const VkCmdProcessCommandsInfoNVX*>(this);
-    }
-
-    bool operator==( CmdProcessCommandsInfoNVX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( objectTable == rhs.objectTable )
-          && ( indirectCommandsLayout == rhs.indirectCommandsLayout )
-          && ( indirectCommandsTokenCount == rhs.indirectCommandsTokenCount )
-          && ( pIndirectCommandsTokens == rhs.pIndirectCommandsTokens )
-          && ( maxSequencesCount == rhs.maxSequencesCount )
-          && ( targetCommandBuffer == rhs.targetCommandBuffer )
-          && ( sequencesCountBuffer == rhs.sequencesCountBuffer )
-          && ( sequencesCountOffset == rhs.sequencesCountOffset )
-          && ( sequencesIndexBuffer == rhs.sequencesIndexBuffer )
-          && ( sequencesIndexOffset == rhs.sequencesIndexOffset );
-    }
-
-    bool operator!=( CmdProcessCommandsInfoNVX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    const void* pNext;
-    ObjectTableNVX objectTable;
-    IndirectCommandsLayoutNVX indirectCommandsLayout;
-    uint32_t indirectCommandsTokenCount;
-    const IndirectCommandsTokenNVX* pIndirectCommandsTokens;
-    uint32_t maxSequencesCount;
-    CommandBuffer targetCommandBuffer;
-    Buffer sequencesCountBuffer;
-    DeviceSize sequencesCountOffset;
-    Buffer sequencesIndexBuffer;
-    DeviceSize sequencesIndexOffset;
-  };
-  static_assert( sizeof( CmdProcessCommandsInfoNVX ) == sizeof( VkCmdProcessCommandsInfoNVX ), "struct and wrapper have different size!" );
-
-  struct PhysicalDeviceGroupPropertiesKHX
-  {
-    operator const VkPhysicalDeviceGroupPropertiesKHX&() const
-    {
-      return *reinterpret_cast<const VkPhysicalDeviceGroupPropertiesKHX*>(this);
-    }
-
-    bool operator==( PhysicalDeviceGroupPropertiesKHX const& rhs ) const
-    {
-      return ( sType == rhs.sType )
-          && ( pNext == rhs.pNext )
-          && ( physicalDeviceCount == rhs.physicalDeviceCount )
-          && ( memcmp( physicalDevices, rhs.physicalDevices, VK_MAX_DEVICE_GROUP_SIZE_KHX * sizeof( PhysicalDevice ) ) == 0 )
-          && ( subsetAllocation == rhs.subsetAllocation );
-    }
-
-    bool operator!=( PhysicalDeviceGroupPropertiesKHX const& rhs ) const
-    {
-      return !operator==( rhs );
-    }
-
-  private:
-    StructureType sType;
-
-  public:
-    const void* pNext;
-    uint32_t physicalDeviceCount;
-    PhysicalDevice physicalDevices[VK_MAX_DEVICE_GROUP_SIZE_KHX];
-    Bool32 subsetAllocation;
-  };
-  static_assert( sizeof( PhysicalDeviceGroupPropertiesKHX ) == sizeof( VkPhysicalDeviceGroupPropertiesKHX ), "struct and wrapper have different size!" );
 
   class Instance
   {
@@ -24588,6 +20872,24 @@ namespace vk
     }
 #endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
 
+#ifdef VK_USE_PLATFORM_VI_NN
+    Result createViSurfaceNN( const ViSurfaceCreateInfoNN* pCreateInfo, const AllocationCallbacks* pAllocator, SurfaceKHR* pSurface ) const
+    {
+      return static_cast<Result>( vkCreateViSurfaceNN( m_instance, reinterpret_cast<const VkViSurfaceCreateInfoNN*>( pCreateInfo ), reinterpret_cast<const VkAllocationCallbacks*>( pAllocator ), reinterpret_cast<VkSurfaceKHR*>( pSurface ) ) );
+    }
+#endif /*VK_USE_PLATFORM_VI_NN*/
+
+#ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
+#ifdef VK_USE_PLATFORM_VI_NN
+    ResultValueType<SurfaceKHR>::type createViSurfaceNN( const ViSurfaceCreateInfoNN & createInfo, Optional<const AllocationCallbacks> allocator = nullptr ) const
+    {
+      SurfaceKHR surface;
+      Result result = static_cast<Result>( vkCreateViSurfaceNN( m_instance, reinterpret_cast<const VkViSurfaceCreateInfoNN*>( &createInfo ), reinterpret_cast<const VkAllocationCallbacks*>( static_cast<const AllocationCallbacks*>( allocator)), reinterpret_cast<VkSurfaceKHR*>( &surface ) ) );
+      return createResultValue( result, surface, "vk::Instance::createViSurfaceNN" );
+    }
+#endif /*VK_USE_PLATFORM_VI_NN*/
+#endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
+
 #ifdef VK_USE_PLATFORM_WAYLAND_KHR
     Result createWaylandSurfaceKHR( const WaylandSurfaceCreateInfoKHR* pCreateInfo, const AllocationCallbacks* pAllocator, SurfaceKHR* pSurface ) const
     {
@@ -24706,33 +21008,6 @@ namespace vk
     }
 #endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
 
-    Result enumeratePhysicalDeviceGroupsKHX( uint32_t* pPhysicalDeviceGroupCount, PhysicalDeviceGroupPropertiesKHX* pPhysicalDeviceGroupProperties ) const
-    {
-      return static_cast<Result>( vkEnumeratePhysicalDeviceGroupsKHX( m_instance, pPhysicalDeviceGroupCount, reinterpret_cast<VkPhysicalDeviceGroupPropertiesKHX*>( pPhysicalDeviceGroupProperties ) ) );
-    }
-
-#ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
-    template <typename Allocator = std::allocator<PhysicalDeviceGroupPropertiesKHX>>
-    typename ResultValueType<std::vector<PhysicalDeviceGroupPropertiesKHX,Allocator>>::type enumeratePhysicalDeviceGroupsKHX() const
-    {
-      std::vector<PhysicalDeviceGroupPropertiesKHX,Allocator> physicalDeviceGroupProperties;
-      uint32_t physicalDeviceGroupCount;
-      Result result;
-      do
-      {
-        result = static_cast<Result>( vkEnumeratePhysicalDeviceGroupsKHX( m_instance, &physicalDeviceGroupCount, nullptr ) );
-        if ( ( result == Result::eSuccess ) && physicalDeviceGroupCount )
-        {
-          physicalDeviceGroupProperties.resize( physicalDeviceGroupCount );
-          result = static_cast<Result>( vkEnumeratePhysicalDeviceGroupsKHX( m_instance, &physicalDeviceGroupCount, reinterpret_cast<VkPhysicalDeviceGroupPropertiesKHX*>( physicalDeviceGroupProperties.data() ) ) );
-        }
-      } while ( result == Result::eIncomplete );
-      assert( physicalDeviceGroupCount <= physicalDeviceGroupProperties.size() ); 
-      physicalDeviceGroupProperties.resize( physicalDeviceGroupCount ); 
-      return createResultValue( result, physicalDeviceGroupProperties, "vk::Instance::enumeratePhysicalDeviceGroupsKHX" );
-    }
-#endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
-
 #if !defined(VULKAN_HPP_TYPESAFE_CONVERSION)
     explicit
 #endif
@@ -24756,65 +21031,129 @@ namespace vk
   };
   static_assert( sizeof( Instance ) == sizeof( VkInstance ), "handle and wrapper have different size!" );
 
-  struct DeviceGroupDeviceCreateInfoKHX
+  struct CmdProcessCommandsInfoNVX
   {
-    DeviceGroupDeviceCreateInfoKHX( uint32_t physicalDeviceCount_ = 0, const PhysicalDevice* pPhysicalDevices_ = nullptr )
-      : sType( StructureType::eDeviceGroupDeviceCreateInfoKHX )
+    CmdProcessCommandsInfoNVX( ObjectTableNVX objectTable_ = ObjectTableNVX(), IndirectCommandsLayoutNVX indirectCommandsLayout_ = IndirectCommandsLayoutNVX(), uint32_t indirectCommandsTokenCount_ = 0, const IndirectCommandsTokenNVX* pIndirectCommandsTokens_ = nullptr, uint32_t maxSequencesCount_ = 0, CommandBuffer targetCommandBuffer_ = CommandBuffer(), Buffer sequencesCountBuffer_ = Buffer(), DeviceSize sequencesCountOffset_ = 0, Buffer sequencesIndexBuffer_ = Buffer(), DeviceSize sequencesIndexOffset_ = 0 )
+      : sType( StructureType::eCmdProcessCommandsInfoNVX )
       , pNext( nullptr )
-      , physicalDeviceCount( physicalDeviceCount_ )
-      , pPhysicalDevices( pPhysicalDevices_ )
+      , objectTable( objectTable_ )
+      , indirectCommandsLayout( indirectCommandsLayout_ )
+      , indirectCommandsTokenCount( indirectCommandsTokenCount_ )
+      , pIndirectCommandsTokens( pIndirectCommandsTokens_ )
+      , maxSequencesCount( maxSequencesCount_ )
+      , targetCommandBuffer( targetCommandBuffer_ )
+      , sequencesCountBuffer( sequencesCountBuffer_ )
+      , sequencesCountOffset( sequencesCountOffset_ )
+      , sequencesIndexBuffer( sequencesIndexBuffer_ )
+      , sequencesIndexOffset( sequencesIndexOffset_ )
     {
     }
 
-    DeviceGroupDeviceCreateInfoKHX( VkDeviceGroupDeviceCreateInfoKHX const & rhs )
+    CmdProcessCommandsInfoNVX( VkCmdProcessCommandsInfoNVX const & rhs )
     {
-      memcpy( this, &rhs, sizeof(DeviceGroupDeviceCreateInfoKHX) );
+      memcpy( this, &rhs, sizeof(CmdProcessCommandsInfoNVX) );
     }
 
-    DeviceGroupDeviceCreateInfoKHX& operator=( VkDeviceGroupDeviceCreateInfoKHX const & rhs )
+    CmdProcessCommandsInfoNVX& operator=( VkCmdProcessCommandsInfoNVX const & rhs )
     {
-      memcpy( this, &rhs, sizeof(DeviceGroupDeviceCreateInfoKHX) );
+      memcpy( this, &rhs, sizeof(CmdProcessCommandsInfoNVX) );
       return *this;
     }
 
-    DeviceGroupDeviceCreateInfoKHX& setSType( StructureType sType_ )
+    CmdProcessCommandsInfoNVX& setSType( StructureType sType_ )
     {
       sType = sType_;
       return *this;
     }
 
-    DeviceGroupDeviceCreateInfoKHX& setPNext( const void* pNext_ )
+    CmdProcessCommandsInfoNVX& setPNext( const void* pNext_ )
     {
       pNext = pNext_;
       return *this;
     }
 
-    DeviceGroupDeviceCreateInfoKHX& setPhysicalDeviceCount( uint32_t physicalDeviceCount_ )
+    CmdProcessCommandsInfoNVX& setObjectTable( ObjectTableNVX objectTable_ )
     {
-      physicalDeviceCount = physicalDeviceCount_;
+      objectTable = objectTable_;
       return *this;
     }
 
-    DeviceGroupDeviceCreateInfoKHX& setPPhysicalDevices( const PhysicalDevice* pPhysicalDevices_ )
+    CmdProcessCommandsInfoNVX& setIndirectCommandsLayout( IndirectCommandsLayoutNVX indirectCommandsLayout_ )
     {
-      pPhysicalDevices = pPhysicalDevices_;
+      indirectCommandsLayout = indirectCommandsLayout_;
       return *this;
     }
 
-    operator const VkDeviceGroupDeviceCreateInfoKHX&() const
+    CmdProcessCommandsInfoNVX& setIndirectCommandsTokenCount( uint32_t indirectCommandsTokenCount_ )
     {
-      return *reinterpret_cast<const VkDeviceGroupDeviceCreateInfoKHX*>(this);
+      indirectCommandsTokenCount = indirectCommandsTokenCount_;
+      return *this;
     }
 
-    bool operator==( DeviceGroupDeviceCreateInfoKHX const& rhs ) const
+    CmdProcessCommandsInfoNVX& setPIndirectCommandsTokens( const IndirectCommandsTokenNVX* pIndirectCommandsTokens_ )
+    {
+      pIndirectCommandsTokens = pIndirectCommandsTokens_;
+      return *this;
+    }
+
+    CmdProcessCommandsInfoNVX& setMaxSequencesCount( uint32_t maxSequencesCount_ )
+    {
+      maxSequencesCount = maxSequencesCount_;
+      return *this;
+    }
+
+    CmdProcessCommandsInfoNVX& setTargetCommandBuffer( CommandBuffer targetCommandBuffer_ )
+    {
+      targetCommandBuffer = targetCommandBuffer_;
+      return *this;
+    }
+
+    CmdProcessCommandsInfoNVX& setSequencesCountBuffer( Buffer sequencesCountBuffer_ )
+    {
+      sequencesCountBuffer = sequencesCountBuffer_;
+      return *this;
+    }
+
+    CmdProcessCommandsInfoNVX& setSequencesCountOffset( DeviceSize sequencesCountOffset_ )
+    {
+      sequencesCountOffset = sequencesCountOffset_;
+      return *this;
+    }
+
+    CmdProcessCommandsInfoNVX& setSequencesIndexBuffer( Buffer sequencesIndexBuffer_ )
+    {
+      sequencesIndexBuffer = sequencesIndexBuffer_;
+      return *this;
+    }
+
+    CmdProcessCommandsInfoNVX& setSequencesIndexOffset( DeviceSize sequencesIndexOffset_ )
+    {
+      sequencesIndexOffset = sequencesIndexOffset_;
+      return *this;
+    }
+
+    operator const VkCmdProcessCommandsInfoNVX&() const
+    {
+      return *reinterpret_cast<const VkCmdProcessCommandsInfoNVX*>(this);
+    }
+
+    bool operator==( CmdProcessCommandsInfoNVX const& rhs ) const
     {
       return ( sType == rhs.sType )
           && ( pNext == rhs.pNext )
-          && ( physicalDeviceCount == rhs.physicalDeviceCount )
-          && ( pPhysicalDevices == rhs.pPhysicalDevices );
+          && ( objectTable == rhs.objectTable )
+          && ( indirectCommandsLayout == rhs.indirectCommandsLayout )
+          && ( indirectCommandsTokenCount == rhs.indirectCommandsTokenCount )
+          && ( pIndirectCommandsTokens == rhs.pIndirectCommandsTokens )
+          && ( maxSequencesCount == rhs.maxSequencesCount )
+          && ( targetCommandBuffer == rhs.targetCommandBuffer )
+          && ( sequencesCountBuffer == rhs.sequencesCountBuffer )
+          && ( sequencesCountOffset == rhs.sequencesCountOffset )
+          && ( sequencesIndexBuffer == rhs.sequencesIndexBuffer )
+          && ( sequencesIndexOffset == rhs.sequencesIndexOffset );
     }
 
-    bool operator!=( DeviceGroupDeviceCreateInfoKHX const& rhs ) const
+    bool operator!=( CmdProcessCommandsInfoNVX const& rhs ) const
     {
       return !operator==( rhs );
     }
@@ -24824,10 +21163,18 @@ namespace vk
 
   public:
     const void* pNext;
-    uint32_t physicalDeviceCount;
-    const PhysicalDevice* pPhysicalDevices;
+    ObjectTableNVX objectTable;
+    IndirectCommandsLayoutNVX indirectCommandsLayout;
+    uint32_t indirectCommandsTokenCount;
+    const IndirectCommandsTokenNVX* pIndirectCommandsTokens;
+    uint32_t maxSequencesCount;
+    CommandBuffer targetCommandBuffer;
+    Buffer sequencesCountBuffer;
+    DeviceSize sequencesCountOffset;
+    Buffer sequencesIndexBuffer;
+    DeviceSize sequencesIndexOffset;
   };
-  static_assert( sizeof( DeviceGroupDeviceCreateInfoKHX ) == sizeof( VkDeviceGroupDeviceCreateInfoKHX ), "struct and wrapper have different size!" );
+  static_assert( sizeof( CmdProcessCommandsInfoNVX ) == sizeof( VkCmdProcessCommandsInfoNVX ), "struct and wrapper have different size!" );
 
   VULKAN_HPP_INLINE Result createInstance( const InstanceCreateInfo* pCreateInfo, const AllocationCallbacks* pAllocator, Instance* pInstance )
   {
@@ -25003,6 +21350,16 @@ namespace vk
     return "{}";
   }
 
+  VULKAN_HPP_INLINE std::string to_string(DescriptorSetLayoutCreateFlagBits)
+  {
+    return "(void)";
+  }
+
+  VULKAN_HPP_INLINE std::string to_string(DescriptorSetLayoutCreateFlags)
+  {
+    return "{}";
+  }
+
   VULKAN_HPP_INLINE std::string to_string(BufferViewCreateFlagBits)
   {
     return "(void)";
@@ -25113,6 +21470,16 @@ namespace vk
     return "{}";
   }
 
+  VULKAN_HPP_INLINE std::string to_string(SwapchainCreateFlagBitsKHR)
+  {
+    return "(void)";
+  }
+
+  VULKAN_HPP_INLINE std::string to_string(SwapchainCreateFlagsKHR)
+  {
+    return "{}";
+  }
+
   VULKAN_HPP_INLINE std::string to_string(DisplayModeCreateFlagBitsKHR)
   {
     return "(void)";
@@ -25160,6 +21527,20 @@ namespace vk
     return "{}";
   }
 #endif /*VK_USE_PLATFORM_MIR_KHR*/
+
+#ifdef VK_USE_PLATFORM_VI_NN
+  VULKAN_HPP_INLINE std::string to_string(ViSurfaceCreateFlagBitsNN)
+  {
+    return "(void)";
+  }
+#endif /*VK_USE_PLATFORM_VI_NN*/
+
+#ifdef VK_USE_PLATFORM_VI_NN
+  VULKAN_HPP_INLINE std::string to_string(ViSurfaceCreateFlagsNN)
+  {
+    return "{}";
+  }
+#endif /*VK_USE_PLATFORM_VI_NN*/
 
 #ifdef VK_USE_PLATFORM_WAYLAND_KHR
   VULKAN_HPP_INLINE std::string to_string(WaylandSurfaceCreateFlagBitsKHR)
@@ -25921,9 +22302,6 @@ namespace vk
     case StructureType::eDedicatedAllocationImageCreateInfoNV: return "DedicatedAllocationImageCreateInfoNV";
     case StructureType::eDedicatedAllocationBufferCreateInfoNV: return "DedicatedAllocationBufferCreateInfoNV";
     case StructureType::eDedicatedAllocationMemoryAllocateInfoNV: return "DedicatedAllocationMemoryAllocateInfoNV";
-    case StructureType::eRenderPassMultiviewCreateInfoKHX: return "RenderPassMultiviewCreateInfoKHX";
-    case StructureType::ePhysicalDeviceMultiviewFeaturesKHX: return "PhysicalDeviceMultiviewFeaturesKHX";
-    case StructureType::ePhysicalDeviceMultiviewPropertiesKHX: return "PhysicalDeviceMultiviewPropertiesKHX";
     case StructureType::eExternalMemoryImageCreateInfoNV: return "ExternalMemoryImageCreateInfoNV";
     case StructureType::eExportMemoryAllocateInfoNV: return "ExportMemoryAllocateInfoNV";
     case StructureType::eImportMemoryWin32HandleInfoNV: return "ImportMemoryWin32HandleInfoNV";
@@ -25938,48 +22316,8 @@ namespace vk
     case StructureType::ePhysicalDeviceMemoryProperties2KHR: return "PhysicalDeviceMemoryProperties2KHR";
     case StructureType::eSparseImageFormatProperties2KHR: return "SparseImageFormatProperties2KHR";
     case StructureType::ePhysicalDeviceSparseImageFormatInfo2KHR: return "PhysicalDeviceSparseImageFormatInfo2KHR";
-    case StructureType::eMemoryAllocateFlagsInfoKHX: return "MemoryAllocateFlagsInfoKHX";
-    case StructureType::eBindBufferMemoryInfoKHX: return "BindBufferMemoryInfoKHX";
-    case StructureType::eBindImageMemoryInfoKHX: return "BindImageMemoryInfoKHX";
-    case StructureType::eDeviceGroupRenderPassBeginInfoKHX: return "DeviceGroupRenderPassBeginInfoKHX";
-    case StructureType::eDeviceGroupCommandBufferBeginInfoKHX: return "DeviceGroupCommandBufferBeginInfoKHX";
-    case StructureType::eDeviceGroupSubmitInfoKHX: return "DeviceGroupSubmitInfoKHX";
-    case StructureType::eDeviceGroupBindSparseInfoKHX: return "DeviceGroupBindSparseInfoKHX";
-    case StructureType::eDeviceGroupPresentCapabilitiesKHX: return "DeviceGroupPresentCapabilitiesKHX";
-    case StructureType::eImageSwapchainCreateInfoKHX: return "ImageSwapchainCreateInfoKHX";
-    case StructureType::eBindImageMemorySwapchainInfoKHX: return "BindImageMemorySwapchainInfoKHX";
-    case StructureType::eAcquireNextImageInfoKHX: return "AcquireNextImageInfoKHX";
-    case StructureType::eDeviceGroupPresentInfoKHX: return "DeviceGroupPresentInfoKHX";
-    case StructureType::eDeviceGroupSwapchainCreateInfoKHX: return "DeviceGroupSwapchainCreateInfoKHX";
     case StructureType::eValidationFlagsEXT: return "ValidationFlagsEXT";
-    case StructureType::ePhysicalDeviceGroupPropertiesKHX: return "PhysicalDeviceGroupPropertiesKHX";
-    case StructureType::eDeviceGroupDeviceCreateInfoKHX: return "DeviceGroupDeviceCreateInfoKHX";
-    case StructureType::ePhysicalDeviceExternalImageFormatInfoKHX: return "PhysicalDeviceExternalImageFormatInfoKHX";
-    case StructureType::eExternalImageFormatPropertiesKHX: return "ExternalImageFormatPropertiesKHX";
-    case StructureType::ePhysicalDeviceExternalBufferInfoKHX: return "PhysicalDeviceExternalBufferInfoKHX";
-    case StructureType::eExternalBufferPropertiesKHX: return "ExternalBufferPropertiesKHX";
-    case StructureType::ePhysicalDeviceIdPropertiesKHX: return "PhysicalDeviceIdPropertiesKHX";
-    case StructureType::ePhysicalDeviceProperties2KHX: return "PhysicalDeviceProperties2KHX";
-    case StructureType::eImageFormatProperties2KHX: return "ImageFormatProperties2KHX";
-    case StructureType::ePhysicalDeviceImageFormatInfo2KHX: return "PhysicalDeviceImageFormatInfo2KHX";
-    case StructureType::eExternalMemoryBufferCreateInfoKHX: return "ExternalMemoryBufferCreateInfoKHX";
-    case StructureType::eExternalMemoryImageCreateInfoKHX: return "ExternalMemoryImageCreateInfoKHX";
-    case StructureType::eExportMemoryAllocateInfoKHX: return "ExportMemoryAllocateInfoKHX";
-    case StructureType::eImportMemoryWin32HandleInfoKHX: return "ImportMemoryWin32HandleInfoKHX";
-    case StructureType::eExportMemoryWin32HandleInfoKHX: return "ExportMemoryWin32HandleInfoKHX";
-    case StructureType::eMemoryWin32HandlePropertiesKHX: return "MemoryWin32HandlePropertiesKHX";
-    case StructureType::eImportMemoryFdInfoKHX: return "ImportMemoryFdInfoKHX";
-    case StructureType::eMemoryFdPropertiesKHX: return "MemoryFdPropertiesKHX";
-    case StructureType::eWin32KeyedMutexAcquireReleaseInfoKHX: return "Win32KeyedMutexAcquireReleaseInfoKHX";
-    case StructureType::ePhysicalDeviceExternalSemaphoreInfoKHX: return "PhysicalDeviceExternalSemaphoreInfoKHX";
-    case StructureType::eExternalSemaphorePropertiesKHX: return "ExternalSemaphorePropertiesKHX";
-    case StructureType::eExportSemaphoreCreateInfoKHX: return "ExportSemaphoreCreateInfoKHX";
-    case StructureType::eImportSemaphoreWin32HandleInfoKHX: return "ImportSemaphoreWin32HandleInfoKHX";
-    case StructureType::eExportSemaphoreWin32HandleInfoKHX: return "ExportSemaphoreWin32HandleInfoKHX";
-    case StructureType::eD3D12FenceSubmitInfoKHX: return "D3D12FenceSubmitInfoKHX";
-    case StructureType::eImportSemaphoreFdInfoKHX: return "ImportSemaphoreFdInfoKHX";
-    case StructureType::ePhysicalDevicePushDescriptorPropertiesKHX: return "PhysicalDevicePushDescriptorPropertiesKHX";
-    case StructureType::ePresentRegionsKHR: return "PresentRegionsKHR";
+    case StructureType::eViSurfaceCreateInfoNN: return "ViSurfaceCreateInfoNN";
     case StructureType::eObjectTableCreateInfoNVX: return "ObjectTableCreateInfoNVX";
     case StructureType::eIndirectCommandsLayoutCreateInfoNVX: return "IndirectCommandsLayoutCreateInfoNVX";
     case StructureType::eCmdProcessCommandsInfoNVX: return "CmdProcessCommandsInfoNVX";
@@ -26075,7 +22413,6 @@ namespace vk
     switch (value)
     {
     case MemoryHeapFlagBits::eDeviceLocal: return "DeviceLocal";
-    case MemoryHeapFlagBits::eMultiInstanceKHX: return "MultiInstanceKHX";
     default: return "invalid";
     }
   }
@@ -26085,7 +22422,6 @@ namespace vk
     if (!value) return "{}";
     std::string result;
     if (value & MemoryHeapFlagBits::eDeviceLocal) result += "DeviceLocal | ";
-    if (value & MemoryHeapFlagBits::eMultiInstanceKHX) result += "MultiInstanceKHX | ";
     return "{" + result.substr(0, result.size() - 3) + "}";
   }
 
@@ -26267,7 +22603,6 @@ namespace vk
     case ImageCreateFlagBits::eSparseAliased: return "SparseAliased";
     case ImageCreateFlagBits::eMutableFormat: return "MutableFormat";
     case ImageCreateFlagBits::eCubeCompatible: return "CubeCompatible";
-    case ImageCreateFlagBits::eBindSfrKHX: return "BindSfrKHX";
     case ImageCreateFlagBits::e2DArrayCompatibleKHR: return "2DArrayCompatibleKHR";
     default: return "invalid";
     }
@@ -26282,7 +22617,6 @@ namespace vk
     if (value & ImageCreateFlagBits::eSparseAliased) result += "SparseAliased | ";
     if (value & ImageCreateFlagBits::eMutableFormat) result += "MutableFormat | ";
     if (value & ImageCreateFlagBits::eCubeCompatible) result += "CubeCompatible | ";
-    if (value & ImageCreateFlagBits::eBindSfrKHX) result += "BindSfrKHX | ";
     if (value & ImageCreateFlagBits::e2DArrayCompatibleKHR) result += "2DArrayCompatibleKHR | ";
     return "{" + result.substr(0, result.size() - 3) + "}";
   }
@@ -26294,8 +22628,6 @@ namespace vk
     case PipelineCreateFlagBits::eDisableOptimization: return "DisableOptimization";
     case PipelineCreateFlagBits::eAllowDerivatives: return "AllowDerivatives";
     case PipelineCreateFlagBits::eDerivative: return "Derivative";
-    case PipelineCreateFlagBits::eViewIndexFromDeviceIndexKHX: return "ViewIndexFromDeviceIndexKHX";
-    case PipelineCreateFlagBits::eDispatchBaseKHX: return "DispatchBaseKHX";
     default: return "invalid";
     }
   }
@@ -26307,8 +22639,6 @@ namespace vk
     if (value & PipelineCreateFlagBits::eDisableOptimization) result += "DisableOptimization | ";
     if (value & PipelineCreateFlagBits::eAllowDerivatives) result += "AllowDerivatives | ";
     if (value & PipelineCreateFlagBits::eDerivative) result += "Derivative | ";
-    if (value & PipelineCreateFlagBits::eViewIndexFromDeviceIndexKHX) result += "ViewIndexFromDeviceIndexKHX | ";
-    if (value & PipelineCreateFlagBits::eDispatchBaseKHX) result += "DispatchBaseKHX | ";
     return "{" + result.substr(0, result.size() - 3) + "}";
   }
 
@@ -26751,8 +23081,6 @@ namespace vk
     switch (value)
     {
     case DependencyFlagBits::eByRegion: return "ByRegion";
-    case DependencyFlagBits::eViewLocalKHX: return "ViewLocalKHX";
-    case DependencyFlagBits::eDeviceGroupKHX: return "DeviceGroupKHX";
     default: return "invalid";
     }
   }
@@ -26762,8 +23090,6 @@ namespace vk
     if (!value) return "{}";
     std::string result;
     if (value & DependencyFlagBits::eByRegion) result += "ByRegion | ";
-    if (value & DependencyFlagBits::eViewLocalKHX) result += "ViewLocalKHX | ";
-    if (value & DependencyFlagBits::eDeviceGroupKHX) result += "DeviceGroupKHX | ";
     return "{" + result.substr(0, result.size() - 3) + "}";
   }
 
@@ -27077,117 +23403,6 @@ namespace vk
     }
   }
 
-  VULKAN_HPP_INLINE std::string to_string(DescriptorSetLayoutCreateFlagBits value)
-  {
-    switch (value)
-    {
-    case DescriptorSetLayoutCreateFlagBits::ePushDescriptorKHX: return "PushDescriptorKHX";
-    default: return "invalid";
-    }
-  }
-
-  VULKAN_HPP_INLINE std::string to_string(DescriptorSetLayoutCreateFlags value)
-  {
-    if (!value) return "{}";
-    std::string result;
-    if (value & DescriptorSetLayoutCreateFlagBits::ePushDescriptorKHX) result += "PushDescriptorKHX | ";
-    return "{" + result.substr(0, result.size() - 3) + "}";
-  }
-
-  VULKAN_HPP_INLINE std::string to_string(ExternalMemoryHandleTypeFlagBitsKHX value)
-  {
-    switch (value)
-    {
-    case ExternalMemoryHandleTypeFlagBitsKHX::eVkExternalMemoryHandleTypeOpaqueFdBit: return "VkExternalMemoryHandleTypeOpaqueFdBit";
-    case ExternalMemoryHandleTypeFlagBitsKHX::eVkExternalMemoryHandleTypeOpaqueWin32Bit: return "VkExternalMemoryHandleTypeOpaqueWin32Bit";
-    case ExternalMemoryHandleTypeFlagBitsKHX::eVkExternalMemoryHandleTypeOpaqueWin32KmtBit: return "VkExternalMemoryHandleTypeOpaqueWin32KmtBit";
-    case ExternalMemoryHandleTypeFlagBitsKHX::eVkExternalMemoryHandleTypeD3D11TextureBit: return "VkExternalMemoryHandleTypeD3D11TextureBit";
-    case ExternalMemoryHandleTypeFlagBitsKHX::eVkExternalMemoryHandleTypeD3D11TextureKmtBit: return "VkExternalMemoryHandleTypeD3D11TextureKmtBit";
-    case ExternalMemoryHandleTypeFlagBitsKHX::eVkExternalMemoryHandleTypeD3D12HeapBit: return "VkExternalMemoryHandleTypeD3D12HeapBit";
-    case ExternalMemoryHandleTypeFlagBitsKHX::eVkExternalMemoryHandleTypeD3D12ResourceBit: return "VkExternalMemoryHandleTypeD3D12ResourceBit";
-    default: return "invalid";
-    }
-  }
-
-  VULKAN_HPP_INLINE std::string to_string(ExternalMemoryHandleTypeFlagsKHX value)
-  {
-    if (!value) return "{}";
-    std::string result;
-    if (value & ExternalMemoryHandleTypeFlagBitsKHX::eVkExternalMemoryHandleTypeOpaqueFdBit) result += "VkExternalMemoryHandleTypeOpaqueFdBit | ";
-    if (value & ExternalMemoryHandleTypeFlagBitsKHX::eVkExternalMemoryHandleTypeOpaqueWin32Bit) result += "VkExternalMemoryHandleTypeOpaqueWin32Bit | ";
-    if (value & ExternalMemoryHandleTypeFlagBitsKHX::eVkExternalMemoryHandleTypeOpaqueWin32KmtBit) result += "VkExternalMemoryHandleTypeOpaqueWin32KmtBit | ";
-    if (value & ExternalMemoryHandleTypeFlagBitsKHX::eVkExternalMemoryHandleTypeD3D11TextureBit) result += "VkExternalMemoryHandleTypeD3D11TextureBit | ";
-    if (value & ExternalMemoryHandleTypeFlagBitsKHX::eVkExternalMemoryHandleTypeD3D11TextureKmtBit) result += "VkExternalMemoryHandleTypeD3D11TextureKmtBit | ";
-    if (value & ExternalMemoryHandleTypeFlagBitsKHX::eVkExternalMemoryHandleTypeD3D12HeapBit) result += "VkExternalMemoryHandleTypeD3D12HeapBit | ";
-    if (value & ExternalMemoryHandleTypeFlagBitsKHX::eVkExternalMemoryHandleTypeD3D12ResourceBit) result += "VkExternalMemoryHandleTypeD3D12ResourceBit | ";
-    return "{" + result.substr(0, result.size() - 3) + "}";
-  }
-
-  VULKAN_HPP_INLINE std::string to_string(ExternalMemoryFeatureFlagBitsKHX value)
-  {
-    switch (value)
-    {
-    case ExternalMemoryFeatureFlagBitsKHX::eVkExternalMemoryFeatureDedicatedOnlyBit: return "VkExternalMemoryFeatureDedicatedOnlyBit";
-    case ExternalMemoryFeatureFlagBitsKHX::eVkExternalMemoryFeatureExportableBit: return "VkExternalMemoryFeatureExportableBit";
-    case ExternalMemoryFeatureFlagBitsKHX::eVkExternalMemoryFeatureImportableBit: return "VkExternalMemoryFeatureImportableBit";
-    default: return "invalid";
-    }
-  }
-
-  VULKAN_HPP_INLINE std::string to_string(ExternalMemoryFeatureFlagsKHX value)
-  {
-    if (!value) return "{}";
-    std::string result;
-    if (value & ExternalMemoryFeatureFlagBitsKHX::eVkExternalMemoryFeatureDedicatedOnlyBit) result += "VkExternalMemoryFeatureDedicatedOnlyBit | ";
-    if (value & ExternalMemoryFeatureFlagBitsKHX::eVkExternalMemoryFeatureExportableBit) result += "VkExternalMemoryFeatureExportableBit | ";
-    if (value & ExternalMemoryFeatureFlagBitsKHX::eVkExternalMemoryFeatureImportableBit) result += "VkExternalMemoryFeatureImportableBit | ";
-    return "{" + result.substr(0, result.size() - 3) + "}";
-  }
-
-  VULKAN_HPP_INLINE std::string to_string(ExternalSemaphoreHandleTypeFlagBitsKHX value)
-  {
-    switch (value)
-    {
-    case ExternalSemaphoreHandleTypeFlagBitsKHX::eVkExternalSemaphoreHandleTypeOpaqueFdBit: return "VkExternalSemaphoreHandleTypeOpaqueFdBit";
-    case ExternalSemaphoreHandleTypeFlagBitsKHX::eVkExternalSemaphoreHandleTypeOpaqueWin32Bit: return "VkExternalSemaphoreHandleTypeOpaqueWin32Bit";
-    case ExternalSemaphoreHandleTypeFlagBitsKHX::eVkExternalSemaphoreHandleTypeOpaqueWin32KmtBit: return "VkExternalSemaphoreHandleTypeOpaqueWin32KmtBit";
-    case ExternalSemaphoreHandleTypeFlagBitsKHX::eVkExternalSemaphoreHandleTypeD3D12FenceBit: return "VkExternalSemaphoreHandleTypeD3D12FenceBit";
-    case ExternalSemaphoreHandleTypeFlagBitsKHX::eVkExternalSemaphoreHandleTypeFenceFdBit: return "VkExternalSemaphoreHandleTypeFenceFdBit";
-    default: return "invalid";
-    }
-  }
-
-  VULKAN_HPP_INLINE std::string to_string(ExternalSemaphoreHandleTypeFlagsKHX value)
-  {
-    if (!value) return "{}";
-    std::string result;
-    if (value & ExternalSemaphoreHandleTypeFlagBitsKHX::eVkExternalSemaphoreHandleTypeOpaqueFdBit) result += "VkExternalSemaphoreHandleTypeOpaqueFdBit | ";
-    if (value & ExternalSemaphoreHandleTypeFlagBitsKHX::eVkExternalSemaphoreHandleTypeOpaqueWin32Bit) result += "VkExternalSemaphoreHandleTypeOpaqueWin32Bit | ";
-    if (value & ExternalSemaphoreHandleTypeFlagBitsKHX::eVkExternalSemaphoreHandleTypeOpaqueWin32KmtBit) result += "VkExternalSemaphoreHandleTypeOpaqueWin32KmtBit | ";
-    if (value & ExternalSemaphoreHandleTypeFlagBitsKHX::eVkExternalSemaphoreHandleTypeD3D12FenceBit) result += "VkExternalSemaphoreHandleTypeD3D12FenceBit | ";
-    if (value & ExternalSemaphoreHandleTypeFlagBitsKHX::eVkExternalSemaphoreHandleTypeFenceFdBit) result += "VkExternalSemaphoreHandleTypeFenceFdBit | ";
-    return "{" + result.substr(0, result.size() - 3) + "}";
-  }
-
-  VULKAN_HPP_INLINE std::string to_string(ExternalSemaphoreFeatureFlagBitsKHX value)
-  {
-    switch (value)
-    {
-    case ExternalSemaphoreFeatureFlagBitsKHX::eVkExternalSemaphoreFeatureExportableBit: return "VkExternalSemaphoreFeatureExportableBit";
-    case ExternalSemaphoreFeatureFlagBitsKHX::eVkExternalSemaphoreFeatureImportableBit: return "VkExternalSemaphoreFeatureImportableBit";
-    default: return "invalid";
-    }
-  }
-
-  VULKAN_HPP_INLINE std::string to_string(ExternalSemaphoreFeatureFlagsKHX value)
-  {
-    if (!value) return "{}";
-    std::string result;
-    if (value & ExternalSemaphoreFeatureFlagBitsKHX::eVkExternalSemaphoreFeatureExportableBit) result += "VkExternalSemaphoreFeatureExportableBit | ";
-    if (value & ExternalSemaphoreFeatureFlagBitsKHX::eVkExternalSemaphoreFeatureImportableBit) result += "VkExternalSemaphoreFeatureImportableBit | ";
-    return "{" + result.substr(0, result.size() - 3) + "}";
-  }
-
   VULKAN_HPP_INLINE std::string to_string(SurfaceCounterFlagBitsEXT value)
   {
     switch (value)
@@ -27232,86 +23447,6 @@ namespace vk
     case DisplayEventTypeEXT::eFirstPixelOut: return "FirstPixelOut";
     default: return "invalid";
     }
-  }
-
-  VULKAN_HPP_INLINE std::string to_string(PeerMemoryFeatureFlagBitsKHX value)
-  {
-    switch (value)
-    {
-    case PeerMemoryFeatureFlagBitsKHX::eCopySrc: return "CopySrc";
-    case PeerMemoryFeatureFlagBitsKHX::eCopyDst: return "CopyDst";
-    case PeerMemoryFeatureFlagBitsKHX::eGenericSrc: return "GenericSrc";
-    case PeerMemoryFeatureFlagBitsKHX::eGenericDst: return "GenericDst";
-    default: return "invalid";
-    }
-  }
-
-  VULKAN_HPP_INLINE std::string to_string(PeerMemoryFeatureFlagsKHX value)
-  {
-    if (!value) return "{}";
-    std::string result;
-    if (value & PeerMemoryFeatureFlagBitsKHX::eCopySrc) result += "CopySrc | ";
-    if (value & PeerMemoryFeatureFlagBitsKHX::eCopyDst) result += "CopyDst | ";
-    if (value & PeerMemoryFeatureFlagBitsKHX::eGenericSrc) result += "GenericSrc | ";
-    if (value & PeerMemoryFeatureFlagBitsKHX::eGenericDst) result += "GenericDst | ";
-    return "{" + result.substr(0, result.size() - 3) + "}";
-  }
-
-  VULKAN_HPP_INLINE std::string to_string(MemoryAllocateFlagBitsKHX value)
-  {
-    switch (value)
-    {
-    case MemoryAllocateFlagBitsKHX::eDeviceMask: return "DeviceMask";
-    default: return "invalid";
-    }
-  }
-
-  VULKAN_HPP_INLINE std::string to_string(MemoryAllocateFlagsKHX value)
-  {
-    if (!value) return "{}";
-    std::string result;
-    if (value & MemoryAllocateFlagBitsKHX::eDeviceMask) result += "DeviceMask | ";
-    return "{" + result.substr(0, result.size() - 3) + "}";
-  }
-
-  VULKAN_HPP_INLINE std::string to_string(DeviceGroupPresentModeFlagBitsKHX value)
-  {
-    switch (value)
-    {
-    case DeviceGroupPresentModeFlagBitsKHX::eLocal: return "Local";
-    case DeviceGroupPresentModeFlagBitsKHX::eRemote: return "Remote";
-    case DeviceGroupPresentModeFlagBitsKHX::eSum: return "Sum";
-    case DeviceGroupPresentModeFlagBitsKHX::eLocalMultiDevice: return "LocalMultiDevice";
-    default: return "invalid";
-    }
-  }
-
-  VULKAN_HPP_INLINE std::string to_string(DeviceGroupPresentModeFlagsKHX value)
-  {
-    if (!value) return "{}";
-    std::string result;
-    if (value & DeviceGroupPresentModeFlagBitsKHX::eLocal) result += "Local | ";
-    if (value & DeviceGroupPresentModeFlagBitsKHX::eRemote) result += "Remote | ";
-    if (value & DeviceGroupPresentModeFlagBitsKHX::eSum) result += "Sum | ";
-    if (value & DeviceGroupPresentModeFlagBitsKHX::eLocalMultiDevice) result += "LocalMultiDevice | ";
-    return "{" + result.substr(0, result.size() - 3) + "}";
-  }
-
-  VULKAN_HPP_INLINE std::string to_string(SwapchainCreateFlagBitsKHR value)
-  {
-    switch (value)
-    {
-    case SwapchainCreateFlagBitsKHR::eBindSfrKHX: return "BindSfrKHX";
-    default: return "invalid";
-    }
-  }
-
-  VULKAN_HPP_INLINE std::string to_string(SwapchainCreateFlagsKHR value)
-  {
-    if (!value) return "{}";
-    std::string result;
-    if (value & SwapchainCreateFlagBitsKHR::eBindSfrKHX) result += "BindSfrKHX | ";
-    return "{" + result.substr(0, result.size() - 3) + "}";
   }
 
 } // namespace vk

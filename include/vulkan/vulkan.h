@@ -6,7 +6,7 @@ extern "C" {
 #endif
 
 /*
-** Copyright (c) 2015-2016 The Khronos Group Inc.
+** Copyright (c) 2015-2017 The Khronos Group Inc.
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -242,19 +242,8 @@ typedef enum VkStructureType {
     VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO_KHX = 1000060000,
     VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_INFO_KHX = 1000060001,
     VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_INFO_KHX = 1000060002,
-    VK_STRUCTURE_TYPE_DEVICE_GROUP_RENDER_PASS_BEGIN_INFO_KHX = 1000060003,
-    VK_STRUCTURE_TYPE_DEVICE_GROUP_COMMAND_BUFFER_BEGIN_INFO_KHX = 1000060004,
-    VK_STRUCTURE_TYPE_DEVICE_GROUP_SUBMIT_INFO_KHX = 1000060005,
-    VK_STRUCTURE_TYPE_DEVICE_GROUP_BIND_SPARSE_INFO_KHX = 1000060006,
-    VK_STRUCTURE_TYPE_DEVICE_GROUP_PRESENT_CAPABILITIES_KHX = 1000060007,
-    VK_STRUCTURE_TYPE_IMAGE_SWAPCHAIN_CREATE_INFO_KHX = 1000060008,
-    VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_SWAPCHAIN_INFO_KHX = 1000060009,
-    VK_STRUCTURE_TYPE_ACQUIRE_NEXT_IMAGE_INFO_KHX = 1000060010,
-    VK_STRUCTURE_TYPE_DEVICE_GROUP_PRESENT_INFO_KHX = 1000060011,
-    VK_STRUCTURE_TYPE_DEVICE_GROUP_SWAPCHAIN_CREATE_INFO_KHX = 1000060012,
     VK_STRUCTURE_TYPE_VALIDATION_FLAGS_EXT = 1000061000,
-    VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GROUP_PROPERTIES_KHX = 1000070000,
-    VK_STRUCTURE_TYPE_DEVICE_GROUP_DEVICE_CREATE_INFO_KHX = 1000070001,
+    VK_STRUCTURE_TYPE_VI_SURFACE_CREATE_INFO_NN = 1000062000,
     VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_IMAGE_FORMAT_INFO_KHX = 1000071000,
     VK_STRUCTURE_TYPE_EXTERNAL_IMAGE_FORMAT_PROPERTIES_KHX = 1000071001,
     VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_BUFFER_INFO_KHX = 1000071002,
@@ -279,8 +268,8 @@ typedef enum VkStructureType {
     VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_WIN32_HANDLE_INFO_KHX = 1000078001,
     VK_STRUCTURE_TYPE_D3D12_FENCE_SUBMIT_INFO_KHX = 1000078002,
     VK_STRUCTURE_TYPE_IMPORT_SEMAPHORE_FD_INFO_KHX = 1000079000,
-    VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PUSH_DESCRIPTOR_PROPERTIES_KHX = 1000080000,
     VK_STRUCTURE_TYPE_PRESENT_REGIONS_KHR = 1000084000,
+    VK_STRUCTURE_TYPE_DESCRIPTOR_UPDATE_TEMPLATE_CREATE_INFO_KHR = 1000085000,
     VK_STRUCTURE_TYPE_OBJECT_TABLE_CREATE_INFO_NVX = 1000086000,
     VK_STRUCTURE_TYPE_INDIRECT_COMMANDS_LAYOUT_CREATE_INFO_NVX = 1000086001,
     VK_STRUCTURE_TYPE_CMD_PROCESS_COMMANDS_INFO_NVX = 1000086002,
@@ -1130,11 +1119,6 @@ typedef VkFlags VkPipelineDynamicStateCreateFlags;
 typedef VkFlags VkPipelineLayoutCreateFlags;
 typedef VkFlags VkShaderStageFlags;
 typedef VkFlags VkSamplerCreateFlags;
-
-typedef enum VkDescriptorSetLayoutCreateFlagBits {
-    VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHX = 0x00000001,
-    VK_DESCRIPTOR_SET_LAYOUT_CREATE_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
-} VkDescriptorSetLayoutCreateFlagBits;
 typedef VkFlags VkDescriptorSetLayoutCreateFlags;
 
 typedef enum VkDescriptorPoolCreateFlagBits {
@@ -2443,7 +2427,7 @@ typedef void (VKAPI_PTR *PFN_vkCmdDraw)(VkCommandBuffer commandBuffer, uint32_t 
 typedef void (VKAPI_PTR *PFN_vkCmdDrawIndexed)(VkCommandBuffer commandBuffer, uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance);
 typedef void (VKAPI_PTR *PFN_vkCmdDrawIndirect)(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, uint32_t drawCount, uint32_t stride);
 typedef void (VKAPI_PTR *PFN_vkCmdDrawIndexedIndirect)(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, uint32_t drawCount, uint32_t stride);
-typedef void (VKAPI_PTR *PFN_vkCmdDispatch)(VkCommandBuffer commandBuffer, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ);
+typedef void (VKAPI_PTR *PFN_vkCmdDispatch)(VkCommandBuffer commandBuffer, uint32_t x, uint32_t y, uint32_t z);
 typedef void (VKAPI_PTR *PFN_vkCmdDispatchIndirect)(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset);
 typedef void (VKAPI_PTR *PFN_vkCmdCopyBuffer)(VkCommandBuffer commandBuffer, VkBuffer srcBuffer, VkBuffer dstBuffer, uint32_t regionCount, const VkBufferCopy* pRegions);
 typedef void (VKAPI_PTR *PFN_vkCmdCopyImage)(VkCommandBuffer commandBuffer, VkImage srcImage, VkImageLayout srcImageLayout, VkImage dstImage, VkImageLayout dstImageLayout, uint32_t regionCount, const VkImageCopy* pRegions);
@@ -3079,9 +3063,9 @@ VKAPI_ATTR void VKAPI_CALL vkCmdDrawIndexedIndirect(
 
 VKAPI_ATTR void VKAPI_CALL vkCmdDispatch(
     VkCommandBuffer                             commandBuffer,
-    uint32_t                                    groupCountX,
-    uint32_t                                    groupCountY,
-    uint32_t                                    groupCountZ);
+    uint32_t                                    x,
+    uint32_t                                    y,
+    uint32_t                                    z);
 
 VKAPI_ATTR void VKAPI_CALL vkCmdDispatchIndirect(
     VkCommandBuffer                             commandBuffer,
@@ -3280,6 +3264,18 @@ VK_DEFINE_NON_DISPATCHABLE_HANDLE(VkSurfaceKHR)
 
 typedef enum VkColorSpaceKHR {
     VK_COLOR_SPACE_SRGB_NONLINEAR_KHR = 0,
+    VK_COLOR_SPACE_DISPLAY_P3_LINEAR_EXT = 1000104001,
+    VK_COLOR_SPACE_DISPLAY_P3_NONLINEAR_EXT = 1000104002,
+    VK_COLOR_SPACE_SCRGB_LINEAR_EXT = 1000104003,
+    VK_COLOR_SPACE_SCRGB_NONLINEAR_EXT = 1000104004,
+    VK_COLOR_SPACE_DCI_P3_LINEAR_EXT = 1000104005,
+    VK_COLOR_SPACE_DCI_P3_NONLINEAR_EXT = 1000104006,
+    VK_COLOR_SPACE_BT709_LINEAR_EXT = 1000104007,
+    VK_COLOR_SPACE_BT709_NONLINEAR_EXT = 1000104008,
+    VK_COLOR_SPACE_BT2020_LINEAR_EXT = 1000104009,
+    VK_COLOR_SPACE_BT2020_NONLINEAR_EXT = 1000104010,
+    VK_COLOR_SPACE_ADOBERGB_LINEAR_EXT = 1000104011,
+    VK_COLOR_SPACE_ADOBERGB_NONLINEAR_EXT = 1000104012,
     VK_COLOR_SPACE_BEGIN_RANGE_KHR = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
     VK_COLOR_SPACE_END_RANGE_KHR = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
     VK_COLOR_SPACE_RANGE_SIZE_KHR = (VK_COLOR_SPACE_SRGB_NONLINEAR_KHR - VK_COLOR_SPACE_SRGB_NONLINEAR_KHR + 1),
@@ -3950,30 +3946,6 @@ VKAPI_ATTR void VKAPI_CALL vkTrimCommandPoolKHR(
     VkCommandPoolTrimFlagsKHR                   flags);
 #endif
 
-#define VK_KHR_incremental_present 1
-#define VK_KHR_INCREMENTAL_PRESENT_SPEC_VERSION 1
-#define VK_KHR_INCREMENTAL_PRESENT_EXTENSION_NAME "VK_KHR_incremental_present"
-
-typedef struct VkRectLayerKHR {
-    VkOffset2D    offset;
-    VkExtent2D    extent;
-    uint32_t      layer;
-} VkRectLayerKHR;
-
-typedef struct VkPresentRegionKHR {
-    uint32_t                 rectangleCount;
-    const VkRectLayerKHR*    pRectangles;
-} VkPresentRegionKHR;
-
-typedef struct VkPresentRegionsKHR {
-    VkStructureType              sType;
-    const void*                  pNext;
-    uint32_t                     swapchainCount;
-    const VkPresentRegionKHR*    pRegions;
-} VkPresentRegionsKHR;
-
-
-
 #define VK_EXT_debug_report 1
 VK_DEFINE_NON_DISPATCHABLE_HANDLE(VkDebugReportCallbackEXT)
 
@@ -4410,204 +4382,6 @@ typedef struct VkWin32KeyedMutexAcquireReleaseInfoNV {
 
 #endif /* VK_USE_PLATFORM_WIN32_KHR */
 
-#define VK_KHX_device_group 1
-#define VK_MAX_DEVICE_GROUP_SIZE_KHX      32
-#define VK_KHX_DEVICE_GROUP_SPEC_VERSION  1
-#define VK_KHX_DEVICE_GROUP_EXTENSION_NAME "VK_KHX_device_group"
-
-
-typedef enum VkPeerMemoryFeatureFlagBitsKHX {
-    VK_PEER_MEMORY_FEATURE_COPY_SRC_BIT_KHX = 0x00000001,
-    VK_PEER_MEMORY_FEATURE_COPY_DST_BIT_KHX = 0x00000002,
-    VK_PEER_MEMORY_FEATURE_GENERIC_SRC_BIT_KHX = 0x00000004,
-    VK_PEER_MEMORY_FEATURE_GENERIC_DST_BIT_KHX = 0x00000008,
-    VK_PEER_MEMORY_FEATURE_FLAG_BITS_MAX_ENUM_KHX = 0x7FFFFFFF
-} VkPeerMemoryFeatureFlagBitsKHX;
-typedef VkFlags VkPeerMemoryFeatureFlagsKHX;
-
-typedef enum VkMemoryAllocateFlagBitsKHX {
-    VK_MEMORY_ALLOCATE_DEVICE_MASK_BIT_KHX = 0x00000001,
-    VK_MEMORY_ALLOCATE_FLAG_BITS_MAX_ENUM_KHX = 0x7FFFFFFF
-} VkMemoryAllocateFlagBitsKHX;
-typedef VkFlags VkMemoryAllocateFlagsKHX;
-
-typedef enum VkDeviceGroupPresentModeFlagBitsKHX {
-    VK_DEVICE_GROUP_PRESENT_MODE_LOCAL_BIT_KHX = 0x00000001,
-    VK_DEVICE_GROUP_PRESENT_MODE_REMOTE_BIT_KHX = 0x00000002,
-    VK_DEVICE_GROUP_PRESENT_MODE_SUM_BIT_KHX = 0x00000004,
-    VK_DEVICE_GROUP_PRESENT_MODE_LOCAL_MULTI_DEVICE_BIT_KHX = 0x00000008,
-    VK_DEVICE_GROUP_PRESENT_MODE_FLAG_BITS_MAX_ENUM_KHX = 0x7FFFFFFF
-} VkDeviceGroupPresentModeFlagBitsKHX;
-typedef VkFlags VkDeviceGroupPresentModeFlagsKHX;
-
-typedef struct VkMemoryAllocateFlagsInfoKHX {
-    VkStructureType             sType;
-    const void*                 pNext;
-    VkMemoryAllocateFlagsKHX    flags;
-    uint32_t                    deviceMask;
-} VkMemoryAllocateFlagsInfoKHX;
-
-typedef struct VkBindBufferMemoryInfoKHX {
-    VkStructureType    sType;
-    const void*        pNext;
-    VkBuffer           buffer;
-    VkDeviceMemory     memory;
-    VkDeviceSize       memoryOffset;
-    uint32_t           deviceIndexCount;
-    const uint32_t*    pDeviceIndices;
-} VkBindBufferMemoryInfoKHX;
-
-typedef struct VkBindImageMemoryInfoKHX {
-    VkStructureType    sType;
-    const void*        pNext;
-    VkImage            image;
-    VkDeviceMemory     memory;
-    VkDeviceSize       memoryOffset;
-    uint32_t           deviceIndexCount;
-    const uint32_t*    pDeviceIndices;
-    uint32_t           SFRRectCount;
-    const VkRect2D*    pSFRRects;
-} VkBindImageMemoryInfoKHX;
-
-typedef struct VkDeviceGroupRenderPassBeginInfoKHX {
-    VkStructureType    sType;
-    const void*        pNext;
-    uint32_t           deviceMask;
-    uint32_t           deviceRenderAreaCount;
-    const VkRect2D*    pDeviceRenderAreas;
-} VkDeviceGroupRenderPassBeginInfoKHX;
-
-typedef struct VkDeviceGroupCommandBufferBeginInfoKHX {
-    VkStructureType    sType;
-    const void*        pNext;
-    uint32_t           deviceMask;
-} VkDeviceGroupCommandBufferBeginInfoKHX;
-
-typedef struct VkDeviceGroupSubmitInfoKHX {
-    VkStructureType    sType;
-    const void*        pNext;
-    uint32_t           waitSemaphoreCount;
-    const uint32_t*    pWaitSemaphoreDeviceIndices;
-    uint32_t           commandBufferCount;
-    const uint32_t*    pCommandBufferDeviceMasks;
-    uint32_t           signalSemaphoreCount;
-    const uint32_t*    pSignalSemaphoreDeviceIndices;
-} VkDeviceGroupSubmitInfoKHX;
-
-typedef struct VkDeviceGroupBindSparseInfoKHX {
-    VkStructureType    sType;
-    const void*        pNext;
-    uint32_t           resourceDeviceIndex;
-    uint32_t           memoryDeviceIndex;
-} VkDeviceGroupBindSparseInfoKHX;
-
-typedef struct VkDeviceGroupPresentCapabilitiesKHX {
-    VkStructureType                     sType;
-    const void*                         pNext;
-    uint32_t                            presentMask[VK_MAX_DEVICE_GROUP_SIZE_KHX];
-    VkDeviceGroupPresentModeFlagsKHX    modes;
-} VkDeviceGroupPresentCapabilitiesKHX;
-
-typedef struct VkImageSwapchainCreateInfoKHX {
-    VkStructureType    sType;
-    const void*        pNext;
-    VkSwapchainKHR     swapchain;
-} VkImageSwapchainCreateInfoKHX;
-
-typedef struct VkBindImageMemorySwapchainInfoKHX {
-    VkStructureType    sType;
-    const void*        pNext;
-    VkSwapchainKHR     swapchain;
-    uint32_t           imageIndex;
-} VkBindImageMemorySwapchainInfoKHX;
-
-typedef struct VkAcquireNextImageInfoKHX {
-    VkStructureType    sType;
-    const void*        pNext;
-    VkSwapchainKHR     swapchain;
-    uint64_t           timeout;
-    VkSemaphore        semaphore;
-    VkFence            fence;
-    uint32_t           deviceMask;
-} VkAcquireNextImageInfoKHX;
-
-typedef struct VkDeviceGroupPresentInfoKHX {
-    VkStructureType                        sType;
-    const void*                            pNext;
-    uint32_t                               swapchainCount;
-    const uint32_t*                        pDeviceMasks;
-    VkDeviceGroupPresentModeFlagBitsKHX    mode;
-} VkDeviceGroupPresentInfoKHX;
-
-typedef struct VkDeviceGroupSwapchainCreateInfoKHX {
-    VkStructureType                     sType;
-    const void*                         pNext;
-    VkDeviceGroupPresentModeFlagsKHX    modes;
-} VkDeviceGroupSwapchainCreateInfoKHX;
-
-
-typedef void (VKAPI_PTR *PFN_vkGetDeviceGroupPeerMemoryFeaturesKHX)(VkDevice device, uint32_t heapIndex, uint32_t localDeviceIndex, uint32_t remoteDeviceIndex, VkPeerMemoryFeatureFlagsKHX* pPeerMemoryFeatures);
-typedef VkResult (VKAPI_PTR *PFN_vkBindBufferMemory2KHX)(VkDevice device, uint32_t bindInfoCount, const VkBindBufferMemoryInfoKHX* pBindInfos);
-typedef VkResult (VKAPI_PTR *PFN_vkBindImageMemory2KHX)(VkDevice device, uint32_t bindInfoCount, const VkBindImageMemoryInfoKHX* pBindInfos);
-typedef void (VKAPI_PTR *PFN_vkCmdSetDeviceMaskKHX)(VkCommandBuffer commandBuffer, uint32_t deviceMask);
-typedef VkResult (VKAPI_PTR *PFN_vkGetDeviceGroupPresentCapabilitiesKHX)(VkDevice device, VkDeviceGroupPresentCapabilitiesKHX* pDeviceGroupPresentCapabilities);
-typedef VkResult (VKAPI_PTR *PFN_vkGetDeviceGroupSurfacePresentModesKHX)(VkDevice device, VkSurfaceKHR surface, VkDeviceGroupPresentModeFlagsKHX* pModes);
-typedef VkResult (VKAPI_PTR *PFN_vkAcquireNextImage2KHX)(VkDevice device, const VkAcquireNextImageInfoKHX* pAcquireInfo, uint32_t* pImageIndex);
-typedef void (VKAPI_PTR *PFN_vkCmdDispatchBaseKHX)(VkCommandBuffer commandBuffer, uint32_t baseGroupX, uint32_t baseGroupY, uint32_t baseGroupZ, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ);
-typedef VkResult (VKAPI_PTR *PFN_vkGetPhysicalDevicePresentRectanglesKHX)(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, uint32_t* pRectCount, VkRect2D* pRects);
-
-#ifndef VK_NO_PROTOTYPES
-VKAPI_ATTR void VKAPI_CALL vkGetDeviceGroupPeerMemoryFeaturesKHX(
-    VkDevice                                    device,
-    uint32_t                                    heapIndex,
-    uint32_t                                    localDeviceIndex,
-    uint32_t                                    remoteDeviceIndex,
-    VkPeerMemoryFeatureFlagsKHX*                pPeerMemoryFeatures);
-
-VKAPI_ATTR VkResult VKAPI_CALL vkBindBufferMemory2KHX(
-    VkDevice                                    device,
-    uint32_t                                    bindInfoCount,
-    const VkBindBufferMemoryInfoKHX*            pBindInfos);
-
-VKAPI_ATTR VkResult VKAPI_CALL vkBindImageMemory2KHX(
-    VkDevice                                    device,
-    uint32_t                                    bindInfoCount,
-    const VkBindImageMemoryInfoKHX*             pBindInfos);
-
-VKAPI_ATTR void VKAPI_CALL vkCmdSetDeviceMaskKHX(
-    VkCommandBuffer                             commandBuffer,
-    uint32_t                                    deviceMask);
-
-VKAPI_ATTR VkResult VKAPI_CALL vkGetDeviceGroupPresentCapabilitiesKHX(
-    VkDevice                                    device,
-    VkDeviceGroupPresentCapabilitiesKHX*        pDeviceGroupPresentCapabilities);
-
-VKAPI_ATTR VkResult VKAPI_CALL vkGetDeviceGroupSurfacePresentModesKHX(
-    VkDevice                                    device,
-    VkSurfaceKHR                                surface,
-    VkDeviceGroupPresentModeFlagsKHX*           pModes);
-
-VKAPI_ATTR VkResult VKAPI_CALL vkAcquireNextImage2KHX(
-    VkDevice                                    device,
-    const VkAcquireNextImageInfoKHX*            pAcquireInfo,
-    uint32_t*                                   pImageIndex);
-
-VKAPI_ATTR void VKAPI_CALL vkCmdDispatchBaseKHX(
-    VkCommandBuffer                             commandBuffer,
-    uint32_t                                    baseGroupX,
-    uint32_t                                    baseGroupY,
-    uint32_t                                    baseGroupZ,
-    uint32_t                                    groupCountX,
-    uint32_t                                    groupCountY,
-    uint32_t                                    groupCountZ);
-
-VKAPI_ATTR VkResult VKAPI_CALL vkGetPhysicalDevicePresentRectanglesKHX(
-    VkPhysicalDevice                            physicalDevice,
-    VkSurfaceKHR                                surface,
-    uint32_t*                                   pRectCount,
-    VkRect2D*                                   pRects);
-#endif
-
 #define VK_EXT_validation_flags 1
 #define VK_EXT_VALIDATION_FLAGS_SPEC_VERSION 1
 #define VK_EXT_VALIDATION_FLAGS_EXTENSION_NAME "VK_EXT_validation_flags"
@@ -4630,34 +4404,41 @@ typedef struct VkValidationFlagsEXT {
 
 
 
-#define VK_KHX_device_group_creation 1
-#define VK_KHX_DEVICE_GROUP_CREATION_SPEC_VERSION 1
-#define VK_KHX_DEVICE_GROUP_CREATION_EXTENSION_NAME "VK_KHX_device_group_creation"
+#ifdef VK_USE_PLATFORM_VI_NN
+#define VK_NN_vi_surface 1
+#define VK_NN_VI_SURFACE_SPEC_VERSION     1
+#define VK_NN_VI_SURFACE_EXTENSION_NAME   "VK_NN_vi_surface"
 
-typedef struct VkPhysicalDeviceGroupPropertiesKHX {
-    VkStructureType     sType;
-    const void*         pNext;
-    uint32_t            physicalDeviceCount;
-    VkPhysicalDevice    physicalDevices[VK_MAX_DEVICE_GROUP_SIZE_KHX];
-    VkBool32            subsetAllocation;
-} VkPhysicalDeviceGroupPropertiesKHX;
+typedef VkFlags VkViSurfaceCreateFlagsNN;
 
-typedef struct VkDeviceGroupDeviceCreateInfoKHX {
-    VkStructureType            sType;
-    const void*                pNext;
-    uint32_t                   physicalDeviceCount;
-    const VkPhysicalDevice*    pPhysicalDevices;
-} VkDeviceGroupDeviceCreateInfoKHX;
+typedef struct VkViSurfaceCreateInfoNN {
+    VkStructureType             sType;
+    const void*                 pNext;
+    VkViSurfaceCreateFlagsNN    flags;
+    void*                       window;
+} VkViSurfaceCreateInfoNN;
 
 
-typedef VkResult (VKAPI_PTR *PFN_vkEnumeratePhysicalDeviceGroupsKHX)(VkInstance instance, uint32_t* pPhysicalDeviceGroupCount, VkPhysicalDeviceGroupPropertiesKHX* pPhysicalDeviceGroupProperties);
+typedef VkResult (VKAPI_PTR *PFN_vkCreateViSurfaceNN)(VkInstance instance, const VkViSurfaceCreateInfoNN* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSurfaceKHR* pSurface);
 
 #ifndef VK_NO_PROTOTYPES
-VKAPI_ATTR VkResult VKAPI_CALL vkEnumeratePhysicalDeviceGroupsKHX(
+VKAPI_ATTR VkResult VKAPI_CALL vkCreateViSurfaceNN(
     VkInstance                                  instance,
-    uint32_t*                                   pPhysicalDeviceGroupCount,
-    VkPhysicalDeviceGroupPropertiesKHX*         pPhysicalDeviceGroupProperties);
+    const VkViSurfaceCreateInfoNN*              pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkSurfaceKHR*                               pSurface);
 #endif
+#endif /* VK_USE_PLATFORM_VI_NN */
+
+#define VK_EXT_shader_subgroup_ballot 1
+#define VK_EXT_SHADER_SUBGROUP_BALLOT_SPEC_VERSION 1
+#define VK_EXT_SHADER_SUBGROUP_BALLOT_EXTENSION_NAME "VK_EXT_shader_subgroup_ballot"
+
+
+#define VK_EXT_shader_subgroup_vote 1
+#define VK_EXT_SHADER_SUBGROUP_VOTE_SPEC_VERSION 1
+#define VK_EXT_SHADER_SUBGROUP_VOTE_EXTENSION_NAME "VK_EXT_shader_subgroup_vote"
+
 
 #define VK_KHX_external_memory_capabilities 1
 #define VK_LUID_SIZE_KHX                  8
@@ -5027,29 +4808,6 @@ VKAPI_ATTR VkResult VKAPI_CALL vkGetSemaphoreFdKHX(
     VkSemaphore                                 semaphore,
     VkExternalSemaphoreHandleTypeFlagBitsKHX    handleType,
     int*                                        pFd);
-#endif
-
-#define VK_KHX_push_descriptor 1
-#define VK_KHX_PUSH_DESCRIPTOR_SPEC_VERSION 1
-#define VK_KHX_PUSH_DESCRIPTOR_EXTENSION_NAME "VK_KHX_push_descriptor"
-
-typedef struct VkPhysicalDevicePushDescriptorPropertiesKHX {
-    VkStructureType    sType;
-    void*              pNext;
-    uint32_t           maxPushDescriptors;
-} VkPhysicalDevicePushDescriptorPropertiesKHX;
-
-
-typedef void (VKAPI_PTR *PFN_vkCmdPushDescriptorSetKHX)(VkCommandBuffer commandBuffer, VkPipelineBindPoint pipelineBindPoint, VkPipelineLayout layout, uint32_t set, uint32_t descriptorWriteCount, const VkWriteDescriptorSet* pDescriptorWrites);
-
-#ifndef VK_NO_PROTOTYPES
-VKAPI_ATTR void VKAPI_CALL vkCmdPushDescriptorSetKHX(
-    VkCommandBuffer                             commandBuffer,
-    VkPipelineBindPoint                         pipelineBindPoint,
-    VkPipelineLayout                            layout,
-    uint32_t                                    set,
-    uint32_t                                    descriptorWriteCount,
-    const VkWriteDescriptorSet*                 pDescriptorWrites);
 #endif
 
 #define VK_NVX_device_generated_commands 1
@@ -5437,6 +5195,11 @@ VKAPI_ATTR VkResult VKAPI_CALL vkGetSwapchainCounterEXT(
     VkSurfaceCounterFlagBitsEXT                 counter,
     uint64_t*                                   pCounterValue);
 #endif
+
+#define VK_EXT_swapchain_colorspace 1
+#define VK_SWAPCHAIN_COLOR_SPACE_SPEC_VERSION 1
+#define VK_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME "VK_EXT_swapchain_colorspace"
+
 
 #ifdef __cplusplus
 }

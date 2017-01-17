@@ -81,10 +81,9 @@ struct instance_extension_enables {
     bool android_enabled;
     bool win32_enabled;
     bool display_enabled;
-    bool khr_get_phys_dev_properties2_enabled;
-    bool khx_device_group_creation_enabled;
     bool khx_external_memory_capabilities_enabled;
     bool khx_external_semaphore_capabilities_enabled;
+    bool khr_get_phys_dev_properties2_enabled;
     bool ext_acquire_xlib_display_enabled;
     bool ext_direct_mode_display_enabled;
     bool ext_display_surface_counter_enabled;

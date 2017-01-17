@@ -274,6 +274,10 @@ static inline void loader_init_device_extension_dispatch_table(
     table->CreateSharedSwapchainsKHR = (PFN_vkCreateSharedSwapchainsKHR)gpa(
         dev, "vkCreateSharedSwapchainsKHR");
 
+    // KHR_maintenance1
+    table->TrimCommandPoolKHR =
+        (PFN_vkTrimCommandPoolKHR)gpa(dev, "vkTrimCommandPoolKHR");
+
     // KHX_external_memory_fd
     table->GetMemoryFdKHX = (PFN_vkGetMemoryFdKHX)gpa(dev, "vkGetMemoryFdKHX");
     table->GetMemoryFdPropertiesKHX =
@@ -323,6 +327,16 @@ static inline void loader_init_device_extension_dispatch_table(
         (PFN_vkCmdDebugMarkerEndEXT)gpa(dev, "vkCmdDebugMarkerEndEXT");
     table->CmdDebugMarkerInsertEXT =
         (PFN_vkCmdDebugMarkerInsertEXT)gpa(dev, "vkCmdDebugMarkerInsertEXT");
+
+    // EXT_display_control
+    table->DisplayPowerControlEXT =
+        (PFN_vkDisplayPowerControlEXT)gpa(dev, "vkDisplayPowerControlEXT");
+    table->RegisterDeviceEventEXT =
+        (PFN_vkRegisterDeviceEventEXT)gpa(dev, "vkRegisterDeviceEventEXT");
+    table->RegisterDisplayEventEXT =
+        (PFN_vkRegisterDisplayEventEXT)gpa(dev, "vkRegisterDisplayEventEXT");
+    table->GetSwapchainCounterEXT =
+        (PFN_vkGetSwapchainCounterEXT)gpa(dev, "vkGetSwapchainCounterEXT");
 
     // AMD_draw_indirect_count
     table->CmdDrawIndirectCountAMD =
@@ -744,6 +758,29 @@ static inline void loader_init_instance_extension_dispatch_table(
         (PFN_vkCreateDisplayPlaneSurfaceKHR)gpa(
             inst, "vkCreateDisplayPlaneSurfaceKHR");
 
+    // KHR_get_physical_device_properties2
+    table->GetPhysicalDeviceFeatures2KHR =
+        (PFN_vkGetPhysicalDeviceFeatures2KHR)gpa(
+            inst, "vkGetPhysicalDeviceFeatures2KHR");
+    table->GetPhysicalDeviceProperties2KHR =
+        (PFN_vkGetPhysicalDeviceProperties2KHR)gpa(
+            inst, "vkGetPhysicalDeviceProperties2KHR");
+    table->GetPhysicalDeviceFormatProperties2KHR =
+        (PFN_vkGetPhysicalDeviceFormatProperties2KHR)gpa(
+            inst, "vkGetPhysicalDeviceFormatProperties2KHR");
+    table->GetPhysicalDeviceImageFormatProperties2KHR =
+        (PFN_vkGetPhysicalDeviceImageFormatProperties2KHR)gpa(
+            inst, "vkGetPhysicalDeviceImageFormatProperties2KHR");
+    table->GetPhysicalDeviceQueueFamilyProperties2KHR =
+        (PFN_vkGetPhysicalDeviceQueueFamilyProperties2KHR)gpa(
+            inst, "vkGetPhysicalDeviceQueueFamilyProperties2KHR");
+    table->GetPhysicalDeviceMemoryProperties2KHR =
+        (PFN_vkGetPhysicalDeviceMemoryProperties2KHR)gpa(
+            inst, "vkGetPhysicalDeviceMemoryProperties2KHR");
+    table->GetPhysicalDeviceSparseImageFormatProperties2KHR =
+        (PFN_vkGetPhysicalDeviceSparseImageFormatProperties2KHR)gpa(
+            inst, "vkGetPhysicalDeviceSparseImageFormatProperties2KHR");
+
     // KHX_external_memory_capabilities
     table->GetPhysicalDeviceExternalBufferPropertiesKHX =
         (PFN_vkGetPhysicalDeviceExternalBufferPropertiesKHX)gpa(
@@ -760,6 +797,14 @@ static inline void loader_init_instance_extension_dispatch_table(
         (PFN_vkGetPhysicalDeviceExternalSemaphorePropertiesKHX)gpa(
             inst, "vkGetPhysicalDeviceExternalSemaphorePropertiesKHX");
 
+#ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
+    // EXT_acquire_xlib_display
+    table->AcquireXlibDisplayEXT =
+        (PFN_vkAcquireXlibDisplayEXT)gpa(inst, "vkAcquireXlibDisplayEXT");
+    table->GetRandROutputDisplayEXT =
+        (PFN_vkGetRandROutputDisplayEXT)gpa(inst, "vkGetRandROutputDisplayEXT");
+#endif
+
     // EXT_debug_report
     table->CreateDebugReportCallbackEXT =
         (PFN_vkCreateDebugReportCallbackEXT)gpa(
@@ -769,6 +814,10 @@ static inline void loader_init_instance_extension_dispatch_table(
             inst, "vkDestroyDebugReportCallbackEXT");
     table->DebugReportMessageEXT =
         (PFN_vkDebugReportMessageEXT)gpa(inst, "vkDebugReportMessageEXT");
+
+    // EXT_direct_mode_display
+    table->ReleaseDisplayEXT =
+        (PFN_vkReleaseDisplayEXT)gpa(inst, "vkReleaseDisplayEXT");
 
     // EXT_display_surface_counter
     table->GetPhysicalDeviceSurfaceCapabilities2EXT =
@@ -792,6 +841,22 @@ static inline void *loader_lookup_instance_extension_dispatch_table(
 
     *found_name = true;
 
+    // KHR_get_physical_device_properties2
+    if (!strcmp(name, "GetPhysicalDeviceFeatures2KHR"))
+        return (void *)table->GetPhysicalDeviceFeatures2KHR;
+    if (!strcmp(name, "GetPhysicalDeviceProperties2KHR"))
+        return (void *)table->GetPhysicalDeviceProperties2KHR;
+    if (!strcmp(name, "GetPhysicalDeviceFormatProperties2KHR"))
+        return (void *)table->GetPhysicalDeviceFormatProperties2KHR;
+    if (!strcmp(name, "GetPhysicalDeviceImageFormatProperties2KHR"))
+        return (void *)table->GetPhysicalDeviceImageFormatProperties2KHR;
+    if (!strcmp(name, "GetPhysicalDeviceQueueFamilyProperties2KHR"))
+        return (void *)table->GetPhysicalDeviceQueueFamilyProperties2KHR;
+    if (!strcmp(name, "GetPhysicalDeviceMemoryProperties2KHR"))
+        return (void *)table->GetPhysicalDeviceMemoryProperties2KHR;
+    if (!strcmp(name, "GetPhysicalDeviceSparseImageFormatProperties2KHR"))
+        return (void *)table->GetPhysicalDeviceSparseImageFormatProperties2KHR;
+
     // KHX_external_memory_capabilities
     if (!strcmp(name, "GetPhysicalDeviceExternalBufferPropertiesKHX"))
         return (void *)table->GetPhysicalDeviceExternalBufferPropertiesKHX;
@@ -811,6 +876,10 @@ static inline void *loader_lookup_instance_extension_dispatch_table(
         return (void *)table->DestroyDebugReportCallbackEXT;
     if (!strcmp(name, "DebugReportMessageEXT"))
         return (void *)table->DebugReportMessageEXT;
+
+    // EXT_direct_mode_display
+    if (!strcmp(name, "ReleaseDisplayEXT"))
+        return (void *)table->ReleaseDisplayEXT;
 
     // EXT_display_surface_counter
     if (!strcmp(name, "GetPhysicalDeviceSurfaceCapabilities2EXT"))

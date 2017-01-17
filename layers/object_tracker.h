@@ -106,6 +106,7 @@ struct layer_data {
     bool khx_external_semaphore_win32_enabled;
 #endif // VK_USE_PLATFORM_WIN32_KHR
     bool khx_external_semaphore_fd_enabled;
+    bool ext_display_control_enabled;
     bool nvx_device_generated_commands_enabled;
 
     // The following are for keeping track of the temporary callbacks that can

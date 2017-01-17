@@ -3193,6 +3193,12 @@ static void CheckDeviceRegisterExtensions(const VkDeviceCreateInfo *pCreateInfo,
         if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_KHX_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME) == 0) {
             device_data->khx_external_semaphore_fd_enabled = true;
         }
+        if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_EXT_DISPLAY_CONTROL_EXTENSION_NAME) == 0) {
+            device_data->ext_display_control_enabled = true;
+        }
+        if (strcmp(pCreateInfo->ppEnabledExtensionNames[i], VK_NVX_DEVICE_GENERATED_COMMANDS_EXTENSION_NAME) == 0) {
+            device_data->nvx_device_generated_commands_enabled = true;
+        }
     }
 }
 
@@ -4007,6 +4013,109 @@ VKAPI_ATTR void VKAPI_CALL CmdDrawIndexedIndirectCountAMD(VkCommandBuffer comman
     }
 }
 
+// VK_KHR_get_physical_device_properties2 Extension
+VKAPI_ATTR void VKAPI_CALL GetPhysicalDeviceFeatures2KHR(VkPhysicalDevice physicalDevice, VkPhysicalDeviceFeatures2KHR *pFeatures) {
+    bool skip = false;
+    {
+        std::unique_lock<std::mutex> lock(global_lock);
+        skip |= ValidateObject(physicalDevice, physicalDevice, VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, false,
+                               VALIDATION_ERROR_UNDEFINED);
+    }
+    if (!skip) {
+        get_dispatch_table(ot_instance_table_map, physicalDevice)->GetPhysicalDeviceFeatures2KHR(physicalDevice, pFeatures);
+    }
+}
+
+VKAPI_ATTR void VKAPI_CALL GetPhysicalDeviceProperties2KHR(VkPhysicalDevice physicalDevice,
+                                                           VkPhysicalDeviceProperties2KHR *pProperties) {
+    bool skip = false;
+    {
+        std::unique_lock<std::mutex> lock(global_lock);
+        skip |= ValidateObject(physicalDevice, physicalDevice, VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, false,
+                               VALIDATION_ERROR_UNDEFINED);
+    }
+    if (!skip) {
+        get_dispatch_table(ot_instance_table_map, physicalDevice)->GetPhysicalDeviceProperties2KHR(physicalDevice, pProperties);
+    }
+}
+
+VKAPI_ATTR void VKAPI_CALL GetPhysicalDeviceFormatProperties2KHR(VkPhysicalDevice physicalDevice, VkFormat format,
+                                                                 VkFormatProperties2KHR *pFormatProperties) {
+    bool skip = false;
+    {
+        std::unique_lock<std::mutex> lock(global_lock);
+        skip |= ValidateObject(physicalDevice, physicalDevice, VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, false,
+                               VALIDATION_ERROR_UNDEFINED);
+    }
+    if (!skip) {
+        get_dispatch_table(ot_instance_table_map, physicalDevice)
+            ->GetPhysicalDeviceFormatProperties2KHR(physicalDevice, format, pFormatProperties);
+    }
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL GetPhysicalDeviceImageFormatProperties2KHR(
+    VkPhysicalDevice physicalDevice, const VkPhysicalDeviceImageFormatInfo2KHR *pImageFormatInfo,
+    VkImageFormatProperties2KHR *pImageFormatProperties) {
+    VkResult result = VK_ERROR_VALIDATION_FAILED_EXT;
+    bool skip = false;
+    {
+        std::unique_lock<std::mutex> lock(global_lock);
+        skip |= ValidateObject(physicalDevice, physicalDevice, VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, false,
+                               VALIDATION_ERROR_UNDEFINED);
+    }
+    if (skip) {
+        return VK_ERROR_VALIDATION_FAILED_EXT;
+    }
+    result = get_dispatch_table(ot_instance_table_map, physicalDevice)
+                 ->GetPhysicalDeviceImageFormatProperties2KHR(physicalDevice, pImageFormatInfo, pImageFormatProperties);
+
+    return result;
+}
+
+VKAPI_ATTR void VKAPI_CALL GetPhysicalDeviceQueueFamilyProperties2KHR(VkPhysicalDevice physicalDevice,
+                                                                      uint32_t *pQueueFamilyPropertyCount,
+                                                                      VkQueueFamilyProperties2KHR *pQueueFamilyProperties) {
+    bool skip = false;
+    {
+        std::unique_lock<std::mutex> lock(global_lock);
+        skip |= ValidateObject(physicalDevice, physicalDevice, VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, false,
+                               VALIDATION_ERROR_UNDEFINED);
+    }
+    if (!skip) {
+        get_dispatch_table(ot_instance_table_map, physicalDevice)
+            ->GetPhysicalDeviceQueueFamilyProperties2KHR(physicalDevice, pQueueFamilyPropertyCount, pQueueFamilyProperties);
+    }
+}
+
+VKAPI_ATTR void VKAPI_CALL GetPhysicalDeviceMemoryProperties2KHR(VkPhysicalDevice physicalDevice,
+                                                                 VkPhysicalDeviceMemoryProperties2KHR *pMemoryProperties) {
+    bool skip = false;
+    {
+        std::unique_lock<std::mutex> lock(global_lock);
+        skip |= ValidateObject(physicalDevice, physicalDevice, VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, false,
+                               VALIDATION_ERROR_UNDEFINED);
+    }
+    if (!skip) {
+        get_dispatch_table(ot_instance_table_map, physicalDevice)
+            ->GetPhysicalDeviceMemoryProperties2KHR(physicalDevice, pMemoryProperties);
+    }
+}
+
+VKAPI_ATTR void VKAPI_CALL GetPhysicalDeviceSparseImageFormatProperties2KHR(
+    VkPhysicalDevice physicalDevice, const VkPhysicalDeviceSparseImageFormatInfo2KHR *pFormatInfo, uint32_t *pPropertyCount,
+    VkSparseImageFormatProperties2KHR *pProperties) {
+    bool skip = false;
+    {
+        std::unique_lock<std::mutex> lock(global_lock);
+        skip |= ValidateObject(physicalDevice, physicalDevice, VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, false,
+                               VALIDATION_ERROR_UNDEFINED);
+    }
+    if (!skip) {
+        get_dispatch_table(ot_instance_table_map, physicalDevice)
+            ->GetPhysicalDeviceSparseImageFormatProperties2KHR(physicalDevice, pFormatInfo, pPropertyCount, pProperties);
+    }
+}
+
 // VK_KHX_external_memory_capabilities Extension
 VKAPI_ATTR void VKAPI_CALL GetPhysicalDeviceExternalBufferPropertiesKHX(
     VkPhysicalDevice physicalDevice, const VkPhysicalDeviceExternalBufferInfoKHX *pExternalBufferInfo,
@@ -4758,6 +4867,21 @@ static inline PFN_vkVoidFunction InterceptInstanceExtensionCommand(const char *n
 
     name += 2;
 
+    // VK_KHR_get_physical_device_properties2 Extension
+    if (!strcmp(name, "GetPhysicalDeviceFeatures2KHR"))
+        return (PFN_vkVoidFunction)GetPhysicalDeviceFeatures2KHR;
+    if (!strcmp(name, "GetPhysicalDeviceProperties2KHR"))
+        return (PFN_vkVoidFunction)GetPhysicalDeviceProperties2KHR;
+    if (!strcmp(name, "GetPhysicalDeviceFormatProperties2KHR"))
+        return (PFN_vkVoidFunction)GetPhysicalDeviceFormatProperties2KHR;
+    if (!strcmp(name, "GetPhysicalDeviceImageFormatProperties2KHR"))
+        return (PFN_vkVoidFunction)GetPhysicalDeviceImageFormatProperties2KHR;
+    if (!strcmp(name, "GetPhysicalDeviceQueueFamilyProperties2KHR"))
+        return (PFN_vkVoidFunction)GetPhysicalDeviceQueueFamilyProperties2KHR;
+    if (!strcmp(name, "GetPhysicalDeviceMemoryProperties2KHR"))
+        return (PFN_vkVoidFunction)GetPhysicalDeviceMemoryProperties2KHR;
+    if (!strcmp(name, "GetPhysicalDeviceSparseImageFormatProperties2KHR"))
+        return (PFN_vkVoidFunction)GetPhysicalDeviceSparseImageFormatProperties2KHR;
     // VK_KHX_external_memory_capabilities Extension
     if (!strcmp(name, "GetPhysicalDeviceExternalBufferPropertiesKHX"))
         return (PFN_vkVoidFunction)GetPhysicalDeviceExternalBufferPropertiesKHX;

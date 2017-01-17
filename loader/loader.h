@@ -260,6 +260,20 @@ struct loader_icd_term {
     PFN_vkDestroySurfaceKHR DestroySurfaceKHR;
     PFN_vkCreateSwapchainKHR CreateSwapchainKHR;
 
+    // KHR_get_physical_device_properties2
+    PFN_vkGetPhysicalDeviceFeatures2KHR GetPhysicalDeviceFeatures2KHR;
+    PFN_vkGetPhysicalDeviceProperties2KHR GetPhysicalDeviceProperties2KHR;
+    PFN_vkGetPhysicalDeviceFormatProperties2KHR
+        GetPhysicalDeviceFormatProperties2KHR;
+    PFN_vkGetPhysicalDeviceImageFormatProperties2KHR
+        GetPhysicalDeviceImageFormatProperties2KHR;
+    PFN_vkGetPhysicalDeviceQueueFamilyProperties2KHR
+        GetPhysicalDeviceQueueFamilyProperties2KHR;
+    PFN_vkGetPhysicalDeviceMemoryProperties2KHR
+        GetPhysicalDeviceMemoryProperties2KHR;
+    PFN_vkGetPhysicalDeviceSparseImageFormatProperties2KHR
+        GetPhysicalDeviceSparseImageFormatProperties2KHR;
+
     // KHX_external_memory_capabilities
     PFN_vkGetPhysicalDeviceExternalBufferPropertiesKHX
         GetPhysicalDeviceExternalBufferPropertiesKHX;
@@ -271,6 +285,12 @@ struct loader_icd_term {
     PFN_vkGetPhysicalDeviceExternalSemaphorePropertiesKHX
         GetPhysicalDeviceExternalSemaphorePropertiesKHX;
 
+#ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
+    // EXT_acquire_xlib_display
+    PFN_vkAcquireXlibDisplayEXT AcquireXlibDisplayEXT;
+    PFN_vkGetRandROutputDisplayEXT GetRandROutputDisplayEXT;
+#endif
+
     // EXT_debug_report
     PFN_vkCreateDebugReportCallbackEXT CreateDebugReportCallbackEXT;
     PFN_vkDestroyDebugReportCallbackEXT DestroyDebugReportCallbackEXT;
@@ -279,6 +299,9 @@ struct loader_icd_term {
     // EXT_debug_marker (items needing a trampoline/terminator)
     PFN_vkDebugMarkerSetObjectTagEXT DebugMarkerSetObjectTagEXT;
     PFN_vkDebugMarkerSetObjectNameEXT DebugMarkerSetObjectNameEXT;
+
+    // EXT_direct_mode_display
+    PFN_vkReleaseDisplayEXT ReleaseDisplayEXT;
 
     // EXT_display_surface_counter
     PFN_vkGetPhysicalDeviceSurfaceCapabilities2EXT
@@ -306,9 +329,12 @@ struct loader_icd_tramp_list {
 
 union loader_instance_extension_enables {
     struct {
+        uint8_t khr_get_physical_device_properties2 : 1;
         uint8_t khx_external_memory_capabilities : 1;
         uint8_t khx_external_semaphore_capabilities : 1;
+        uint8_t ext_acquire_xlib_display : 1;
         uint8_t ext_debug_report : 1;
+        uint8_t ext_direct_mode_display : 1;
         uint8_t ext_display_surface_counter : 1;
         uint8_t nv_external_memory_capabilities : 1;
     };
