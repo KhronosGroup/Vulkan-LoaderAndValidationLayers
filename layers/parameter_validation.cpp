@@ -5676,6 +5676,25 @@ VKAPI_ATTR VkResult VKAPI_CALL AcquireXlibDisplayEXT(VkPhysicalDevice physicalDe
     return result;
 }
 
+VKAPI_ATTR VkResult VKAPI_CALL GetRandROutputDisplayEXT(VkPhysicalDevice physicalDevice, Display *dpy, RROutput rrOutput,
+    VkDisplayKHR *pDisplay) {
+
+    VkResult result = VK_ERROR_VALIDATION_FAILED_EXT;
+    auto my_data = get_my_data_ptr(get_dispatch_key(physicalDevice), instance_layer_data_map);
+    assert(my_data != NULL);
+    bool skip = false;
+    skip |= require_instance_extension(physicalDevice, &instance_extension_enables::ext_acquire_xlib_display_enabled,
+        "vkGetRandROutputDisplayEXT", VK_EXT_ACQUIRE_XLIB_DISPLAY_EXTENSION_NAME);
+    skip |= parameter_validation_vkGetRandROutputDisplayEXT(my_data->report_data, dpy, rrOutput, pDisplay);
+    if (!skip) {
+        result = my_data->dispatch_table.GetRandROutputDisplayEXT(physicalDevice, dpy, rrOutput, pDisplay);
+        validate_result(my_data->report_data, "vkGetRandROutputDisplayEXT", result);
+    }
+    return result;
+}
+#endif // VK_USE_PLATFORM_XLIB_XRANDR_EXT
+
+
 // Definitions for the VK_KHX_external_memory_capabilities extension
 
 VKAPI_ATTR void VKAPI_CALL GetPhysicalDeviceExternalBufferPropertiesKHX(
@@ -5785,9 +5804,9 @@ VKAPI_ATTR VkResult VKAPI_CALL GetMemoryWin32HandleKHX(VkDevice device, VkDevice
     assert(my_data != NULL);
     skip_call |= require_device_extension(my_data, my_data->enables.khx_external_memory_win32, "vkGetMemoryWin32HandleKHX",
                                           VK_KHX_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME);
-
+#if 0 // Disable for now since no automatic param generation
     skip_call |= parameter_validation_vkGetMemoryWin32HandleKHX(my_data->report_data, memory, handleType, pHandle);
-
+#endif
     if (!skip_call) {
         result = my_data->dispatch_table.GetMemoryWin32HandleKHX(device, memory, handleType, pHandle);
         validate_result(my_data->report_data, "vkGetMemoryWin32HandleKHX", result);
@@ -5804,10 +5823,10 @@ VKAPI_ATTR VkResult VKAPI_CALL GetMemoryWin32HandlePropertiesKHX(VkDevice device
     assert(my_data != NULL);
     skip_call |= require_device_extension(my_data, my_data->enables.khx_external_memory_win32,
                                           "vkGetMemoryWin32HandlePropertiesKHX", VK_KHX_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME);
-
+#if 0 // Disable for now since no automatic param generation
     skip_call |= parameter_validation_vkGetMemoryWin32HandlePropertiesKHX(my_data->report_data, handleType, handle,
                                                                           pMemoryWin32HandleProperties);
-
+#endif
     if (!skip_call) {
         result =
             my_data->dispatch_table.GetMemoryWin32HandlePropertiesKHX(device, handleType, handle, pMemoryWin32HandleProperties);
@@ -5886,8 +5905,9 @@ ImportSemaphoreWin32HandleKHX(VkDevice device, const VkImportSemaphoreWin32Handl
     assert(my_data != NULL);
     skip_call |= require_device_extension(my_data, my_data->enables.khx_external_semaphore_win32, "vkImportSemaphoreWin32HandleKHX",
                                           VK_KHX_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME);
-
+#if 0 // Disable for now since no automatic param generation
     skip_call |= parameter_validation_vkImportSemaphoreWin32HandleKHX(my_data->report_data, pImportSemaphoreWin32HandleInfo);
+#endif
     if (!skip_call) {
         result = my_data->dispatch_table.ImportSemaphoreWin32HandleKHX(device, pImportSemaphoreWin32HandleInfo);
         validate_result(my_data->report_data, "vkImportSemaphoreWin32HandleKHX", result);
@@ -5903,7 +5923,9 @@ VKAPI_ATTR VkResult VKAPI_CALL GetSemaphoreWin32HandleKHX(VkDevice device, VkSem
     assert(my_data != NULL);
     skip_call |= require_device_extension(my_data, my_data->enables.khx_external_semaphore_win32, "vkGetSemaphoreWin32HandleKHX",
                                           VK_KHX_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME);
+#if 0 // Disable for now since no automatic param generation
     skip_call |= parameter_validation_vkGetSemaphoreWin32HandleKHX(my_data->report_data, semaphore, handleType, pHandle);
+#endif
     if (!skip_call) {
         result = my_data->dispatch_table.GetSemaphoreWin32HandleKHX(device, semaphore, handleType, pHandle);
         validate_result(my_data->report_data, "vkGetSemaphoreWin32HandleKHX", result);
@@ -5911,24 +5933,6 @@ VKAPI_ATTR VkResult VKAPI_CALL GetSemaphoreWin32HandleKHX(VkDevice device, VkSem
     return result;
 }
 #endif // VK_USE_PLATFORM_WIN32_KHX
-
-VKAPI_ATTR VkResult VKAPI_CALL GetRandROutputDisplayEXT(VkPhysicalDevice physicalDevice, Display *dpy, RROutput rrOutput,
-                                                        VkDisplayKHR *pDisplay) {
-
-    VkResult result = VK_ERROR_VALIDATION_FAILED_EXT;
-    auto my_data = get_my_data_ptr(get_dispatch_key(physicalDevice), instance_layer_data_map);
-    assert(my_data != NULL);
-    bool skip = false;
-    skip |= require_instance_extension(physicalDevice, &instance_extension_enables::ext_acquire_xlib_display_enabled,
-                                       "vkGetRandROutputDisplayEXT", VK_EXT_ACQUIRE_XLIB_DISPLAY_EXTENSION_NAME);
-    skip |= parameter_validation_vkGetRandROutputDisplayEXT(my_data->report_data, dpy, rrOutput, pDisplay);
-    if (!skip) {
-        result = my_data->dispatch_table.GetRandROutputDisplayEXT(physicalDevice, dpy, rrOutput, pDisplay);
-        validate_result(my_data->report_data, "vkGetRandROutputDisplayEXT", result);
-    }
-    return result;
-}
-#endif // VK_USE_PLATFORM_XLIB_XRANDR_EXT
 
 // Definitions for the VK_EXT_debug_marker Extension
 
