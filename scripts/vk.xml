@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <registry>
     <comment>
-Copyright (c) 2015-2017 The Khronos Group Inc.
+Copyright (c) 2015-2017 The Khronos Group Inc. 
 
 Permission is hereby granted, free of charge, to any person obtaining a
 copy of this software and/or associated documentation files (the
@@ -204,7 +204,6 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
         <type requires="VkIndirectCommandsLayoutUsageFlagBitsNVX"  category="bitmask">typedef <type>VkFlags</type> <name>VkIndirectCommandsLayoutUsageFlagsNVX</name>;</type>  <!-- Device generated commands usage flags -->
         <type requires="VkObjectEntryUsageFlagBitsNVX"             category="bitmask">typedef <type>VkFlags</type> <name>VkObjectEntryUsageFlagsNVX</name>;</type>             <!-- Object usage flags -->
 
-        <type                                             category="bitmask">typedef <type>VkFlags</type> <name>VkDescriptorUpdateTemplateCreateFlagsKHR</name>;</type> <!-- Descriptor update template creation flags -->
             <!-- WSI extensions -->
         <type requires="VkCompositeAlphaFlagBitsKHR"      category="bitmask">typedef <type>VkFlags</type> <name>VkCompositeAlphaFlagsKHR</name>;</type>
         <type requires="VkDisplayPlaneAlphaFlagBitsKHR"   category="bitmask">typedef <type>VkFlags</type> <name>VkDisplayPlaneAlphaFlagsKHR</name>;</type>
@@ -219,13 +218,11 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
         <type                                             category="bitmask">typedef <type>VkFlags</type> <name>VkWin32SurfaceCreateFlagsKHR</name>;</type>       <!-- creation flags -->
         <type                                             category="bitmask">typedef <type>VkFlags</type> <name>VkXlibSurfaceCreateFlagsKHR</name>;</type>        <!-- creation flags -->
         <type                                             category="bitmask">typedef <type>VkFlags</type> <name>VkXcbSurfaceCreateFlagsKHR</name>;</type>         <!-- creation flags -->
-        <type requires="VkPeerMemoryFeatureFlagBitsKHX"   category="bitmask">typedef <type>VkFlags</type> <name>VkPeerMemoryFeatureFlagsKHX</name>;</type>        <!-- Peer memory feature flags -->
-        <type requires="VkMemoryAllocateFlagBitsKHX"      category="bitmask">typedef <type>VkFlags</type> <name>VkMemoryAllocateFlagsKHX</name>;</type>           <!-- Memory allocation flags -->
 
         <type requires="VkDebugReportFlagBitsEXT"      category="bitmask">typedef <type>VkFlags</type> <name>VkDebugReportFlagsEXT</name>;</type>
-        <type                                             category="bitmask">typedef <type>VkFlags</type> <name>VkCommandPoolTrimFlagsKHR</name>;</type>
         <type requires="VkExternalMemoryHandleTypeFlagBitsNV" category="bitmask">typedef <type>VkFlags</type> <name>VkExternalMemoryHandleTypeFlagsNV</name>;</type>
         <type requires="VkExternalMemoryFeatureFlagBitsNV" category="bitmask">typedef <type>VkFlags</type> <name>VkExternalMemoryFeatureFlagsNV</name>;</type>
+        <type                                             category="bitmask">typedef <type>VkFlags</type> <name>VkCommandPoolTrimFlagsKHR</name>;</type>
         <type requires="VkExternalMemoryHandleTypeFlagBitsKHX" category="bitmask">typedef <type>VkFlags</type> <name>VkExternalMemoryHandleTypeFlagsKHX</name>;</type>
         <type requires="VkExternalMemoryFeatureFlagBitsKHX" category="bitmask">typedef <type>VkFlags</type> <name>VkExternalMemoryFeatureFlagsKHX</name>;</type>
         <type requires="VkExternalSemaphoreHandleTypeFlagBitsKHX" category="bitmask">typedef <type>VkFlags</type> <name>VkExternalSemaphoreHandleTypeFlagsKHX</name>;</type>
@@ -380,8 +377,6 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
         <type name="VkDisplayPowerStateEXT" category="enum"/>
         <type name="VkDeviceEventTypeEXT" category="enum"/>
         <type name="VkDisplayEventTypeEXT" category="enum"/>
-        <type name="VkPeerMemoryFeatureFlagBitsKHX" category="enum"/>
-        <type name="VkMemoryAllocateFlagBitsKHX" category="enum"/>
         <type name="VkSwapchainCreateFlagBitsKHR" category="enum"/>
 
         <!-- The PFN_vk*Function types are used by VkAllocationCallbacks below -->
@@ -552,7 +547,7 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
         </type>
         <type category="struct" name="VkMemoryAllocateInfo">
             <member values="VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO"><type>VkStructureType</type> <name>sType</name></member>
-            <member validextensionstructs="VkDedicatedAllocationMemoryAllocateInfoNV,VkMemoryAllocateFlagsInfoKHX">const <type>void</type>*            <name>pNext</name></member>                          <!-- Pointer to next structure -->
+            <member validextensionstructs="VkDedicatedAllocationMemoryAllocateInfoNV">const <type>void</type>*            <name>pNext</name></member>                          <!-- Pointer to next structure -->
             <member><type>VkDeviceSize</type>           <name>allocationSize</name></member>                 <!-- Size of memory allocation -->
             <member><type>uint32_t</type>               <name>memoryTypeIndex</name></member>                <!-- Index of the of the memory type to allocate from -->
         </type>
@@ -2891,15 +2886,6 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
     </enums>
     <enums name="VkDisplayEventTypeEXT" type="enum">
         <enum value="0" name="VK_DISPLAY_EVENT_TYPE_FIRST_PIXEL_OUT_EXT"/>
-    </enums>
-    <enums name="VkPeerMemoryFeatureFlagBitsKHX" type="bitmask">
-        <enum bitpos="0"    name="VK_PEER_MEMORY_FEATURE_COPY_SRC_BIT_KHX"           comment="Can read with vkCmdCopy commands"/>
-        <enum bitpos="1"    name="VK_PEER_MEMORY_FEATURE_COPY_DST_BIT_KHX"           comment="Can write with vkCmdCopy commands"/>
-        <enum bitpos="2"    name="VK_PEER_MEMORY_FEATURE_GENERIC_SRC_BIT_KHX"        comment="Can read with any access type/command"/>
-        <enum bitpos="3"    name="VK_PEER_MEMORY_FEATURE_GENERIC_DST_BIT_KHX"        comment="Can write with and access type/command"/>
-    </enums>
-    <enums name="VkMemoryAllocateFlagBitsKHX" type="bitmask">
-        <enum bitpos="0"    name="VK_MEMORY_ALLOCATE_DEVICE_MASK_BIT_KHX"            comment="Force allocation on specific devices"/>
     </enums>
     <enums name="VkSwapchainCreateFlagBitsKHR" type="bitmask">
     </enums>
