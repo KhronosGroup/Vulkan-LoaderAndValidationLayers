@@ -5706,10 +5706,8 @@ VKAPI_ATTR void VKAPI_CALL GetPhysicalDeviceExternalBufferPropertiesKHX(
     skip |= require_instance_extension(physicalDevice, &instance_extension_enables::khx_external_memory_capabilities_enabled,
                                        "vkGetPhysicalDeviceExternalBufferPropertiesKHX",
                                        VK_KHX_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME);
-#if 0 // Disable for now since no automatic param generation
     skip |= parameter_validation_vkGetPhysicalDeviceExternalBufferPropertiesKHX(my_data->report_data, pExternalBufferInfo,
                                                                                 pExternalBufferProperties);
-#endif
     if (!skip) {
         my_data->dispatch_table.GetPhysicalDeviceExternalBufferPropertiesKHX(physicalDevice, pExternalBufferInfo,
                                                                              pExternalBufferProperties);
@@ -5723,9 +5721,7 @@ VKAPI_ATTR void VKAPI_CALL GetPhysicalDeviceProperties2KHX(VkPhysicalDevice phys
     bool skip = false;
     skip |= require_instance_extension(physicalDevice, &instance_extension_enables::khx_external_memory_capabilities_enabled,
                                        "vkGetPhysicalDeviceProperties2KHX", VK_KHX_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME);
-#if 0 // Disable for now since no automatic param generation
     skip |= parameter_validation_vkGetPhysicalDeviceProperties2KHX(my_data->report_data, pProperties);
-#endif
     if (!skip) {
         my_data->dispatch_table.GetPhysicalDeviceProperties2KHX(physicalDevice, pProperties);
     }
@@ -5741,10 +5737,8 @@ VKAPI_ATTR VkResult VKAPI_CALL GetPhysicalDeviceImageFormatProperties2KHX(
     skip |= require_instance_extension(physicalDevice, &instance_extension_enables::khx_external_memory_capabilities_enabled,
                                        "vkGetPhysicalDeviceImageFormatProperties2KHX",
                                        VK_KHX_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME);
-#if 0 // Disable for now since no automatic param generation
     skip |= parameter_validation_vkGetPhysicalDeviceImageFormatProperties2KHX(my_data->report_data, pImageFormatInfo,
                                                                               pImageFormatProperties);
-#endif
     if (!skip) {
         result = my_data->dispatch_table.GetPhysicalDeviceImageFormatProperties2KHX(physicalDevice, pImageFormatInfo,
                                                                                     pImageFormatProperties);
@@ -5763,9 +5757,7 @@ VKAPI_ATTR VkResult VKAPI_CALL GetMemoryFdKHX(VkDevice device, VkDeviceMemory me
     assert(my_data != NULL);
     skip_call |= require_device_extension(my_data, my_data->enables.khx_external_memory_fd, "vkGetMemoryFdKHX",
                                           VK_KHX_EXTERNAL_MEMORY_FD_EXTENSION_NAME);
-#if 0 // Disable for now since no automatic param generation
     skip_call |= parameter_validation_vkGetMemoryFdKHX(my_data->report_data, memory, handleType, pFd);
-#endif
     if (!skip_call) {
         result = my_data->dispatch_table.GetMemoryFdKHX(device, memory, handleType, pFd);
         validate_result(my_data->report_data, "vkGetMemoryFdKHX", result);
@@ -5782,9 +5774,7 @@ VKAPI_ATTR VkResult VKAPI_CALL GetMemoryFdPropertiesKHX(VkDevice device, VkExter
     assert(my_data != NULL);
     skip_call |= require_device_extension(my_data, my_data->enables.khx_external_memory_fd, "vkGetMemoryFdPropertiesKHX",
                                           VK_KHX_EXTERNAL_MEMORY_FD_EXTENSION_NAME);
-#if 0 // Disable for now since no automatic param generation
     skip_call |= parameter_validation_vkGetMemoryFdPropertiesKHX(my_data->report_data, handleType, fd, pMemoryFdProperties);
-#endif
     if (!skip_call) {
         result = my_data->dispatch_table.GetMemoryFdPropertiesKHX(device, handleType, fd, pMemoryFdProperties);
         validate_result(my_data->report_data, "vkGetMemoryFdPropertiesKHX", result);
@@ -5804,9 +5794,7 @@ VKAPI_ATTR VkResult VKAPI_CALL GetMemoryWin32HandleKHX(VkDevice device, VkDevice
     assert(my_data != NULL);
     skip_call |= require_device_extension(my_data, my_data->enables.khx_external_memory_win32, "vkGetMemoryWin32HandleKHX",
                                           VK_KHX_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME);
-#if 0 // Disable for now since no automatic param generation
     skip_call |= parameter_validation_vkGetMemoryWin32HandleKHX(my_data->report_data, memory, handleType, pHandle);
-#endif
     if (!skip_call) {
         result = my_data->dispatch_table.GetMemoryWin32HandleKHX(device, memory, handleType, pHandle);
         validate_result(my_data->report_data, "vkGetMemoryWin32HandleKHX", result);
@@ -5823,10 +5811,8 @@ VKAPI_ATTR VkResult VKAPI_CALL GetMemoryWin32HandlePropertiesKHX(VkDevice device
     assert(my_data != NULL);
     skip_call |= require_device_extension(my_data, my_data->enables.khx_external_memory_win32,
                                           "vkGetMemoryWin32HandlePropertiesKHX", VK_KHX_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME);
-#if 0 // Disable for now since no automatic param generation
     skip_call |= parameter_validation_vkGetMemoryWin32HandlePropertiesKHX(my_data->report_data, handleType, handle,
                                                                           pMemoryWin32HandleProperties);
-#endif
     if (!skip_call) {
         result =
             my_data->dispatch_table.GetMemoryWin32HandlePropertiesKHX(device, handleType, handle, pMemoryWin32HandleProperties);
@@ -5847,10 +5833,8 @@ VKAPI_ATTR void VKAPI_CALL GetPhysicalDeviceExternalSemaphorePropertiesKHX(
     skip |= require_instance_extension(physicalDevice, &instance_extension_enables::khx_external_memory_capabilities_enabled,
                                        "vkGetPhysicalDeviceExternalSemaphorePropertiesKHX",
                                        VK_KHX_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME);
-#if 0 // Disable for now since no automatic param generation
     skip |= parameter_validation_vkGetPhysicalDeviceExternalSemaphorePropertiesKHX(my_data->report_data, pExternalSemaphoreInfo,
                                                                                    pExternalSemaphoreProperties);
-#endif
     if (!skip) {
         my_data->dispatch_table.GetPhysicalDeviceExternalSemaphorePropertiesKHX(physicalDevice, pExternalSemaphoreInfo,
                                                                                 pExternalSemaphoreProperties);
@@ -5866,9 +5850,7 @@ VKAPI_ATTR VkResult VKAPI_CALL ImportSemaphoreFdKHX(VkDevice device, const VkImp
     assert(my_data != NULL);
     skip_call |= require_device_extension(my_data, my_data->enables.khx_external_semaphore_fd, "vkImportSemaphoreFdKHX",
                                           VK_KHX_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME);
-#if 0 // Disable for now since no automatic param generation
     skip_call |= parameter_validation_vkImportSemaphoreFdKHX(my_data->report_data, pImportSemaphoreFdInfo);
-#endif
     if (!skip_call) {
         result = my_data->dispatch_table.ImportSemaphoreFdKHX(device, pImportSemaphoreFdInfo);
         validate_result(my_data->report_data, "vkImportSemaphoreFdKHX", result);
@@ -5884,9 +5866,7 @@ VKAPI_ATTR VkResult VKAPI_CALL GetSemaphoreFdKHX(VkDevice device, VkSemaphore se
     assert(my_data != NULL);
     skip_call |= require_device_extension(my_data, my_data->enables.khx_external_semaphore_fd, "vkGetSemaphoreFdKHX",
                                           VK_KHX_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME);
-#if 0 // Disable for now since no automatic param generation
     skip_call |= parameter_validation_vkGetSemaphoreFdKHX(my_data->report_data, semaphore, handleType, pFd);
-#endif
     if (!skip_call) {
         result = my_data->dispatch_table.GetSemaphoreFdKHX(device, semaphore, handleType, pFd);
         validate_result(my_data->report_data, "vkGetSemaphoreFdKHX", result);
@@ -5905,9 +5885,7 @@ ImportSemaphoreWin32HandleKHX(VkDevice device, const VkImportSemaphoreWin32Handl
     assert(my_data != NULL);
     skip_call |= require_device_extension(my_data, my_data->enables.khx_external_semaphore_win32, "vkImportSemaphoreWin32HandleKHX",
                                           VK_KHX_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME);
-#if 0 // Disable for now since no automatic param generation
     skip_call |= parameter_validation_vkImportSemaphoreWin32HandleKHX(my_data->report_data, pImportSemaphoreWin32HandleInfo);
-#endif
     if (!skip_call) {
         result = my_data->dispatch_table.ImportSemaphoreWin32HandleKHX(device, pImportSemaphoreWin32HandleInfo);
         validate_result(my_data->report_data, "vkImportSemaphoreWin32HandleKHX", result);
@@ -5923,9 +5901,7 @@ VKAPI_ATTR VkResult VKAPI_CALL GetSemaphoreWin32HandleKHX(VkDevice device, VkSem
     assert(my_data != NULL);
     skip_call |= require_device_extension(my_data, my_data->enables.khx_external_semaphore_win32, "vkGetSemaphoreWin32HandleKHX",
                                           VK_KHX_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME);
-#if 0 // Disable for now since no automatic param generation
     skip_call |= parameter_validation_vkGetSemaphoreWin32HandleKHX(my_data->report_data, semaphore, handleType, pHandle);
-#endif
     if (!skip_call) {
         result = my_data->dispatch_table.GetSemaphoreWin32HandleKHX(device, semaphore, handleType, pHandle);
         validate_result(my_data->report_data, "vkGetSemaphoreWin32HandleKHX", result);
@@ -6139,9 +6115,7 @@ VKAPI_ATTR void VKAPI_CALL DestroyIndirectCommandsLayoutNVX(VkDevice device, VkI
     assert(my_data != NULL);
     skip |= require_device_extension(my_data, my_data->enables.nvx_device_generated_commands, "vkDestroyIndirectCommandsLayoutNVX",
                                      VK_NVX_DEVICE_GENERATED_COMMANDS_EXTENSION_NAME);
-#if 0 // Validation not automatically generated
     skip |= parameter_validation_vkDestroyIndirectCommandsLayoutNVX(my_data->report_data, indirectCommandsLayout, pAllocator);
-#endif
     if (!skip) {
         my_data->dispatch_table.DestroyIndirectCommandsLayoutNVX(device, indirectCommandsLayout, pAllocator);
     }
@@ -6170,9 +6144,7 @@ VKAPI_ATTR void VKAPI_CALL DestroyObjectTableNVX(VkDevice device, VkObjectTableN
     assert(my_data != NULL);
     skip |= require_device_extension(my_data, my_data->enables.nvx_device_generated_commands, "vkDestroyObjectTableNVX",
                                      VK_NVX_DEVICE_GENERATED_COMMANDS_EXTENSION_NAME);
-#if 0 // Validation not automatically generated
     skip |= parameter_validation_vkDestroyObjectTableNVX(my_data->report_data, objectTable, pAllocator);
-#endif
     if (!skip) {
         my_data->dispatch_table.DestroyObjectTableNVX(device, objectTable, pAllocator);
     }
