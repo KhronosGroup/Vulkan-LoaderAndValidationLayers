@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <registry>
     <comment>
-Copyright (c) 2015-2017 The Khronos Group Inc. 
+Copyright (c) 2015-2017 The Khronos Group Inc.
 
 Permission is hereby granted, free of charge, to any person obtaining a
 copy of this software and/or associated documentation files (the
@@ -108,7 +108,7 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
         <type category="define">// Vulkan 1.0 version number
 #define <name>VK_API_VERSION_1_0</name> <type>VK_MAKE_VERSION</type>(1, 0, 0)</type>    <!-- The patch version here should never be set to anything other than 0 -->
         <type category="define">// Version of this file
-#define <name>VK_HEADER_VERSION</name> 38</type>
+#define <name>VK_HEADER_VERSION</name> 39</type>
 
         <type category="define">
 #define <name>VK_DEFINE_HANDLE</name>(object) typedef struct object##_T* object;</type>
@@ -1544,10 +1544,10 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
         </type>
         <type category="struct" name="VkPresentInfoKHR">
             <member values="VK_STRUCTURE_TYPE_PRESENT_INFO_KHR"><type>VkStructureType</type> <name>sType</name></member>
-            <member validextensionstructs="VkPresentRegionsKHR">const <type>void</type>* <name>pNext</name></member>                    <!-- Pointer to next structure -->
+            <member validextensionstructs="VkDisplayPresentInfoKHR,VkPresentRegionsKHR">const <type>void</type>* <name>pNext</name></member>                    <!-- Pointer to next structure -->
             <member optional="true"><type>uint32_t</type>         <name>waitSemaphoreCount</name></member>       <!-- Number of semaphores to wait for before presenting -->
             <member optional="true" len="waitSemaphoreCount">const <type>VkSemaphore</type>* <name>pWaitSemaphores</name></member> <!-- Semaphores to wait for before presenting -->
-            <member><type>uint32_t</type>                         <name>swapchainCount</name></member>           <!-- Number of swapchains to present in this call -->
+            <member><type>uint32_t</type>                         <name>swapchainCount</name></member>           <!-- Number of swap chains to present in this call -->
             <member len="swapchainCount">const <type>VkSwapchainKHR</type>* <name>pSwapchains</name></member>    <!-- Swapchains to present an image from -->
             <member len="swapchainCount">const <type>uint32_t</type>* <name>pImageIndices</name></member>        <!-- Indices of which swapchain images to present -->
             <member optional="true" len="swapchainCount"><type>VkResult</type>* <name>pResults</name></member>   <!-- Optional (i.e. if non-NULL) VkResult for each swapchain -->
@@ -1739,6 +1739,7 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
             <member><type>VkObjectEntryTypeNVX</type>         <name>type</name></member>
             <member><type>VkObjectEntryUsageFlagsNVX</type>   <name>flags</name></member>
             <member><type>VkBuffer</type>                     <name>buffer</name></member>
+            <member><type>VkIndexType</type>                  <name>indexType</name></member>
         </type>
         <type category="struct" name="VkObjectTablePushConstantEntryNVX">
             <member><type>VkObjectEntryTypeNVX</type>         <name>type</name></member>

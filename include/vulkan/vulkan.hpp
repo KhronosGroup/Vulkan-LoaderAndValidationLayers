@@ -41,7 +41,7 @@
 # include <vector>
 #endif /*VULKAN_HPP_DISABLE_ENHANCED_MODE*/
 
-static_assert( VK_HEADER_VERSION ==  38 , "Wrong VK_HEADER_VERSION!" );
+static_assert( VK_HEADER_VERSION ==  39 , "Wrong VK_HEADER_VERSION!" );
 
 // 32-bit vulkan is not typesafe for handles, so don't allow copy constructors on this platform by default.
 // To enable this feature on 32-bit platforms please define VULKAN_HPP_TYPESAFE_CONVERSION
@@ -17476,10 +17476,11 @@ namespace vk
 
   struct ObjectTableIndexBufferEntryNVX
   {
-    ObjectTableIndexBufferEntryNVX( ObjectEntryTypeNVX type_ = ObjectEntryTypeNVX::eVkObjectEntryDescriptorSet, ObjectEntryUsageFlagsNVX flags_ = ObjectEntryUsageFlagsNVX(), Buffer buffer_ = Buffer() )
+    ObjectTableIndexBufferEntryNVX( ObjectEntryTypeNVX type_ = ObjectEntryTypeNVX::eVkObjectEntryDescriptorSet, ObjectEntryUsageFlagsNVX flags_ = ObjectEntryUsageFlagsNVX(), Buffer buffer_ = Buffer(), IndexType indexType_ = IndexType::eUint16 )
       : type( type_ )
       , flags( flags_ )
       , buffer( buffer_ )
+      , indexType( indexType_ )
     {
     }
 
@@ -17512,6 +17513,12 @@ namespace vk
       return *this;
     }
 
+    ObjectTableIndexBufferEntryNVX& setIndexType( IndexType indexType_ )
+    {
+      indexType = indexType_;
+      return *this;
+    }
+
     operator const VkObjectTableIndexBufferEntryNVX&() const
     {
       return *reinterpret_cast<const VkObjectTableIndexBufferEntryNVX*>(this);
@@ -17521,7 +17528,8 @@ namespace vk
     {
       return ( type == rhs.type )
           && ( flags == rhs.flags )
-          && ( buffer == rhs.buffer );
+          && ( buffer == rhs.buffer )
+          && ( indexType == rhs.indexType );
     }
 
     bool operator!=( ObjectTableIndexBufferEntryNVX const& rhs ) const
@@ -17532,6 +17540,7 @@ namespace vk
     ObjectEntryTypeNVX type;
     ObjectEntryUsageFlagsNVX flags;
     Buffer buffer;
+    IndexType indexType;
   };
   static_assert( sizeof( ObjectTableIndexBufferEntryNVX ) == sizeof( VkObjectTableIndexBufferEntryNVX ), "struct and wrapper have different size!" );
 
