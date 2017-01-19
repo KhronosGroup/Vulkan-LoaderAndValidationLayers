@@ -1,8 +1,8 @@
 /*
  *
- * Copyright (c) 2014-2016 The Khronos Group Inc.
- * Copyright (c) 2014-2016 Valve Corporation
- * Copyright (c) 2014-2016 LunarG, Inc.
+ * Copyright (c) 2014-2017 The Khronos Group Inc.
+ * Copyright (c) 2014-2017 Valve Corporation
+ * Copyright (c) 2014-2017 LunarG, Inc.
  * Copyright (C) 2015 Google Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -232,6 +232,7 @@ static const char *const LOADER_INSTANCE_EXTENSIONS[] = {
 #ifdef VK_USE_PLATFORM_WIN32_KHR
     VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
 #endif
+    VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
     VK_KHX_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME,
     VK_KHX_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME,
 #ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
