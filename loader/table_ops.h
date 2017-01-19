@@ -639,6 +639,8 @@ loader_lookup_device_dispatch_table(const VkLayerDispatchTable *table,
     // object before passing the appropriate info along to the ICD.
     if (!strcmp(name, "CreateSwapchainKHR")) {
         return (void *)vkCreateSwapchainKHR;
+    } else if (!strcmp(name, "CreateSharedSwapchainsKHR")) {
+        return (void *)vkCreateSharedSwapchainsKHR;
     } else if (!strcmp(name, "DebugMarkerSetObjectTagEXT")) {
         return (void *)vkDebugMarkerSetObjectTagEXT;
     } else if (!strcmp(name, "DebugMarkerSetObjectNameEXT")) {

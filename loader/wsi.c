@@ -1581,8 +1581,8 @@ out:
     return vkRes;
 }
 
-// This is the trampoline entrypoint
-// for CreateSharedSwapchainsKHR
+// EXT_display_swapchain Extension command
+
 LOADER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkCreateSharedSwapchainsKHR(
     VkDevice device, uint32_t swapchainCount,
     const VkSwapchainCreateInfoKHR *pCreateInfos,
@@ -1591,6 +1591,47 @@ LOADER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkCreateSharedSwapchainsKHR(
     disp = loader_get_dispatch(device);
     return disp->CreateSharedSwapchainsKHR(device, swapchainCount, pCreateInfos,
                                            pAllocator, pSwapchains);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL terminator_vkCreateSharedSwapchainsKHR(
+    VkDevice device, uint32_t swapchainCount,
+    const VkSwapchainCreateInfoKHR *pCreateInfos,
+    const VkAllocationCallbacks *pAllocator, VkSwapchainKHR *pSwapchains) {
+    uint32_t icd_index = 0;
+    struct loader_device *dev;
+    struct loader_icd_term *icd_term =
+        loader_get_icd_and_device(device, &dev, &icd_index);
+    if (NULL != icd_term && NULL != icd_term->CreateSharedSwapchainsKHR) {
+        VkIcdSurface *icd_surface =
+            (VkIcdSurface *)(uintptr_t)pCreateInfos->surface;
+        if (NULL != icd_surface->real_icd_surfaces) {
+            if ((VkSurfaceKHR)NULL !=
+                icd_surface->real_icd_surfaces[icd_index]) {
+                // We found the ICD, and there is an ICD KHR surface
+                // associated with it, so copy the CreateInfo struct
+                // and point it at the ICD's surface.
+                VkSwapchainCreateInfoKHR *pCreateCopy =
+                    loader_stack_alloc(sizeof(VkSwapchainCreateInfoKHR) *
+                        swapchainCount);
+                if (NULL == pCreateCopy) {
+                    return VK_ERROR_OUT_OF_HOST_MEMORY;
+                }
+                memcpy(pCreateCopy, pCreateInfos,
+                       sizeof(VkSwapchainCreateInfoKHR) * swapchainCount);
+                for (uint32_t sc = 0; sc < swapchainCount; sc++) {
+                    pCreateCopy[sc].surface =
+                        icd_surface->real_icd_surfaces[icd_index];
+                }
+                return icd_term->CreateSharedSwapchainsKHR(
+                    device, swapchainCount, pCreateCopy, pAllocator,
+                    pSwapchains);
+            }
+        }
+        return icd_term->CreateSharedSwapchainsKHR(device, swapchainCount,
+                                                   pCreateInfos, pAllocator,
+                                                   pSwapchains);
+    }
+    return VK_SUCCESS;
 }
 
 bool wsi_swapchain_instance_gpa(struct loader_instance *ptr_instance,
@@ -1791,10 +1832,6 @@ bool wsi_swapchain_instance_gpa(struct loader_instance *ptr_instance,
     }
 
     // Functions for KHR_display_swapchain extension:
-    // Note: This is a device extension, and its functions are statically
-    // exported from the loader.  Per Khronos decisions, the loader's GIPA
-    // function will return the trampoline function for such device-extension
-    // functions, regardless of whether the extension has been enabled.
     if (!strcmp("vkCreateSharedSwapchainsKHR", name)) {
         *addr = (void *)vkCreateSharedSwapchainsKHR;
         return true;

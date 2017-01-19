@@ -1907,6 +1907,8 @@ static bool loader_icd_init_entrys(struct loader_icd_term *icd_term,
     LOOKUP_GIPA(CreateWaylandSurfaceKHR, false);
     LOOKUP_GIPA(GetPhysicalDeviceWaylandPresentationSupportKHR, false);
 #endif
+    LOOKUP_GIPA(CreateSharedSwapchainsKHR, false);
+
     // KHR_get_physical_device_properties2
     LOOKUP_GIPA(GetPhysicalDeviceFeatures2KHR, false);
     LOOKUP_GIPA(GetPhysicalDeviceProperties2KHR, false);
@@ -3743,6 +3745,8 @@ loader_gpa_device_internal(VkDevice device, const char *pName) {
         return (PFN_vkVoidFunction)loader_gpa_device_internal;
     } else if (!strcmp(pName, "vkCreateSwapchainKHR")) {
         return (PFN_vkVoidFunction)terminator_vkCreateSwapchainKHR;
+    } else if (!strcmp(pName, "vkCreateSharedSwapchainsKHR")) {
+        return (PFN_vkVoidFunction)terminator_vkCreateSharedSwapchainsKHR;
     } else if (!strcmp(pName, "vkDebugMarkerSetObjectTagEXT")) {
         return (PFN_vkVoidFunction)terminator_DebugMarkerSetObjectTagEXT;
     } else if (!strcmp(pName, "vkDebugMarkerSetObjectNameEXT")) {

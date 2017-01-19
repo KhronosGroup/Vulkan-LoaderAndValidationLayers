@@ -259,6 +259,7 @@ struct loader_icd_term {
     PFN_vkCreateDisplayPlaneSurfaceKHR CreateDisplayPlaneSurfaceKHR;
     PFN_vkDestroySurfaceKHR DestroySurfaceKHR;
     PFN_vkCreateSwapchainKHR CreateSwapchainKHR;
+    PFN_vkCreateSharedSwapchainsKHR CreateSharedSwapchainsKHR;
 
     // KHR_get_physical_device_properties2
     PFN_vkGetPhysicalDeviceFeatures2KHR GetPhysicalDeviceFeatures2KHR;
