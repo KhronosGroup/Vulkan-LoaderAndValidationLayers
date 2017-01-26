@@ -156,7 +156,7 @@ vkEnumerateInstanceExtensionProperties(const char *pLayerName,
                 loader_add_to_ext_list(NULL, &local_ext_list, ext_list->count,
                                        ext_list->list);
             }
-            loader_destroy_layer_list(NULL, NULL, &local_list);
+            loader_delete_layer_properties(NULL, &local_list);
             global_ext_list = &local_ext_list;
 
         } else {
@@ -244,7 +244,7 @@ LOADER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateInstanceLayerProperties(
 
     if (pProperties == NULL) {
         *pPropertyCount = instance_layer_list.count;
-        loader_destroy_layer_list(NULL, NULL, &instance_layer_list);
+        loader_delete_layer_properties(NULL, &instance_layer_list);
         return VK_SUCCESS;
     }
 
@@ -259,11 +259,11 @@ LOADER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkEnumerateInstanceLayerProperties(
     *pPropertyCount = copy_size;
 
     if (copy_size < instance_layer_list.count) {
-        loader_destroy_layer_list(NULL, NULL, &instance_layer_list);
+        loader_delete_layer_properties(NULL, &instance_layer_list);
         return VK_INCOMPLETE;
     }
 
-    loader_destroy_layer_list(NULL, NULL, &instance_layer_list);
+    loader_delete_layer_properties(NULL, &instance_layer_list);
 
     return VK_SUCCESS;
 }
