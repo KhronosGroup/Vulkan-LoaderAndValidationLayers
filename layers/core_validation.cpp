@@ -1567,6 +1567,105 @@ static std::vector<std::pair<descriptor_slot_t, interface_var>> collect_interfac
     return out;
 }
 
+/* Returns locations mapped to offsets in entrypoint where they were used */
+map<location_t , unordered_set<uint32_t>> collect_interface_usage(shader_module const *src, const map<location_t, interface_var>& interface_variables, 
+                                                                  spirv_inst_iter entrypoint, unordered_map<spv::Op, unsigned, std::hash<std::underlying_type<spv::Op>::type> > operations) {
+    /* map variable id to its location_t pointer for faster calculations */
+    unordered_map <unsigned, const location_t*> id_location_data;
+    for (auto it_interface = interface_variables.begin(); it_interface != interface_variables.end(); ++it_interface){
+        id_location_data[it_interface->second.id] = &it_interface->first;
+    }
+
+    map<location_t, unordered_set<uint32_t>> locations_used;
+
+    std::unordered_set<uint32_t> worklist;
+    worklist.insert(entrypoint.word(2));
+
+    while (!worklist.empty()) {
+        auto id_iter = worklist.begin();
+        auto id = *id_iter;
+        worklist.erase(id_iter);
+
+        auto insn = src->get_def(id);
+        if (insn == src->end()) {
+            continue;
+        }
+
+        switch (insn.opcode()) {
+            case spv::OpFunction:
+                /* scan whole body of the function, enlisting any interesting commands */
+                while (++insn, insn.opcode() != spv::OpFunctionEnd) {
+                    for (auto operation : operations) {
+                        /* check for opcode and parameter count */
+                        if (insn.opcode() == operation.first && operation.second < insn.len()) {
+                            uint32_t used_id = insn.word(operation.second);
+
+                            /* try to match any interface id with the desired operation parameter */
+                            auto it_id = id_location_data.find(used_id);
+                            if (it_id != id_location_data.end()) {
+                                locations_used[*(it_id->second)].insert(insn.offset());
+                            }
+                        }
+                    }
+
+                    if (insn.opcode() == spv::OpFunctionCall) {
+                        worklist.insert(insn.word(3)); /* fn itself */
+                    }
+                }
+                break;
+        }
+    }
+
+    return locations_used;
+}
+
+/* Checks whether locations read by consumer stage were stored by the producer stage */
+static bool validate_values_between_stages(debug_report_data *report_data, shader_module const *producer,
+                                           spirv_inst_iter producer_entrypoint, shader_stage_attributes const *producer_stage,
+                                           shader_module const *consumer, spirv_inst_iter consumer_entrypoint,
+                                           shader_stage_attributes const *consumer_stage) {
+    bool pass = true;
+
+    auto producer_outputs = collect_interface_by_location(producer, producer_entrypoint, spv::StorageClassOutput, producer_stage->arrayed_output);
+    auto consumer_inputs = collect_interface_by_location(consumer, consumer_entrypoint, spv::StorageClassInput, consumer_stage->arrayed_input); 
+
+    /* gather interface locations loaded/saved by consumer/producer */
+    using operations_map = unordered_map<spv::Op, unsigned, std::hash<std::underlying_type<spv::Op>::type> >;
+    auto consumer_loaded_vals = collect_interface_usage(consumer, consumer_inputs, consumer_entrypoint, operations_map {{ spv::OpLoad, 3 }, { spv::OpAccessChain, 3 }});
+    auto producer_saved_vals = collect_interface_usage(producer, producer_outputs, producer_entrypoint, operations_map {{ spv::OpStore, 1 }, { spv::OpVariable, 4 }});
+
+    /* gather producer locations that were accessed by pointer */
+    auto producer_pointer_vals = collect_interface_usage(producer, producer_outputs, producer_entrypoint, operations_map {{ spv::OpAccessChain, 3 }});
+
+    /* Producer can save outputs through pointers, so additional scan is needed for AccessChain commands */
+    /* As for consumer, the input variables cannot be stored to through pointers, so any AccessChain case is treated as a Load command */
+    std::map<location_t, interface_var> producer_pointer_ids;
+    for (auto producer_pointer_val : producer_pointer_vals) {
+        for (auto offset : producer_pointer_val.second) {
+            spirv_inst_iter command = producer->at(offset);
+            assert(command.opcode() == spv::OpAccessChain);
+            unsigned pointer_id = command.word(2);
+            producer_pointer_ids[producer_pointer_val.first] = interface_var{ pointer_id };
+        }
+    }
+
+    auto producer_saved_pointers = collect_interface_usage(producer, producer_pointer_ids, producer_entrypoint, operations_map {{ spv::OpStore, 1 }});
+
+    /* for every location loaded by consumer, check if it was stored by producer */
+    for (auto consumer_loaded_val : consumer_loaded_vals) {
+        if (!producer_saved_vals.count(consumer_loaded_val.first) && !producer_saved_pointers.count(consumer_loaded_val.first)) {
+            if (log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VkDebugReportObjectTypeEXT(0), 0,
+                        __LINE__, SHADER_CHECKER_OUTPUT_NOT_ASSIGNED, "SC",
+                        "%s reads input location %u.%u which was not set by %s", consumer_stage->name, consumer_loaded_val.first.first,
+                        consumer_loaded_val.first.second, producer_stage->name)) {
+                pass = false;
+            }
+        }
+    }
+
+    return pass;
+}
+
 static bool validate_interface_between_stages(debug_report_data *report_data, shader_module const *producer,
                                               spirv_inst_iter producer_entrypoint, shader_stage_attributes const *producer_stage,
                                               shader_module const *consumer, spirv_inst_iter consumer_entrypoint,
@@ -2805,6 +2904,9 @@ validate_and_capture_pipeline_shader_state(debug_report_data *report_data, PIPEL
             pass &= validate_interface_between_stages(report_data,
                                                       shaders[producer], entrypoints[producer], &shader_stage_attribs[producer],
                                                       shaders[consumer], entrypoints[consumer], &shader_stage_attribs[consumer]);
+            pass &= validate_values_between_stages(report_data,
+                                                   shaders[producer], entrypoints[producer], &shader_stage_attribs[producer],
+                                                   shaders[consumer], entrypoints[consumer], &shader_stage_attribs[consumer]);
 
             producer = consumer;
         }
