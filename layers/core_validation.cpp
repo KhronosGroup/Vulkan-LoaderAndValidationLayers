@@ -4886,8 +4886,12 @@ QueueSubmit(VkQueue queue, uint32_t submitCount, const VkSubmitInfo *pSubmits, V
                 skip_call |= validatePrimaryCommandBufferState(dev_data, cb_node);
                 skip_call |= validateQueueFamilyIndices(dev_data, cb_node, queue);
                 // Potential early exit here as bad object state may crash in delayed function calls
-                if (skip_call)
+                if (skip_call) {
+                    // Since we're not going to add the command buffer to any queue's work, don't leave the command buffer forever
+                    // in flight
+                    dev_data->globalInFlightCmdBuffers.erase(cb_node->commandBuffer);
                     return result;
+                }
                 // Call submit-time functions to validate/update state
                 for (auto &function : cb_node->validate_functions) {
                     skip_call |= function();
