@@ -1660,7 +1660,8 @@ static VkShaderModule demo_prepare_vs(struct demo *demo) {
     void *vertShaderCode;
     size_t size;
 
-    vertShaderCode = demo_read_spv("cube-vert.spv", &size);
+    // DO NOT COMMIT -- for temporary testing only -- pass GLSL straight through to driver
+    vertShaderCode = demo_read_spv("cube.vert", &size);
     if (!vertShaderCode) {
         ERR_EXIT("Failed to load cube-vert.spv", "Load Shader Failure");
     }
@@ -2968,6 +2969,12 @@ static void demo_init_vk(struct demo *demo) {
                 swapchainExtFound = 1;
                 demo->extension_names[demo->enabled_extension_count++] =
                     VK_KHR_SWAPCHAIN_EXTENSION_NAME;
+            }
+            // DO NOT COMMIT -- for temporary testing only -- load up NV_GLSL_SHADER extension
+            if (!strcmp(VK_NV_GLSL_SHADER_EXTENSION_NAME,
+                device_extensions[i].extensionName)) {
+                demo->extension_names[demo->enabled_extension_count++] =
+                    VK_NV_GLSL_SHADER_EXTENSION_NAME;
             }
             assert(demo->enabled_extension_count < 64);
         }
