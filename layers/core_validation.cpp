@@ -4137,7 +4137,6 @@ static bool ValidateOrIncrementBoundObjects(layer_data *dev_data, GLOBAL_CB_NODE
 }
 // Track which resources are in-flight by atomically incrementing their "in_use" count
 static void incrementResources(layer_data *dev_data, GLOBAL_CB_NODE *cb_node) {
-
     cb_node->submitCount++;
     cb_node->in_use.fetch_add(1);
     dev_data->globalInFlightCmdBuffers.insert(cb_node->commandBuffer);
@@ -4320,7 +4319,8 @@ static bool validateCommandBufferSimultaneousUse(layer_data *dev_data, GLOBAL_CB
     return skip_call;
 }
 
-static bool validateCommandBufferState(layer_data *dev_data, GLOBAL_CB_NODE *pCB, const char *call_source, int current_submit_count) {
+static bool validateCommandBufferState(layer_data *dev_data, GLOBAL_CB_NODE *pCB, const char *call_source,
+                                       int current_submit_count) {
     bool skip = false;
     if (dev_data->instance_data->disabled.command_buffer_state) return skip;
     // Validate ONE_TIME_SUBMIT_BIT CB is not being submitted more than once
@@ -4544,7 +4544,7 @@ static bool PreCallValidateQueueSubmit(layer_data *dev_data, VkQueue queue, uint
             auto pSemaphore = GetSemaphoreNode(dev_data, semaphore);
             if (pSemaphore) {
                 if (unsignaled_semaphores.count(semaphore) ||
-                        (!(signaled_semaphores.count(semaphore)) && !(pSemaphore->signaled))) {
+                    (!(signaled_semaphores.count(semaphore)) && !(pSemaphore->signaled))) {
                     skip_call |=
                         log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_SEMAPHORE_EXT,
                                 reinterpret_cast<const uint64_t &>(semaphore), __LINE__, DRAWSTATE_QUEUE_FORWARD_PROGRESS, "DS",
@@ -4560,8 +4560,7 @@ static bool PreCallValidateQueueSubmit(layer_data *dev_data, VkQueue queue, uint
             VkSemaphore semaphore = submit->pSignalSemaphores[i];
             auto pSemaphore = GetSemaphoreNode(dev_data, semaphore);
             if (pSemaphore) {
-                if (signaled_semaphores.count(semaphore) ||
-                        (!(unsignaled_semaphores.count(semaphore)) && pSemaphore->signaled)) {
+                if (signaled_semaphores.count(semaphore) || (!(unsignaled_semaphores.count(semaphore)) && pSemaphore->signaled)) {
                     skip_call |=
                         log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_SEMAPHORE_EXT,
                                 reinterpret_cast<const uint64_t &>(semaphore), __LINE__, DRAWSTATE_QUEUE_FORWARD_PROGRESS, "DS",
@@ -4605,7 +4604,6 @@ static bool PreCallValidateQueueSubmit(layer_data *dev_data, VkQueue queue, uint
     return skip_call;
 }
 
-
 VKAPI_ATTR VkResult VKAPI_CALL QueueSubmit(VkQueue queue, uint32_t submitCount, const VkSubmitInfo *pSubmits, VkFence fence) {
     layer_data *dev_data = GetLayerDataPtr(get_dispatch_key(queue), layer_data_map);
     std::unique_lock<std::mutex> lock(global_lock);
@@ -4613,8 +4611,7 @@ VKAPI_ATTR VkResult VKAPI_CALL QueueSubmit(VkQueue queue, uint32_t submitCount, 
     bool skip = PreCallValidateQueueSubmit(dev_data, queue, submitCount, pSubmits, fence);
     lock.unlock();
 
-    if (skip)
-        return VK_ERROR_VALIDATION_FAILED_EXT;
+    if (skip) return VK_ERROR_VALIDATION_FAILED_EXT;
 
     VkResult result = dev_data->dispatch_table.QueueSubmit(queue, submitCount, pSubmits, fence);
 
