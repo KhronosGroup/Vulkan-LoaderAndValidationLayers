@@ -345,6 +345,14 @@ static inline bool log_msg(const debug_report_data *debug_data, VkFlags msgFlags
         str = nullptr;
     }
     va_end(argptr);
+    if (msgFlags == VK_DEBUG_REPORT_WARNING_BIT_EXT) {
+      const char* warning_string = "Note that the code may be completely valid but care must be taken to ensure it is in this case.";
+      int length = strlen(str) + strlen(warning_string) + 2;
+      char* new_str = (char*)malloc(length);
+      snprintf(new_str, length, "%s %s", str, warning_string);
+      free(str);
+      str = new_str;
+    }
     bool result = debug_report_log_msg(debug_data, msgFlags, objectType, srcObject, location, msgCode, pLayerPrefix,
                                        str ? str : "Allocation failure");
     free(str);
