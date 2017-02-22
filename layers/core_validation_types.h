@@ -628,6 +628,7 @@ struct GLOBAL_CB_NODE : public BASE_NODE {
     uint32_t viewportMask;
     uint32_t scissorMask;
     VkRenderPassBeginInfo activeRenderPassBeginInfo;
+    bool active_renderpass_begin_info_valid;
     RENDER_PASS_STATE *activeRenderPass;
     VkSubpassContents activeSubpassContents;
     uint32_t activeSubpass;

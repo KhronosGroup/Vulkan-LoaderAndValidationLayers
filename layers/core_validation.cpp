@@ -3620,6 +3620,7 @@ static void resetCB(layer_data *dev_data, const VkCommandBuffer cb) {
         }
 
         memset(&pCB->activeRenderPassBeginInfo, 0, sizeof(pCB->activeRenderPassBeginInfo));
+        pCB->active_renderpass_begin_info_valid = false;
         pCB->activeRenderPass = nullptr;
         pCB->activeSubpassContents = VK_SUBPASS_CONTENTS_INLINE;
         pCB->activeSubpass = 0;
@@ -9398,6 +9399,7 @@ VKAPI_ATTR void VKAPI_CALL CmdBeginRenderPass(VkCommandBuffer commandBuffer, con
             cb_node->activeRenderPass = render_pass_state;
             // This is a shallow copy as that is all that is needed for now
             cb_node->activeRenderPassBeginInfo = *pRenderPassBegin;
+            cb_node->active_renderpass_begin_info_valid = true;
             cb_node->activeSubpass = 0;
             cb_node->activeSubpassContents = contents;
             cb_node->framebuffers.insert(pRenderPassBegin->framebuffer);
