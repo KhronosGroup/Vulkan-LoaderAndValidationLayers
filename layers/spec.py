@@ -1,7 +1,7 @@
 #!/usr/bin/python3 -i
 
 import sys
-import xml.etree.ElementTree as etree
+from lxml import etree
 import urllib2
 
 #############################
@@ -98,13 +98,14 @@ class Specification:
         return False
     def loadFile(self, online=True, spec_file=spec_filename):
         """Load an API registry XML file into a Registry object and parse it"""
+        parser = etree.XMLParser(recover=True)
         # Check if spec URL is available
         if (online and self._checkInternetSpec()):
             print "Using spec from online at %s" % (spec_url)
-            self.tree = etree.parse(urllib2.urlopen(spec_url))
+            self.tree = etree.parse(urllib2.urlopen(spec_url), parser=parser)
         else:
             print "Using local spec %s" % (spec_file)
-            self.tree = etree.parse(spec_file)
+            self.tree = etree.parse(spec_file, parser=parser)
         #self.tree.write("tree_output.xhtml")
         #self.tree = etree.parse("tree_output.xhtml")
         self.parseTree()
@@ -121,19 +122,23 @@ class Specification:
         prev_link = '' # Last seen link id within the spec
         api_function = '' # API call that a check appears under
         error_strings = set() # Flag any exact duplicate error strings and skip them
-        implicit_count = 0
+        valid_usage = False
+        implicit = False
+        last_tag_txt = ""
         for tag in self.root.iter(): # iterate down tree
+            last_tag_txt = tag.tag
             # Grab most recent section heading and link
             if tag.tag in ['h2', 'h3', 'h4']:
+                valid_usage = False
                 #if tag.get('class') != 'title':
                 #    continue
-                print "Found heading %s" % (tag.tag)
+                #print "Found heading %s" % (tag.tag)
                 prev_heading = "".join(tag.itertext())
                 # Insert a space between heading number & title
                 sh_list = prev_heading.rsplit('.', 1)
                 prev_heading = '. '.join(sh_list)
                 prev_link = tag.get('id')
-                print "Set prev_heading %s to have link of %s" % (prev_heading.encode("ascii", "ignore"), prev_link.encode("ascii", "ignore"))
+                #print "Set prev_heading %s to have link of %s" % (prev_heading.encode("ascii", "ignore"), prev_link.encode("ascii", "ignore"))
             elif tag.tag == 'a': # grab any intermediate links
                 if tag.get('id') != None:
                     prev_link = tag.get('id')
@@ -144,37 +149,45 @@ class Specification:
                 code_text_list = code_text.split()
                 if len(code_text_list) > 1 and code_text_list[1].startswith('vk'):
                     api_function = code_text_list[1].strip('(')
-                    print "Found API function: %s" % (api_function)
-            #elif tag.tag == '{http://www.w3.org/1999/xhtml}div' and tag.get('class') == 'sidebar':
-            elif tag.tag == 'div' and tag.get('class') == 'content':
-                # parse down sidebar to check for valid usage cases
+                    #print "Found API function: %s" % (api_function)
+                if tag.get('id') != None:
+                    prev_link = tag.get('id')
+                    #print "Updated prev link to %s" % (prev_link)
+            elif tag.tag == 'div' and None != tag.text and 'Valid Usage' in tag.text:
+                valid_usage = True
+                if '(Implicit)' in tag.text:
+                    implicit = True
+                else:
+                    implicit = False
+            elif valid_usage and tag.tag == 'li': # grab actual valid usage requirements
+                #str_txt = "".join(tag.itertext()).strip().replace('\n', ' ')
+                #print "ERROR STRING: %s" % (str_txt)
+                error_msg_str = "%s '%s' which states '%s' (%s#%s)" % (error_msg_prefix, prev_heading, "".join(tag.itertext()).strip().replace('\n', ' '), spec_url, prev_link)
+                # Some txt has multiple spaces so split on whitespace and join w/ single space
+                error_msg_str = " ".join(error_msg_str.split())
+                if error_msg_str in error_strings:
+                    print "WARNING: SKIPPING adding repeat entry for string. Please review spec and file issue as appropriate. Repeat string is: %s" % (error_msg_str)
+                else:
+                    error_strings.add(error_msg_str)
+                    enum_str = "%s%05d" % (validation_error_enum_name, unique_enum_id)
+                    #print "ADDING Unique enum %s w/ error msg string %s" % (enum_str, error_msg_str)
+                    # TODO : '\' chars in spec error messages are most likely bad spec txt that needs to be updated
+                    self.val_error_dict[enum_str] = {}
+                    self.val_error_dict[enum_str]['error_msg'] = error_msg_str.encode("ascii", "ignore").replace("\\", "/")
+                    self.val_error_dict[enum_str]['api'] = api_function
+                    self.val_error_dict[enum_str]['implicit'] = False
+                    if implicit:
+                        self.val_error_dict[enum_str]['implicit'] = True
+                        self.implicit_count = self.implicit_count + 1
+                    unique_enum_id = unique_enum_id + 1
+            elif valid_usage and tag.tag == 'div' and tag.get('class') != 'ulist':
                 valid_usage = False
-                implicit = False
-                for elem in tag.iter():
-                    if elem.tag == 'div' and None != elem.text and 'Valid Usage' in elem.text:
-                        valid_usage = True
-                        if '(Implicit)' in elem.text:
-                            implicit = True
-                        else:
-                            implicit = False
-                    elif valid_usage and elem.tag == 'li': # grab actual valid usage requirements
-                        error_msg_str = "%s '%s' which states '%s' (%s#%s)" % (error_msg_prefix, prev_heading, "".join(elem.itertext()).replace('\n', ''), spec_url, prev_link)
-                        # Some txt has multiple spaces so split on whitespace and join w/ single space
-                        error_msg_str = " ".join(error_msg_str.split())
-                        if error_msg_str in error_strings:
-                            print "WARNING: SKIPPING adding repeat entry for string. Please review spec and file issue as appropriate. Repeat string is: %s" % (error_msg_str)
-                        else:
-                            error_strings.add(error_msg_str)
-                            enum_str = "%s%05d" % (validation_error_enum_name, unique_enum_id)
-                            # TODO : '\' chars in spec error messages are most likely bad spec txt that needs to be updated
-                            self.val_error_dict[enum_str] = {}
-                            self.val_error_dict[enum_str]['error_msg'] = error_msg_str.encode("ascii", "ignore").replace("\\", "/")
-                            self.val_error_dict[enum_str]['api'] = api_function
-                            self.val_error_dict[enum_str]['implicit'] = False
-                            if implicit:
-                                self.val_error_dict[enum_str]['implicit'] = True
-                                self.implicit_count = self.implicit_count + 1
-                            unique_enum_id = unique_enum_id + 1
+#            elif tag.tag == 'div':
+#                if tag.get('id') != None:
+#                    print "Found div w/ id %s" % (tag.get('id'))
+#                if tag.get('class') != None:
+#                    print "Found div w/ class %s" % (tag.get('class'))
+        print "DONE parsting tree, last tag was %s" % (last_tag_txt)
         #print "Validation Error Dict has a total of %d unique errors and contents are:\n%s" % (unique_enum_id, self.val_error_dict)
     def genHeader(self, header_file):
         """Generate a header file based on the contents of a parsed spec"""
@@ -352,21 +365,44 @@ class Specification:
                     update_enum = new_enum
                 else:
                     # No error match:
-                    #  First check if only link has changed, in which case keep ID but update message
-                    orig_msg_list = orig_error_msg_dict[enum].split('(', 1)
-                    new_msg_list = self.val_error_dict[enum]['error_msg'].split('(', 1)
-                    if orig_msg_list[0] == new_msg_list[0]: # Msg is same bug link has changed, keep enum & update msg
-                        print "NOTE: Found that only spec link changed for %s so keeping same id w/ new link" % (enum)
-                    #  This seems to be a new error so need to pick it up from end of original unique ids & flag for review
-                    else:
-                        enum_list[-1] = "%05d" % (next_id)
-                        new_enum = "_".join(enum_list)
-                        next_id = next_id + 1
-                        print "MANUALLY VERIFY: Updated new enum %s to be unique %s. Make sure new error msg is actually unique and not just changed" % (enum, new_enum)
-                        print "   New error string: %s" % (self.val_error_dict[enum]['error_msg'])
-                        if new_enum in updated_val_error_dict:
-                            print "ERROR: About to overwrite entry for %s" % (new_enum)
-                        update_enum = new_enum
+                    # Some hacky stuff here to isolate section # & check in the elif below if only section is slightly off
+                    new_msg_str_list = self.val_error_dict[enum]['error_msg'].split('\'', 1)
+                    sec_msg_list = new_msg_str_list[1].split(' ', 1)
+                    section_num = sec_msg_list[0]
+                    section_change = False
+                    print "Count of periods in section_num %s: %s" % (section_num, section_num.count('.'))
+                    if section_num.count('.') >= 2: # if there is at least 1 sub-section
+                        section_digits = section_num.split('.')
+                        # decrement second section num, as this one commonly gets bumped w/ spec revs
+                        section_digits[1] = str(int(section_digits[1]) - 1)
+                        new_sec_num = ".".join(section_digits)
+                        tmp_msg_str = "%s'%s %s" % (new_msg_str_list[0], new_sec_num, sec_msg_list[1])
+                        print "Checking for modified section error msg: %s" % (tmp_msg_str)
+                        if tmp_msg_str in orig_err_to_id_dict: # We have a hit, use the old id
+                            print "Need to switch new id %s to original id %s" % (enum, orig_err_to_id_dict[tmp_msg_str])
+                            # Update id at end of new enum to be same id from original enum
+                            enum_list[-1] = orig_err_to_id_dict[tmp_msg_str].split('_')[-1]
+                            new_enum = "_".join(enum_list)
+                            if new_enum in updated_val_error_dict:
+                                print "ERROR: About to overwrite entry for %s" % (new_enum)
+                            update_enum = new_enum
+                            section_change = True
+                    if not section_change:
+                        #  Simple check to see if only link has changed, in which case keep ID but update message
+                        orig_msg_list = orig_error_msg_dict[enum].split('(', 1)
+                        new_msg_list = self.val_error_dict[enum]['error_msg'].split('(', 1)
+                        if orig_msg_list[0] == new_msg_list[0]: # Msg is same but link has changed, keep enum & update msg
+                            print "NOTE: Found that only spec link changed for %s so keeping same id w/ new link" % (enum)
+                        #  This seems to be a new error so need to pick it up from end of original unique ids & flag for review
+                        else:
+                            enum_list[-1] = "%05d" % (next_id)
+                            new_enum = "_".join(enum_list)
+                            next_id = next_id + 1
+                            print "MANUALLY VERIFY: Updated new enum %s to be unique %s. Make sure new error msg is actually unique and not just changed" % (enum, new_enum)
+                            print "   New error string: %s" % (self.val_error_dict[enum]['error_msg'])
+                            if new_enum in updated_val_error_dict:
+                                print "ERROR: About to overwrite entry for %s" % (new_enum)
+                            update_enum = new_enum
             else: # new enum is not in orig db
                 if self.val_error_dict[enum]['error_msg'] in orig_err_to_id_dict:
                     print "New enum %s not in orig dict, but exact error message matches original unique id %s" % (enum, orig_err_to_id_dict[self.val_error_dict[enum]['error_msg']])
