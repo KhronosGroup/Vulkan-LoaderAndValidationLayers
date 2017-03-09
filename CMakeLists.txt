@@ -303,6 +303,10 @@ if(NOT WIN32)
 endif()
 
 if(UNIX)
+    include(CheckFunctionExists)
+    CHECK_FUNCTION_EXISTS(secure_getenv HAVE_SECURE_GETENV)
+    CHECK_FUNCTION_EXISTS(__secure_getenv HAVE___SECURE_GETENV)
+
     install(DIRECTORY "${PROJECT_SOURCE_DIR}/include/vulkan" DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 endif()
 
