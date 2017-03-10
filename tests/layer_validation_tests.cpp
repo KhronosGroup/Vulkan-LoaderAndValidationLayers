@@ -15899,7 +15899,7 @@ TEST_F(VkLayerTest, ImageLayerViewTests) {
     // VIEW_CREATE_ERROR
     VkImageCreateInfo mutImgInfo = image.create_info();
     VkImage mutImage;
-    mutImgInfo.format = VK_FORMAT_R8_UINT;
+    mutImgInfo.format = VK_FORMAT_R8G8B8A8_UINT;
     assert(m_device->format_properties(VK_FORMAT_R8_UINT).optimalTilingFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT);
     mutImgInfo.flags = VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
     mutImgInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
