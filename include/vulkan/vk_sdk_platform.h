@@ -23,7 +23,24 @@
 #define VK_SDK_PLATFORM_H
 
 #if defined(_WIN32)
+// Silence redefinition warnings on MinGW-w64
+#undef NOMINMAX
 #define NOMINMAX
+
+// This is needed to make InitOnceExecuteOnce and friends
+// available on MinGW-w64.
+#ifdef __MINGW64__
+    #include <sdkddkver.h>
+    #ifdef WINVER
+        #undef WINVER
+    #endif
+    #ifdef _WIN32_WINNT
+        #undef _WIN32_WINNT
+    #endif
+    #define WINVER _WIN32_WINNT_WIN7 // Windows 7 minimum
+    #define _WIN32_WINNT _WIN32_WINNT_WIN7
+#endif
+
 #ifndef __cplusplus
 #undef inline
 #define inline __inline

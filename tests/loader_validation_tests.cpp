@@ -27,6 +27,7 @@
  */
 
 #ifdef _WIN32
+#define PRId64 // Needed for MinGW-w64 to know PRIxLEAST64
 #include <inttypes.h>  //Needed for PRIxLEAST64
 #endif
 
