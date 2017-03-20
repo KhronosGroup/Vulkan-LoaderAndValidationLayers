@@ -106,6 +106,11 @@ extern "C"
 #endif
 
 #ifdef VK_USE_PLATFORM_WIN32_KHR
+// This needs to be included because of MinGW-w64
+// This is because the default target version of the supplied
+// Windows SDK targets a version lower than Vista.
+// Thus the functions InitOnceExecuteOnce and friends will end up undefined.
+#include <vulkan/vk_sdk_platform.h>
 #include <windows.h>
 #endif
 

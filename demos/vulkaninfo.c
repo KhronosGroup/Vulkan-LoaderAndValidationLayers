@@ -21,7 +21,7 @@
  * Author: Rene Lindsay <rene@lunarg.com>
  */
 
-#ifdef __GNUC__
+#if defined(__GNUC__) && !defined(__MINGW64__)
 #ifndef _POSIX_C_SOURCE
 #define _POSIX_C_SOURCE 200809L
 #endif

@@ -33,13 +33,18 @@
 #include <stdlib.h>
 #include <string.h>
 
+// MinGW-w64 Needs to know this *BEFORE* WinSock2.h
+// is included, as WinSock2.h includes windows.h
+#include <vulkan/vk_sdk_platform.h>
+
 #ifdef _WIN32
+// Silence MinGW-w64 macro redefinition warning.
+#undef NOMINMAX
 #define NOMINMAX
 // WinSock2.h must be included *BEFORE* windows.h
 #include <winsock2.h>
 #endif
 
-#include <vulkan/vk_sdk_platform.h>
 #include <vulkan/vulkan.h>
 
 #ifdef _WIN32
@@ -53,7 +58,7 @@
 #pragma warning(disable : 4251)
 #pragma warning(disable : 4275)
 #endif
-#include "gtest-1.7.0/include/gtest/gtest.h"
+#include "gtest-1.8.0/include/gtest/gtest.h"
 #include "gtest/gtest.h"
 #ifdef _WIN32
 #pragma warning(pop)

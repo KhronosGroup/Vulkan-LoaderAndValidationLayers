@@ -49,6 +49,12 @@ if(WIN32)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4267")
     endif()
 
+    # Workaround a bug in MSVC 2017
+    # _strdup is used which fires a warning which is meant to fire when strdup is used.
+    if (MSVC)
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_CRT_NONSTDC_NO_WARNINGS")
+    endif()
+
 else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 endif()
@@ -63,7 +69,7 @@ set(COMMON_CPP
    )
 
 include_directories(
-    "${PROJECT_SOURCE_DIR}/tests/gtest-1.7.0/include"
+    "${PROJECT_SOURCE_DIR}/tests/gtest-1.8.0/include"
     "${PROJECT_SOURCE_DIR}/icd/common"
     "${PROJECT_SOURCE_DIR}/layers"
     ${GLSLANG_SPIRV_INCLUDE_DIR}
@@ -140,5 +146,5 @@ set_target_properties(vk_loader_validation_tests
    COMPILE_DEFINITIONS "GTEST_LINKED_AS_SHARED_LIBRARY=1")
 target_link_libraries(vk_loader_validation_tests ${LIBVK} gtest gtest_main VkLayer_utils ${GLSLANG_LIBRARIES})
 
-add_subdirectory(gtest-1.7.0)
+add_subdirectory(gtest-1.8.0)
 add_subdirectory(layers)
