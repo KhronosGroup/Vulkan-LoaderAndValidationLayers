@@ -66,7 +66,8 @@
 #include "vk_layer_data.h"
 #include "vk_layer_extension_utils.h"
 #include "vk_layer_utils.h"
-#include "spirv-tools/libspirv.h"
+#include "spirv-tools/libspirv.hpp"
+#include "spirv-tools/optimizer.hpp"
 
 #if defined __ANDROID__
 #include <android/log.h>
