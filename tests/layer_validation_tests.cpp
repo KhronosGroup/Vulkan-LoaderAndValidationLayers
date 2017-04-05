@@ -14697,6 +14697,54 @@ TEST_F(VkLayerTest, CreatePipelineMissingEntrypoint) {
     m_errorMonitor->VerifyFound();
 }
 
+TEST_F(VkLayerTest, CreatePipelineVsFsArraySizeDefaultSpecialization) {
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, "Type mismatch");
+    m_errorMonitor->SetUnexpectedError("consumes input location 1.0 which is not written");
+
+    // Trigger a type mismatch when default specialization constant values are
+    // not used. At time of writing, SC doesn't even look at the default values, and
+    // so instead treats everything as `1`.
+
+    ASSERT_NO_FATAL_FAILURE(Init());
+    ASSERT_NO_FATAL_FAILURE(InitRenderTarget());
+
+    char const *vsSource =
+        "#version 450\n"
+        "out gl_PerVertex {\n"
+        "    vec4 gl_Position;\n"
+        "};\n"
+        "layout(constant_id=0) const uint size = 2;\n"
+        "layout(location=0) out float xs[size];\n"
+        "void main(){\n"
+        "   gl_Position = vec4(0);\n"
+        "   xs[0] = 42.0;\n"
+        "}\n";
+    char const *fsSource =
+        "#version 450\n"
+        "\n"
+        "layout(location=0) in float xs[1];\n"
+        "layout(location=0) out vec4 color;\n"
+        "void main(){\n"
+        "   color = vec4(xs[0]);\n"
+        "}\n";
+
+    VkShaderObj vs(m_device, vsSource, VK_SHADER_STAGE_VERTEX_BIT, this);
+    VkShaderObj fs(m_device, fsSource, VK_SHADER_STAGE_FRAGMENT_BIT, this);
+
+    VkPipelineObj pipe(m_device);
+    pipe.AddColorAttachment();
+    pipe.AddShader(&vs);
+    pipe.AddShader(&fs);
+
+    VkDescriptorSetObj descriptorSet(m_device);
+    descriptorSet.AppendDummy();
+    descriptorSet.CreateVKDescriptorSet(m_commandBuffer);
+
+    pipe.CreateVKPipeline(descriptorSet.GetPipelineLayout(), renderPass());
+
+    m_errorMonitor->VerifyFound();
+}
+
 TEST_F(VkLayerTest, CreatePipelineDepthStencilRequired) {
     m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT,
                                          "pDepthStencilState is NULL when rasterization is enabled and subpass "
