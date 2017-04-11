@@ -412,7 +412,7 @@ struct shader_module *GetShaderState(layer_data *dev_data, VkShaderModule shader
     if (it == dev_data->shaderModuleMap.end()) {
         return nullptr;
     }
-    return &it->second;
+    return it->second.get();
 }
 
 // Return ptr to memory binding for given handle of specified type
