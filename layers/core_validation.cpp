@@ -407,6 +407,14 @@ SURFACE_STATE *GetSurfaceState(instance_layer_data *instance_data, VkSurfaceKHR 
     return &it->second;
 }
 
+struct shader_module *GetShaderState(layer_data *dev_data, VkShaderModule shader_module) {
+    auto it = dev_data->shaderModuleMap.find(shader_module);
+    if (it == dev_data->shaderModuleMap.end()) {
+        return nullptr;
+    }
+    return &it->second;
+}
+
 // Return ptr to memory binding for given handle of specified type
 static BINDABLE *GetObjectMemBinding(layer_data *dev_data, uint64_t handle, VkDebugReportObjectTypeEXT type) {
     switch (type) {
@@ -2611,8 +2619,7 @@ static bool validate_pipeline_shader_stage(
     layer_data *dev_data, VkPipelineShaderStageCreateInfo const *pStage, PIPELINE_STATE *pipeline,
     shader_module **out_module, spirv_inst_iter *out_entrypoint) {
     bool pass = true;
-    auto module_it = dev_data->shaderModuleMap.find(pStage->module);
-    auto module = *out_module = module_it->second.get();
+    auto module = *out_module = GetShaderState(dev_data, pStage->module);
     auto report_data = dev_data->report_data;
 
     if (!module->has_valid_spirv) return pass;
