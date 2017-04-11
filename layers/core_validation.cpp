@@ -2620,6 +2620,8 @@ static bool validate_pipeline_shader_stage(
     auto module = *out_module = GetShaderState(dev_data, pStage->module);
     auto report_data = dev_data->report_data;
 
+    pass &= validate_specialization_offsets(report_data, pStage);
+
     if (!module->has_valid_spirv) return pass;
 
     // Find the entrypoint
@@ -2643,7 +2645,6 @@ static bool validate_pipeline_shader_stage(
 
     auto pipelineLayout = pipeline->pipeline_layout;
 
-    pass &= validate_specialization_offsets(report_data, pStage);
     pass &= validate_push_constant_usage(report_data, &pipelineLayout.push_constant_ranges, module, accessible_ids, pStage->stage);
 
     // Validate descriptor use
