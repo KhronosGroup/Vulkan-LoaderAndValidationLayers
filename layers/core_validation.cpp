@@ -1250,8 +1250,6 @@ static unsigned get_locations_consumed_by_type(shader_module const *src, unsigne
         default:
             // Everything else is just 1.
             return 1;
-
-            // TODO: extend to handle 64bit scalar types, whose vectors may need multiple locations.
     }
 }
 
