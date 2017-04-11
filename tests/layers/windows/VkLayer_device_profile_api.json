@@ -1,0 +1,25 @@
+{
+    "file_format_version" : "1.0.0",
+    "layer" : {
+        "name": "VK_LAYER_LUNARG_device_profile_api",
+        "type": "GLOBAL",
+        "library_path": ".\\VkLayer_device_profile_api.dll",
+        "api_version": "1.0.33",
+        "implementation_version": "1",
+        "description": "LunarG Device Profile Api Layer",
+        "instance_extensions": [
+             {
+                 "name": "VK_EXT_SetPhyscalDeviceLimits",
+                 "spec_version": "2",
+                 "entrypoints": ["vkLayerDeviceProfileApiEXT","vkSetPhysicalDeviceLimitsEXT"]
+             }
+         ],
+        "device_extensions": [
+             {
+                 "name": "VK_LUNARG_DeviceProfileApiEXT",
+                 "spec_version": "0",
+                 "entrypoints": ["vkLayerDeviceProfileApiEXT","vkSetPhysicalDeviceLimitsEXT"]
+             }
+         ]
+    }
+}

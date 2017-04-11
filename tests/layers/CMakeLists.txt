@@ -2,6 +2,7 @@ cmake_minimum_required (VERSION 2.8.11)
 
 set(LAYER_JSON_FILES
     VkLayer_wrap_objects
+    VkLayer_device_profile_api
     VkLayer_test
     )
 
@@ -85,4 +86,12 @@ set (TEST_SRCS
        ${CMAKE_CURRENT_SOURCE_DIR}/../../layers/vk_layer_table.cpp
        ${CMAKE_CURRENT_SOURCE_DIR}/../../layers/vk_layer_extension_utils.cpp
        )
+
+set (DEVICE_PROFUILE_API_SRCS
+       device_profile_api.cpp
+       ${CMAKE_CURRENT_SOURCE_DIR}/../../layers/vk_layer_table.cpp
+       ${CMAKE_CURRENT_SOURCE_DIR}/../../layers/vk_layer_extension_utils.cpp
+       )
+
+add_vk_layer(device_profile_api ${DEVICE_PROFUILE_API_SRCS})
 add_vk_layer(test ${TEST_SRCS})
