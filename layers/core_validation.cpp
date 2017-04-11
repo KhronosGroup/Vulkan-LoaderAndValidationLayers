@@ -2624,6 +2624,32 @@ static bool validate_pipeline_shader_stage(
 
     if (!module->has_valid_spirv) return pass;
 
+    spvtools::Optimizer opt(SPV_ENV_VULKAN_1_0);
+
+    if (pStage->pSpecializationInfo) {
+        // massage the specialization data blob into the form spirv-tools wants
+        std::unordered_map<uint32_t, std::string> specializations;
+        for (auto i = 0u; i < pStage->pSpecializationInfo->mapEntryCount; i++) {
+            auto const & mapEntry = pStage->pSpecializationInfo->pMapEntries[i];
+            specializations[mapEntry.constantID] = std::string(
+                reinterpret_cast<char const *>(pStage->pSpecializationInfo->pData) + mapEntry.offset,
+                mapEntry.size);
+        }
+        opt.RegisterPass(spvtools::CreateSetSpecConstantDefaultValuePass(specializations));
+    }
+
+    opt.RegisterPass(spvtools::CreateFreezeSpecConstantValuePass());
+    opt.RegisterPass(spvtools::CreateUnifyConstantPass());
+
+    std::vector<uint32_t> final_spirv;
+    if (!opt.Run(module->words.data(), module->words.size(), &final_spirv)) {
+        // TODO: route any spirv-tools optimizer diagnostics here
+        if (log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VkDebugReportObjectTypeEXT(0), 0, __LINE__, SHADER_CHECKER_INCONSISTENT_SPIRV,
+                    "SC", "Internal error preprocessing shader module")) {
+            return false;
+        }
+    }
+
     // Find the entrypoint
     auto entrypoint = *out_entrypoint = find_entrypoint(module, pStage->pName, pStage->stage);
     if (entrypoint == module->end()) {
