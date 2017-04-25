@@ -5747,7 +5747,7 @@ maintained in the master branch of the Khronos Vulkan GitHub project.
                 <command name="vkGetMemoryFdPropertiesKHX"/>
             </require>
         </extension>
-        <extension name="VK_KHX_win32_keyed_mutex" number="76" type="device" requires="VK_KHX_external_memory_capabilities,VK_KHX_external_memory,VK_KHX_external_memory_win32" author="KHX" contact="Carsten Rohde" protect="VK_USE_PLATFORM_WIN32_KHR" supported="vulkan">
+        <extension name="VK_KHX_win32_keyed_mutex" number="76" type="device" requires="VK_KHX_external_memory_capabilities,VK_KHX_external_memory,VK_KHX_external_memory_win32" author="KHX" contact="Carsten Rohde" protect="VK_USE_PLATFORM_WIN32_KHX" supported="vulkan">
             <require>
                 <enum value="1"                                         name="VK_KHX_WIN32_KEYED_MUTEX_SPEC_VERSION"/>
                 <enum value="&quot;VK_KHX_win32_keyed_mutex&quot;"      name="VK_KHX_WIN32_KEYED_MUTEX_EXTENSION_NAME"/>
