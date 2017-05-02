@@ -66,7 +66,8 @@
 #include "vk_layer_data.h"
 #include "vk_layer_extension_utils.h"
 #include "vk_layer_utils.h"
-#include "spirv-tools/libspirv.h"
+#include "spirv-tools/libspirv.hpp"
+#include "spirv-tools/optimizer.hpp"
 
 #if defined __ANDROID__
 #include <android/log.h>
@@ -404,6 +405,14 @@ SURFACE_STATE *GetSurfaceState(instance_layer_data *instance_data, VkSurfaceKHR 
         return nullptr;
     }
     return &it->second;
+}
+
+struct shader_module *GetShaderState(layer_data *dev_data, VkShaderModule shader_module) {
+    auto it = dev_data->shaderModuleMap.find(shader_module);
+    if (it == dev_data->shaderModuleMap.end()) {
+        return nullptr;
+    }
+    return it->second.get();
 }
 
 // Return ptr to memory binding for given handle of specified type
@@ -1071,8 +1080,6 @@ static unsigned get_locations_consumed_by_type(shader_module const *src, unsigne
         default:
             // Everything else is just 1.
             return 1;
-
-            // TODO: extend to handle 64bit scalar types, whose vectors may need multiple locations.
     }
 }
 
@@ -2397,11 +2404,38 @@ static bool validate_pipeline_shader_stage(
     layer_data *dev_data, VkPipelineShaderStageCreateInfo const *pStage, PIPELINE_STATE *pipeline,
     shader_module **out_module, spirv_inst_iter *out_entrypoint) {
     bool pass = true;
-    auto module_it = dev_data->shaderModuleMap.find(pStage->module);
-    auto module = *out_module = module_it->second.get();
+    auto module = *out_module = GetShaderState(dev_data, pStage->module);
     auto report_data = dev_data->report_data;
 
+    pass &= validate_specialization_offsets(report_data, pStage);
+
     if (!module->has_valid_spirv) return pass;
+
+    spvtools::Optimizer opt(SPV_ENV_VULKAN_1_0);
+
+    if (pStage->pSpecializationInfo) {
+        // massage the specialization data blob into the form spirv-tools wants
+        std::unordered_map<uint32_t, std::string> specializations;
+        for (auto i = 0u; i < pStage->pSpecializationInfo->mapEntryCount; i++) {
+            auto const & mapEntry = pStage->pSpecializationInfo->pMapEntries[i];
+            specializations[mapEntry.constantID] = std::string(
+                reinterpret_cast<char const *>(pStage->pSpecializationInfo->pData) + mapEntry.offset,
+                mapEntry.size);
+        }
+        opt.RegisterPass(spvtools::CreateSetSpecConstantDefaultValuePass(specializations));
+    }
+
+    opt.RegisterPass(spvtools::CreateFreezeSpecConstantValuePass());
+    opt.RegisterPass(spvtools::CreateUnifyConstantPass());
+
+    std::vector<uint32_t> final_spirv;
+    if (!opt.Run(module->words.data(), module->words.size(), &final_spirv)) {
+        // TODO: route any spirv-tools optimizer diagnostics here
+        if (log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VkDebugReportObjectTypeEXT(0), 0, __LINE__, SHADER_CHECKER_INCONSISTENT_SPIRV,
+                    "SC", "Internal error preprocessing shader module")) {
+            return false;
+        }
+    }
 
     // Find the entrypoint
     auto entrypoint = *out_entrypoint = find_entrypoint(module, pStage->pName, pStage->stage);
@@ -2424,7 +2458,6 @@ static bool validate_pipeline_shader_stage(
 
     auto pipelineLayout = pipeline->pipeline_layout;
 
-    pass &= validate_specialization_offsets(report_data, pStage);
     pass &= validate_push_constant_usage(report_data, &pipelineLayout.push_constant_ranges, module, accessible_ids, pStage->stage);
 
     // Validate descriptor use
