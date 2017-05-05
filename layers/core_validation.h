@@ -142,15 +142,20 @@ class QUERY_POOL_NODE : public BASE_NODE {
 
 // Stuff from Device Limits Layer
 enum CALL_STATE {
-    UNCALLED,       // Function has not been called
-    QUERY_COUNT,    // Function called once to query a count
-    QUERY_DETAILS,  // Function called w/ a count to query details
+    UNCALLED,                 // Function has not been called
+    QUERY_COUNT,              // Function was called to query a count
+    QUERY_DETAILS,            // Function was called w/ a count to query details
+    QUERY_COUNT_AND_DETAILS,  // Function was called to query a count and also called to query details
 };
+
+inline void SetCountReceived(CALL_STATE &cs) { cs = (UNCALLED == cs) ? QUERY_COUNT : QUERY_COUNT_AND_DETAILS; }
+inline void SetDetailsReceived(CALL_STATE &cs) { cs = (UNCALLED == cs) ? QUERY_DETAILS : QUERY_COUNT_AND_DETAILS; }
+inline bool GetCountReceived(CALL_STATE cs) { return QUERY_COUNT == cs || QUERY_COUNT_AND_DETAILS == cs; }
+inline bool GetDetailsReceived(CALL_STATE cs) { return QUERY_DETAILS == cs || QUERY_COUNT_AND_DETAILS == cs; }
 
 struct PHYSICAL_DEVICE_STATE {
     // Track the call state and array sizes for various query functions
     CALL_STATE vkGetPhysicalDeviceQueueFamilyPropertiesState = UNCALLED;
-    uint32_t queueFamilyPropertiesCount = 0;
     CALL_STATE vkGetPhysicalDeviceLayerPropertiesState = UNCALLED;
     CALL_STATE vkGetPhysicalDeviceExtensionPropertiesState = UNCALLED;
     CALL_STATE vkGetPhysicalDeviceFeaturesState = UNCALLED;
@@ -159,6 +164,7 @@ struct PHYSICAL_DEVICE_STATE {
     CALL_STATE vkGetPhysicalDeviceSurfaceFormatsKHRState = UNCALLED;
     VkPhysicalDeviceFeatures features = {};
     VkPhysicalDevice phys_device = VK_NULL_HANDLE;
+    uint32_t queue_family_count = 0;  // max count (i.e. valid queue families) known at this point in time
     std::vector<VkQueueFamilyProperties> queue_family_properties;
     VkSurfaceCapabilitiesKHR surfaceCapabilities = {};
     std::vector<VkPresentModeKHR> present_modes;
