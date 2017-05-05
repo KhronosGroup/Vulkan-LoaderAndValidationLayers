@@ -2906,6 +2906,8 @@ static bool verifyPipelineCreateState(layer_data *dev_data, std::vector<PIPELINE
     }
 
     if (pPipeline->graphicsPipelineCI.pTessellationState &&
+        (pPipeline->active_shaders & VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT) &&
+        (pPipeline->active_shaders & VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT) &&
         ((pPipeline->graphicsPipelineCI.pTessellationState->patchControlPoints == 0) ||
          (pPipeline->graphicsPipelineCI.pTessellationState->patchControlPoints >
           dev_data->phys_dev_properties.properties.limits.maxTessellationPatchSize))) {
