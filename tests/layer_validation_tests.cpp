@@ -10061,9 +10061,9 @@ TEST_F(VkLayerTest, InvalidQueueFamilyIndex) {
 
     VkBuffer ib;
     m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT,
-                                         "vkCreateBuffer: pCreateInfo->pQueueFamilyIndices[0] (777) must be one of the indices "
-                                         "specified when the device was created, via the VkDeviceQueueCreateInfo structure.");
-    vkCreateBuffer(m_device->device(), &buffCI, NULL, &ib);
+                                         "vkCreateBuffer: pCreateInfo->pQueueFamilyIndices[0] (= 777) is not one of the queue "
+                                         "families given via VkDeviceQueueCreateInfo structures when the device was created.");
+    auto err_ib1 = vkCreateBuffer(m_device->device(), &buffCI, NULL, &ib);
     m_errorMonitor->VerifyFound();
 
     if (m_device->queue_props.size() > 2) {
@@ -10100,7 +10100,7 @@ TEST_F(VkLayerTest, InvalidQueueFamilyIndex) {
         vkFreeMemory(m_device->device(), mem, NULL);
     }
 
-    vkDestroyBuffer(m_device->device(), ib, NULL);
+    if(!err_ib1) vkDestroyBuffer(m_device->device(), ib, NULL);
 }
 
 TEST_F(VkLayerTest, ExecuteCommandsPrimaryCB) {
@@ -12088,8 +12088,7 @@ TEST_F(VkLayerTest, MismatchCountQueueCreateRequestedFeature) {
     device_create_info.pQueueCreateInfos = &queue_create_info;
     device_create_info.pEnabledFeatures = &features;
 
-    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT,
-                                         "Invalid queue create request in vkCreateDevice(). Invalid queueFamilyIndex ");
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_00054);
     // The following unexpected error is coming from the LunarG loader. Do not make it a desired message because platforms that do
     // not use the LunarG loader (e.g. Android) will not see the message and the test will fail.
     m_errorMonitor->SetUnexpectedError("Failed to create device chain.");
