@@ -96,7 +96,7 @@ possible fashion.
 #### Layers
 
 Layers are optional components that augment the Vulkan system.  They can
-intercept, evaluate, and modify existing Vulkan functions on their way from the
+intercept and evaluate existing Vulkan functions on their way from the
 application down to the hardware.  Layers are implemented as libraries that can
 be enabled in different ways (including by application request) and are loaded
 during CreateInstance.  Each layer can choose to hook (intercept) any Vulkan
