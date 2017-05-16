@@ -122,11 +122,9 @@ VKAPI_ATTR VkResult VKAPI_CALL CreateInstance(const VkInstanceCreateInfo *pCreat
     physical_devices = (VkPhysicalDevice *)malloc(sizeof(physical_devices[0]) * physical_device_count);
     result = device_profile_data->instance_dispatch_table->EnumeratePhysicalDevices(*pInstance, &physical_device_count, physical_devices);
 
-    // First of all get original physical device props
+    // Get original physical device props
     for (uint8_t i = 0; i < physical_device_count; i++) {
-        // Search if we got the device props for this device and stored in device_profile_api layer
         auto device_profile_api_data_it = device_profile_api_dev_org_data_map.find(physical_devices[i]);
-        // If we do not have it store device properties in the device_profile_api_layer
         if (device_profile_api_data_it == device_profile_api_dev_org_data_map.end()) {
             device_profile_api_dev_org_data_map[physical_devices[i]].props = (VkPhysicalDeviceProperties *)malloc(sizeof(VkPhysicalDeviceProperties));
             if (device_profile_api_dev_org_data_map[physical_devices[i]].props) {
@@ -148,10 +146,9 @@ VKAPI_ATTR VkResult VKAPI_CALL CreateInstance(const VkInstanceCreateInfo *pCreat
         }
     }
 
+    // Store original props copy in profile as well
     for (uint8_t i = 0; i < physical_device_count; i++) {
-        // Search if we got the device props for this device and stored in device_profile_api layer
         auto device_profile_api_data_it = device_profile_api_dev_data_map.find(physical_devices[i]);
-        // If we do not have it store device properties in the device_profile_api_layer
         if (device_profile_api_data_it == device_profile_api_dev_data_map.end()) {
             device_profile_api_dev_data_map[physical_devices[i]].props = (VkPhysicalDeviceProperties *)malloc(sizeof(VkPhysicalDeviceProperties));
             if (device_profile_api_dev_data_map[physical_devices[i]].props) {
@@ -333,8 +330,6 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetPhysicalDeviceProcAddr(VkInstance in
 }
 
 VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetDeviceProcAddr(VkDevice device, const char *name) {
-    //printf("ARDA %s \n", __func__);
-    if (!name || name[0] != 'v' || name[1] != 'k') return NULL;
 
     if (!strcmp(name, "vkGetDeviceProcAddr")) return (PFN_vkVoidFunction)GetDeviceProcAddr;
     if (!strcmp(name, "vkDestroyDevice")) return (PFN_vkVoidFunction)DestroyDevice;
@@ -346,8 +341,6 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetDeviceProcAddr(VkDevice device, cons
 }
 
 VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetInstanceProcAddr(VkInstance instance, const char *name) {
-    //printf("ARDA %s \n", __func__);
-    if (!name || name[0] != 'v' || name[1] != 'k') return NULL;
 
     if (!strcmp(name, "vkCreateInstance")) return (PFN_vkVoidFunction)CreateInstance;
     if (!strcmp(name, "vkDestroyInstance")) return (PFN_vkVoidFunction)DestroyInstance;
@@ -410,16 +403,11 @@ VK_LAYER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr(V
     return device_profile_api::GetInstanceProcAddr(instance, funcName);
 }
 
-
 VK_LAYER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vk_layerGetPhysicalDeviceProcAddr(VkInstance instance,
         const char *funcName) {
     return device_profile_api::GetPhysicalDeviceProcAddr(instance, funcName);
 }
 
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkNegotiateLoaderLayerInterfaceVersion(VkNegotiateLayerInterface *pVersionStruct) {
     assert(pVersionStruct != NULL);
     assert(pVersionStruct->sType == LAYER_NEGOTIATE_INTERFACE_STRUCT);
@@ -439,6 +427,3 @@ VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkNegotiateLoaderLayerInterfaceVe
 
     return VK_SUCCESS;
 }
-#ifdef __cplusplus
-}
-#endif
