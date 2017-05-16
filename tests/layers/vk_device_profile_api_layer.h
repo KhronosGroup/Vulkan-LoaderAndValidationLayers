@@ -21,9 +21,7 @@
 
 #pragma once
 
-#include "vulkan.h"
 #include "vk_lunarg_device_profile_api-layer.h"
-#include "vk_layer.h"
 
 typedef struct VkLayerDeviceProfileApifDispatchTable_ {
     PFN_vkSetPhysicalDeviceLimitsEXT vkSetPhysicalDeviceLimitsEXT;
