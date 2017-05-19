@@ -449,24 +449,23 @@ VkResult loaderGetRegistryFiles(const struct loader_instance *inst, char *locati
                         *reg_data = loader_instance_heap_alloc(inst, total_size, VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
                         if (NULL == *reg_data) {
                             loader_log(inst, VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
-                                       "loaderGetRegistryFiles: Failed to allocate "
-                                       "space for registry data for key %s",
+                                       "loaderGetRegistryFiles: Failed to allocate space for registry data for key %s",
                                        name);
                             result = VK_ERROR_OUT_OF_HOST_MEMORY;
                             goto out;
                         }
                         *reg_data[0] = '\0';
                     } else if (strlen(*reg_data) + name_size + 1 > total_size) {
-                        *reg_data = loader_instance_heap_realloc(inst, *reg_data, total_size, total_size * 2,
-                                                                 VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
-                        if (NULL == *reg_data) {
+                        void *new_ptr = loader_instance_heap_realloc(inst, *reg_data, total_size, total_size * 2,
+                                                                     VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
+                        if (NULL == new_ptr) {
                             loader_log(inst, VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
-                                       "loaderGetRegistryFiles: Failed to reallocate "
-                                       "space for registry value of size %d for key %s",
+                                       "loaderGetRegistryFiles: Failed to reallocate space for registry value of size %d for key %s",
                                        total_size * 2, name);
                             result = VK_ERROR_OUT_OF_HOST_MEMORY;
                             goto out;
                         }
+                        *reg_data = new_ptr;
                         total_size *= 2;
                     }
                     loader_log(
@@ -628,14 +627,14 @@ static struct loader_layer_properties *loader_get_next_layer_property(const stru
 
     // Ensure enough room to add an entry
     if ((layer_list->count + 1) * sizeof(struct loader_layer_properties) > layer_list->capacity) {
-        layer_list->list = loader_instance_heap_realloc(inst, layer_list->list, layer_list->capacity, layer_list->capacity * 2,
-                                                        VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
-        if (layer_list->list == NULL) {
+        void *new_ptr = loader_instance_heap_realloc(inst, layer_list->list, layer_list->capacity, layer_list->capacity * 2,
+                                                     VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
+        if (NULL == new_ptr) {
             loader_log(inst, VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
-                       "loader_get_next_layer_property: realloc failed for "
-                       "layer list");
+                       "loader_get_next_layer_property: realloc failed for layer list");
             return NULL;
         }
+        layer_list->list = new_ptr;
         layer_list->capacity *= 2;
     }
 
@@ -856,15 +855,15 @@ VkResult loader_add_to_ext_list(const struct loader_instance *inst, struct loade
         // add to list at end
         // check for enough capacity
         if (ext_list->count * sizeof(VkExtensionProperties) >= ext_list->capacity) {
-            ext_list->list = loader_instance_heap_realloc(inst, ext_list->list, ext_list->capacity, ext_list->capacity * 2,
-                                                          VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
-
-            if (ext_list->list == NULL) {
+            void *new_ptr = loader_instance_heap_realloc(inst, ext_list->list, ext_list->capacity, ext_list->capacity * 2,
+                                                         VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
+            if (new_ptr == NULL) {
                 loader_log(inst, VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
                            "loader_add_to_ext_list: Failed to reallocate "
                            "space for extension list");
                 return VK_ERROR_OUT_OF_HOST_MEMORY;
             }
+            ext_list->list = new_ptr;
 
             // double capacity
             ext_list->capacity *= 2;
@@ -898,15 +897,15 @@ VkResult loader_add_to_dev_ext_list(const struct loader_instance *inst, struct l
     // add to list at end
     // check for enough capacity
     if (idx * sizeof(struct loader_dev_ext_props) >= ext_list->capacity) {
-        ext_list->list = loader_instance_heap_realloc(inst, ext_list->list, ext_list->capacity, ext_list->capacity * 2,
-                                                      VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
+        void *new_ptr = loader_instance_heap_realloc(inst, ext_list->list, ext_list->capacity, ext_list->capacity * 2,
+                                                     VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
 
-        if (ext_list->list == NULL) {
+        if (NULL == new_ptr) {
             loader_log(inst, VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
-                       "loader_add_to_dev_ext_list: Failed to reallocate "
-                       "space for device extension list");
+                       "loader_add_to_dev_ext_list: Failed to reallocate space for device extension list");
             return VK_ERROR_OUT_OF_HOST_MEMORY;
         }
+        ext_list->list = new_ptr;
 
         // double capacity
         ext_list->capacity *= 2;
@@ -1054,14 +1053,14 @@ VkResult loader_add_to_layer_list(const struct loader_instance *inst, struct loa
         // Check for enough capacity
         if (((list->count + 1) * sizeof(struct loader_layer_properties)) >= list->capacity) {
             size_t new_capacity = list->capacity * 2;
-            list->list =
+            void *new_ptr =
                 loader_instance_heap_realloc(inst, list->list, list->capacity, new_capacity, VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
-            if (NULL == list->list) {
+            if (NULL == new_ptr) {
                 loader_log(inst, VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
-                           "loader_add_to_layer_list: Realloc failed for "
-                           "when attempting to add new layer");
+                           "loader_add_to_layer_list: Realloc failed for when attempting to add new layer");
                 return VK_ERROR_OUT_OF_HOST_MEMORY;
             }
+            list->list = new_ptr;
             list->capacity = new_capacity;
         }
 
@@ -1574,17 +1573,18 @@ static VkResult loader_scanned_icd_add(const struct loader_instance *inst, struc
 
     // check for enough capacity
     if ((icd_tramp_list->count * sizeof(struct loader_scanned_icd)) >= icd_tramp_list->capacity) {
-        icd_tramp_list->scanned_list =
+        void *new_ptr =
             loader_instance_heap_realloc(inst, icd_tramp_list->scanned_list, icd_tramp_list->capacity, icd_tramp_list->capacity * 2,
                                          VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
-        if (NULL == icd_tramp_list->scanned_list) {
+        if (NULL == new_ptr) {
             res = VK_ERROR_OUT_OF_HOST_MEMORY;
             loader_log(inst, VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
-                       "loader_scanned_icd_add: Realloc failed on icd library"
-                       " list for ICD %s",
+                       "loader_scanned_icd_add: Realloc failed on icd library list for ICD %s",
                        filename);
             goto out;
         }
+        icd_tramp_list->scanned_list = new_ptr;
+
         // double capacity
         icd_tramp_list->capacity *= 2;
     }
@@ -2858,18 +2858,24 @@ static VkResult loader_get_manifest_files(const struct loader_instance *inst, co
                 if (out_files->count == 0) {
                     out_files->filename_list =
                         loader_instance_heap_alloc(inst, alloced_count * sizeof(char *), VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
+                    if (NULL == out_files->filename_list) {
+                        loader_log(inst, VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
+                            "loader_get_manifest_files: Failed to allocate space for manifest file name list");
+                        res = VK_ERROR_OUT_OF_HOST_MEMORY;
+                        goto out;
+                    }
                 } else if (out_files->count == alloced_count) {
-                    out_files->filename_list =
+                    void *new_ptr =
                         loader_instance_heap_realloc(inst, out_files->filename_list, alloced_count * sizeof(char *),
                                                      alloced_count * sizeof(char *) * 2, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
+                    if (NULL == new_ptr) {
+                        loader_log(inst, VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
+                            "loader_get_manifest_files: Failed to reallocate space for manifest file name list");
+                        res = VK_ERROR_OUT_OF_HOST_MEMORY;
+                        goto out;
+                    }
+                    out_files->filename_list = new_ptr;
                     alloced_count *= 2;
-                }
-                if (out_files->filename_list == NULL) {
-                    loader_log(inst, VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
-                               "loader_get_manifest_files: Failed to allocate "
-                               "space for manifest file name list");
-                    res = VK_ERROR_OUT_OF_HOST_MEMORY;
-                    goto out;
                 }
                 out_files->filename_list[out_files->count] =
                     loader_instance_heap_alloc(inst, strlen(name) + 1, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
@@ -3609,22 +3615,21 @@ static bool loader_add_dev_ext_table(struct loader_instance *inst, uint32_t *ptr
         list->index = loader_instance_heap_alloc(inst, 8 * sizeof(*(list->index)), VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
         if (list->index == NULL) {
             loader_log(inst, VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
-                       "loader_add_dev_ext_table: Failed to allocate memory "
-                       "for list index",
+                       "loader_add_dev_ext_table: Failed to allocate memory for list index",
                        funcName);
             return false;
         }
         list->capacity = 8 * sizeof(*(list->index));
     } else if (list->capacity < (list->count + 1) * sizeof(*(list->index))) {
-        list->index = loader_instance_heap_realloc(inst, list->index, list->capacity, list->capacity * 2,
-                                                   VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
-        if (list->index == NULL) {
+        void *new_ptr = loader_instance_heap_realloc(inst, list->index, list->capacity, list->capacity * 2,
+                                                     VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
+        if (NULL == new_ptr) {
             loader_log(inst, VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
-                       "loader_add_dev_ext_table: Failed to reallocate memory "
-                       "for list index",
+                       "loader_add_dev_ext_table: Failed to reallocate memory for list index",
                        funcName);
             return false;
         }
+        list->index = new_ptr;
         list->capacity *= 2;
     }
 
@@ -3786,12 +3791,13 @@ static bool loader_add_phys_dev_ext_table(struct loader_instance *inst, uint32_t
         }
         list->capacity = 8 * sizeof(*(list->index));
     } else if (list->capacity < (list->count + 1) * sizeof(*(list->index))) {
-        list->index = loader_instance_heap_realloc(inst, list->index, list->capacity, list->capacity * 2,
-                                                   VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
-        if (list->index == NULL) {
+        void *new_ptr = loader_instance_heap_realloc(inst, list->index, list->capacity, list->capacity * 2,
+                                                     VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
+        if (NULL == new_ptr) {
             loader_log(inst, VK_DEBUG_REPORT_ERROR_BIT_EXT, 0, "loader_add_phys_dev_ext_table() can't reallocate list memory");
             return false;
         }
+        list->index = new_ptr;
         list->capacity *= 2;
     }
 
