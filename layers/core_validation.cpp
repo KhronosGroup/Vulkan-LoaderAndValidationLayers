@@ -1736,7 +1736,6 @@ static void resetCB(layer_data *dev_data, const VkCommandBuffer cb) {
         pCB->drawData.clear();
         pCB->currentDrawData.buffers.clear();
         pCB->vertex_buffer_used = false;
-        pCB->primaryCommandBuffer = VK_NULL_HANDLE;
         // If secondary, invalidate any primary command buffer that may call us.
         if (pCB->createInfo.level == VK_COMMAND_BUFFER_LEVEL_SECONDARY) {
             invalidateCommandBuffers(dev_data,
@@ -2509,6 +2508,8 @@ static bool validatePrimaryCommandBufferState(layer_data *dev_data, GLOBAL_CB_NO
     // Track in-use for resources off of primary and any secondary CBs
     bool skip = false;
 
+    // TODO: inline this function into sole caller
+
     // If USAGE_SIMULTANEOUS_USE_BIT not set then CB cannot already be executing
     // on device
     skip |= validateCommandBufferSimultaneousUse(dev_data, pCB, current_submit_count);
@@ -2517,16 +2518,6 @@ static bool validatePrimaryCommandBufferState(layer_data *dev_data, GLOBAL_CB_NO
 
     for (auto pSubCB : pCB->linkedCommandBuffers) {
         skip |= validateResources(dev_data, pSubCB);
-        // TODO: replace with invalidateCommandBuffers() at recording.
-        if ((pSubCB->primaryCommandBuffer != pCB->commandBuffer) &&
-            !(pSubCB->beginInfo.flags & VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT)) {
-            log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT, 0,
-                    __LINE__, VALIDATION_ERROR_31a00092, "DS",
-                    "Commandbuffer 0x%p was submitted with secondary buffer 0x%p but that buffer has subsequently been bound to "
-                    "primary cmd buffer 0x%p and it does not have VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT set. %s",
-                    pCB->commandBuffer, pSubCB->commandBuffer, pSubCB->primaryCommandBuffer,
-                    validation_error_map[VALIDATION_ERROR_31a00092]);
-        }
     }
 
     skip |= validateCommandBufferState(dev_data, pCB, "vkQueueSubmit()", current_submit_count, VALIDATION_ERROR_31a00090);
@@ -4109,7 +4100,7 @@ VKAPI_ATTR VkResult VKAPI_CALL ResetFences(VkDevice device, uint32_t fenceCount,
 }
 
 // For given cb_nodes, invalidate them and track object causing invalidation
-void invalidateCommandBuffers(const layer_data *dev_data, std::unordered_set<GLOBAL_CB_NODE *> const &cb_nodes, VK_OBJECT obj) {
+void invalidateCommandBuffers(const layer_data *dev_data, std::unordered_set<GLOBAL_CB_NODE *> const &cb_nodes, VK_OBJECT obj, bool track_invalidator) {
     for (auto cb_node : cb_nodes) {
         if (cb_node->state == CB_RECORDING) {
             log_msg(dev_data->report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
@@ -4120,11 +4111,13 @@ void invalidateCommandBuffers(const layer_data *dev_data, std::unordered_set<GLO
         else {
             cb_node->state = CB_INVALID_COMPLETE;
         }
-        cb_node->broken_bindings.push_back(obj);
+        if (track_invalidator) {
+            cb_node->broken_bindings.push_back(obj);
+        }
 
         // if secondary, then propagate the invalidation to the primaries that will call us.
         if (cb_node->createInfo.level == VK_COMMAND_BUFFER_LEVEL_SECONDARY) {
-            invalidateCommandBuffers(dev_data, cb_node->linkedCommandBuffers, obj);
+            invalidateCommandBuffers(dev_data, cb_node->linkedCommandBuffers, obj, track_invalidator);
         }
     }
 }
@@ -8320,6 +8313,13 @@ VKAPI_ATTR void VKAPI_CALL CmdExecuteCommands(VkCommandBuffer commandBuffer, uin
                         pCommandBuffers[i], pCB->commandBuffer);
                     pCB->beginInfo.flags &= ~VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
                 }
+                if (pSubCB->linkedCommandBuffers.size()) {
+                    // TODO: adjust message support so we can report an accurate error message for this.
+                    invalidateCommandBuffers(dev_data, pSubCB->linkedCommandBuffers,
+                                             {HandleToUint64(pCommandBuffers[i]), kVulkanObjectTypeCommandBuffer},
+                                             false /* don't track invalidator. we've already complained. */);
+                    // TODO: consistent strategy for removing links.
+                }
             }
             if (!pCB->activeQueries.empty() && !dev_data->enabled_features.inheritedQueries) {
                 skip |=
@@ -8336,7 +8336,6 @@ VKAPI_ATTR void VKAPI_CALL CmdExecuteCommands(VkCommandBuffer commandBuffer, uin
             for (auto ilm_entry : pSubCB->imageLayoutMap) {
                 SetLayout(dev_data, pCB, ilm_entry.first, ilm_entry.second);
             }
-            pSubCB->primaryCommandBuffer = pCB->commandBuffer;
             pCB->linkedCommandBuffers.insert(pSubCB);
             pSubCB->linkedCommandBuffers.insert(pCB);
             for (auto &function : pSubCB->queryUpdates) {
