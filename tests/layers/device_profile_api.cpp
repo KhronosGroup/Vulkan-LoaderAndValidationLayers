@@ -16,6 +16,7 @@
  * limitations under the License.
  *
  * Author: Arda Coskunses <arda@lunarg.com>
+ * Author: Tony Barbour <tony@LunarG.com>
  */
 #include <string.h>
 #include <stdlib.h>

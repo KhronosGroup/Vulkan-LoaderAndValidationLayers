@@ -3018,6 +3018,33 @@ TEST_F(VkLayerTest, BindMemoryToDestroyedObject) {
 TEST_F(VkLayerTest, ExceedMemoryAllocationCount) {
     VkResult err = VK_SUCCESS;
     VkDeviceMemory mems[33];
+    uint32_t instance_layer_count = 0;
+
+    err = vkEnumerateInstanceLayerProperties(&instance_layer_count, NULL);
+    assert(!err);
+
+    if (!instance_layer_count) {
+        printf("             No instance layers found; skipped.\n");
+        return;
+    }
+    VkLayerProperties *instance_layers = (VkLayerProperties *)
+                malloc(sizeof (VkLayerProperties) * instance_layer_count);
+    err = vkEnumerateInstanceLayerProperties(&instance_layer_count,
+                instance_layers);
+    assert(!err);
+
+    bool found = false;
+    for (uint32_t i = 0; i < instance_layer_count; i++) {
+        if (!strcmp(instance_layers[i].layerName, "VK_LAYER_LUNARG_device_profile_api")) {
+            found = true;
+            break;
+        }
+    }
+
+    if (!found) {
+        printf("             Did not find VK_LAYER_LUNARG_device_profile_api layer; skipped.\n");
+        return;
+    }
 
     instance_layer_names.push_back("VK_LAYER_LUNARG_device_profile_api");
     ASSERT_NO_FATAL_FAILURE(
@@ -3027,7 +3054,7 @@ TEST_F(VkLayerTest, ExceedMemoryAllocationCount) {
     PFN_vkGetOriginalPhysicalDeviceLimitsEXT fpvkGetOriginalPhysicalDeviceLimitsEXT = (PFN_vkGetOriginalPhysicalDeviceLimitsEXT)vkGetInstanceProcAddr(instance(), "vkGetOriginalPhysicalDeviceLimitsEXT");
 
     if(!(fpvkSetPhysicalDeviceLimitsEXT) || !(fpvkGetOriginalPhysicalDeviceLimitsEXT)){
-        printf("             Can't find device_profile_api layer'; skipped.\n");
+        printf("             Can't find device_profile_api functions; skipped.\n");
         return;
     }
     VkPhysicalDeviceProperties props;
@@ -3042,7 +3069,6 @@ TEST_F(VkLayerTest, ExceedMemoryAllocationCount) {
     VkMemoryAllocateInfo mem_alloc = {};
     mem_alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     mem_alloc.pNext = NULL;
-    mem_alloc.allocationSize = 0;
     mem_alloc.memoryTypeIndex = 0;
     mem_alloc.allocationSize = 4;
 
