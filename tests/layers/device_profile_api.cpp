@@ -22,10 +22,10 @@
 #include <assert.h>
 #include <unordered_map>
 
-#include "threading.h"
 #include "vk_dispatch_table_helper.h"
 #include "vk_lunarg_device_profile_api-layer.h"
 #include "vk_device_profile_api_layer.h"
+#include "threading.h"
 
 namespace device_profile_api {
 
