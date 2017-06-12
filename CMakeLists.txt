@@ -309,7 +309,7 @@ if(NOT WIN32)
     endif()
 endif()
 
-if(UNIX)
+if(UNIX AND BUILD_LOADER)
     install(DIRECTORY "${PROJECT_SOURCE_DIR}/include/vulkan" DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 # uninstall target
