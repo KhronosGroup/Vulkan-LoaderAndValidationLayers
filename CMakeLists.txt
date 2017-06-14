@@ -77,6 +77,10 @@ if(WIN32)
     # Warn about potentially uninitialized variables
     add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/w34701>")
     add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/w34703>")
+    # Enable control flow guard
+    add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/guard:cf>")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /guard:cf")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /guard:cf")
 endif()
 
 if(NOT WIN32)
