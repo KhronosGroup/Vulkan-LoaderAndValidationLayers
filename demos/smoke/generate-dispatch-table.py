@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 #
 # Copyright (C) 2016 Google, Inc.
 #
@@ -18,6 +18,7 @@
 """Generate Vulkan dispatch table.
 """
 
+from __future__ import print_function
 import os
 import sys
 

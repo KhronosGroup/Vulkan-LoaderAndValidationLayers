@@ -13,7 +13,7 @@ set(MAJOR "1")
 string(TOLOWER ${API_NAME} API_LOWERCASE)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-find_package(PythonInterp 3 REQUIRED)
+find_package(PythonInterp 2.7 REQUIRED)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(FALLBACK_CONFIG_DIRS "/etc/xdg" CACHE STRING
