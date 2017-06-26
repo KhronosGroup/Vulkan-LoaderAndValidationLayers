@@ -6,7 +6,6 @@ try:
     import urllib.request as urllib2
 except ImportError:
     import urllib2
-from bs4 import BeautifulSoup
 import json
 
 #############################
@@ -470,6 +469,16 @@ func_struct_id_map = {
 'vkUpdateDescriptorSetWithTemplateKHR' : 413,
 'vkUpdateDescriptorSets' : 414,
 'vkWaitForFences' : 415,
+'VkPhysicalDeviceProperties2KHR' : 416,
+'VkFormatProperties2KHR' : 417,
+'VkImageFormatProperties2KHR' : 418,
+'VkPhysicalDeviceMemoryProperties2KHR' : 419,
+'VkSurfaceCapabilities2KHR' : 420,
+'VkDeviceGroupPresentCapabilitiesKHX' : 421,
+'VkExternalBufferPropertiesKHX' : 422,
+'VkMemoryWin32HandlePropertiesKHX' : 423,
+'VkMemoryFdPropertiesKHX' : 424,
+'VkExternalSemaphorePropertiesKHX' : 425,
 ### ADD New func/struct mappings above this line
 }
 # Mapping of params to unique IDs
@@ -917,7 +926,7 @@ def convertVUID(vuid_string):
 #        print ("ERROR: Uniqueid %d for string id %s is a duplicate!" % (uniqueid, vuid_string))
 #        print (" TODO: Figure out what caused the dupe and fix it")
         #sys.exit()
-    print ("Storing uniqueid %d for unique string %s" % (uniqueid, vuid_string))
+    # print ("Storing uniqueid %d for unique string %s" % (uniqueid, vuid_string))
     uniqueid_set.add(uniqueid)
 #    if func_struct_update:
 #        print ("func_struct_id_map updated, here's new structure")
