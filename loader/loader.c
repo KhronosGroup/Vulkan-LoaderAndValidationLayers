@@ -1572,6 +1572,11 @@ bool loaderAddMetaLayer(const struct loader_instance *inst, const struct loader_
                         const struct loader_layer_list *source_list) {
     bool found = true;
 
+    // If the meta-layer isn't present in the unexpanded list, add it.
+    if (!loaderListHasLayerProperty(&prop->info, target_list)) {
+        loaderAddLayerPropertiesToList(inst, target_list, 1, prop);
+    }
+
     // We need to add all the individual component layers
     for (uint32_t comp_layer = 0; comp_layer < prop->num_component_layers; comp_layer++) {
         bool found_comp = false;
@@ -3394,14 +3399,12 @@ static VkResult ReadDataFilesInSearchPaths(const struct loader_instance *inst, e
 #endif
 
 #ifndef _WIN32
-    const char home_additional[] = ".local/share/";
-
     // Determine how much space is needed to generate the full search path
     // for the current manifest files.
     char *xdgconfdirs = loader_secure_getenv("XDG_CONFIG_DIRS", inst);
     char *xdgdatadirs = loader_secure_getenv("XDG_DATA_DIRS", inst);
     char *xdgdatahome = loader_secure_getenv("XDG_DATA_HOME", inst);
-    char *home = loader_secure_getenv("HOME", inst);
+    char *home = NULL;
 
     if (xdgconfdirs == NULL) {
         xdgconfig_alloc = false;
@@ -3414,6 +3417,11 @@ static VkResult ReadDataFilesInSearchPaths(const struct loader_instance *inst, e
     }
     if (xdgdatadirs == NULL || xdgdatadirs[0] == '\0') {
         xdgdatadirs = FALLBACK_DATA_DIRS;
+    }
+
+    // Only use HOME if XDG_DATA_HOME is not present on the system
+    if (NULL == xdgdatahome) {
+        home = loader_secure_getenv("HOME", inst);
     }
 #endif
 
@@ -3468,7 +3476,7 @@ static VkResult ReadDataFilesInSearchPaths(const struct loader_instance *inst, e
 #endif
             if (is_directory_list) {
                 search_path_size += DetermineDataFilePathSize(xdgdatahome, rel_size);
-                search_path_size += DetermineDataFilePathSize(home, rel_size + strlen(home_additional));
+                search_path_size += DetermineDataFilePathSize(home, rel_size);
             }
 #endif
         }
@@ -3504,12 +3512,8 @@ static VkResult ReadDataFilesInSearchPaths(const struct loader_instance *inst, e
 #endif
             CopyDataFilePath(xdgdatadirs, relative_location, rel_size, &cur_path_ptr);
             if (is_directory_list) {
-                char relative_home_path[1024];
                 CopyDataFilePath(xdgdatahome, relative_location, rel_size, &cur_path_ptr);
-                strncpy(relative_home_path, home_additional, 1023 - rel_size);
-                strncat(relative_home_path, relative_location, rel_size);
-                relative_home_path[1023] = '\0';
-                CopyDataFilePath(home, relative_home_path, strlen(relative_home_path), &cur_path_ptr);
+                CopyDataFilePath(home, relative_location, rel_size, &cur_path_ptr);
             }
         }
 
@@ -3570,25 +3574,11 @@ static VkResult ReadDataFilesInRegistry(const struct loader_instance *inst, enum
     VkResult vk_result = VK_SUCCESS;
     bool is_settings = (data_file_type == LOADER_DATA_FILE_SETTINGS);
     bool is_icd = (data_file_type == LOADER_DATA_FILE_MANIFEST_ICD);
-    bool use_secondary_hive = (data_file_type == LOADER_DATA_FILE_MANIFEST_LAYER || data_file_type == LOADER_DATA_FILE_SETTINGS);
-    char *reg_data = NULL;
-    uint32_t reg_data_size = 4096;
+    bool use_secondary_hive = (data_file_type == LOADER_DATA_FILE_MANIFEST_LAYER || data_file_type == LOADER_DATA_FILE_SETTINGS);>>>
+    char *search_path = NULL;
 
-    VkResult regHKR_result = VK_SUCCESS;
-    if (is_icd) {
-        if (!strncmp(registry_location, VK_DRIVERS_INFO_REGISTRY_LOC, sizeof(VK_DRIVERS_INFO_REGISTRY_LOC))) {
-            if (!strncmp(loc, DEFAULT_VK_DRIVERS_INFO, sizeof(DEFAULT_VK_DRIVERS_INFO))) {
-                regHKR_result = loaderGetDeviceRegistryFiles(inst, &reg_data, &reg_data_size, LoaderPnpDriverRegistry());
-            } else if (!strncmp(loc, DEFAULT_VK_ELAYERS_INFO, sizeof(DEFAULT_VK_ELAYERS_INFO))) {
-                regHKR_result = loaderGetDeviceRegistryFiles(inst, &reg_data, &reg_data_size, LoaderPnpELayerRegistry());
-            } else if (!strncmp(loc, DEFAULT_VK_ILAYERS_INFO, sizeof(DEFAULT_VK_ILAYERS_INFO))) {
-                regHKR_result = loaderGetDeviceRegistryFiles(inst, &reg_data, &reg_data_size, LoaderPnpILayerRegistry());
-            }
-        }
-    }
-
-    VkResult reg_result = loaderGetRegistryFiles(inst, registry_location, use_secondary_hive, &reg_data, &reg_data_size);
-    if ((VK_SUCCESS != reg_result && VK_SUCCESS != regHKR_result) || NULL == reg_data) {
+    VkResult reg_result = loaderGetRegistryFiles(inst, registry_location, use_secondary_hive, &search_path);
+    if (VK_SUCCESS != reg_result || NULL == search_path) {
         if (data_file_type == LOADER_DATA_FILE_MANIFEST_ICD) {
             loader_log(
                 inst, VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
@@ -3621,12 +3611,12 @@ static VkResult ReadDataFilesInRegistry(const struct loader_instance *inst, enum
     }
 
     // Now, parse the paths and add any manifest files found in them.
-    vk_result = AddDataFilesInPath(inst, reg_data, false, is_settings, out_files);
+    vk_result = AddDataFilesInPath(inst, search_path, false, is_settings, out_files);
 
 out:
 
-    if (NULL != reg_data) {
-        loader_instance_heap_free(inst, reg_data);
+    if (NULL != search_path) {
+        loader_instance_heap_free(inst, search_path);
     }
 
     return vk_result;
