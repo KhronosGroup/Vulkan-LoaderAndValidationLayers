@@ -3250,7 +3250,8 @@ static VkResult AddIfSettingsFile(const struct loader_instance *inst, const char
     filename_len = strlen(filename_after_dir_symbol);
 
     // Only add files called "vk_layer_settings.txt"
-    if (filename_len != settings_filename_len || 0 != strncmp(filename_after_dir_symbol, settings_filename, filename_len)) {
+    if (filename_len != settings_filename_len ||
+        0 != strncmp(filename_after_dir_symbol, settings_filename, filename_len)) {
         // Use incomplete to indicate invalid name, but to keep going.
         vk_result = VK_INCOMPLETE;
         goto out;
@@ -3868,7 +3869,7 @@ VkResult loader_icd_scan(const struct loader_instance *inst, struct loader_icd_t
 #if defined(DEFAULT_VK_DRIVERS_PATH)
                     loader_get_fullpath(library_path, DEFAULT_VK_DRIVERS_PATH, sizeof(fullpath), fullpath);
 #else
-                        loader_get_fullpath(library_path, "", sizeof(fullpath), fullpath);
+                    loader_get_fullpath(library_path, "", sizeof(fullpath), fullpath);
 #endif
                 }
 
