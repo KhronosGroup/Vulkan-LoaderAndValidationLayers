@@ -40,21 +40,38 @@
 
 #define MAX_NUM_UNKNOWN_EXTS 250
 
- // Loader-Layer version negotiation API.  Versions add the following features:
- //   Versions 0/1 - Initial.  Doesn't support vk_layerGetPhysicalDeviceProcAddr
- //                  or vk_icdNegotiateLoaderLayerInterfaceVersion.
- //   Version 2    - Add support for vk_layerGetPhysicalDeviceProcAddr and
- //                  vk_icdNegotiateLoaderLayerInterfaceVersion.
-#define CURRENT_LOADER_LAYER_INTERFACE_VERSION 2
+// Loader-Layer version negotiation API.  Versions add the following features:
+//   Versions 0/1 - Initial.  Doesn't support vk_layerGetPhysicalDeviceProcAddr
+//                  or vk_icdNegotiateLoaderLayerInterfaceVersion.
+//   Version 2    - Add support for vk_layerGetPhysicalDeviceProcAddr and
+//                  vk_icdNegotiateLoaderLayerInterfaceVersion.
+//   Version 3    - Add support for VkLayerSettingsFileInfo structure.
+#define CURRENT_LOADER_LAYER_INTERFACE_VERSION 3
 #define MIN_SUPPORTED_LOADER_LAYER_INTERFACE_VERSION 1
 
 // Version negotiation values
 typedef enum VkNegotiateLayerStructType {
     LAYER_NEGOTIATE_UNINTIALIZED = 0,
     LAYER_NEGOTIATE_INTERFACE_STRUCT = 1,
+    LAYER_NEGOTIATE_SETTINGS_FILE_INFO_STRUCT = 2,
 } VkNegotiateLayerStructType;
 
+// Negotiate structure header info
+typedef struct VkNegotiateHeader {
+    VkNegotiateLayerStructType sType;
+    void *pNext;
+} VkNegotiateHeader;
+
+// Settings file information
+typedef struct VkLayerSettingsFileInfo {
+    VkNegotiateLayerStructType sType;
+    void *pNext;
+    const char *settings_file;
+} VkLayerSettingsFileInfo;
+
 // Version negotiation structures
+// pNext valid structures include:
+//   - VkLayerSettingsFileInfo
 typedef struct VkNegotiateLayerInterface {
     VkNegotiateLayerStructType sType;
     void *pNext;
@@ -65,7 +82,7 @@ typedef struct VkNegotiateLayerInterface {
 } VkNegotiateLayerInterface;
 
 // Version negotiation functions
-typedef VkResult (VKAPI_PTR *PFN_vkNegotiateLoaderLayerInterfaceVersion)(VkNegotiateLayerInterface *pVersionStruct);
+typedef VkResult(VKAPI_PTR *PFN_vkNegotiateLoaderLayerInterfaceVersion)(VkNegotiateLayerInterface *pVersionStruct);
 
 // Function prototype for unknown physical device extension command
 typedef VkResult(VKAPI_PTR *PFN_PhysDevExt)(VkPhysicalDevice phys_device);
@@ -78,10 +95,7 @@ typedef VkResult(VKAPI_PTR *PFN_PhysDevExt)(VkPhysicalDevice phys_device);
  * or sType == VK_STRUCTURE_TYPE_LOADER_DEVICE_CREATE_INFO
  * then VkLayerFunction indicates struct type pointed to by pNext
  */
-typedef enum VkLayerFunction_ {
-    VK_LAYER_LINK_INFO = 0,
-    VK_LOADER_DATA_CALLBACK = 1
-} VkLayerFunction;
+typedef enum VkLayerFunction_ { VK_LAYER_LINK_INFO = 0, VK_LOADER_DATA_CALLBACK = 1 } VkLayerFunction;
 
 typedef struct VkLayerInstanceLink_ {
     struct VkLayerInstanceLink_ *pNext;
@@ -101,13 +115,11 @@ typedef struct VkLayerDeviceInfo_ {
     PFN_vkGetInstanceProcAddr pfnNextGetInstanceProcAddr;
 } VkLayerDeviceInfo;
 
-typedef VkResult (VKAPI_PTR *PFN_vkSetInstanceLoaderData)(VkInstance instance,
-        void *object);
-typedef VkResult (VKAPI_PTR *PFN_vkSetDeviceLoaderData)(VkDevice device,
-        void *object);
+typedef VkResult(VKAPI_PTR *PFN_vkSetInstanceLoaderData)(VkInstance instance, void *object);
+typedef VkResult(VKAPI_PTR *PFN_vkSetDeviceLoaderData)(VkDevice device, void *object);
 
 typedef struct {
-    VkStructureType sType; // VK_STRUCTURE_TYPE_LOADER_INSTANCE_CREATE_INFO
+    VkStructureType sType;  // VK_STRUCTURE_TYPE_LOADER_INSTANCE_CREATE_INFO
     const void *pNext;
     VkLayerFunction function;
     union {
@@ -123,7 +135,7 @@ typedef struct VkLayerDeviceLink_ {
 } VkLayerDeviceLink;
 
 typedef struct {
-    VkStructureType sType; // VK_STRUCTURE_TYPE_LOADER_DEVICE_CREATE_INFO
+    VkStructureType sType;  // VK_STRUCTURE_TYPE_LOADER_DEVICE_CREATE_INFO
     const void *pNext;
     VkLayerFunction function;
     union {
