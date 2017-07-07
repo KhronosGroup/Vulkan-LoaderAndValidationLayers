@@ -202,6 +202,50 @@ Var IC
   System::Call kernel32::Wow64EnableWow64FsRedirection(i1)
 !macroend
 
+Function StrStr
+  Exch $R1 ; st=haystack,old$R1, $R1=needle
+  Exch    ; st=old$R1,haystack
+  Exch $R2 ; st=old$R1,old$R2, $R2=haystack
+  Push $R3
+  Push $R4
+  Push $R5
+  StrLen $R3 $R1
+  StrCpy $R4 0
+  ; $R1=needle
+  ; $R2=haystack
+  ; $R3=len(needle)
+  ; $R4=cnt
+  ; $R5=tmp
+  loop:
+    StrCpy $R5 $R2 $R3 $R4
+    StrCmp $R5 $R1 done
+    StrCmp $R5 "" done
+    IntOp $R4 $R4 + 1
+    Goto loop
+  done:
+  StrCpy $R1 $R2 "" $R4
+  Pop $R5
+  Pop $R4
+  Pop $R3
+  Pop $R2
+  Exch $R1
+FunctionEnd
+
+#IsHide - functions return true via stack, if the user passed /H in command line and false otherwise
+Function IsHide
+  Push $0
+  Push $CMDLINE
+  Push "/H"
+  Call StrStr
+  Pop $0
+  StrCpy $0 $0 3
+  StrCmp $0 "/H" hide
+  StrCmp $0 "/H " hide
+    StrCpy $0 0
+    Goto nothide
+  hide: StrCpy $0 1
+  nothide: Exch $0
+FunctionEnd
 
 # Need admin to write to C:\Windows\System32 and install dir
 RequestExecutionLevel admin
@@ -213,6 +257,11 @@ Function .onInit
    WriteUninstaller "$%TEMP%\Uninstall${PRODUCTNAME}.exe"
    Quit
 !endif
+Var /GLOBAL HD
+Call IsHide
+Pop $0
+StrCpy $HD $0
+
 
 FunctionEnd
 
@@ -409,15 +458,16 @@ Section
 
     # Set SystemComponent to 1 for those instances that are not to be visible to Add/Remove Programs.
     # Set SystemComponent to 0 for the instance that is to be visible to Add/Remove Programs.
+
     ${If} $IC > 2
         IntOp $1 $IC - 1
-        WriteRegDword HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCTNAME}${PRODUCTVERSION}-$IC" "SystemComponent" 0
+        WriteRegDword HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCTNAME}${PRODUCTVERSION}-$IC" "SystemComponent" $HD
         WriteRegDword HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCTNAME}${PRODUCTVERSION}-$1" "SystemComponent" 1
     ${ElseIf} $IC = 2
-        WriteRegDword HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCTNAME}${PRODUCTVERSION}-$IC" "SystemComponent" 0
+        WriteRegDword HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCTNAME}${PRODUCTVERSION}-$IC" "SystemComponent" $HD
         WriteRegDword HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCTNAME}${PRODUCTVERSION}" "SystemComponent" 1
     ${Else}
-        WriteRegDword HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCTNAME}${PRODUCTVERSION}" "SystemComponent" 0
+        WriteRegDword HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCTNAME}${PRODUCTVERSION}" "SystemComponent" $HD
     ${EndIf}
 
     StrCpy $1 25
@@ -561,15 +611,14 @@ Section "uninstall"
     Call un.CheckForError
 
     # Modify registry for Programs and Features
-
     ${If} $IC > 1
         DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCTNAME}${PRODUCTVERSION}-$IC"
     ${EndIf}
     ${If} $IC > 2
         IntOp $IC $IC - 1
-        WriteRegDword HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCTNAME}${PRODUCTVERSION}-$IC" "SystemComponent" 0
+        WriteRegDword HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCTNAME}${PRODUCTVERSION}-$IC" "SystemComponent" $HD
     ${ElseIf} $IC = 2
-        WriteRegDword HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCTNAME}${PRODUCTVERSION}" "SystemComponent" 0
+        WriteRegDword HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCTNAME}${PRODUCTVERSION}" "SystemComponent" $HD
     ${Else}
         # Last uninstall
         IntOp $IC $IC - 1
