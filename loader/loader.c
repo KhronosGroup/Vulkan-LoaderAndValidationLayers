@@ -1484,10 +1484,10 @@ static bool checkExpiration(const struct loader_instance *inst, const struct loa
     SYSTEMTIME cur_time;
     GetSystemTime(&cur_time);
     year = cur_time.wYear;
-    month = cur_time.wMonth;
-    day = cur_time.wDay;
-    hour = cur_time.wHour;
-    minute = cur_time.wMinute;
+    month = (uint8_t)cur_time.wMonth;
+    day = (uint8_t)cur_time.wDay;
+    hour = (uint8_t)cur_time.wHour;
+    minute = (uint8_t)cur_time.wMinute;
 #else
     time_t t = time(NULL);
     struct tm tm = *localtime(&t);
@@ -3504,8 +3504,8 @@ static VkResult ReadDataFilesInSearchPaths(const struct loader_instance *inst, e
             search_path[1] = PATH_SEPARATOR;
             cur_path_ptr = &search_path[2];
         }
-        if (rel_size > 0) {
 #ifndef _WIN32
+        if (rel_size > 0) {
             CopyDataFilePath(xdgconfdirs, relative_location, rel_size, &cur_path_ptr);
             CopyDataFilePath(SYSCONFDIR, relative_location, rel_size, &cur_path_ptr);
 #if defined(EXTRASYSCONFDIR)
@@ -3575,10 +3575,11 @@ static VkResult ReadDataFilesInRegistry(const struct loader_instance *inst, enum
     VkResult vk_result = VK_SUCCESS;
     bool is_settings = (data_file_type == LOADER_DATA_FILE_SETTINGS);
     bool is_icd = (data_file_type == LOADER_DATA_FILE_MANIFEST_ICD);
-    bool use_secondary_hive = (data_file_type == LOADER_DATA_FILE_MANIFEST_LAYER || data_file_type == LOADER_DATA_FILE_SETTINGS);>>>
+    bool use_secondary_hive = (data_file_type == LOADER_DATA_FILE_MANIFEST_LAYER || data_file_type == LOADER_DATA_FILE_SETTINGS);
     char *search_path = NULL;
+    DWORD reg_size;
 
-    VkResult reg_result = loaderGetRegistryFiles(inst, registry_location, use_secondary_hive, &search_path);
+    VkResult reg_result = loaderGetRegistryFiles(inst, registry_location, use_secondary_hive, &search_path, &reg_size);
     if (VK_SUCCESS != reg_result || NULL == search_path) {
         if (data_file_type == LOADER_DATA_FILE_MANIFEST_ICD) {
             loader_log(
@@ -4107,7 +4108,6 @@ void loaderScanForImplicitLayers(struct loader_instance *inst, struct loader_lay
     char *file_str;
     struct loader_data_files manifest_files;
     cJSON *json;
-    uint32_t i;
     bool override_layer_valid = false;
     char *override_paths = NULL;
     bool implicit_metalayer_present = false;
@@ -4130,7 +4130,7 @@ void loaderScanForImplicitLayers(struct loader_instance *inst, struct loader_lay
     loader_platform_thread_lock_mutex(&loader_json_lock);
     have_json_lock = true;
 
-    for (i = 0; i < manifest_files.count; i++) {
+    for (uint32_t i = 0; i < manifest_files.count; i++) {
         file_str = manifest_files.filename_list[i];
         if (file_str == NULL) {
             continue;
@@ -4193,7 +4193,7 @@ void loaderScanForImplicitLayers(struct loader_instance *inst, struct loader_lay
             goto out;
         }
 
-        for (i = 0; i < manifest_files.count; i++) {
+        for (uint32_t i = 0; i < manifest_files.count; i++) {
             file_str = manifest_files.filename_list[i];
             if (file_str == NULL) {
                 continue;
@@ -4881,7 +4881,7 @@ out:
 
 VkResult loaderEnableInstanceLayers(struct loader_instance *inst, const VkInstanceCreateInfo *pCreateInfo,
                                     const struct loader_layer_list *instance_layers) {
-    VkResult err;
+    VkResult err = VK_SUCCESS;
 
     assert(inst && "Cannot have null instance");
 

@@ -40,15 +40,21 @@ class ConfigFile {
 
     const char *getOption(const std::string &_option);
     void setOption(const std::string &_option, const std::string &_val);
+    void setFilename(const std::string name) { m_configFilename = name; }
 
    private:
     bool m_fileIsParsed;
     std::map<std::string, std::string> m_valueMap;
+    std::string m_configFilename;
 
     void parseFile(const char *filename);
 };
 
 static ConfigFile g_configFileObj;
+
+VK_LAYER_EXPORT void setOptionFilename(char const *settings_file) {
+    g_configFileObj.setFilename(settings_file);
+}
 
 std::string getEnvironment(const char *variable) {
 #if !defined(__ANDROID__) && !defined(_WIN32)
@@ -132,7 +138,7 @@ void setLayerOption(const char *_option, const char *_val) { g_configFileObj.set
 
 // Constructor for ConfigFile. Initialize layers to log error messages to stdout by default. If a vk_layer_settings file is present,
 // its settings will override the defaults.
-ConfigFile::ConfigFile() : m_fileIsParsed(false) {
+ConfigFile::ConfigFile() : m_fileIsParsed(false), m_configFilename("") {
     m_valueMap["lunarg_core_validation.report_flags"] = "error";
     m_valueMap["lunarg_object_tracker.report_flags"] = "error";
     m_valueMap["lunarg_parameter_validation.report_flags"] = "error";
@@ -169,8 +175,9 @@ ConfigFile::ConfigFile() : m_fileIsParsed(false) {
 ConfigFile::~ConfigFile() {}
 
 const char *ConfigFile::getOption(const std::string &_option) {
-    std::map<std::string, std::string>::const_iterator it;
-    if (!m_fileIsParsed) {
+    // Legacy fallback - This is now taken care of by newer loaders, but an older loader will
+    // not set this up.
+    if (m_configFilename.size() == 0) {
         std::string envPath = getEnvironment("VK_LAYER_SETTINGS_PATH");
 
         // If the path exists use it, else use vk_layer_settings
@@ -180,20 +187,28 @@ const char *ConfigFile::getOption(const std::string &_option) {
             if (info.st_mode & S_IFDIR) {
                 envPath += "/vk_layer_settings.txt";
             }
-            parseFile(envPath.c_str());
+            m_configFilename = envPath.c_str();
         } else {
-            parseFile("vk_layer_settings.txt");
+            m_configFilename = "vk_layer_settings.txt";
         }
     }
 
-    if ((it = m_valueMap.find(_option)) == m_valueMap.end())
+    if (m_configFilename.size() > 0 && !m_fileIsParsed) {
+        parseFile(m_configFilename.c_str());
+    }
+
+    std::map<std::string, std::string>::const_iterator it;
+    if ((it = m_valueMap.find(_option)) == m_valueMap.end()) {
         return "";
-    else
+    } else {
         return it->second.c_str();
+    }
 }
 
 void ConfigFile::setOption(const std::string &_option, const std::string &_val) {
-    if (!m_fileIsParsed) {
+    // Legacy fallback - This is now taken care of by newer loaders, but an older loader will
+    // not set this up.
+    if (m_configFilename.size() == 0) {
         std::string envPath = getEnvironment("VK_LAYER_SETTINGS_PATH");
 
         // If the path exists use it, else use vk_layer_settings
@@ -203,10 +218,14 @@ void ConfigFile::setOption(const std::string &_option, const std::string &_val) 
             if (info.st_mode & S_IFDIR) {
                 envPath += "/vk_layer_settings.txt";
             }
-            parseFile(envPath.c_str());
+            m_configFilename = envPath.c_str();
         } else {
-            parseFile("vk_layer_settings.txt");
+            m_configFilename = "vk_layer_settings.txt";
         }
+    }
+
+    if (m_configFilename.size() > 0 && !m_fileIsParsed) {
+        parseFile(m_configFilename.c_str());
     }
 
     m_valueMap[_option] = _val;

@@ -57,6 +57,7 @@ const std::unordered_map<std::string, VkFlags> report_flags_option_definitions =
     {std::string("error"), VK_DEBUG_REPORT_ERROR_BIT_EXT},
     {std::string("debug"), VK_DEBUG_REPORT_DEBUG_BIT_EXT}};
 
+void setOptionFilename(char const *settings_file);
 const char *getLayerOption(const char *_option);
 FILE *getLayerLogOutput(const char *_option, const char *layerName);
 VkFlags GetLayerOptionFlags(std::string _option, std::unordered_map<std::string, VkFlags> const &enum_data,

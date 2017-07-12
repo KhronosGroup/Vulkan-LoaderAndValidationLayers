@@ -467,6 +467,20 @@ VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkNegotiateLoaderLayerInterfaceVe
         pVersionStruct->pfnGetInstanceProcAddr = vkGetInstanceProcAddr;
         pVersionStruct->pfnGetDeviceProcAddr = vkGetDeviceProcAddr;
         pVersionStruct->pfnGetPhysicalDeviceProcAddr = vk_layerGetPhysicalDeviceProcAddr;
+
+        if (pVersionStruct->loaderLayerInterfaceVersion >= 3 && NULL != pVersionStruct->pNext) {
+            // If some additional structures have been added to the chain, figure out if we can use
+            // one or more of them.
+            VkNegotiateHeader *pNext = reinterpret_cast<VkNegotiateHeader*>(pVersionStruct->pNext);
+            while (NULL != pNext) {
+                // If this is a settings file info struct, grab the filename
+                if (pNext->sType == LAYER_NEGOTIATE_SETTINGS_FILE_INFO_STRUCT) {
+                    VkLayerSettingsFileInfo *pSettingsInfo = reinterpret_cast<VkLayerSettingsFileInfo*>(pNext);
+                    setOptionFilename(pSettingsInfo->settings_file);
+                }
+                pNext = reinterpret_cast<VkNegotiateHeader*>(pNext->pNext);
+            }
+        }
     }
 
     if (pVersionStruct->loaderLayerInterfaceVersion < CURRENT_LOADER_LAYER_INTERFACE_VERSION) {
