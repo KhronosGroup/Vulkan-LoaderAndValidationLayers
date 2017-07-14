@@ -1100,9 +1100,8 @@ static void loader_add_implicit_layer(const struct loader_instance *inst, const 
     loader_free_getenv(env_value, inst);
 
     if (enable) {
-        // If not a meta-layer, simply add it.
         if (0 == (prop->type_flags & VK_LAYER_TYPE_FLAG_META_LAYER)) {
-            if (!has_vk_layer_property(&prop->info, target_list)) {
+            if (NULL != target_list && !has_vk_layer_property(&prop->info, target_list)) {
                 loader_add_to_layer_list(inst, target_list, 1, prop);
             }
             if (NULL != expanded_target_list && !has_vk_layer_property(&prop->info, expanded_target_list)) {
@@ -1136,10 +1135,6 @@ bool loader_add_meta_layer(const struct loader_instance *inst, const struct load
             if (0 == (search_prop->type_flags & VK_LAYER_TYPE_FLAG_EXPLICIT_LAYER)) {
                 loader_add_implicit_layer(inst, search_prop, target_list, expanded_target_list, source_list);
             } else {
-                // Otherwise, just make sure it hasn't already been added to either list before we add it
-                if (!has_vk_layer_property(&search_prop->info, target_list)) {
-                    loader_add_to_layer_list(inst, target_list, 1, search_prop);
-                }
                 if (NULL != expanded_target_list && !has_vk_layer_property(&search_prop->info, expanded_target_list)) {
                     loader_add_to_layer_list(inst, expanded_target_list, 1, search_prop);
                 }
@@ -1153,6 +1148,12 @@ bool loader_add_meta_layer(const struct loader_instance *inst, const struct load
             found = false;
         }
     }
+
+    // Add this layer to the overall target list (not the expanded one)
+    if (found && !has_vk_layer_property(&prop->info, target_list)) {
+        loader_add_to_layer_list(inst, target_list, 1, prop);
+    }
+
     return found;
 }
 
@@ -1168,11 +1169,11 @@ void loader_find_layer_name_add_list(const struct loader_instance *inst, const c
         if (0 == strcmp(source_prop->info.layerName, name) && (source_prop->type_flags & type_flags) == type_flags) {
             // If not a meta-layer, simply add it.
             if (0 == (source_prop->type_flags & VK_LAYER_TYPE_FLAG_META_LAYER)) {
-                if (!has_vk_layer_property(&source_prop->info, target_list) &&
+                if (NULL != target_list && !has_vk_layer_property(&source_prop->info, target_list) &&
                     VK_SUCCESS == loader_add_to_layer_list(inst, target_list, 1, source_prop)) {
                     found = true;
                 }
-                if (!has_vk_layer_property(&source_prop->info, expanded_target_list) &&
+                if (NULL != expanded_target_list && !has_vk_layer_property(&source_prop->info, expanded_target_list) &&
                     VK_SUCCESS == loader_add_to_layer_list(inst, expanded_target_list, 1, source_prop)) {
                     found = true;
                 }
@@ -1891,9 +1892,8 @@ static bool loader_add_legacy_std_val_layer(const struct loader_instance *inst, 
     bool success = true;
     struct loader_layer_properties *props = loader_get_next_layer_property(inst, layer_instance_list);
     const char std_validation_names[6][VK_MAX_EXTENSION_NAME_SIZE] = {
-        "VK_LAYER_GOOGLE_threading",      "VK_LAYER_LUNARG_parameter_validation",
-        "VK_LAYER_LUNARG_object_tracker", "VK_LAYER_LUNARG_core_validation",
-        "VK_LAYER_GOOGLE_unique_objects"};
+        "VK_LAYER_GOOGLE_threading", "VK_LAYER_LUNARG_parameter_validation", "VK_LAYER_LUNARG_object_tracker",
+        "VK_LAYER_LUNARG_core_validation", "VK_LAYER_GOOGLE_unique_objects"};
     uint32_t layer_count = sizeof(std_validation_names) / sizeof(std_validation_names[0]);
 
     loader_log(inst, VK_DEBUG_REPORT_DEBUG_BIT_EXT, 0,
@@ -4479,8 +4479,7 @@ VkResult loader_validate_layers(const struct loader_instance *inst, const uint32
         prop = loader_get_layer_property(ppEnabledLayerNames[i], list);
         if (NULL == prop) {
             loader_log(inst, VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
-                       "loader_validate_layers: Layer %d does not exist in the list of available layers",
-                       i);
+                       "loader_validate_layers: Layer %d does not exist in the list of available layers", i);
             return VK_ERROR_LAYER_NOT_PRESENT;
         }
     }
@@ -4645,8 +4644,7 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_CreateInstance(const VkInstanceCreateI
         icd_term = loader_icd_add(ptr_instance, &ptr_instance->icd_tramp_list.scanned_list[i]);
         if (NULL == icd_term) {
             loader_log(ptr_instance, VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
-                       "terminator_CreateInstance: Failed to add ICD %d to ICD trampoline list.",
-                       i);
+                       "terminator_CreateInstance: Failed to add ICD %d to ICD trampoline list.", i);
             res = VK_ERROR_OUT_OF_HOST_MEMORY;
             goto out;
         }
