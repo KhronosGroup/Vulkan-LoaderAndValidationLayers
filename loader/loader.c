@@ -1483,11 +1483,11 @@ static bool checkExpiration(const struct loader_instance *inst, const struct loa
 #ifdef _WIN32
     SYSTEMTIME cur_time;
     GetSystemTime(&cur_time);
-    year = cur_time.wYear;
-    month = cur_time.wMonth;
-    day = cur_time.wDay;
-    hour = cur_time.wHour;
-    minute = cur_time.wMinute;
+    year = (uint8_t)cur_time.wYear;
+    month = (uint8_t)cur_time.wMonth;
+    day = (uint8_t)cur_time.wDay;
+    hour = (uint8_t)cur_time.wHour;
+    minute = (uint8_t)cur_time.wMinute;
 #else
     time_t t = time(NULL);
     struct tm tm = *localtime(&t);
@@ -3394,12 +3394,14 @@ static VkResult ReadDataFilesInSearchPaths(const struct loader_instance *inst, e
 #endif
 
 #ifndef _WIN32
+    const char home_additional[] = ".local/share/";
+
     // Determine how much space is needed to generate the full search path
     // for the current manifest files.
     char *xdgconfdirs = loader_secure_getenv("XDG_CONFIG_DIRS", inst);
     char *xdgdatadirs = loader_secure_getenv("XDG_DATA_DIRS", inst);
     char *xdgdatahome = loader_secure_getenv("XDG_DATA_HOME", inst);
-    char *home = NULL;
+    char *home = loader_secure_getenv("HOME", inst);
 
     if (xdgconfdirs == NULL) {
         xdgconfig_alloc = false;
@@ -3412,11 +3414,6 @@ static VkResult ReadDataFilesInSearchPaths(const struct loader_instance *inst, e
     }
     if (xdgdatadirs == NULL || xdgdatadirs[0] == '\0') {
         xdgdatadirs = FALLBACK_DATA_DIRS;
-    }
-
-    // Only use HOME if XDG_DATA_HOME is not present on the system
-    if (NULL == xdgdatahome) {
-        home = loader_secure_getenv("HOME", inst);
     }
 #endif
 
@@ -3471,7 +3468,7 @@ static VkResult ReadDataFilesInSearchPaths(const struct loader_instance *inst, e
 #endif
             if (is_directory_list) {
                 search_path_size += DetermineDataFilePathSize(xdgdatahome, rel_size);
-                search_path_size += DetermineDataFilePathSize(home, rel_size);
+                search_path_size += DetermineDataFilePathSize(home, rel_size + strlen(home_additional));
             }
 #endif
         }
@@ -3507,8 +3504,12 @@ static VkResult ReadDataFilesInSearchPaths(const struct loader_instance *inst, e
 #endif
             CopyDataFilePath(xdgdatadirs, relative_location, rel_size, &cur_path_ptr);
             if (is_directory_list) {
+                char relative_home_path[1024];
                 CopyDataFilePath(xdgdatahome, relative_location, rel_size, &cur_path_ptr);
-                CopyDataFilePath(home, relative_location, rel_size, &cur_path_ptr);
+                strncpy(relative_home_path, home_additional, 1023 - rel_size);
+                strncat(relative_home_path, relative_location, rel_size);
+                relative_home_path[1023] = '\0';
+                CopyDataFilePath(home, relative_home_path, strlen(relative_home_path), &cur_path_ptr);
             }
         }
 
@@ -3518,6 +3519,7 @@ static VkResult ReadDataFilesInSearchPaths(const struct loader_instance *inst, e
         assert(cur_path_ptr - search_path < (ptrdiff_t)search_path_size);
         *cur_path_ptr = '\0';
 #endif
+        }
     }
 
     // Print out the paths being searched if debugging is enabled
@@ -3575,12 +3577,13 @@ static VkResult ReadDataFilesInRegistry(const struct loader_instance *inst, enum
 
     VkResult regHKR_result = VK_SUCCESS;
     if (is_icd) {
-        if (!strncmp(registry_location, DEFAULT_VK_DRIVERS_INFO, sizeof(DEFAULT_VK_DRIVERS_INFO))) {
-            regHKR_result = loaderGetDeviceRegistryFiles(inst, &reg, &reg_size, LoaderPnpDriverRegistry());
-        } else if (!strncmp(registry_location, DEFAULT_VK_ELAYERS_INFO, sizeof(DEFAULT_VK_ELAYERS_INFO))) {
-            regHKR_result = loaderGetDeviceRegistryFiles(inst, &reg, &reg_size, LoaderPnpELayerRegistry());
-        } else if (!strncmp(registry_location, DEFAULT_VK_ILAYERS_INFO, sizeof(DEFAULT_VK_ILAYERS_INFO))) {
-            regHKR_result = loaderGetDeviceRegistryFiles(inst, &reg, &reg_size, LoaderPnpILayerRegistry());
+        if (!strncmp(registry_location, VK_DRIVERS_INFO_REGISTRY_LOC, sizeof(VK_DRIVERS_INFO_REGISTRY_LOC))) {
+            regHKR_result = loaderGetDeviceRegistryFiles(inst, &reg_data, &reg_data_size, LoaderPnpDriverRegistry());
+        } else if (!strncmp(registry_location, VK_ELAYERS_INFO_REGISTRY_LOC, sizeof(VK_ELAYERS_INFO_REGISTRY_LOC))) {
+            regHKR_result = loaderGetDeviceRegistryFiles(inst, &reg_data, &reg_data_size, LoaderPnpELayerRegistry());
+        } else if (!strncmp(registry_location, VK_ILAYERS_INFO_REGISTRY_LOC, sizeof(VK_ILAYERS_INFO_REGISTRY_LOC))) {
+            regHKR_result = loaderGetDeviceRegistryFiles(inst, &reg_data, &reg_data_size, LoaderPnpILayerRegistry());
+        }
     }
 
     VkResult reg_result = loaderGetRegistryFiles(inst, registry_location, use_secondary_hive, &reg_data, &reg_data_size);
@@ -4112,7 +4115,6 @@ void loaderScanForImplicitLayers(struct loader_instance *inst, struct loader_lay
     char *file_str;
     struct loader_data_files manifest_files;
     cJSON *json;
-    uint32_t i;
     bool override_layer_valid = false;
     char *override_paths = NULL;
     bool implicit_metalayer_present = false;
@@ -4135,7 +4137,7 @@ void loaderScanForImplicitLayers(struct loader_instance *inst, struct loader_lay
     loader_platform_thread_lock_mutex(&loader_json_lock);
     have_json_lock = true;
 
-    for (i = 0; i < manifest_files.count; i++) {
+    for (uint32_t i = 0; i < manifest_files.count; i++) {
         file_str = manifest_files.filename_list[i];
         if (file_str == NULL) {
             continue;
@@ -4198,7 +4200,7 @@ void loaderScanForImplicitLayers(struct loader_instance *inst, struct loader_lay
             goto out;
         }
 
-        for (i = 0; i < manifest_files.count; i++) {
+        for (uint32_t i = 0; i < manifest_files.count; i++) {
             file_str = manifest_files.filename_list[i];
             if (file_str == NULL) {
                 continue;
@@ -4886,7 +4888,7 @@ out:
 
 VkResult loaderEnableInstanceLayers(struct loader_instance *inst, const VkInstanceCreateInfo *pCreateInfo,
                                     const struct loader_layer_list *instance_layers) {
-    VkResult err;
+    VkResult err = VK_SUCCESS;
 
     assert(inst && "Cannot have null instance");
 
