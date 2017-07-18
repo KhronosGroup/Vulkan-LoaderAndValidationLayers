@@ -3394,12 +3394,14 @@ static VkResult ReadDataFilesInSearchPaths(const struct loader_instance *inst, e
 #endif
 
 #ifndef _WIN32
+    const char home_additional[] = ".local/share/";
+
     // Determine how much space is needed to generate the full search path
     // for the current manifest files.
     char *xdgconfdirs = loader_secure_getenv("XDG_CONFIG_DIRS", inst);
     char *xdgdatadirs = loader_secure_getenv("XDG_DATA_DIRS", inst);
     char *xdgdatahome = loader_secure_getenv("XDG_DATA_HOME", inst);
-    char *home = NULL;
+    char *home = loader_secure_getenv("HOME", inst);
 
     if (xdgconfdirs == NULL) {
         xdgconfig_alloc = false;
@@ -3412,11 +3414,6 @@ static VkResult ReadDataFilesInSearchPaths(const struct loader_instance *inst, e
     }
     if (xdgdatadirs == NULL || xdgdatadirs[0] == '\0') {
         xdgdatadirs = FALLBACK_DATA_DIRS;
-    }
-
-    // Only use HOME if XDG_DATA_HOME is not present on the system
-    if (NULL == xdgdatahome) {
-        home = loader_secure_getenv("HOME", inst);
     }
 #endif
 
@@ -3471,7 +3468,7 @@ static VkResult ReadDataFilesInSearchPaths(const struct loader_instance *inst, e
 #endif
             if (is_directory_list) {
                 search_path_size += DetermineDataFilePathSize(xdgdatahome, rel_size);
-                search_path_size += DetermineDataFilePathSize(home, rel_size);
+                search_path_size += DetermineDataFilePathSize(home, rel_size + strlen(home_additional));
             }
 #endif
         }
@@ -3507,8 +3504,12 @@ static VkResult ReadDataFilesInSearchPaths(const struct loader_instance *inst, e
 #endif
             CopyDataFilePath(xdgdatadirs, relative_location, rel_size, &cur_path_ptr);
             if (is_directory_list) {
+                char relative_home_path[1024];
                 CopyDataFilePath(xdgdatahome, relative_location, rel_size, &cur_path_ptr);
-                CopyDataFilePath(home, relative_location, rel_size, &cur_path_ptr);
+                strncpy(relative_home_path, home_additional, 1023 - rel_size);
+                strncat(relative_home_path, relative_location, rel_size);
+                relative_home_path[1023] = '\0';
+                CopyDataFilePath(home, relative_home_path, strlen(relative_home_path), &cur_path_ptr);
             }
         }
 
