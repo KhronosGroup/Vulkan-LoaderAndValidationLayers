@@ -440,6 +440,47 @@ enum CMD_TYPE {
     CMD_END,  // Should be last command in any RECORDED cmd buffer
 };
 
+// fwd decl class for ptr below
+class Command;
+// Store details of memory access by a cmd
+struct MemoryAccess {
+    MemoryAccess()
+        : write(false),
+          cmd(nullptr),
+          location{0, 0, 0},
+          src_stage_flags(0),
+          src_access_flags(0),
+          dst_stage_flags(0),
+          dst_access_flags(0),
+          mem_barrier(false),
+          pipe_barrier(false),
+          synch_commands{} {};
+    bool write;            // False for read access
+    Command *cmd;          // Ptr to cmd that makes this access
+    MEM_BINDING location;  // mem/offset/size being accessed
+    // The source flags cover all access bits for the original memory access
+    //  These flags are checked against synch objects to check if scope covers this access
+    VkPipelineStageFlags src_stage_flags;  // Stage flags within scope of this access
+    VkAccessFlags src_access_flags;        // Access flags within scope of this access
+    // The following members are only set when a valid synch object is added following this access
+    //  When such an event occurs, the relevant dest scope flags are recorded here
+    VkPipelineStageFlags dst_stage_flags;  // Stage flags within scope of this access
+    VkAccessFlags dst_access_flags;        // Access flags within scope of this access
+    // These bool shortcuts indicate if memory and/or pipeline barriers have occurred since this access
+    bool mem_barrier;   // True after relevant mem barrier added to CB following this access
+    bool pipe_barrier;  // True after relevant mem barrier added to CB following this access
+    // A vector of all synch commands that affect this memory access
+    std::vector<Command *> synch_commands;  // Relevent synch commands
+};
+
+class Command {
+   public:
+    Command(CMD_TYPE type) : type(type){};
+    void AddMemoryAccess(MemoryAccess access) { mem_accesses.push_back(access); };
+    CMD_TYPE type;
+    std::vector<MemoryAccess> mem_accesses;  // vector of all mem accesses by this cmd
+};
+
 enum CB_STATE {
     CB_NEW,        // Newly created CB w/o any cmds
     CB_RECORDING,  // BeginCB has been called on this CB
@@ -665,6 +706,10 @@ struct GLOBAL_CB_NODE : public BASE_NODE {
     //  dependencies that have been broken : either destroyed objects, or updated descriptor sets
     std::unordered_set<VK_OBJECT> object_bindings;
     std::vector<VK_OBJECT> broken_bindings;
+    //
+    std::vector<std::unique_ptr<Command>> commands;  // Commands in this command buffer
+    // Store all memory accesses per memory object made in this command buffer
+    std::unordered_map<VkDeviceMemory, std::vector<MemoryAccess>> memory_accesses;
 
     std::unordered_set<VkEvent> waitedEvents;
     std::vector<VkEvent> writeEventsBeforeWait;
