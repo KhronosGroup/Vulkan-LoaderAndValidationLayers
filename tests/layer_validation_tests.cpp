@@ -11109,7 +11109,8 @@ TEST_F(VkPositiveLayerTest, UpdateBufferRaWDependencyWithBarrier) {
     VkRect2D rect = {};
     m_scissors.push_back(rect);
     pipe.SetScissor(m_scissors);
-    pipe.AddColorAttachment();
+    VkPipelineColorBlendAttachmentState att_state = {};
+    pipe.AddColorAttachment(0, att_state);
     VkPipelineLayoutCreateInfo pipeline_layout_ci = {};
     pipeline_layout_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipeline_layout_ci.setLayoutCount = 0;
@@ -11160,7 +11161,8 @@ TEST_F(VkLayerTest, UpdateBufferRaWDependencyMissingBarrier) {
     VkRect2D rect = {};
     m_scissors.push_back(rect);
     pipe.SetScissor(m_scissors);
-    pipe.AddColorAttachment();
+    VkPipelineColorBlendAttachmentState att_state = {};
+    pipe.AddColorAttachment(0, att_state);
     VkPipelineLayoutCreateInfo pipeline_layout_ci = {};
     pipeline_layout_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipeline_layout_ci.setLayoutCount = 0;
