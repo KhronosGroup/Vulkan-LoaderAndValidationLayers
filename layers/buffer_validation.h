@@ -136,14 +136,16 @@ void TransitionFinalSubpassLayouts(layer_data *dev_data, GLOBAL_CB_NODE *pCB, co
 void AddMemoryAccess(CMD_TYPE cmd, std::vector<MemoryAccess> *mem_accesses, MemoryAccess *mem_access, bool write,
                      uint32_t rw_index);
 
-void AddReadMemoryAccess(CMD_TYPE cmd, std::vector<MemoryAccess> *mem_accesses, MemoryAccess *mem_access);
+void AddReadMemoryAccess(CMD_TYPE cmd, std::vector<MemoryAccess> *mem_accesses, MEM_BINDING const &binding, bool precise);
 
-void AddWriteMemoryAccess(CMD_TYPE cmd, std::vector<MemoryAccess> *mem_accesses, MemoryAccess *mem_access);
+void AddWriteMemoryAccess(CMD_TYPE cmd, std::vector<MemoryAccess> *mem_accesses, MEM_BINDING const &binding, bool precise);
 
 bool MemoryConflict(MemoryAccess const *initial_access, MemoryAccess const *second_access);
 
 bool ValidateMemoryAccesses(debug_report_data const *report_data, GLOBAL_CB_NODE const *cb_state, std::vector<MemoryAccess> *mem_accesses,
                             const char *caller);
+
+void AddCommandBufferCommandMemoryAccesses(GLOBAL_CB_NODE *cb_state, CMD_TYPE cmd, std::vector<MemoryAccess> *mem_accesses);
 
 bool PreCallValidateCmdCopyImage(layer_data *device_data, GLOBAL_CB_NODE *cb_node, IMAGE_STATE *src_image_state,
                                  IMAGE_STATE *dst_image_state, uint32_t region_count, const VkImageCopy *regions,
@@ -226,10 +228,11 @@ void PreCallRecordCmdCopyImage(layer_data *device_data, GLOBAL_CB_NODE *cb_node,
                                std::vector<MemoryAccess> *mem_accesses);
 
 bool PreCallValidateCmdCopyBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_node, BUFFER_STATE *src_buffer_state,
-                                  BUFFER_STATE *dst_buffer_state);
+                                  BUFFER_STATE *dst_buffer_state, uint32_t region_count, const VkBufferCopy *regions,
+                                  std::vector<MemoryAccess> *mem_accesses);
 
 void PreCallRecordCmdCopyBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_node, BUFFER_STATE *src_buffer_state,
-                                BUFFER_STATE *dst_buffer_state);
+                                BUFFER_STATE *dst_buffer_state, std::vector<MemoryAccess> *mem_accesses);
 
 bool PreCallValidateDestroyImageView(layer_data *device_data, VkImageView image_view, IMAGE_VIEW_STATE **image_view_state,
                                      VK_OBJECT *obj_struct);
