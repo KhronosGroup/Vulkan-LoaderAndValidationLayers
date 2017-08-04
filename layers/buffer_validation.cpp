@@ -635,6 +635,71 @@ void TransitionFinalSubpassLayouts(layer_data *device_data, GLOBAL_CB_NODE *pCB,
     }
 }
 
+// START: Memory Access Validation Functions
+void AddMemoryAccess(CMD_TYPE cmd, std::vector<MemoryAccess> *mem_accesses, MemoryAccess *mem_access, bool write,
+                     uint32_t rw_index) {
+    mem_access->write = write;
+    mem_access->src_stage_flags = CommandToFlags[cmd][rw_index].stage_flags;
+    mem_access->src_access_flags = CommandToFlags[cmd][rw_index].access_flags;
+    // TODO: If dynamic true lookup dynamic flag status
+    mem_accesses->emplace_back(*mem_access);
+}
+
+void AddReadMemoryAccess(CMD_TYPE cmd, std::vector<MemoryAccess> *mem_accesses, MemoryAccess *mem_access) {
+    AddMemoryAccess(cmd, mem_accesses, mem_access, false, 0);
+}
+
+void AddWriteMemoryAccess(CMD_TYPE cmd, std::vector<MemoryAccess> *mem_accesses, MemoryAccess *mem_access) {
+    AddMemoryAccess(cmd, mem_accesses, mem_access, true, 1);
+}
+
+// The first arg is an existing memory access that hasn't been verified by a synch object
+//  Check if the 2nd access conflicts with the first and return true if there's a conflict
+// Pre: Both accesses must occur on the same VkDeviceMemory object
+bool MemoryConflict(MemoryAccess const *initial_access, MemoryAccess const *second_access) {
+    assert(initial_access->location.mem == second_access->location.mem);
+    // read/read is ok
+    //  TODO: What to do for write/write? Warn? Nothing for now. Just allow RaR & WaW cases.
+    if (initial_access->write == second_access->write) return false;
+    // RaW & WaR can present conflicts
+    // If the second access is outside of the range of initial access, then no conflict
+    if ((initial_access->location.size != VK_WHOLE_SIZE && second_access->location.size != VK_WHOLE_SIZE) &&
+        ((second_access->location.offset + second_access->location.size) <= initial_access->location.offset) &&
+        (second_access->location.offset >= (initial_access->location.offset + initial_access->location.size))) {
+        return false;
+    }
+    // Without appropriate barrier we'll have a conflict
+    if (initial_access->mem_barrier || (initial_access->pipe_barrier && second_access->write)) return false;
+    // there's some amount of overlap in the accesses so flag conflict
+    return true;
+}
+
+// Check given set of mem_accesses against memory accesses in cmd buffer up to this point and flag any conflicts
+bool ValidateMemoryAccesses(debug_report_data const *report_data, GLOBAL_CB_NODE const *cb_state,
+                            std::vector<MemoryAccess> *mem_accesses, const char *caller) {
+    bool skip = false;
+    for (const auto &mem_access : *mem_accesses) {
+        auto mem_obj = mem_access.location.mem;
+        auto mem_access_pair = cb_state->memory_accesses.find(mem_obj);
+        if (mem_access_pair != cb_state->memory_accesses.end()) {
+            for (const auto &earlier_access : mem_access_pair->second) {
+                if (MemoryConflict(&earlier_access, &mem_access)) {
+                    const char *access1 = earlier_access.write ? "write" : "read";
+                    const char *access2 = mem_access.write ? "write" : "read";
+                    // If either access is imprecise can only warn, otherwise can error
+                    auto level = VK_DEBUG_REPORT_WARNING_BIT_EXT;
+                    if (earlier_access.precise && mem_access.precise) level = VK_DEBUG_REPORT_ERROR_BIT_EXT;
+                    skip |= log_msg(report_data, level, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_MEMORY_EXT,
+                                    HandleToUint64(mem_access.location.mem), 0, MEMTRACK_SYNCHRONIZATION_ERROR, "DS",
+                                    "%s called on VkCommandBuffer 0x%" PRIxLEAST64 " causes a %s after %s conflict.", caller,
+                                    HandleToUint64(cb_state->commandBuffer), access2, access1);
+                }
+            }
+        }
+    }
+    return skip;
+}
+
 bool PreCallValidateCreateImage(layer_data *device_data, const VkImageCreateInfo *pCreateInfo,
                                 const VkAllocationCallbacks *pAllocator, VkImage *pImage) {
     bool skip = false;
@@ -1637,14 +1702,15 @@ bool ValidateImageCopyData(const layer_data *device_data, const debug_report_dat
     return skip;
 }
 
-bool PreCallValidateCmdCopyImage(layer_data *device_data, GLOBAL_CB_NODE *cb_node, IMAGE_STATE *src_image_state,
+bool PreCallValidateCmdCopyImage(layer_data *device_data, GLOBAL_CB_NODE *cb_state, IMAGE_STATE *src_image_state,
                                  IMAGE_STATE *dst_image_state, uint32_t region_count, const VkImageCopy *regions,
-                                 VkImageLayout src_image_layout, VkImageLayout dst_image_layout) {
+                                 VkImageLayout src_image_layout, VkImageLayout dst_image_layout,
+                                 std::vector<MemoryAccess> *mem_accesses) {
     bool skip = false;
     const debug_report_data *report_data = core_validation::GetReportData(device_data);
     skip = ValidateImageCopyData(device_data, report_data, region_count, regions, src_image_state, dst_image_state);
 
-    VkCommandBuffer command_buffer = cb_node->commandBuffer;
+    VkCommandBuffer command_buffer = cb_state->commandBuffer;
 
     for (uint32_t i = 0; i < region_count; i++) {
         bool slice_override = false;
@@ -1900,6 +1966,15 @@ bool PreCallValidateCmdCopyImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
                 }
             }
         }
+        // Add memory access for this image copy
+        // TODO: Currently treating all image accesses as imprecise & covering the whole image area
+        const auto &src_binding = src_image_state->binding;
+        MemoryAccess src_mem_access(src_binding.mem, src_binding.offset, src_binding.size, false);
+        AddReadMemoryAccess(CMD_COPYIMAGE, mem_accesses, &src_mem_access);
+        const auto &dst_binding = dst_image_state->binding;
+        MemoryAccess dst_mem_access(dst_binding.mem, dst_binding.offset, dst_binding.size, false);
+        AddWriteMemoryAccess(CMD_COPYIMAGE, mem_accesses, &dst_mem_access);
+        skip |= ValidateMemoryAccesses(report_data, cb_state, mem_accesses, "vkCmdCopyImage()");
     }
 
     // The formats of src_image and dst_image must be compatible. Formats are considered compatible if their texel size in bytes
@@ -1937,41 +2012,43 @@ bool PreCallValidateCmdCopyImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
                                     "vkCmdCopyImage()", "VK_IMAGE_USAGE_TRANSFER_SRC_BIT");
     skip |= ValidateImageUsageFlags(device_data, dst_image_state, VK_IMAGE_USAGE_TRANSFER_DST_BIT, true, VALIDATION_ERROR_19000106,
                                     "vkCmdCopyImage()", "VK_IMAGE_USAGE_TRANSFER_DST_BIT");
-    skip |= ValidateCmdQueueFlags(device_data, cb_node, "vkCmdCopyImage()",
+    skip |= ValidateCmdQueueFlags(device_data, cb_state, "vkCmdCopyImage()",
                                   VK_QUEUE_TRANSFER_BIT | VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT, VALIDATION_ERROR_19002415);
-    skip |= ValidateCmd(device_data, cb_node, CMD_COPYIMAGE, "vkCmdCopyImage()");
-    skip |= insideRenderPass(device_data, cb_node, "vkCmdCopyImage()", VALIDATION_ERROR_19000017);
+    skip |= ValidateCmd(device_data, cb_state, CMD_COPYIMAGE, "vkCmdCopyImage()");
+    skip |= insideRenderPass(device_data, cb_state, "vkCmdCopyImage()", VALIDATION_ERROR_19000017);
     bool hit_error = false;
     for (uint32_t i = 0; i < region_count; ++i) {
-        skip |= VerifyImageLayout(device_data, cb_node, src_image_state, regions[i].srcSubresource, src_image_layout,
+        skip |= VerifyImageLayout(device_data, cb_state, src_image_state, regions[i].srcSubresource, src_image_layout,
                                   VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, "vkCmdCopyImage()", VALIDATION_ERROR_19000102, &hit_error);
-        skip |= VerifyImageLayout(device_data, cb_node, dst_image_state, regions[i].dstSubresource, dst_image_layout,
+        skip |= VerifyImageLayout(device_data, cb_state, dst_image_state, regions[i].dstSubresource, dst_image_layout,
                                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, "vkCmdCopyImage()", VALIDATION_ERROR_1900010c, &hit_error);
-        skip |= ValidateCopyImageTransferGranularityRequirements(device_data, cb_node, src_image_state, dst_image_state,
+        skip |= ValidateCopyImageTransferGranularityRequirements(device_data, cb_state, src_image_state, dst_image_state,
                                                                  &regions[i], i, "vkCmdCopyImage()");
     }
 
     return skip;
 }
 
-void PreCallRecordCmdCopyImage(layer_data *device_data, GLOBAL_CB_NODE *cb_node, IMAGE_STATE *src_image_state,
+void PreCallRecordCmdCopyImage(layer_data *device_data, GLOBAL_CB_NODE *cb_state, IMAGE_STATE *src_image_state,
                                IMAGE_STATE *dst_image_state, uint32_t region_count, const VkImageCopy *regions,
-                               VkImageLayout src_image_layout, VkImageLayout dst_image_layout) {
+                               VkImageLayout src_image_layout, VkImageLayout dst_image_layout,
+                               std::vector<MemoryAccess> *mem_accesses) {
     // Make sure that all image slices are updated to correct layout
     for (uint32_t i = 0; i < region_count; ++i) {
-        SetImageLayout(device_data, cb_node, src_image_state, regions[i].srcSubresource, src_image_layout);
-        SetImageLayout(device_data, cb_node, dst_image_state, regions[i].dstSubresource, dst_image_layout);
+        SetImageLayout(device_data, cb_state, src_image_state, regions[i].srcSubresource, src_image_layout);
+        SetImageLayout(device_data, cb_state, dst_image_state, regions[i].dstSubresource, dst_image_layout);
     }
     // Update bindings between images and cmd buffer
-    AddCommandBufferBindingImage(device_data, cb_node, src_image_state);
-    AddCommandBufferBindingImage(device_data, cb_node, dst_image_state);
+    AddCommandBufferBindingImage(device_data, cb_state, src_image_state);
+    AddCommandBufferBindingImage(device_data, cb_state, dst_image_state);
     std::function<bool()> function = [=]() { return ValidateImageMemoryIsValid(device_data, src_image_state, "vkCmdCopyImage()"); };
-    cb_node->queue_submit_functions.push_back(function);
+    cb_state->queue_submit_functions.push_back(function);
     function = [=]() {
         SetImageMemoryValid(device_data, dst_image_state, true);
         return false;
     };
-    cb_node->queue_submit_functions.push_back(function);
+    cb_state->queue_submit_functions.push_back(function);
+    AddCommandBufferCommandMemoryAccesses(cb_state, CMD_COPYIMAGE, mem_accesses);
 }
 
 // Returns true if sub_rect is entirely contained within rect
