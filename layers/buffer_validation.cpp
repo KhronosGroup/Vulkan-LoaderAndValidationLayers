@@ -645,12 +645,16 @@ void AddMemoryAccess(CMD_TYPE cmd, std::vector<MemoryAccess> *mem_accesses, Memo
     mem_accesses->emplace_back(*mem_access);
 }
 
-void AddReadMemoryAccess(CMD_TYPE cmd, std::vector<MemoryAccess> *mem_accesses, MemoryAccess *mem_access) {
-    AddMemoryAccess(cmd, mem_accesses, mem_access, false, 0);
+// Create read memory access for given binding and add to mem_accesses
+void AddReadMemoryAccess(CMD_TYPE cmd, std::vector<MemoryAccess> *mem_accesses, MEM_BINDING const &binding, bool precise) {
+    MemoryAccess mem_access(binding.mem, binding.offset, binding.size, precise);
+    AddMemoryAccess(cmd, mem_accesses, &mem_access, false, 0);
 }
 
-void AddWriteMemoryAccess(CMD_TYPE cmd, std::vector<MemoryAccess> *mem_accesses, MemoryAccess *mem_access) {
-    AddMemoryAccess(cmd, mem_accesses, mem_access, true, 1);
+// Create write memory access for given binding and add to mem_accesses
+void AddWriteMemoryAccess(CMD_TYPE cmd, std::vector<MemoryAccess> *mem_accesses, MEM_BINDING const &binding, bool precise) {
+    MemoryAccess mem_access(binding.mem, binding.offset, binding.size, precise);
+    AddMemoryAccess(cmd, mem_accesses, &mem_access, true, 1);
 }
 
 // The first arg is an existing memory access that hasn't been verified by a synch object
@@ -668,8 +672,19 @@ bool MemoryConflict(MemoryAccess const *initial_access, MemoryAccess const *seco
         (second_access->location.offset >= (initial_access->location.offset + initial_access->location.size))) {
         return false;
     }
-    // Without appropriate barrier we'll have a conflict
-    if (initial_access->mem_barrier || (initial_access->pipe_barrier && second_access->write)) return false;
+    // Without appropriate barrier & appropriate scope overlap we'll have a conflict
+    if (initial_access->mem_barrier) {
+        // If the initial dst masks match second access src masks, scopes are good
+        if ((0 != (initial_access->dst_stage_flags & second_access->src_stage_flags)) &&
+            (0 != (initial_access->dst_access_flags & second_access->src_access_flags))) {
+            return false;
+        }
+    } else if (initial_access->pipe_barrier && second_access->write) {
+        // Just need an execution dep here so check pipe masks
+        if (0 != (initial_access->dst_stage_flags & second_access->src_stage_flags)) {
+            return false;
+        }
+    }
     // there's some amount of overlap in the accesses so flag conflict
     return true;
 }
@@ -691,13 +706,26 @@ bool ValidateMemoryAccesses(debug_report_data const *report_data, GLOBAL_CB_NODE
                     if (earlier_access.precise && mem_access.precise) level = VK_DEBUG_REPORT_ERROR_BIT_EXT;
                     skip |= log_msg(report_data, level, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_MEMORY_EXT,
                                     HandleToUint64(mem_access.location.mem), 0, MEMTRACK_SYNCHRONIZATION_ERROR, "DS",
-                                    "%s called on VkCommandBuffer 0x%" PRIxLEAST64 " causes a %s after %s conflict.", caller,
-                                    HandleToUint64(cb_state->commandBuffer), access2, access1);
+                                    "%s called on VkCommandBuffer 0x%" PRIxLEAST64
+                                    " causes a %s after %s conflict with memory object 0x%" PRIxLEAST64 ".",
+                                    caller, HandleToUint64(cb_state->commandBuffer), access2, access1,
+                                    HandleToUint64(mem_access.location.mem));
                 }
             }
         }
     }
     return skip;
+}
+
+// Add the given cmd and its mem_accesses to the command buffer
+void AddCommandBufferCommandMemoryAccesses(GLOBAL_CB_NODE *cb_state, CMD_TYPE cmd, std::vector<MemoryAccess> *mem_accesses) {
+    cb_state->commands.emplace_back(std::unique_ptr<Command>(new Command(cmd)));
+    Command *cmd_ptr = cb_state->commands.back().get();
+    for (auto &mem_access : *mem_accesses) {
+        mem_access.cmd = cmd_ptr;
+        cmd_ptr->AddMemoryAccess(mem_access);
+        cb_state->memory_accesses[mem_access.location.mem].push_back(mem_access);
+    }
 }
 
 bool PreCallValidateCreateImage(layer_data *device_data, const VkImageCreateInfo *pCreateInfo,
@@ -1968,12 +1996,8 @@ bool PreCallValidateCmdCopyImage(layer_data *device_data, GLOBAL_CB_NODE *cb_sta
         }
         // Add memory access for this image copy
         // TODO: Currently treating all image accesses as imprecise & covering the whole image area
-        const auto &src_binding = src_image_state->binding;
-        MemoryAccess src_mem_access(src_binding.mem, src_binding.offset, src_binding.size, false);
-        AddReadMemoryAccess(CMD_COPYIMAGE, mem_accesses, &src_mem_access);
-        const auto &dst_binding = dst_image_state->binding;
-        MemoryAccess dst_mem_access(dst_binding.mem, dst_binding.offset, dst_binding.size, false);
-        AddWriteMemoryAccess(CMD_COPYIMAGE, mem_accesses, &dst_mem_access);
+        AddReadMemoryAccess(CMD_COPYIMAGE, mem_accesses, src_image_state->binding, false);
+        AddWriteMemoryAccess(CMD_COPYIMAGE, mem_accesses, dst_image_state->binding, false);
         skip |= ValidateMemoryAccesses(report_data, cb_state, mem_accesses, "vkCmdCopyImage()");
     }
 
@@ -3536,8 +3560,9 @@ void PostCallRecordCreateImageView(layer_data *device_data, const VkImageViewCre
     sub_res_range.layerCount = ResolveRemainingLayers(&sub_res_range, image_state->createInfo.arrayLayers);
 }
 
-bool PreCallValidateCmdCopyBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_node, BUFFER_STATE *src_buffer_state,
-                                  BUFFER_STATE *dst_buffer_state) {
+bool PreCallValidateCmdCopyBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_state, BUFFER_STATE *src_buffer_state,
+                                  BUFFER_STATE *dst_buffer_state, uint32_t region_count, const VkBufferCopy *regions,
+                                  std::vector<MemoryAccess> *mem_accesses) {
     bool skip = false;
     skip |= ValidateMemoryIsBoundToBuffer(device_data, src_buffer_state, "vkCmdCopyBuffer()", VALIDATION_ERROR_18c000ee);
     skip |= ValidateMemoryIsBoundToBuffer(device_data, dst_buffer_state, "vkCmdCopyBuffer()", VALIDATION_ERROR_18c000f2);
@@ -3546,28 +3571,37 @@ bool PreCallValidateCmdCopyBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_no
                                      VALIDATION_ERROR_18c000ec, "vkCmdCopyBuffer()", "VK_BUFFER_USAGE_TRANSFER_SRC_BIT");
     skip |= ValidateBufferUsageFlags(device_data, dst_buffer_state, VK_BUFFER_USAGE_TRANSFER_DST_BIT, true,
                                      VALIDATION_ERROR_18c000f0, "vkCmdCopyBuffer()", "VK_BUFFER_USAGE_TRANSFER_DST_BIT");
-    skip |= ValidateCmdQueueFlags(device_data, cb_node, "vkCmdCopyBuffer()",
+    skip |= ValidateCmdQueueFlags(device_data, cb_state, "vkCmdCopyBuffer()",
                                   VK_QUEUE_TRANSFER_BIT | VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT, VALIDATION_ERROR_18c02415);
-    skip |= ValidateCmd(device_data, cb_node, CMD_COPYBUFFER, "vkCmdCopyBuffer()");
-    skip |= insideRenderPass(device_data, cb_node, "vkCmdCopyBuffer()", VALIDATION_ERROR_18c00017);
+    skip |= ValidateCmd(device_data, cb_state, CMD_COPYBUFFER, "vkCmdCopyBuffer()");
+    skip |= insideRenderPass(device_data, cb_state, "vkCmdCopyBuffer()", VALIDATION_ERROR_18c00017);
+    const auto src_mem_obj = src_buffer_state->binding.mem;
+    const auto dst_mem_obj = dst_buffer_state->binding.mem;
+    for (uint32_t i = 0; i < region_count; ++i) {
+        const auto &reg = regions[i];
+        AddReadMemoryAccess(CMD_COPYBUFFER, mem_accesses, {src_mem_obj, reg.srcOffset, reg.size}, true);
+        AddWriteMemoryAccess(CMD_COPYBUFFER, mem_accesses, {dst_mem_obj, reg.dstOffset, reg.size}, true);
+    }
+    skip |= ValidateMemoryAccesses(core_validation::GetReportData(device_data), cb_state, mem_accesses, "vkCmdCopyBuffer()");
     return skip;
 }
 
-void PreCallRecordCmdCopyBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_node, BUFFER_STATE *src_buffer_state,
-                                BUFFER_STATE *dst_buffer_state) {
+void PreCallRecordCmdCopyBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_state, BUFFER_STATE *src_buffer_state,
+                                BUFFER_STATE *dst_buffer_state, std::vector<MemoryAccess> *mem_accesses) {
     // Update bindings between buffers and cmd buffer
-    AddCommandBufferBindingBuffer(device_data, cb_node, src_buffer_state);
-    AddCommandBufferBindingBuffer(device_data, cb_node, dst_buffer_state);
+    AddCommandBufferBindingBuffer(device_data, cb_state, src_buffer_state);
+    AddCommandBufferBindingBuffer(device_data, cb_state, dst_buffer_state);
 
     std::function<bool()> function = [=]() {
         return ValidateBufferMemoryIsValid(device_data, src_buffer_state, "vkCmdCopyBuffer()");
     };
-    cb_node->queue_submit_functions.push_back(function);
+    cb_state->queue_submit_functions.push_back(function);
     function = [=]() {
         SetBufferMemoryValid(device_data, dst_buffer_state, true);
         return false;
     };
-    cb_node->queue_submit_functions.push_back(function);
+    cb_state->queue_submit_functions.push_back(function);
+    AddCommandBufferCommandMemoryAccesses(cb_state, CMD_COPYBUFFER, mem_accesses);
 }
 
 static bool validateIdleBuffer(layer_data *device_data, VkBuffer buffer) {
