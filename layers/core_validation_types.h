@@ -641,9 +641,21 @@ struct MemoryAccess {
 class Command {
    public:
     Command(CMD_TYPE type) : type(type){};
+    virtual ~Command() {}
     void AddMemoryAccess(MemoryAccess access) { mem_accesses.push_back(access); };
     CMD_TYPE type;
     std::vector<MemoryAccess> mem_accesses;  // vector of all mem accesses by this cmd
+};
+
+class SynchCommand : public Command {
+   public:
+    SynchCommand(CMD_TYPE type, VkPipelineStageFlags src_stage_flags, VkPipelineStageFlags dst_stage_flags)
+        : Command(type), src_stage_flags(src_stage_flags), dst_stage_flags(dst_stage_flags){};
+    VkPipelineStageFlags src_stage_flags;
+    VkPipelineStageFlags dst_stage_flags;
+    std::vector<VkMemoryBarrier> global_barriers;
+    std::vector<VkBufferMemoryBarrier> buffer_barriers;
+    std::vector<VkImageMemoryBarrier> image_barriers;
 };
 
 enum CB_STATE {
@@ -873,6 +885,7 @@ struct GLOBAL_CB_NODE : public BASE_NODE {
     std::vector<VK_OBJECT> broken_bindings;
     //
     std::vector<std::unique_ptr<Command>> commands;  // Commands in this command buffer
+    std::vector<SynchCommand *> synch_commands;      // Synch Commands in this command buffer
     // Store all memory accesses per memory object made in this command buffer
     std::unordered_map<VkDeviceMemory, std::vector<MemoryAccess>> memory_accesses;
 

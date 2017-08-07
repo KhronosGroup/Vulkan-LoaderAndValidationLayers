@@ -1721,6 +1721,7 @@ static void resetCB(layer_data *dev_data, const VkCommandBuffer cb) {
         pCB->activeSubpass = 0;
         pCB->broken_bindings.clear();
         pCB->commands.clear();
+        pCB->synch_commands.clear();
         pCB->memory_accesses.clear();
         pCB->waitedEvents.clear();
         pCB->events.clear();
@@ -6945,21 +6946,48 @@ static bool PreCallValidateCmdPipelineBarrier(layer_data *device_data, GLOBAL_CB
 }
 
 static void PreCallRecordCmdPipelineBarrier(layer_data *device_data, GLOBAL_CB_NODE *cb_state, VkCommandBuffer commandBuffer,
-                                            VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask,
+                                            VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask,
                                             VkDependencyFlags dependencyFlags, uint32_t mem_barrier_count,
                                             const VkMemoryBarrier *mem_barriers, uint32_t buffer_mem_barrier_count,
                                             const VkBufferMemoryBarrier *buffer_mem_barriers, uint32_t imageMemoryBarrierCount,
                                             const VkImageMemoryBarrier *pImageMemoryBarriers) {
     TransitionImageLayouts(device_data, commandBuffer, imageMemoryBarrierCount, pImageMemoryBarriers);
-    cb_state->commands.emplace_back(unique_ptr<Command>(new Command(CMD_PIPELINEBARRIER)));
+    cb_state->commands.emplace_back(
+        unique_ptr<SynchCommand>(new SynchCommand(CMD_PIPELINEBARRIER, src_stage_mask, dst_stage_mask)));
     Command *cmd_ptr = cb_state->commands.back().get();
+    SynchCommand *synch_cmd_ptr = static_cast<SynchCommand *>(cmd_ptr);
+
+    // First thing to do is parse through any previous barriers. If this barriers srcMasks match with
+    //  previous barriers destination masks, then incorporate the previous barrier srcMasks into our srcMask
+    //  and merge in all of the previous barriers. This will account for dependency chains.
+    for (const auto &synch_cmd : cb_state->synch_commands) {
+        if (synch_cmd->dst_stage_flags & src_stage_mask) {
+            // scopes overlap so merge prev barrier masks into current masks
+            src_stage_mask |= synch_cmd->src_stage_flags;
+            synch_cmd_ptr->src_stage_flags = src_stage_mask;
+            dst_stage_mask |= synch_cmd->dst_stage_flags;
+            synch_cmd_ptr->dst_stage_flags = dst_stage_mask;
+            // Pull all previous overlapping barriers into this barrier
+            for (const auto &global_barrier : synch_cmd->global_barriers) {
+                synch_cmd_ptr->global_barriers.emplace_back(global_barrier);
+            }
+            for (const auto &buff_barrier : synch_cmd->buffer_barriers) {
+                synch_cmd_ptr->buffer_barriers.emplace_back(buff_barrier);
+            }
+            for (const auto &img_barrier : synch_cmd->image_barriers) {
+                synch_cmd_ptr->image_barriers.emplace_back(img_barrier);
+            }
+        }
+    }
+    // Now that we've merged previous synch commands, append this cmd to existing synch commands
+    cb_state->synch_commands.emplace_back(synch_cmd_ptr);
     // TODO: Make this barrier/access parsing smarter
-    if (mem_barrier_count) {
-        for (auto &mem_access_pair : cb_state->memory_accesses) {
-            // Global barriers affect all outstanding memory accesses that match access mask
-            // TODO: For now just flagging all accesses, but need to store mask w/ access and check it here
-            //  against each individual global mem barrier
-            for (auto &mem_access : mem_access_pair.second) {
+    for (auto &mem_access_pair : cb_state->memory_accesses) {
+        for (auto &mem_access : mem_access_pair.second) {
+            if (mem_access.src_stage_flags & src_stage_mask) {
+                // Record any execution barrier overlaps
+                mem_access.pipe_barrier = true;
+                mem_access.dst_stage_flags |= dst_stage_mask;
                 // For every global barrier that matches access mask, record the barrier
                 for (uint32_t i = 0; i < mem_barrier_count; ++i) {
                     const auto &mem_barrier = mem_barriers[i];
@@ -6989,14 +7017,14 @@ static void PreCallRecordCmdPipelineBarrier(layer_data *device_data, GLOBAL_CB_N
         const auto &mem_access_pair = cb_state->memory_accesses.find(mem_obj);
         if (mem_access_pair != cb_state->memory_accesses.end()) {
             for (auto &mem_access : mem_access_pair->second) {
-                // If the access or pipe masks overlap, then barrier applies
-                if (((mem_access.src_access_flags & buff_barrier.srcAccessMask) != 0) ||
-                    ((mem_access.src_stage_flags & srcStageMask) != 0)) {
+                // If the pipe & access masks overlap, then barrier applies
+                if (((mem_access.src_access_flags & buff_barrier.srcAccessMask) != 0) &&
+                    ((mem_access.src_stage_flags & src_stage_mask) != 0)) {
                     // Set buff access write opposite of actual access so conflict is flagged on overlap
                     barrier_access.write = !mem_access.write;
                     if (MemoryConflict(&barrier_access, &mem_access)) {
                         mem_access.mem_barrier = true;
-                        mem_access.dst_stage_flags |= dstStageMask;
+                        mem_access.dst_stage_flags |= dst_stage_mask;
                         mem_access.dst_access_flags |= buff_barrier.dstAccessMask;
                         mem_access.synch_commands.push_back(cmd_ptr);
                     }
