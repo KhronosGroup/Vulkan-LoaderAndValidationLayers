@@ -10254,6 +10254,44 @@ TEST_F(VkPositiveLayerTest, UpdateBufferRaWDependencyWithBarrier) {
     vkDestroyPipelineLayout(m_device->device(), pipeline_layout, nullptr);
 }
 
+TEST_F(VkPositiveLayerTest, UpdateBufferWaRDependencyWithTwoBarrierChain) {
+    TEST_DESCRIPTION("Update buffer used in CmdDrawIndirect w/ barrier before use");
+
+    m_errorMonitor->ExpectSuccess();
+    ASSERT_NO_FATAL_FAILURE(Init());
+    ASSERT_NO_FATAL_FAILURE(InitRenderTarget());
+
+    m_commandBuffer->begin();
+
+    VkDeviceSize buff_size = 1024;
+
+    VkMemoryPropertyFlags reqs = VK_MEMORY_HEAP_DEVICE_LOCAL_BIT;
+    vk_testing::Buffer src_buffer;
+    src_buffer.init_as_src_and_dst(*m_device, buff_size, reqs);
+
+    reqs = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+    vk_testing::Buffer dst_buffer;
+    dst_buffer.init_as_dst(*m_device, buff_size, reqs);
+
+    VkBufferCopy buff_copy = {0,  // srcOffset
+                              0,  // dstOffset
+                              buff_size};
+    // Copy src to dst
+    vkCmdCopyBuffer(m_commandBuffer->handle(), src_buffer.handle(), dst_buffer.handle(), 1, &buff_copy);
+
+    // Create an execution barrier chain (no mem barrier needed for WaR dependency)
+    vkCmdPipelineBarrier(m_commandBuffer->handle(), VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0,
+                         nullptr, 0, nullptr, 0, nullptr);
+    // Now 2nd global barrier introduces dependency chain with first barrier that should handle following WaR dependency
+    vkCmdPipelineBarrier(m_commandBuffer->handle(), VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0,
+                         nullptr, 0, nullptr, 0, nullptr);
+    // Now write into dst buffer that was read above
+    uint32_t Data[] = {1, 2, 3, 4, 5, 6, 7, 8};
+    VkDeviceSize dataSize = sizeof(Data) / sizeof(uint32_t);
+    vkCmdUpdateBuffer(m_commandBuffer->handle(), src_buffer.handle(), 0, dataSize, &Data);
+    m_errorMonitor->VerifyNotFound();
+}
+
 TEST_F(VkLayerTest, UpdateBufferRaWDependencyMissingBarrier) {
     TEST_DESCRIPTION("Update buffer used in CmdDrawIndirect without a barrier before use");
 
