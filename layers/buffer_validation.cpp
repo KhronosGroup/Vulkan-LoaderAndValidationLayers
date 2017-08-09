@@ -1090,65 +1090,71 @@ void RecordClearImageLayout(layer_data *device_data, GLOBAL_CB_NODE *cb_node, Vk
 }
 
 bool PreCallValidateCmdClearColorImage(layer_data *dev_data, VkCommandBuffer commandBuffer, VkImage image,
-                                       VkImageLayout imageLayout, uint32_t rangeCount, const VkImageSubresourceRange *pRanges) {
+                                       VkImageLayout imageLayout, uint32_t rangeCount, const VkImageSubresourceRange *pRanges,
+                                       std::vector<MemoryAccess> *mem_accesses) {
     bool skip = false;
     // TODO : Verify memory is in VK_IMAGE_STATE_CLEAR state
-    auto cb_node = GetCBNode(dev_data, commandBuffer);
+    auto cb_state = GetCBNode(dev_data, commandBuffer);
     auto image_state = GetImageState(dev_data, image);
-    if (cb_node && image_state) {
+    if (cb_state && image_state) {
         skip |= ValidateMemoryIsBoundToImage(dev_data, image_state, "vkCmdClearColorImage()", VALIDATION_ERROR_18800006);
-        skip |= ValidateCmdQueueFlags(dev_data, cb_node, "vkCmdClearColorImage()", VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT,
+        skip |= ValidateCmdQueueFlags(dev_data, cb_state, "vkCmdClearColorImage()", VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT,
                                       VALIDATION_ERROR_18802415);
-        skip |= ValidateCmd(dev_data, cb_node, CMD_CLEARCOLORIMAGE, "vkCmdClearColorImage()");
-        skip |= insideRenderPass(dev_data, cb_node, "vkCmdClearColorImage()", VALIDATION_ERROR_18800017);
+        skip |= ValidateCmd(dev_data, cb_state, CMD_CLEARCOLORIMAGE, "vkCmdClearColorImage()");
+        skip |= insideRenderPass(dev_data, cb_state, "vkCmdClearColorImage()", VALIDATION_ERROR_18800017);
         for (uint32_t i = 0; i < rangeCount; ++i) {
             std::string param_name = "pRanges[" + std::to_string(i) + "]";
             skip |= ValidateCmdClearColorSubresourceRange(dev_data, image_state, pRanges[i], param_name.c_str());
             skip |= ValidateImageAttributes(dev_data, image_state, pRanges[i]);
-            skip |= VerifyClearImageLayout(dev_data, cb_node, image_state, pRanges[i], imageLayout, "vkCmdClearColorImage()");
+            skip |= VerifyClearImageLayout(dev_data, cb_state, image_state, pRanges[i], imageLayout, "vkCmdClearColorImage()");
         }
     }
+    // TODO: Currently treating all image accesses as imprecise & covering the whole image area, this should be per-range
+    AddWriteMemoryAccess(CMD_CLEARCOLORIMAGE, mem_accesses, image_state->binding, false);
+    skip |= ValidateMemoryAccesses(core_validation::GetReportData(dev_data), cb_state, mem_accesses, "vkCmdClearColorImage()");
     return skip;
 }
 
 // This state recording routine is shared between ClearColorImage and ClearDepthStencilImage
 void PreCallRecordCmdClearImage(layer_data *dev_data, VkCommandBuffer commandBuffer, VkImage image, VkImageLayout imageLayout,
-                                uint32_t rangeCount, const VkImageSubresourceRange *pRanges) {
-    auto cb_node = GetCBNode(dev_data, commandBuffer);
+                                uint32_t rangeCount, const VkImageSubresourceRange *pRanges, CMD_TYPE cmd,
+                                std::vector<MemoryAccess> *mem_accesses) {
+    auto cb_state = GetCBNode(dev_data, commandBuffer);
     auto image_state = GetImageState(dev_data, image);
-    if (cb_node && image_state) {
-        AddCommandBufferBindingImage(dev_data, cb_node, image_state);
+    if (cb_state && image_state) {
+        AddCommandBufferBindingImage(dev_data, cb_state, image_state);
         std::function<bool()> function = [=]() {
             SetImageMemoryValid(dev_data, image_state, true);
             return false;
         };
-        cb_node->queue_submit_functions.push_back(function);
+        cb_state->queue_submit_functions.push_back(function);
         for (uint32_t i = 0; i < rangeCount; ++i) {
-            RecordClearImageLayout(dev_data, cb_node, image, pRanges[i], imageLayout);
+            RecordClearImageLayout(dev_data, cb_state, image, pRanges[i], imageLayout);
         }
     }
+    AddCommandBufferCommandMemoryAccesses(cb_state, cmd, mem_accesses);
 }
 
 bool PreCallValidateCmdClearDepthStencilImage(layer_data *device_data, VkCommandBuffer commandBuffer, VkImage image,
                                               VkImageLayout imageLayout, uint32_t rangeCount,
-                                              const VkImageSubresourceRange *pRanges) {
+                                              const VkImageSubresourceRange *pRanges, std::vector<MemoryAccess> *mem_accesses) {
     bool skip = false;
     const debug_report_data *report_data = core_validation::GetReportData(device_data);
 
     // TODO : Verify memory is in VK_IMAGE_STATE_CLEAR state
-    auto cb_node = GetCBNode(device_data, commandBuffer);
+    auto cb_state = GetCBNode(device_data, commandBuffer);
     auto image_state = GetImageState(device_data, image);
-    if (cb_node && image_state) {
+    if (cb_state && image_state) {
         skip |= ValidateMemoryIsBoundToImage(device_data, image_state, "vkCmdClearDepthStencilImage()", VALIDATION_ERROR_18a00014);
-        skip |= ValidateCmdQueueFlags(device_data, cb_node, "vkCmdClearDepthStencilImage()", VK_QUEUE_GRAPHICS_BIT,
+        skip |= ValidateCmdQueueFlags(device_data, cb_state, "vkCmdClearDepthStencilImage()", VK_QUEUE_GRAPHICS_BIT,
                                       VALIDATION_ERROR_18a02415);
-        skip |= ValidateCmd(device_data, cb_node, CMD_CLEARDEPTHSTENCILIMAGE, "vkCmdClearDepthStencilImage()");
-        skip |= insideRenderPass(device_data, cb_node, "vkCmdClearDepthStencilImage()", VALIDATION_ERROR_18a00017);
+        skip |= ValidateCmd(device_data, cb_state, CMD_CLEARDEPTHSTENCILIMAGE, "vkCmdClearDepthStencilImage()");
+        skip |= insideRenderPass(device_data, cb_state, "vkCmdClearDepthStencilImage()", VALIDATION_ERROR_18a00017);
         for (uint32_t i = 0; i < rangeCount; ++i) {
             std::string param_name = "pRanges[" + std::to_string(i) + "]";
             skip |= ValidateCmdClearDepthSubresourceRange(device_data, image_state, pRanges[i], param_name.c_str());
-            skip |=
-                VerifyClearImageLayout(device_data, cb_node, image_state, pRanges[i], imageLayout, "vkCmdClearDepthStencilImage()");
+            skip |= VerifyClearImageLayout(device_data, cb_state, image_state, pRanges[i], imageLayout,
+                                           "vkCmdClearDepthStencilImage()");
             // Image aspect must be depth or stencil or both
             if (((pRanges[i].aspectMask & VK_IMAGE_ASPECT_DEPTH_BIT) != VK_IMAGE_ASPECT_DEPTH_BIT) &&
                 ((pRanges[i].aspectMask & VK_IMAGE_ASPECT_STENCIL_BIT) != VK_IMAGE_ASPECT_STENCIL_BIT)) {
@@ -1166,6 +1172,9 @@ bool PreCallValidateCmdClearDepthStencilImage(layer_data *device_data, VkCommand
                             validation_error_map[VALIDATION_ERROR_18a0001c]);
         }
     }
+    // TODO: Currently treating all image accesses as imprecise & covering the whole image area, this should be per-range
+    AddWriteMemoryAccess(CMD_CLEARDEPTHSTENCILIMAGE, mem_accesses, image_state->binding, false);
+    skip |= ValidateMemoryAccesses(report_data, cb_state, mem_accesses, "vkCmdClearDepthStencilImage()");
     return skip;
 }
 

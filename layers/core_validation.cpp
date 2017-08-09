@@ -6169,11 +6169,13 @@ VKAPI_ATTR void VKAPI_CALL CmdClearColorImage(VkCommandBuffer commandBuffer, VkI
                                               const VkClearColorValue *pColor, uint32_t rangeCount,
                                               const VkImageSubresourceRange *pRanges) {
     layer_data *dev_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
+    std::vector<MemoryAccess> mem_accesses;
     unique_lock_t lock(global_lock);
 
-    bool skip = PreCallValidateCmdClearColorImage(dev_data, commandBuffer, image, imageLayout, rangeCount, pRanges);
+    bool skip = PreCallValidateCmdClearColorImage(dev_data, commandBuffer, image, imageLayout, rangeCount, pRanges, &mem_accesses);
     if (!skip) {
-        PreCallRecordCmdClearImage(dev_data, commandBuffer, image, imageLayout, rangeCount, pRanges);
+        PreCallRecordCmdClearImage(dev_data, commandBuffer, image, imageLayout, rangeCount, pRanges, CMD_CLEARCOLORIMAGE,
+                                   &mem_accesses);
         lock.unlock();
         dev_data->dispatch_table.CmdClearColorImage(commandBuffer, image, imageLayout, pColor, rangeCount, pRanges);
     }
@@ -6183,11 +6185,14 @@ VKAPI_ATTR void VKAPI_CALL CmdClearDepthStencilImage(VkCommandBuffer commandBuff
                                                      const VkClearDepthStencilValue *pDepthStencil, uint32_t rangeCount,
                                                      const VkImageSubresourceRange *pRanges) {
     layer_data *dev_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
+    std::vector<MemoryAccess> mem_accesses;
     unique_lock_t lock(global_lock);
 
-    bool skip = PreCallValidateCmdClearDepthStencilImage(dev_data, commandBuffer, image, imageLayout, rangeCount, pRanges);
+    bool skip =
+        PreCallValidateCmdClearDepthStencilImage(dev_data, commandBuffer, image, imageLayout, rangeCount, pRanges, &mem_accesses);
     if (!skip) {
-        PreCallRecordCmdClearImage(dev_data, commandBuffer, image, imageLayout, rangeCount, pRanges);
+        PreCallRecordCmdClearImage(dev_data, commandBuffer, image, imageLayout, rangeCount, pRanges, CMD_CLEARDEPTHSTENCILIMAGE,
+                                   &mem_accesses);
         lock.unlock();
         dev_data->dispatch_table.CmdClearDepthStencilImage(commandBuffer, image, imageLayout, pDepthStencil, rangeCount, pRanges);
     }
