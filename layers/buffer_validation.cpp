@@ -2093,18 +2093,19 @@ static inline bool ContainsRect(VkRect2D rect, VkRect2D sub_rect) {
 }
 
 bool PreCallValidateCmdClearAttachments(layer_data *device_data, VkCommandBuffer commandBuffer, uint32_t attachmentCount,
-                                        const VkClearAttachment *pAttachments, uint32_t rectCount, const VkClearRect *pRects) {
-    GLOBAL_CB_NODE *cb_node = GetCBNode(device_data, commandBuffer);
+                                        const VkClearAttachment *pAttachments, uint32_t rectCount, const VkClearRect *pRects,
+                                        std::vector<MemoryAccess> *mem_accesses) {
+    GLOBAL_CB_NODE *cb_state = GetCBNode(device_data, commandBuffer);
     const debug_report_data *report_data = core_validation::GetReportData(device_data);
 
     bool skip = false;
-    if (cb_node) {
-        skip |= ValidateCmdQueueFlags(device_data, cb_node, "vkCmdClearAttachments()", VK_QUEUE_GRAPHICS_BIT,
+    if (cb_state) {
+        skip |= ValidateCmdQueueFlags(device_data, cb_state, "vkCmdClearAttachments()", VK_QUEUE_GRAPHICS_BIT,
                                       VALIDATION_ERROR_18602415);
-        skip |= ValidateCmd(device_data, cb_node, CMD_CLEARATTACHMENTS, "vkCmdClearAttachments()");
+        skip |= ValidateCmd(device_data, cb_state, CMD_CLEARATTACHMENTS, "vkCmdClearAttachments()");
         // Warn if this is issued prior to Draw Cmd and clearing the entire attachment
-        if (!cb_node->hasDrawCmd && (cb_node->activeRenderPassBeginInfo.renderArea.extent.width == pRects[0].rect.extent.width) &&
-            (cb_node->activeRenderPassBeginInfo.renderArea.extent.height == pRects[0].rect.extent.height)) {
+        if (!cb_state->hasDrawCmd && (cb_state->activeRenderPassBeginInfo.renderArea.extent.width == pRects[0].rect.extent.width) &&
+            (cb_state->activeRenderPassBeginInfo.renderArea.extent.height == pRects[0].rect.extent.height)) {
             // There are times where app needs to use ClearAttachments (generally when reusing a buffer inside of a render pass)
             // This warning should be made more specific. It'd be best to avoid triggering this test if it's a use that must call
             // CmdClearAttachments.
@@ -2115,14 +2116,14 @@ bool PreCallValidateCmdClearAttachments(layer_data *device_data, VkCommandBuffer
                         " It is recommended you use RenderPass LOAD_OP_CLEAR on Attachments prior to any Draw.",
                         commandBuffer);
         }
-        skip |= outsideRenderPass(device_data, cb_node, "vkCmdClearAttachments()", VALIDATION_ERROR_18600017);
+        skip |= outsideRenderPass(device_data, cb_state, "vkCmdClearAttachments()", VALIDATION_ERROR_18600017);
     }
 
     // Validate that attachment is in reference list of active subpass
-    if (cb_node->activeRenderPass) {
-        const VkRenderPassCreateInfo *renderpass_create_info = cb_node->activeRenderPass->createInfo.ptr();
-        const VkSubpassDescription *subpass_desc = &renderpass_create_info->pSubpasses[cb_node->activeSubpass];
-        auto framebuffer = GetFramebufferState(device_data, cb_node->activeFramebuffer);
+    if (cb_state->activeRenderPass) {
+        const VkRenderPassCreateInfo *renderpass_create_info = cb_state->activeRenderPass->createInfo.ptr();
+        const VkSubpassDescription *subpass_desc = &renderpass_create_info->pSubpasses[cb_state->activeSubpass];
+        auto framebuffer = GetFramebufferState(device_data, cb_state->activeFramebuffer);
 
         for (uint32_t i = 0; i < attachmentCount; i++) {
             auto clear_desc = &pAttachments[i];
@@ -2141,7 +2142,7 @@ bool PreCallValidateCmdClearAttachments(layer_data *device_data, VkCommandBuffer
                     skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
                                     HandleToUint64(commandBuffer), __LINE__, VALIDATION_ERROR_1860001e, "DS",
                                     "vkCmdClearAttachments() color attachment index %d out of range for active subpass %d. %s",
-                                    clear_desc->colorAttachment, cb_node->activeSubpass,
+                                    clear_desc->colorAttachment, cb_state->activeSubpass,
                                     validation_error_map[VALIDATION_ERROR_1860001e]);
                 } else if (subpass_desc->pColorAttachments[clear_desc->colorAttachment].attachment == VK_ATTACHMENT_UNUSED) {
                     skip |= log_msg(report_data, VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT,
@@ -2180,13 +2181,13 @@ bool PreCallValidateCmdClearAttachments(layer_data *device_data, VkCommandBuffer
                 }
             }
             if (image_view) {
-                auto image_view_state = GetImageViewState(device_data, image_view);
+                const auto image_view_state = GetImageViewState(device_data, image_view);
                 for (uint32_t j = 0; j < rectCount; j++) {
                     // The rectangular region specified by a given element of pRects must be contained within the render area of
                     // the current render pass instance
                     // TODO: This check should be moved to CmdExecuteCommands or QueueSubmit to cover secondary CB cases
-                    if ((cb_node->createInfo.level == VK_COMMAND_BUFFER_LEVEL_PRIMARY) &&
-                        (false == ContainsRect(cb_node->activeRenderPassBeginInfo.renderArea, pRects[j].rect))) {
+                    if ((cb_state->createInfo.level == VK_COMMAND_BUFFER_LEVEL_PRIMARY) &&
+                        (false == ContainsRect(cb_state->activeRenderPassBeginInfo.renderArea, pRects[j].rect))) {
                         skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
                                         HandleToUint64(commandBuffer), __LINE__, VALIDATION_ERROR_18600020, "DS",
                                         "vkCmdClearAttachments(): The area defined by pRects[%d] is not contained in the area of "
@@ -2206,6 +2207,10 @@ bool PreCallValidateCmdClearAttachments(layer_data *device_data, VkCommandBuffer
                                     j, i, validation_error_map[VALIDATION_ERROR_18600022]);
                     }
                 }
+                // TODO: Just marking memory accesses as imprecise per-image binding basis for now, should be per-rect above
+                const auto image_state = GetImageState(device_data, image_view_state->create_info.image);
+                AddWriteMemoryAccess(CMD_CLEARATTACHMENTS, mem_accesses, image_state->binding, false);
+                skip |= ValidateMemoryAccesses(report_data, cb_state, mem_accesses, "vkCmdClearAttachments()");
             }
         }
     }
