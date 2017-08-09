@@ -651,7 +651,7 @@ bool PreCallValidateCreateImage(layer_data *device_data, const VkImageCreateInfo
     const VkFormatProperties *properties = GetFormatProperties(device_data, pCreateInfo->format);
 
     if ((pCreateInfo->tiling == VK_IMAGE_TILING_LINEAR) && (properties->linearTilingFeatures == 0)) {
-        std::stringstream ss;
+        std::ostringstream ss;
         ss << "vkCreateImage format parameter (" << string_VkFormat(pCreateInfo->format) << ") is an unsupported format";
         skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, __LINE__,
                         VALIDATION_ERROR_09e007a2, "IMAGE", "%s. %s", ss.str().c_str(),
@@ -661,7 +661,7 @@ bool PreCallValidateCreateImage(layer_data *device_data, const VkImageCreateInfo
     }
 
     if ((pCreateInfo->tiling == VK_IMAGE_TILING_OPTIMAL) && (properties->optimalTilingFeatures == 0)) {
-        std::stringstream ss;
+        std::ostringstream ss;
         ss << "vkCreateImage format parameter (" << string_VkFormat(pCreateInfo->format) << ") is an unsupported format";
         skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, __LINE__,
                         VALIDATION_ERROR_09e007ac, "IMAGE", "%s. %s", ss.str().c_str(),
@@ -674,7 +674,7 @@ bool PreCallValidateCreateImage(layer_data *device_data, const VkImageCreateInfo
     if (pCreateInfo->usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) {
         if ((pCreateInfo->tiling == VK_IMAGE_TILING_OPTIMAL) &&
             ((properties->optimalTilingFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT) == 0)) {
-            std::stringstream ss;
+            std::ostringstream ss;
             ss << "vkCreateImage: VkFormat for TILING_OPTIMAL image (" << string_VkFormat(pCreateInfo->format)
                << ") does not support requested Image usage type VK_IMAGE_USAGE_COLOR_ATTACHMENT";
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, __LINE__,
@@ -683,7 +683,7 @@ bool PreCallValidateCreateImage(layer_data *device_data, const VkImageCreateInfo
         }
         if ((pCreateInfo->tiling == VK_IMAGE_TILING_LINEAR) &&
             ((properties->linearTilingFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT) == 0)) {
-            std::stringstream ss;
+            std::ostringstream ss;
             ss << "vkCreateImage: VkFormat for TILING_LINEAR image (" << string_VkFormat(pCreateInfo->format)
                << ") does not support requested Image usage type VK_IMAGE_USAGE_COLOR_ATTACHMENT";
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, __LINE__,
@@ -696,7 +696,7 @@ bool PreCallValidateCreateImage(layer_data *device_data, const VkImageCreateInfo
     if (pCreateInfo->usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) {
         if ((pCreateInfo->tiling == VK_IMAGE_TILING_OPTIMAL) &&
             ((properties->optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) == 0)) {
-            std::stringstream ss;
+            std::ostringstream ss;
             ss << "vkCreateImage: VkFormat for TILING_OPTIMAL image (" << string_VkFormat(pCreateInfo->format)
                << ") does not support requested Image usage type VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT";
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, __LINE__,
@@ -705,7 +705,7 @@ bool PreCallValidateCreateImage(layer_data *device_data, const VkImageCreateInfo
         }
         if ((pCreateInfo->tiling == VK_IMAGE_TILING_LINEAR) &&
             ((properties->linearTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) == 0)) {
-            std::stringstream ss;
+            std::ostringstream ss;
             ss << "vkCreateImage: VkFormat for TILING_LINEAR image (" << string_VkFormat(pCreateInfo->format)
                << ") does not support requested Image usage type VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT";
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, __LINE__,
@@ -1665,7 +1665,7 @@ bool PreCallValidateCmdCopyImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
         }
 
         if (regions[i].srcSubresource.layerCount == 0) {
-            std::stringstream ss;
+            std::ostringstream ss;
             ss << "vkCmdCopyImage: number of layers in pRegions[" << i << "] srcSubresource is zero";
             skip |=
                 log_msg(report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
@@ -1673,7 +1673,7 @@ bool PreCallValidateCmdCopyImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
         }
 
         if (regions[i].dstSubresource.layerCount == 0) {
-            std::stringstream ss;
+            std::ostringstream ss;
             ss << "vkCmdCopyImage: number of layers in pRegions[" << i << "] dstSubresource is zero";
             skip |=
                 log_msg(report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
@@ -1692,7 +1692,7 @@ bool PreCallValidateCmdCopyImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
                     (VK_IMAGE_TYPE_3D == dst_image_state->createInfo.imageType ? regions[i].extent.depth
                                                                                : regions[i].dstSubresource.layerCount);
                 if (src_slices != dst_slices) {
-                    std::stringstream ss;
+                    std::ostringstream ss;
                     ss << "vkCmdCopyImage: number of depth slices in source and destination subresources for pRegions[" << i
                        << "] do not match";
                     skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
@@ -1703,7 +1703,7 @@ bool PreCallValidateCmdCopyImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
         } else {
             // For each region the layerCount member of srcSubresource and dstSubresource must match
             if (regions[i].srcSubresource.layerCount != regions[i].dstSubresource.layerCount) {
-                std::stringstream ss;
+                std::ostringstream ss;
                 ss << "vkCmdCopyImage: number of layers in source and destination subresources for pRegions[" << i
                    << "] do not match";
                 skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
@@ -1722,7 +1722,7 @@ bool PreCallValidateCmdCopyImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
 
         // For each region, the aspectMask member of srcSubresource must be present in the source image
         if (!VerifyAspectsPresent(regions[i].srcSubresource.aspectMask, src_image_state->createInfo.format)) {
-            std::stringstream ss;
+            std::ostringstream ss;
             ss << "vkCmdCopyImage: pRegion[" << i
                << "] srcSubresource.aspectMask cannot specify aspects not present in source image";
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
@@ -1732,7 +1732,7 @@ bool PreCallValidateCmdCopyImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
 
         // For each region, the aspectMask member of dstSubresource must be present in the destination image
         if (!VerifyAspectsPresent(regions[i].dstSubresource.aspectMask, dst_image_state->createInfo.format)) {
-            std::stringstream ss;
+            std::ostringstream ss;
             ss << "vkCmdCopyImage: pRegion[" << i << "] dstSubresource.aspectMask cannot specify aspects not present in dest image";
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
                             HandleToUint64(command_buffer), __LINE__, VALIDATION_ERROR_09c0011e, "IMAGE", "%s. %s",
@@ -1742,7 +1742,7 @@ bool PreCallValidateCmdCopyImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
         // AspectMask must not contain VK_IMAGE_ASPECT_METADATA_BIT
         if ((regions[i].srcSubresource.aspectMask & VK_IMAGE_ASPECT_METADATA_BIT) ||
             (regions[i].dstSubresource.aspectMask & VK_IMAGE_ASPECT_METADATA_BIT)) {
-            std::stringstream ss;
+            std::ostringstream ss;
             ss << "vkCmdCopyImage: pRegions[" << i << "] may not specify aspectMask containing VK_IMAGE_ASPECT_METADATA_BIT";
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
                             HandleToUint64(command_buffer), __LINE__, VALIDATION_ERROR_0a600150, "IMAGE", "%s. %s",
@@ -1761,7 +1761,7 @@ bool PreCallValidateCmdCopyImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
 
         // MipLevel must be less than the mipLevels specified in VkImageCreateInfo when the image was created
         if (regions[i].srcSubresource.mipLevel >= src_image_state->createInfo.mipLevels) {
-            std::stringstream ss;
+            std::ostringstream ss;
             ss << "vkCmdCopyImage: pRegions[" << i
                << "] specifies a src mipLevel greater than the number specified when the srcImage was created.";
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
@@ -1769,7 +1769,7 @@ bool PreCallValidateCmdCopyImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
                             ss.str().c_str(), validation_error_map[VALIDATION_ERROR_0a600152]);
         }
         if (regions[i].dstSubresource.mipLevel >= dst_image_state->createInfo.mipLevels) {
-            std::stringstream ss;
+            std::ostringstream ss;
             ss << "vkCmdCopyImage: pRegions[" << i
                << "] specifies a dst mipLevel greater than the number specified when the dstImage was created.";
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
@@ -1781,7 +1781,7 @@ bool PreCallValidateCmdCopyImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
         // image was created
         if ((regions[i].srcSubresource.baseArrayLayer + regions[i].srcSubresource.layerCount) >
             src_image_state->createInfo.arrayLayers) {
-            std::stringstream ss;
+            std::ostringstream ss;
             ss << "vkCmdCopyImage: srcImage arrayLayers was " << src_image_state->createInfo.arrayLayers << " but subRegion[" << i
                << "] baseArrayLayer + layerCount is "
                << (regions[i].srcSubresource.baseArrayLayer + regions[i].srcSubresource.layerCount);
@@ -1791,7 +1791,7 @@ bool PreCallValidateCmdCopyImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
         }
         if ((regions[i].dstSubresource.baseArrayLayer + regions[i].dstSubresource.layerCount) >
             dst_image_state->createInfo.arrayLayers) {
-            std::stringstream ss;
+            std::ostringstream ss;
             ss << "vkCmdCopyImage: dstImage arrayLayers was " << dst_image_state->createInfo.arrayLayers << " but subRegion[" << i
                << "] baseArrayLayer + layerCount is "
                << (regions[i].dstSubresource.baseArrayLayer + regions[i].dstSubresource.layerCount);
@@ -1805,7 +1805,7 @@ bool PreCallValidateCmdCopyImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
             // The source region specified by a given element of regions must be a region that is contained within srcImage
             VkExtent3D img_extent = GetImageSubresourceExtent(src_image_state, &(regions[i].srcSubresource));
             if (0 != ExceedsBounds(&regions[i].srcOffset, &regions[i].extent, &img_extent)) {
-                std::stringstream ss;
+                std::ostringstream ss;
                 ss << "vkCmdCopyImage: Source pRegion[" << i << "] with mipLevel [ " << regions[i].srcSubresource.mipLevel
                    << " ], offset [ " << regions[i].srcOffset.x << ", " << regions[i].srcOffset.y << ", " << regions[i].srcOffset.z
                    << " ], extent [ " << regions[i].extent.width << ", " << regions[i].extent.height << ", "
@@ -1818,7 +1818,7 @@ bool PreCallValidateCmdCopyImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
             // The destination region specified by a given element of regions must be a region that is contained within dst_image
             img_extent = GetImageSubresourceExtent(dst_image_state, &(regions[i].dstSubresource));
             if (0 != ExceedsBounds(&regions[i].dstOffset, &regions[i].extent, &img_extent)) {
-                std::stringstream ss;
+                std::ostringstream ss;
                 ss << "vkCmdCopyImage: Dest pRegion[" << i << "] with mipLevel [ " << regions[i].dstSubresource.mipLevel
                    << " ], offset [ " << regions[i].dstOffset.x << ", " << regions[i].dstOffset.y << ", " << regions[i].dstOffset.z
                    << " ], extent [ " << regions[i].extent.width << ", " << regions[i].extent.height << ", "
@@ -1894,7 +1894,7 @@ bool PreCallValidateCmdCopyImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
         if (src_image_state->image == dst_image_state->image) {
             for (uint32_t j = 0; j < region_count; j++) {
                 if (RegionIntersects(&regions[i], &regions[j], src_image_state->createInfo.imageType)) {
-                    std::stringstream ss;
+                    std::ostringstream ss;
                     ss << "vkCmdCopyImage: pRegions[" << i << "] src overlaps with pRegions[" << j << "].";
                     skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
                                     HandleToUint64(command_buffer), __LINE__, VALIDATION_ERROR_190000f8, "IMAGE", "%s. %s",
@@ -2273,7 +2273,7 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
 
         // Validate consistency for unsigned formats
         if (FormatIsUInt(src_format) != FormatIsUInt(dst_format)) {
-            std::stringstream ss;
+            std::ostringstream ss;
             ss << "vkCmdBlitImage: If one of srcImage and dstImage images has unsigned integer format, "
                << "the other one must also have unsigned integer format.  "
                << "Source format is " << string_VkFormat(src_format) << " Destination format is " << string_VkFormat(dst_format);
@@ -2284,7 +2284,7 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
 
         // Validate consistency for signed formats
         if (FormatIsSInt(src_format) != FormatIsSInt(dst_format)) {
-            std::stringstream ss;
+            std::ostringstream ss;
             ss << "vkCmdBlitImage: If one of srcImage and dstImage images has signed integer format, "
                << "the other one must also have signed integer format.  "
                << "Source format is " << string_VkFormat(src_format) << " Destination format is " << string_VkFormat(dst_format);
@@ -2295,7 +2295,7 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
 
         // Validate filter for Depth/Stencil formats
         if (FormatIsDepthOrStencil(src_format) && (filter != VK_FILTER_NEAREST)) {
-            std::stringstream ss;
+            std::ostringstream ss;
             ss << "vkCmdBlitImage: If the format of srcImage is a depth, stencil, or depth stencil "
                << "then filter must be VK_FILTER_NEAREST.";
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
@@ -2306,7 +2306,7 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
         // Validate aspect bits and formats for depth/stencil images
         if (FormatIsDepthOrStencil(src_format) || FormatIsDepthOrStencil(dst_format)) {
             if (src_format != dst_format) {
-                std::stringstream ss;
+                std::ostringstream ss;
                 ss << "vkCmdBlitImage: If one of srcImage and dstImage images has a format of depth, stencil or depth "
                    << "stencil, the other one must have exactly the same format.  "
                    << "Source format is " << string_VkFormat(src_format) << " Destination format is "
@@ -2322,7 +2322,7 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
 
                 if (FormatIsDepthAndStencil(src_format)) {
                     if ((srcAspect != VK_IMAGE_ASPECT_DEPTH_BIT) && (srcAspect != VK_IMAGE_ASPECT_STENCIL_BIT)) {
-                        std::stringstream ss;
+                        std::ostringstream ss;
                         ss << "vkCmdBlitImage: Combination depth/stencil image formats must have only one of "
                             "VK_IMAGE_ASPECT_DEPTH_BIT "
                             << "and VK_IMAGE_ASPECT_STENCIL_BIT set in srcImage and dstImage";
@@ -2333,7 +2333,7 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
                 }
                 else if (FormatIsStencilOnly(src_format)) {
                     if (srcAspect != VK_IMAGE_ASPECT_STENCIL_BIT) {
-                        std::stringstream ss;
+                        std::ostringstream ss;
                         ss << "vkCmdBlitImage: Stencil-only image formats must have only the VK_IMAGE_ASPECT_STENCIL_BIT "
                             << "set in both the srcImage and dstImage";
                         skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
@@ -2343,7 +2343,7 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
                 }
                 else if (FormatIsDepthOnly(src_format)) {
                     if (srcAspect != VK_IMAGE_ASPECT_DEPTH_BIT) {
-                        std::stringstream ss;
+                        std::ostringstream ss;
                         ss << "vkCmdBlitImage: Depth-only image formats must have only the VK_IMAGE_ASPECT_DEPTH "
                             << "set in both the srcImage and dstImage";
                         skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
@@ -2362,7 +2362,7 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
             // Warn for zero-sized regions
             if ((rgn.srcOffsets[0].x == rgn.srcOffsets[1].x) || (rgn.srcOffsets[0].y == rgn.srcOffsets[1].y) ||
                 (rgn.srcOffsets[0].z == rgn.srcOffsets[1].z)) {
-                std::stringstream ss;
+                std::ostringstream ss;
                 ss << "vkCmdBlitImage: pRegions[" << i << "].srcOffsets specify a zero-volume area.";
                 skip |= log_msg(report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
                                 HandleToUint64(cb_node->commandBuffer), __LINE__, DRAWSTATE_INVALID_EXTENTS, "IMAGE", "%s",
@@ -2370,7 +2370,7 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
             }
             if ((rgn.dstOffsets[0].x == rgn.dstOffsets[1].x) || (rgn.dstOffsets[0].y == rgn.dstOffsets[1].y) ||
                 (rgn.dstOffsets[0].z == rgn.dstOffsets[1].z)) {
-                std::stringstream ss;
+                std::ostringstream ss;
                 ss << "vkCmdBlitImage: pRegions[" << i << "].dstOffsets specify a zero-volume area.";
                 skip |= log_msg(report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
                                 HandleToUint64(cb_node->commandBuffer), __LINE__, DRAWSTATE_INVALID_EXTENTS, "IMAGE", "%s",
@@ -2674,7 +2674,7 @@ static bool ValidateMaskBits(core_validation::layer_data *device_data, VkCommand
         } else {
             std::string opt_bits;
             if (optional_bits != 0) {
-                std::stringstream ss;
+                std::ostringstream ss;
                 ss << optional_bits;
                 opt_bits = "and may have optional bits " + ss.str() + ' ' + string_VkAccessFlags(optional_bits);
             }
@@ -3222,7 +3222,7 @@ bool PreCallValidateCreateImageView(layer_data *device_data, const VkImageViewCr
         if (image_flags & VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT) {
             // Format MUST be compatible (in the same format compatibility class) as the format the image was created with
             if (FormatCompatibilityClass(image_format) != FormatCompatibilityClass(view_format)) {
-                std::stringstream ss;
+                std::ostringstream ss;
                 ss << "vkCreateImageView(): ImageView format " << string_VkFormat(view_format)
                    << " is not in the same format compatibility class as image (" << HandleToUint64(create_info->image)
                    << ")  format " << string_VkFormat(image_format)
@@ -3235,7 +3235,7 @@ bool PreCallValidateCreateImageView(layer_data *device_data, const VkImageViewCr
         } else {
             // Format MUST be IDENTICAL to the format the image was created with
             if (image_format != view_format) {
-                std::stringstream ss;
+                std::ostringstream ss;
                 ss << "vkCreateImageView() format " << string_VkFormat(view_format) << " differs from image "
                    << HandleToUint64(create_info->image) << " format " << string_VkFormat(image_format)
                    << ".  Formats MUST be IDENTICAL unless VK_IMAGE_CREATE_MUTABLE_FORMAT BIT was set on image creation.";
