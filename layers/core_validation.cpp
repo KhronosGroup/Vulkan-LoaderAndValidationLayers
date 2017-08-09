@@ -6159,13 +6159,19 @@ VKAPI_ATTR void VKAPI_CALL CmdClearAttachments(VkCommandBuffer commandBuffer, ui
     bool skip = false;
     layer_data *dev_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
     std::vector<MemoryAccess> mem_accesses;
-    {
-        lock_guard_t lock(global_lock);
-        skip = PreCallValidateCmdClearAttachments(dev_data, commandBuffer, attachmentCount, pAttachments, rectCount, pRects,
-                                                  &mem_accesses);
-    }
-    if (!skip) {
-        dev_data->dispatch_table.CmdClearAttachments(commandBuffer, attachmentCount, pAttachments, rectCount, pRects);
+    unique_lock_t lock(global_lock);
+    auto cb_state = GetCBNode(dev_data, commandBuffer);
+    if (cb_state) {
+        skip =
+            PreCallValidateCmdClearAttachments(dev_data, cb_state, attachmentCount, pAttachments, rectCount, pRects, &mem_accesses);
+        if (!skip) {
+            PreCallRecordCmdClearAttachments(dev_data->report_data, cb_state, &mem_accesses);
+            lock.unlock();
+            dev_data->dispatch_table.CmdClearAttachments(commandBuffer, attachmentCount, pAttachments, rectCount, pRects);
+        }
+    } else {
+        lock.unlock();
+        assert(0);
     }
 }
 
