@@ -3691,27 +3691,32 @@ void PostCallRecordDestroyBufferView(layer_data *device_data, VkBufferView buffe
     GetBufferViewMap(device_data)->erase(buffer_view);
 }
 
-bool PreCallValidateCmdFillBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_node, BUFFER_STATE *buffer_state) {
+bool PreCallValidateCmdFillBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_state, BUFFER_STATE *buffer_state, VkDeviceSize offset,
+                                  VkDeviceSize size, std::vector<MemoryAccess> *mem_accesses) {
     bool skip = false;
     skip |= ValidateMemoryIsBoundToBuffer(device_data, buffer_state, "vkCmdFillBuffer()", VALIDATION_ERROR_1b40003e);
-    skip |= ValidateCmdQueueFlags(device_data, cb_node, "vkCmdFillBuffer()",
+    skip |= ValidateCmdQueueFlags(device_data, cb_state, "vkCmdFillBuffer()",
                                   VK_QUEUE_TRANSFER_BIT | VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT, VALIDATION_ERROR_1b402415);
-    skip |= ValidateCmd(device_data, cb_node, CMD_FILLBUFFER, "vkCmdFillBuffer()");
+    skip |= ValidateCmd(device_data, cb_state, CMD_FILLBUFFER, "vkCmdFillBuffer()");
     // Validate that DST buffer has correct usage flags set
     skip |= ValidateBufferUsageFlags(device_data, buffer_state, VK_BUFFER_USAGE_TRANSFER_DST_BIT, true, VALIDATION_ERROR_1b40003a,
                                      "vkCmdFillBuffer()", "VK_BUFFER_USAGE_TRANSFER_DST_BIT");
-    skip |= insideRenderPass(device_data, cb_node, "vkCmdFillBuffer()", VALIDATION_ERROR_1b400017);
+    skip |= insideRenderPass(device_data, cb_state, "vkCmdFillBuffer()", VALIDATION_ERROR_1b400017);
+    AddWriteMemoryAccess(CMD_FILLBUFFER, mem_accesses, {buffer_state->binding.mem, offset, size}, true);
+    skip |= ValidateMemoryAccesses(core_validation::GetReportData(device_data), cb_state, mem_accesses, "vkCmdFillBuffer()");
     return skip;
 }
 
-void PreCallRecordCmdFillBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_node, BUFFER_STATE *buffer_state) {
+void PreCallRecordCmdFillBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_state, BUFFER_STATE *buffer_state,
+                                std::vector<MemoryAccess> *mem_accesses) {
     std::function<bool()> function = [=]() {
         SetBufferMemoryValid(device_data, buffer_state, true);
         return false;
     };
-    cb_node->queue_submit_functions.push_back(function);
+    cb_state->queue_submit_functions.push_back(function);
     // Update bindings between buffer and cmd buffer
-    AddCommandBufferBindingBuffer(device_data, cb_node, buffer_state);
+    AddCommandBufferBindingBuffer(device_data, cb_state, buffer_state);
+    AddCommandBufferCommandMemoryAccesses(cb_state, CMD_FILLBUFFER, mem_accesses);
 }
 
 bool ValidateBufferImageCopyData(const debug_report_data *report_data, uint32_t regionCount, const VkBufferImageCopy *pRegions,
