@@ -162,10 +162,11 @@ void PreCallRecordCmdResolveImage(layer_data *device_data, GLOBAL_CB_NODE *cb_no
                                   IMAGE_STATE *dst_image_state);
 
 bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_node, IMAGE_STATE *src_image_state,
-                                 IMAGE_STATE *dst_image_state, uint32_t regionCount, const VkImageBlit *pRegions, VkFilter filter);
+                                 IMAGE_STATE *dst_image_state, uint32_t regionCount, const VkImageBlit *pRegions, VkFilter filter,
+                                 std::vector<MemoryAccess> *mem_accesses);
 
 void PreCallRecordCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_node, IMAGE_STATE *src_image_state,
-                               IMAGE_STATE *dst_image_state);
+                               IMAGE_STATE *dst_image_state, std::vector<MemoryAccess> *mem_accesses);
 
 bool ValidateCmdBufImageLayouts(layer_data *device_data, GLOBAL_CB_NODE *pCB,
                                 std::unordered_map<ImageSubresourcePair, IMAGE_LAYOUT_NODE> const &globalImageLayoutMap,

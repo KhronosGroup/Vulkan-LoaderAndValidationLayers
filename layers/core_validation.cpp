@@ -6011,16 +6011,18 @@ VKAPI_ATTR void VKAPI_CALL CmdBlitImage(VkCommandBuffer commandBuffer, VkImage s
                                         VkImage dstImage, VkImageLayout dstImageLayout, uint32_t regionCount,
                                         const VkImageBlit *pRegions, VkFilter filter) {
     layer_data *dev_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
+    std::vector<MemoryAccess> mem_accesses;
     unique_lock_t lock(global_lock);
 
     auto cb_node = GetCBNode(dev_data, commandBuffer);
     auto src_image_state = GetImageState(dev_data, srcImage);
     auto dst_image_state = GetImageState(dev_data, dstImage);
 
-    bool skip = PreCallValidateCmdBlitImage(dev_data, cb_node, src_image_state, dst_image_state, regionCount, pRegions, filter);
+    bool skip = PreCallValidateCmdBlitImage(dev_data, cb_node, src_image_state, dst_image_state, regionCount, pRegions, filter,
+                                            &mem_accesses);
 
     if (!skip) {
-        PreCallRecordCmdBlitImage(dev_data, cb_node, src_image_state, dst_image_state);
+        PreCallRecordCmdBlitImage(dev_data, cb_node, src_image_state, dst_image_state, &mem_accesses);
         lock.unlock();
         dev_data->dispatch_table.CmdBlitImage(commandBuffer, srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount,
                                               pRegions, filter);
