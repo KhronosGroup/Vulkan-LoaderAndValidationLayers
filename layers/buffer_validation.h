@@ -155,7 +155,8 @@ bool PreCallValidateCmdCopyImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
                                  std::vector<MemoryAccess> *mem_accesses);
 
 bool PreCallValidateCmdClearAttachments(layer_data *device_data, VkCommandBuffer commandBuffer, uint32_t attachmentCount,
-                                        const VkClearAttachment *pAttachments, uint32_t rectCount, const VkClearRect *pRects);
+                                        const VkClearAttachment *pAttachments, uint32_t rectCount, const VkClearRect *pRects,
+                                        std::vector<MemoryAccess> *mem_accesses);
 
 bool PreCallValidateCmdResolveImage(layer_data *device_data, GLOBAL_CB_NODE *cb_node, IMAGE_STATE *src_image_state,
                                     IMAGE_STATE *dst_image_state, uint32_t regionCount, const VkImageResolve *pRegions);
