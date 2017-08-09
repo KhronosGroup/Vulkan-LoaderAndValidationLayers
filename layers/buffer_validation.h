@@ -60,14 +60,16 @@ void RecordClearImageLayout(layer_data *dev_data, GLOBAL_CB_NODE *cb_node, VkIma
                             VkImageLayout dest_image_layout);
 
 bool PreCallValidateCmdClearColorImage(layer_data *dev_data, VkCommandBuffer commandBuffer, VkImage image,
-                                       VkImageLayout imageLayout, uint32_t rangeCount, const VkImageSubresourceRange *pRanges);
+                                       VkImageLayout imageLayout, uint32_t rangeCount, const VkImageSubresourceRange *pRanges,
+                                       std::vector<MemoryAccess> *mem_accesses);
 
 void PreCallRecordCmdClearImage(layer_data *dev_data, VkCommandBuffer commandBuffer, VkImage image, VkImageLayout imageLayout,
-                                uint32_t rangeCount, const VkImageSubresourceRange *pRanges);
+                                uint32_t rangeCount, const VkImageSubresourceRange *pRanges, CMD_TYPE cmd,
+                                std::vector<MemoryAccess> *mem_accesses);
 
 bool PreCallValidateCmdClearDepthStencilImage(layer_data *dev_data, VkCommandBuffer commandBuffer, VkImage image,
                                               VkImageLayout imageLayout, uint32_t rangeCount,
-                                              const VkImageSubresourceRange *pRanges);
+                                              const VkImageSubresourceRange *pRanges, std::vector<MemoryAccess> *mem_accesses);
 
 bool FindLayoutVerifyNode(layer_data const *device_data, GLOBAL_CB_NODE const *pCB, ImageSubresourcePair imgpair,
                           IMAGE_CMD_BUF_LAYOUT_NODE &node, const VkImageAspectFlags aspectMask);
