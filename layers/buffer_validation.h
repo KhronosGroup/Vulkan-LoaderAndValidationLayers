@@ -161,13 +161,15 @@ bool PreCallValidateCmdResolveImage(layer_data *device_data, GLOBAL_CB_NODE *cb_
 void PreCallRecordCmdResolveImage(layer_data *device_data, GLOBAL_CB_NODE *cb_node, IMAGE_STATE *src_image_state,
                                   IMAGE_STATE *dst_image_state);
 
-bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_node, IMAGE_STATE *src_image_state,
+bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_state, IMAGE_STATE *src_image_state,
                                  IMAGE_STATE *dst_image_state, uint32_t region_count, const VkImageBlit *regions,
-                                 VkImageLayout src_image_layout, VkImageLayout dst_image_layout, VkFilter filter);
+                                 VkImageLayout src_image_layout, VkImageLayout dst_image_layout, VkFilter filter,
+                                 std::vector<MemoryAccess> *mem_accesses);
 
-void PreCallRecordCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_node, IMAGE_STATE *src_image_state,
+void PreCallRecordCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_state, IMAGE_STATE *src_image_state,
                                IMAGE_STATE *dst_image_state, uint32_t region_count, const VkImageBlit *regions,
-                               VkImageLayout src_image_layout, VkImageLayout dst_image_layout);
+                               VkImageLayout src_image_layout, VkImageLayout dst_image_layout,
+                               std::vector<MemoryAccess> *mem_accesses);
 
 bool ValidateCmdBufImageLayouts(layer_data *device_data, GLOBAL_CB_NODE *pCB,
                                 std::unordered_map<ImageSubresourcePair, IMAGE_LAYOUT_NODE> const &globalImageLayoutMap,
