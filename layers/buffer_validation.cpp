@@ -2092,32 +2092,29 @@ static inline bool ContainsRect(VkRect2D rect, VkRect2D sub_rect) {
     return true;
 }
 
-bool PreCallValidateCmdClearAttachments(layer_data *device_data, VkCommandBuffer commandBuffer, uint32_t attachmentCount,
+bool PreCallValidateCmdClearAttachments(layer_data *device_data, GLOBAL_CB_NODE *cb_state, uint32_t attachmentCount,
                                         const VkClearAttachment *pAttachments, uint32_t rectCount, const VkClearRect *pRects,
                                         std::vector<MemoryAccess> *mem_accesses) {
-    GLOBAL_CB_NODE *cb_state = GetCBNode(device_data, commandBuffer);
     const debug_report_data *report_data = core_validation::GetReportData(device_data);
-
+    const auto commandBuffer = cb_state->commandBuffer;
     bool skip = false;
-    if (cb_state) {
-        skip |= ValidateCmdQueueFlags(device_data, cb_state, "vkCmdClearAttachments()", VK_QUEUE_GRAPHICS_BIT,
-                                      VALIDATION_ERROR_18602415);
-        skip |= ValidateCmd(device_data, cb_state, CMD_CLEARATTACHMENTS, "vkCmdClearAttachments()");
-        // Warn if this is issued prior to Draw Cmd and clearing the entire attachment
-        if (!cb_state->hasDrawCmd && (cb_state->activeRenderPassBeginInfo.renderArea.extent.width == pRects[0].rect.extent.width) &&
-            (cb_state->activeRenderPassBeginInfo.renderArea.extent.height == pRects[0].rect.extent.height)) {
-            // There are times where app needs to use ClearAttachments (generally when reusing a buffer inside of a render pass)
-            // This warning should be made more specific. It'd be best to avoid triggering this test if it's a use that must call
-            // CmdClearAttachments.
-            skip |=
-                log_msg(report_data, VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
+
+    skip |=
+        ValidateCmdQueueFlags(device_data, cb_state, "vkCmdClearAttachments()", VK_QUEUE_GRAPHICS_BIT, VALIDATION_ERROR_18602415);
+    skip |= ValidateCmd(device_data, cb_state, CMD_CLEARATTACHMENTS, "vkCmdClearAttachments()");
+    // Warn if this is issued prior to Draw Cmd and clearing the entire attachment
+    if (!cb_state->hasDrawCmd && (cb_state->activeRenderPassBeginInfo.renderArea.extent.width == pRects[0].rect.extent.width) &&
+        (cb_state->activeRenderPassBeginInfo.renderArea.extent.height == pRects[0].rect.extent.height)) {
+        // There are times where app needs to use ClearAttachments (generally when reusing a buffer inside of a render pass)
+        // This warning should be made more specific. It'd be best to avoid triggering this test if it's a use that must call
+        // CmdClearAttachments.
+        skip |= log_msg(report_data, VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
                         HandleToUint64(commandBuffer), 0, DRAWSTATE_CLEAR_CMD_BEFORE_DRAW, "DS",
                         "vkCmdClearAttachments() issued on command buffer object 0x%p prior to any Draw Cmds."
                         " It is recommended you use RenderPass LOAD_OP_CLEAR on Attachments prior to any Draw.",
                         commandBuffer);
-        }
-        skip |= outsideRenderPass(device_data, cb_state, "vkCmdClearAttachments()", VALIDATION_ERROR_18600017);
     }
+    skip |= outsideRenderPass(device_data, cb_state, "vkCmdClearAttachments()", VALIDATION_ERROR_18600017);
 
     // Validate that attachment is in reference list of active subpass
     if (cb_state->activeRenderPass) {
@@ -2215,6 +2212,11 @@ bool PreCallValidateCmdClearAttachments(layer_data *device_data, VkCommandBuffer
         }
     }
     return skip;
+}
+
+void PreCallRecordCmdClearAttachments(debug_report_data const *report_data, GLOBAL_CB_NODE *cb_state,
+                                      std::vector<MemoryAccess> *mem_accesses) {
+    AddCommandBufferCommandMemoryAccesses(cb_state, CMD_CLEARATTACHMENTS, mem_accesses);
 }
 
 bool PreCallValidateCmdResolveImage(layer_data *device_data, GLOBAL_CB_NODE *cb_node, IMAGE_STATE *src_image_state,
