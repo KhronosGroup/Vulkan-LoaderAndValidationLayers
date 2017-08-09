@@ -6135,14 +6135,15 @@ VKAPI_ATTR void VKAPI_CALL CmdUpdateBuffer(VkCommandBuffer commandBuffer, VkBuff
 VKAPI_ATTR void VKAPI_CALL CmdFillBuffer(VkCommandBuffer commandBuffer, VkBuffer dstBuffer, VkDeviceSize dstOffset,
                                          VkDeviceSize size, uint32_t data) {
     layer_data *device_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
+    std::vector<MemoryAccess> mem_accesses;
     unique_lock_t lock(global_lock);
     auto cb_node = GetCBNode(device_data, commandBuffer);
     auto buffer_state = GetBufferState(device_data, dstBuffer);
 
     if (cb_node && buffer_state) {
-        bool skip = PreCallValidateCmdFillBuffer(device_data, cb_node, buffer_state);
+        bool skip = PreCallValidateCmdFillBuffer(device_data, cb_node, buffer_state, dstOffset, size, &mem_accesses);
         if (!skip) {
-            PreCallRecordCmdFillBuffer(device_data, cb_node, buffer_state);
+            PreCallRecordCmdFillBuffer(device_data, cb_node, buffer_state, &mem_accesses);
             lock.unlock();
             device_data->dispatch_table.CmdFillBuffer(commandBuffer, dstBuffer, dstOffset, size, data);
         }
