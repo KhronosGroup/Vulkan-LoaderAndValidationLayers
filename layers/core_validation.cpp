@@ -3998,6 +3998,13 @@ VKAPI_ATTR VkResult VKAPI_CALL CreateQueryPool(VkDevice device, const VkQueryPoo
         lock_guard_t lock(global_lock);
         QUERY_POOL_NODE *qp_node = &dev_data->queryPoolMap[*pQueryPool];
         qp_node->createInfo = *pCreateInfo;
+        // Count data elements per query for later size calculation
+        size_t data_count = 1;
+        if (VK_QUERY_TYPE_PIPELINE_STATISTICS == pCreateInfo->queryType) {
+            std::bitset<32> stat_bits(pCreateInfo->pipelineStatistics);
+            data_count = stat_bits.count();
+        }
+        qp_node->data_count = data_count;
     }
     return result;
 }
@@ -7211,8 +7218,9 @@ static bool validateQuery(VkQueue queue, GLOBAL_CB_NODE *pCB, VkQueryPool queryP
 }
 
 static bool PreCallValidateCmdCopyQueryPoolResults(layer_data *device_data, GLOBAL_CB_NODE *cb_state, VkQueryPool queryPool,
-                                                   uint32_t firstQuery, uint32_t queryCount, BUFFER_STATE *dst_buffer_state,
-                                                   VkDeviceSize dstOffset, VkDeviceSize stride) {
+                                                   uint32_t firstQuery, uint32_t query_count, BUFFER_STATE *dst_buffer_state,
+                                                   VkDeviceSize offset, VkDeviceSize stride, VkQueryResultFlags flags,
+                                                   std::vector<MemoryAccess> *mem_accesses) {
     bool skip = false;
     skip |= ValidateMemoryIsBoundToBuffer(device_data, dst_buffer_state, "vkCmdCopyQueryPoolResults()", VALIDATION_ERROR_19400674);
     // Validate that DST buffer has correct usage flags set
@@ -7222,11 +7230,22 @@ static bool PreCallValidateCmdCopyQueryPoolResults(layer_data *device_data, GLOB
                                   VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT, VALIDATION_ERROR_19402415);
     skip |= ValidateCmd(device_data, cb_state, CMD_COPYQUERYPOOLRESULTS, "vkCmdCopyQueryPoolResults()");
     skip |= insideRenderPass(device_data, cb_state, "vkCmdCopyQueryPoolResults()", VALIDATION_ERROR_19400017);
+    // Add mem write to buffer.
+    // TODO: Initially if data is not tightly packed, just mark as imprecise and cover whole as written
+    //  we could make this case precise by splitting into a number of small accesses
+    auto const &qp_state = GetQueryPoolNode(device_data, queryPool);
+    auto num_bytes = (VK_QUERY_RESULT_64_BIT & flags) ? 8 : 4;
+    auto element_size = qp_state->data_count * num_bytes;
+    auto precise = (element_size == stride) ? true : false;
+    auto size = stride * (query_count - 1) + num_bytes;
+    AddWriteMemoryAccess(CMD_COPYQUERYPOOLRESULTS, mem_accesses, {dst_buffer_state->binding.mem, offset, size}, precise);
+    skip |= ValidateMemoryAccesses(device_data->report_data, cb_state, mem_accesses, "vkCmdCopyQueryPoolResults()");
     return skip;
 }
 
 static void PreCallRecordCmdCopyQueryPoolResults(layer_data *device_data, GLOBAL_CB_NODE *cb_state, VkQueryPool queryPool,
-                                                 uint32_t firstQuery, uint32_t queryCount, BUFFER_STATE *dst_buffer_state) {
+                                                 uint32_t firstQuery, uint32_t queryCount, BUFFER_STATE *dst_buffer_state,
+                                                 std::vector<MemoryAccess> *mem_accesses) {
     AddCommandBufferBindingBuffer(device_data, cb_state, dst_buffer_state);
     cb_state->queue_submit_functions.emplace_back([=]() {
         SetBufferMemoryValid(device_data, dst_buffer_state, true);
@@ -7235,6 +7254,7 @@ static void PreCallRecordCmdCopyQueryPoolResults(layer_data *device_data, GLOBAL
     cb_state->queryUpdates.emplace_back([=](VkQueue q) { return validateQuery(q, cb_state, queryPool, firstQuery, queryCount); });
     addCommandBufferBinding(&GetQueryPoolNode(device_data, queryPool)->cb_bindings,
                             {HandleToUint64(queryPool), kVulkanObjectTypeQueryPool}, cb_state);
+    AddCommandBufferCommandMemoryAccesses(cb_state, CMD_COPYQUERYPOOLRESULTS, mem_accesses);
 }
 
 VKAPI_ATTR void VKAPI_CALL CmdCopyQueryPoolResults(VkCommandBuffer commandBuffer, VkQueryPool queryPool, uint32_t firstQuery,
@@ -7242,15 +7262,17 @@ VKAPI_ATTR void VKAPI_CALL CmdCopyQueryPoolResults(VkCommandBuffer commandBuffer
                                                    VkDeviceSize stride, VkQueryResultFlags flags) {
     bool skip = false;
     layer_data *dev_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
+    std::vector<MemoryAccess> mem_accesses;
     unique_lock_t lock(global_lock);
 
     auto cb_state = GetCBNode(dev_data, commandBuffer);
     auto dst_buff_state = GetBufferState(dev_data, dstBuffer);
     if (cb_state && dst_buff_state) {
         skip |= PreCallValidateCmdCopyQueryPoolResults(dev_data, cb_state, queryPool, firstQuery, queryCount, dst_buff_state,
-                                                       dstOffset, stride);
+                                                       dstOffset, stride, flags, &mem_accesses);
         if (!skip) {
-            PreCallRecordCmdCopyQueryPoolResults(dev_data, cb_state, queryPool, firstQuery, queryCount, dst_buff_state);
+            PreCallRecordCmdCopyQueryPoolResults(dev_data, cb_state, queryPool, firstQuery, queryCount, dst_buff_state,
+                                                 &mem_accesses);
             lock.unlock();
             dev_data->dispatch_table.CmdCopyQueryPoolResults(commandBuffer, queryPool, firstQuery, queryCount, dstBuffer, dstOffset,
                                                              stride, flags);

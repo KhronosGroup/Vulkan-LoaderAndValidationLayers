@@ -138,6 +138,7 @@ class QUEUE_STATE {
 class QUERY_POOL_NODE : public BASE_NODE {
    public:
     VkQueryPoolCreateInfo createInfo;
+    size_t data_count;  // Number of data items in this query
 };
 
 struct PHYSICAL_DEVICE_STATE {
