@@ -2312,17 +2312,18 @@ void PreCallRecordCmdClearAttachments(debug_report_data const *report_data, GLOB
     AddCommandBufferCommandMemoryAccesses(cb_state, CMD_CLEARATTACHMENTS, mem_accesses);
 }
 
-bool PreCallValidateCmdResolveImage(layer_data *device_data, GLOBAL_CB_NODE *cb_node, IMAGE_STATE *src_image_state,
-                                    IMAGE_STATE *dst_image_state, uint32_t regionCount, const VkImageResolve *pRegions) {
+bool PreCallValidateCmdResolveImage(layer_data *device_data, GLOBAL_CB_NODE *cb_state, IMAGE_STATE *src_image_state,
+                                    IMAGE_STATE *dst_image_state, uint32_t regionCount, const VkImageResolve *pRegions,
+                                    std::vector<MemoryAccess> *mem_accesses) {
     const debug_report_data *report_data = core_validation::GetReportData(device_data);
     bool skip = false;
-    if (cb_node && src_image_state && dst_image_state) {
+    if (cb_state && src_image_state && dst_image_state) {
         skip |= ValidateMemoryIsBoundToImage(device_data, src_image_state, "vkCmdResolveImage()", VALIDATION_ERROR_1c800200);
         skip |= ValidateMemoryIsBoundToImage(device_data, dst_image_state, "vkCmdResolveImage()", VALIDATION_ERROR_1c800204);
         skip |=
-            ValidateCmdQueueFlags(device_data, cb_node, "vkCmdResolveImage()", VK_QUEUE_GRAPHICS_BIT, VALIDATION_ERROR_1c802415);
-        skip |= ValidateCmd(device_data, cb_node, CMD_RESOLVEIMAGE, "vkCmdResolveImage()");
-        skip |= insideRenderPass(device_data, cb_node, "vkCmdResolveImage()", VALIDATION_ERROR_1c800017);
+            ValidateCmdQueueFlags(device_data, cb_state, "vkCmdResolveImage()", VK_QUEUE_GRAPHICS_BIT, VALIDATION_ERROR_1c802415);
+        skip |= ValidateCmd(device_data, cb_state, CMD_RESOLVEIMAGE, "vkCmdResolveImage()");
+        skip |= insideRenderPass(device_data, cb_state, "vkCmdResolveImage()", VALIDATION_ERROR_1c800017);
 
         // For each region, the number of layers in the image subresource should not be zero
         // For each region, src and dest image aspect must be color only
@@ -2330,17 +2331,17 @@ bool PreCallValidateCmdResolveImage(layer_data *device_data, GLOBAL_CB_NODE *cb_
             if (pRegions[i].srcSubresource.layerCount == 0) {
                 char const str[] = "vkCmdResolveImage: number of layers in source subresource is zero";
                 skip |= log_msg(report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                                HandleToUint64(cb_node->commandBuffer), DRAWSTATE_MISMATCHED_IMAGE_ASPECT, str);
+                                HandleToUint64(cb_state->commandBuffer), DRAWSTATE_MISMATCHED_IMAGE_ASPECT, str);
             }
             if (pRegions[i].dstSubresource.layerCount == 0) {
                 char const str[] = "vkCmdResolveImage: number of layers in destination subresource is zero";
                 skip |= log_msg(report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                                HandleToUint64(cb_node->commandBuffer), DRAWSTATE_MISMATCHED_IMAGE_ASPECT, str);
+                                HandleToUint64(cb_state->commandBuffer), DRAWSTATE_MISMATCHED_IMAGE_ASPECT, str);
             }
             if (pRegions[i].srcSubresource.layerCount != pRegions[i].dstSubresource.layerCount) {
                 skip |= log_msg(
                     report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                    HandleToUint64(cb_node->commandBuffer), VALIDATION_ERROR_0a200216,
+                    HandleToUint64(cb_state->commandBuffer), VALIDATION_ERROR_0a200216,
                     "vkCmdResolveImage: layerCount in source and destination subresource of pRegions[%d] does not match.", i);
             }
             if ((pRegions[i].srcSubresource.aspectMask != VK_IMAGE_ASPECT_COLOR_BIT) ||
@@ -2348,29 +2349,34 @@ bool PreCallValidateCmdResolveImage(layer_data *device_data, GLOBAL_CB_NODE *cb_
                 char const str[] =
                     "vkCmdResolveImage: src and dest aspectMasks for each region must specify only VK_IMAGE_ASPECT_COLOR_BIT";
                 skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                                HandleToUint64(cb_node->commandBuffer), VALIDATION_ERROR_0a200214, "%s.", str);
+                                HandleToUint64(cb_state->commandBuffer), VALIDATION_ERROR_0a200214, "%s.", str);
             }
         }
+        // Add memory access for this image resolve
+        // TODO: Currently treating all image accesses as imprecise & covering the whole image area
+        AddReadMemoryAccess(CMD_RESOLVEIMAGE, mem_accesses, src_image_state->binding, false);
+        AddWriteMemoryAccess(CMD_RESOLVEIMAGE, mem_accesses, dst_image_state->binding, false);
+        skip |= ValidateMemoryAccesses(report_data, cb_state, mem_accesses, "vkCmdResolveImage()");
 
         if (src_image_state->createInfo.format != dst_image_state->createInfo.format) {
             char const str[] = "vkCmdResolveImage called with unmatched source and dest formats.";
             skip |= log_msg(report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                            HandleToUint64(cb_node->commandBuffer), DRAWSTATE_MISMATCHED_IMAGE_FORMAT, str);
+                            HandleToUint64(cb_state->commandBuffer), DRAWSTATE_MISMATCHED_IMAGE_FORMAT, str);
         }
         if (src_image_state->createInfo.imageType != dst_image_state->createInfo.imageType) {
             char const str[] = "vkCmdResolveImage called with unmatched source and dest image types.";
             skip |= log_msg(report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                            HandleToUint64(cb_node->commandBuffer), DRAWSTATE_MISMATCHED_IMAGE_TYPE, str);
+                            HandleToUint64(cb_state->commandBuffer), DRAWSTATE_MISMATCHED_IMAGE_TYPE, str);
         }
         if (src_image_state->createInfo.samples == VK_SAMPLE_COUNT_1_BIT) {
             char const str[] = "vkCmdResolveImage called with source sample count less than 2.";
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                            HandleToUint64(cb_node->commandBuffer), VALIDATION_ERROR_1c800202, "%s.", str);
+                            HandleToUint64(cb_state->commandBuffer), VALIDATION_ERROR_1c800202, "%s.", str);
         }
         if (dst_image_state->createInfo.samples != VK_SAMPLE_COUNT_1_BIT) {
             char const str[] = "vkCmdResolveImage called with dest sample count greater than 1.";
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                            HandleToUint64(cb_node->commandBuffer), VALIDATION_ERROR_1c800206, "%s.", str);
+                            HandleToUint64(cb_state->commandBuffer), VALIDATION_ERROR_1c800206, "%s.", str);
         }
         // TODO: Need to validate image layouts, which will include layout validation for shared presentable images
     } else {
@@ -2379,21 +2385,22 @@ bool PreCallValidateCmdResolveImage(layer_data *device_data, GLOBAL_CB_NODE *cb_
     return skip;
 }
 
-void PreCallRecordCmdResolveImage(layer_data *device_data, GLOBAL_CB_NODE *cb_node, IMAGE_STATE *src_image_state,
-                                  IMAGE_STATE *dst_image_state) {
+void PreCallRecordCmdResolveImage(layer_data *device_data, GLOBAL_CB_NODE *cb_state, IMAGE_STATE *src_image_state,
+                                  IMAGE_STATE *dst_image_state, std::vector<MemoryAccess> *mem_accesses) {
     // Update bindings between images and cmd buffer
-    AddCommandBufferBindingImage(device_data, cb_node, src_image_state);
-    AddCommandBufferBindingImage(device_data, cb_node, dst_image_state);
+    AddCommandBufferBindingImage(device_data, cb_state, src_image_state);
+    AddCommandBufferBindingImage(device_data, cb_state, dst_image_state);
 
     std::function<bool()> function = [=]() {
         return ValidateImageMemoryIsValid(device_data, src_image_state, "vkCmdResolveImage()");
     };
-    cb_node->queue_submit_functions.push_back(function);
+    cb_state->queue_submit_functions.push_back(function);
     function = [=]() {
         SetImageMemoryValid(device_data, dst_image_state, true);
         return false;
     };
-    cb_node->queue_submit_functions.push_back(function);
+    cb_state->queue_submit_functions.push_back(function);
+    AddCommandBufferCommandMemoryAccesses(cb_state, CMD_RESOLVEIMAGE, mem_accesses);
 }
 
 bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_state, IMAGE_STATE *src_image_state,
