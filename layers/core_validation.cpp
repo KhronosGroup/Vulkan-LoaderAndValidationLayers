@@ -7210,6 +7210,33 @@ static bool validateQuery(VkQueue queue, GLOBAL_CB_NODE *pCB, VkQueryPool queryP
     return skip;
 }
 
+static bool PreCallValidateCmdCopyQueryPoolResults(layer_data *device_data, GLOBAL_CB_NODE *cb_state, VkQueryPool queryPool,
+                                                   uint32_t firstQuery, uint32_t queryCount, BUFFER_STATE *dst_buffer_state,
+                                                   VkDeviceSize dstOffset, VkDeviceSize stride) {
+    bool skip = false;
+    skip |= ValidateMemoryIsBoundToBuffer(device_data, dst_buffer_state, "vkCmdCopyQueryPoolResults()", VALIDATION_ERROR_19400674);
+    // Validate that DST buffer has correct usage flags set
+    skip |= ValidateBufferUsageFlags(device_data, dst_buffer_state, VK_BUFFER_USAGE_TRANSFER_DST_BIT, true,
+                                     VALIDATION_ERROR_19400672, "vkCmdCopyQueryPoolResults()", "VK_BUFFER_USAGE_TRANSFER_DST_BIT");
+    skip |= ValidateCmdQueueFlags(device_data, cb_state, "vkCmdCopyQueryPoolResults()",
+                                  VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT, VALIDATION_ERROR_19402415);
+    skip |= ValidateCmd(device_data, cb_state, CMD_COPYQUERYPOOLRESULTS, "vkCmdCopyQueryPoolResults()");
+    skip |= insideRenderPass(device_data, cb_state, "vkCmdCopyQueryPoolResults()", VALIDATION_ERROR_19400017);
+    return skip;
+}
+
+static void PreCallRecordCmdCopyQueryPoolResults(layer_data *device_data, GLOBAL_CB_NODE *cb_state, VkQueryPool queryPool,
+                                                 uint32_t firstQuery, uint32_t queryCount, BUFFER_STATE *dst_buffer_state) {
+    AddCommandBufferBindingBuffer(device_data, cb_state, dst_buffer_state);
+    cb_state->queue_submit_functions.emplace_back([=]() {
+        SetBufferMemoryValid(device_data, dst_buffer_state, true);
+        return false;
+    });
+    cb_state->queryUpdates.emplace_back([=](VkQueue q) { return validateQuery(q, cb_state, queryPool, firstQuery, queryCount); });
+    addCommandBufferBinding(&GetQueryPoolNode(device_data, queryPool)->cb_bindings,
+                            {HandleToUint64(queryPool), kVulkanObjectTypeQueryPool}, cb_state);
+}
+
 VKAPI_ATTR void VKAPI_CALL CmdCopyQueryPoolResults(VkCommandBuffer commandBuffer, VkQueryPool queryPool, uint32_t firstQuery,
                                                    uint32_t queryCount, VkBuffer dstBuffer, VkDeviceSize dstOffset,
                                                    VkDeviceSize stride, VkQueryResultFlags flags) {
@@ -7217,38 +7244,20 @@ VKAPI_ATTR void VKAPI_CALL CmdCopyQueryPoolResults(VkCommandBuffer commandBuffer
     layer_data *dev_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
     unique_lock_t lock(global_lock);
 
-    auto cb_node = GetCBNode(dev_data, commandBuffer);
+    auto cb_state = GetCBNode(dev_data, commandBuffer);
     auto dst_buff_state = GetBufferState(dev_data, dstBuffer);
-    if (cb_node && dst_buff_state) {
-        skip |= ValidateMemoryIsBoundToBuffer(dev_data, dst_buff_state, "vkCmdCopyQueryPoolResults()", VALIDATION_ERROR_19400674);
-        // Validate that DST buffer has correct usage flags set
-        skip |=
-            ValidateBufferUsageFlags(dev_data, dst_buff_state, VK_BUFFER_USAGE_TRANSFER_DST_BIT, true, VALIDATION_ERROR_19400672,
-                                     "vkCmdCopyQueryPoolResults()", "VK_BUFFER_USAGE_TRANSFER_DST_BIT");
-        skip |= ValidateCmdQueueFlags(dev_data, cb_node, "vkCmdCopyQueryPoolResults()",
-                                      VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT, VALIDATION_ERROR_19402415);
-        skip |= ValidateCmd(dev_data, cb_node, CMD_COPYQUERYPOOLRESULTS, "vkCmdCopyQueryPoolResults()");
-        skip |= insideRenderPass(dev_data, cb_node, "vkCmdCopyQueryPoolResults()", VALIDATION_ERROR_19400017);
-    }
-    lock.unlock();
-
-    if (skip) return;
-
-    dev_data->dispatch_table.CmdCopyQueryPoolResults(commandBuffer, queryPool, firstQuery, queryCount, dstBuffer, dstOffset,
-                                                     stride, flags);
-
-    lock.lock();
-    if (cb_node && dst_buff_state) {
-        AddCommandBufferBindingBuffer(dev_data, cb_node, dst_buff_state);
-        cb_node->queue_submit_functions.emplace_back([=]() {
-            SetBufferMemoryValid(dev_data, dst_buff_state, true);
-            return false;
-        });
-        cb_node->queryUpdates.emplace_back([=](VkQueue q) {
-            return validateQuery(q, cb_node, queryPool, firstQuery, queryCount);
-        });
-        addCommandBufferBinding(&GetQueryPoolNode(dev_data, queryPool)->cb_bindings,
-                                {HandleToUint64(queryPool), kVulkanObjectTypeQueryPool}, cb_node);
+    if (cb_state && dst_buff_state) {
+        skip |= PreCallValidateCmdCopyQueryPoolResults(dev_data, cb_state, queryPool, firstQuery, queryCount, dst_buff_state,
+                                                       dstOffset, stride);
+        if (!skip) {
+            PreCallRecordCmdCopyQueryPoolResults(dev_data, cb_state, queryPool, firstQuery, queryCount, dst_buff_state);
+            lock.unlock();
+            dev_data->dispatch_table.CmdCopyQueryPoolResults(commandBuffer, queryPool, firstQuery, queryCount, dstBuffer, dstOffset,
+                                                             stride, flags);
+        }
+    } else {
+        lock.unlock();
+        assert(0);
     }
 }
 
