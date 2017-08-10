@@ -162,10 +162,11 @@ void PreCallRecordCmdClearAttachments(debug_report_data const *report_data, GLOB
                                       std::vector<MemoryAccess> *mem_accesses);
 
 bool PreCallValidateCmdResolveImage(layer_data *device_data, GLOBAL_CB_NODE *cb_node, IMAGE_STATE *src_image_state,
-                                    IMAGE_STATE *dst_image_state, uint32_t regionCount, const VkImageResolve *pRegions);
+                                    IMAGE_STATE *dst_image_state, uint32_t regionCount, const VkImageResolve *pRegions,
+                                    std::vector<MemoryAccess> *mem_accesses);
 
 void PreCallRecordCmdResolveImage(layer_data *device_data, GLOBAL_CB_NODE *cb_node, IMAGE_STATE *src_image_state,
-                                  IMAGE_STATE *dst_image_state);
+                                  IMAGE_STATE *dst_image_state, std::vector<MemoryAccess> *mem_accesses);
 
 bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_node, IMAGE_STATE *src_image_state,
                                  IMAGE_STATE *dst_image_state, uint32_t regionCount, const VkImageBlit *pRegions, VkFilter filter,
