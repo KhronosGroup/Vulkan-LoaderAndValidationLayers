@@ -852,6 +852,23 @@ struct LAST_BOUND_STATE {
         dynamicOffsets.clear();
     }
 };
+
+// Struct container to group sets of r/w buffers & images
+struct DrawDispatchAccesses {
+    std::unordered_set<VkImageView> read_images;
+    std::unordered_set<VkBuffer> read_buffers;
+    std::unordered_set<VkImageView> write_images;
+    std::unordered_set<VkBuffer> write_buffers;
+    std::unordered_map<VkDeviceMemory, std::vector<MemoryAccess>> access_map;
+    void reset() {
+        read_images.clear();
+        read_buffers.clear();
+        write_images.clear();
+        write_buffers.clear();
+        access_map.clear();
+    }
+};
+
 // Cmd Buffer Wrapper Struct - TODO : This desperately needs its own class
 struct GLOBAL_CB_NODE : public BASE_NODE {
     VkCommandBuffer commandBuffer;
@@ -886,8 +903,8 @@ struct GLOBAL_CB_NODE : public BASE_NODE {
     //
     std::vector<std::unique_ptr<Command>> commands;  // Commands in this command buffer
     std::vector<SynchCommand *> synch_commands;      // Synch Commands in this command buffer
-    // Store all memory accesses per memory object made in this command buffer
-    std::unordered_map<VkDeviceMemory, std::vector<MemoryAccess>> memory_accesses;
+    // Track all mem_accesses by this CB at the point of a draw
+    DrawDispatchAccesses mem_accesses;
 
     std::unordered_set<VkEvent> waitedEvents;
     std::vector<VkEvent> writeEventsBeforeWait;
@@ -902,9 +919,6 @@ struct GLOBAL_CB_NODE : public BASE_NODE {
     DRAW_DATA currentDrawData;
     bool vertex_buffer_used;  // Track for perf warning to make sure any bound vtx buffer used
     VkCommandBuffer primaryCommandBuffer;
-    // Track images and buffers that are updated by this CB at the point of a draw
-    std::unordered_set<VkImageView> updateImages;
-    std::unordered_set<VkBuffer> updateBuffers;
     // If primary, the secondary command buffers we will call.
     // If secondary, the primary command buffers we will be called by.
     std::unordered_set<GLOBAL_CB_NODE *> linkedCommandBuffers;

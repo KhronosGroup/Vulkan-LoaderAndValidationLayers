@@ -641,7 +641,6 @@ void AddMemoryAccess(CMD_TYPE cmd, std::vector<MemoryAccess> *mem_accesses, Memo
     mem_access->write = write;
     mem_access->src_stage_flags = CommandToFlags[cmd][rw_index].stage_flags;
     mem_access->src_access_flags = CommandToFlags[cmd][rw_index].access_flags;
-    // TODO: If dynamic true lookup dynamic flag status
     mem_accesses->emplace_back(*mem_access);
 }
 
@@ -695,8 +694,8 @@ bool ValidateMemoryAccesses(debug_report_data const *report_data, GLOBAL_CB_NODE
     bool skip = false;
     for (const auto &mem_access : *mem_accesses) {
         auto mem_obj = mem_access.location.mem;
-        auto mem_access_pair = cb_state->memory_accesses.find(mem_obj);
-        if (mem_access_pair != cb_state->memory_accesses.end()) {
+        auto mem_access_pair = cb_state->mem_accesses.access_map.find(mem_obj);
+        if (mem_access_pair != cb_state->mem_accesses.access_map.end()) {
             for (const auto &earlier_access : mem_access_pair->second) {
                 if (MemoryConflict(&earlier_access, &mem_access)) {
                     const char *access1 = earlier_access.write ? "write" : "read";
@@ -724,7 +723,7 @@ void AddCommandBufferCommandMemoryAccesses(GLOBAL_CB_NODE *cb_state, CMD_TYPE cm
     for (auto &mem_access : *mem_accesses) {
         mem_access.cmd = cmd_ptr;
         cmd_ptr->AddMemoryAccess(mem_access);
-        cb_state->memory_accesses[mem_access.location.mem].push_back(mem_access);
+        cb_state->mem_accesses.access_map[mem_access.location.mem].push_back(mem_access);
     }
 }
 
