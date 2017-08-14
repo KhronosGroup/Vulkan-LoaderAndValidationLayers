@@ -7043,76 +7043,78 @@ static void PreCallRecordCmdPipelineBarrier(layer_data *device_data, GLOBAL_CB_N
     Command *cmd_ptr = cb_state->commands.back().get();
     SynchCommand *synch_cmd_ptr = static_cast<SynchCommand *>(cmd_ptr);
 
-    // First thing to do is parse through any previous barriers. If this barriers srcMasks match with
-    //  previous barriers destination masks, then incorporate the previous barrier srcMasks into our srcMask
-    //  and merge in all of the previous barriers. This will account for dependency chains.
-    for (const auto &synch_cmd : cb_state->synch_commands) {
-        if (synch_cmd->dst_stage_flags & src_stage_mask) {
-            // scopes overlap so merge prev barrier masks into current masks
-            src_stage_mask |= synch_cmd->src_stage_flags;
-            synch_cmd_ptr->src_stage_flags = src_stage_mask;
-            dst_stage_mask |= synch_cmd->dst_stage_flags;
-            synch_cmd_ptr->dst_stage_flags = dst_stage_mask;
-            // Pull all previous overlapping barriers into this barrier
-            for (const auto &global_barrier : synch_cmd->global_barriers) {
-                synch_cmd_ptr->global_barriers.emplace_back(global_barrier);
-            }
-            for (const auto &buff_barrier : synch_cmd->buffer_barriers) {
-                synch_cmd_ptr->buffer_barriers.emplace_back(buff_barrier);
-            }
-            for (const auto &img_barrier : synch_cmd->image_barriers) {
-                synch_cmd_ptr->image_barriers.emplace_back(img_barrier);
+    if (!cb_state->activeRenderPass) {  // Barriers in a renderpass are only for subpass self-dep
+        // First thing to do is parse through any previous barriers. If this barriers srcMasks match with
+        //  previous barriers destination masks, then incorporate the previous barrier srcMasks into our srcMask
+        //  and merge in all of the previous barriers. This will account for dependency chains.
+        for (const auto &synch_cmd : cb_state->synch_commands) {
+            if (synch_cmd->dst_stage_flags & src_stage_mask) {
+                // scopes overlap so merge prev barrier masks into current masks
+                src_stage_mask |= synch_cmd->src_stage_flags;
+                synch_cmd_ptr->src_stage_flags = src_stage_mask;
+                dst_stage_mask |= synch_cmd->dst_stage_flags;
+                synch_cmd_ptr->dst_stage_flags = dst_stage_mask;
+                // Pull all previous overlapping barriers into this barrier
+                for (const auto &global_barrier : synch_cmd->global_barriers) {
+                    synch_cmd_ptr->global_barriers.emplace_back(global_barrier);
+                }
+                for (const auto &buff_barrier : synch_cmd->buffer_barriers) {
+                    synch_cmd_ptr->buffer_barriers.emplace_back(buff_barrier);
+                }
+                for (const auto &img_barrier : synch_cmd->image_barriers) {
+                    synch_cmd_ptr->image_barriers.emplace_back(img_barrier);
+                }
             }
         }
-    }
-    // Now that we've merged previous synch commands, append this cmd to existing synch commands
-    cb_state->synch_commands.emplace_back(synch_cmd_ptr);
-    // TODO: Make this barrier/access parsing smarter
-    for (auto &mem_access_pair : cb_state->mem_accesses.access_map) {
-        for (auto &mem_access : mem_access_pair.second) {
-            if (mem_access.src_stage_flags & src_stage_mask) {
-                // Record any execution barrier overlaps
-                mem_access.pipe_barrier = true;
-                mem_access.dst_stage_flags |= dst_stage_mask;
-                // For every global barrier that matches access mask, record the barrier
-                for (uint32_t i = 0; i < mem_barrier_count; ++i) {
-                    const auto &mem_barrier = mem_barriers[i];
-                    if ((mem_barrier.srcAccessMask & mem_access.src_access_flags) != 0) {
-                        // This memory barrier applies to earlier access so record details
-                        mem_access.mem_barrier = true;
-                        mem_access.dst_access_flags |= mem_barrier.dstAccessMask;
-                        mem_access.synch_commands.push_back(cmd_ptr);
+        // Now that we've merged previous synch commands, append this cmd to existing synch commands
+        cb_state->synch_commands.emplace_back(synch_cmd_ptr);
+        // TODO: Make this barrier/access parsing smarter
+        for (auto &mem_access_pair : cb_state->mem_accesses.access_map) {
+            for (auto &mem_access : mem_access_pair.second) {
+                if (mem_access.src_stage_flags & src_stage_mask) {
+                    // Record any execution barrier overlaps
+                    mem_access.pipe_barrier = true;
+                    mem_access.dst_stage_flags |= dst_stage_mask;
+                    // For every global barrier that matches access mask, record the barrier
+                    for (uint32_t i = 0; i < mem_barrier_count; ++i) {
+                        const auto &mem_barrier = mem_barriers[i];
+                        if ((mem_barrier.srcAccessMask & mem_access.src_access_flags) != 0) {
+                            // This memory barrier applies to earlier access so record details
+                            mem_access.mem_barrier = true;
+                            mem_access.dst_access_flags |= mem_barrier.dstAccessMask;
+                            mem_access.synch_commands.push_back(cmd_ptr);
+                        }
                     }
                 }
             }
         }
-    }
-    for (uint32_t i = 0; i < buffer_mem_barrier_count; ++i) {
-        const auto &buff_barrier = buffer_mem_barriers[i];
-        const auto &buff_state = GetBufferState(device_data, buff_barrier.buffer);
-        const auto mem_obj = buff_state->binding.mem;
-        // Make an access struct with barrier range details to check for overlap
-        // TODO: This is hacky, creating tmp access struct from barrier to check conflict
-        //    need to rework original function so this makes sense or write alternate function
-        MemoryAccess barrier_access = {};
-        barrier_access.location.mem = mem_obj;
-        barrier_access.location.offset = buff_barrier.offset;
-        barrier_access.location.size = buff_barrier.size;
-        barrier_access.mem_barrier = false;
-        barrier_access.pipe_barrier = false;
-        const auto &mem_access_pair = cb_state->mem_accesses.access_map.find(mem_obj);
-        if (mem_access_pair != cb_state->mem_accesses.access_map.end()) {
-            for (auto &mem_access : mem_access_pair->second) {
-                // If the pipe & access masks overlap, then barrier applies
-                if (((mem_access.src_access_flags & buff_barrier.srcAccessMask) != 0) &&
-                    ((mem_access.src_stage_flags & src_stage_mask) != 0)) {
-                    // Set buff access write opposite of actual access so conflict is flagged on overlap
-                    barrier_access.write = !mem_access.write;
-                    if (MemoryConflict(&barrier_access, &mem_access)) {
-                        mem_access.mem_barrier = true;
-                        mem_access.dst_stage_flags |= dst_stage_mask;
-                        mem_access.dst_access_flags |= buff_barrier.dstAccessMask;
-                        mem_access.synch_commands.push_back(cmd_ptr);
+        for (uint32_t i = 0; i < buffer_mem_barrier_count; ++i) {
+            const auto &buff_barrier = buffer_mem_barriers[i];
+            const auto &buff_state = GetBufferState(device_data, buff_barrier.buffer);
+            const auto mem_obj = buff_state->binding.mem;
+            // Make an access struct with barrier range details to check for overlap
+            // TODO: This is hacky, creating tmp access struct from barrier to check conflict
+            //    need to rework original function so this makes sense or write alternate function
+            MemoryAccess barrier_access = {};
+            barrier_access.location.mem = mem_obj;
+            barrier_access.location.offset = buff_barrier.offset;
+            barrier_access.location.size = buff_barrier.size;
+            barrier_access.mem_barrier = false;
+            barrier_access.pipe_barrier = false;
+            const auto &mem_access_pair = cb_state->mem_accesses.access_map.find(mem_obj);
+            if (mem_access_pair != cb_state->mem_accesses.access_map.end()) {
+                for (auto &mem_access : mem_access_pair->second) {
+                    // If the pipe & access masks overlap, then barrier applies
+                    if (((mem_access.src_access_flags & buff_barrier.srcAccessMask) != 0) &&
+                        ((mem_access.src_stage_flags & src_stage_mask) != 0)) {
+                        // Set buff access write opposite of actual access so conflict is flagged on overlap
+                        barrier_access.write = !mem_access.write;
+                        if (MemoryConflict(&barrier_access, &mem_access)) {
+                            mem_access.mem_barrier = true;
+                            mem_access.dst_stage_flags |= dst_stage_mask;
+                            mem_access.dst_access_flags |= buff_barrier.dstAccessMask;
+                            mem_access.synch_commands.push_back(cmd_ptr);
+                        }
                     }
                 }
             }
@@ -8231,6 +8233,10 @@ VKAPI_ATTR void VKAPI_CALL CmdBeginRenderPass(VkCommandBuffer commandBuffer, con
                     };
                     cb_node->queue_submit_functions.push_back(function);
                 }
+            }
+            const auto &subpass_desc = render_pass_state->createInfo.pSubpasses[0];
+            for (uint32_t i = 0; i < subpass_desc.inputAttachmentCount; ++i) {
+                // Mark input attachments as read
             }
             if (clear_op_size > pRenderPassBegin->clearValueCount) {
                 skip |= log_msg(
