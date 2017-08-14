@@ -582,9 +582,9 @@ static const CmdFlags CommandToFlags[CMD_COUNT][2] = {
     //    CMD_BEGINRENDERPASS,
     {{VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, 0}, {0, 0}},
     //    CMD_NEXTSUBPASS,
-    {{0, 0}, {0, 0}},
+    {{VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, 0}, {0, 0}},
     //    CMD_ENDRENDERPASS,
-    {{0, 0}, {0, 0}},
+    {{VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, 0}, {0, 0}},
     //    CMD_EXECUTECOMMANDS,
     {{0, 0}, {0, 0}},
     //    CMD_END,  // Should be last command in any RECORDED cmd buffer
