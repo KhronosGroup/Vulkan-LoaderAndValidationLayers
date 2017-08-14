@@ -593,7 +593,7 @@ static const CmdFlags CommandToFlags[CMD_COUNT][2] = {
     //    CMD_ENDQUERY,
     {{0, 0}, {0, 0}},
     //    CMD_ENDRENDERPASS,
-    {{0, 0}, {0, 0}},
+    {{VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, 0}, {0, 0}},
     //    CMD_EXECUTECOMMANDS,
     {{0, 0}, {0, 0}},
     //    CMD_FILLBUFFER,
@@ -605,7 +605,7 @@ static const CmdFlags CommandToFlags[CMD_COUNT][2] = {
     //    CMD_LOADATOMICCOUNTERS,
     {{0, 0}, {0, 0}},
     //    CMD_NEXTSUBPASS,
-    {{0, 0}, {0, 0}},
+    {{VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, 0}, {0, 0}},
     //    CMD_PIPELINEBARRIER,
     {{0, 0}, {0, 0}},
     //    CMD_PROCESSCOMMANDSNVX, TODO : Update these flags
