@@ -702,11 +702,18 @@ bool ValidateMemoryAccesses(debug_report_data const *report_data, GLOBAL_CB_NODE
                     const char *access2 = mem_access.write ? "write" : "read";
                     // If either access is imprecise can only warn, otherwise can error
                     auto level = VK_DEBUG_REPORT_WARNING_BIT_EXT;
-                    if (earlier_access.precise && mem_access.precise) level = VK_DEBUG_REPORT_ERROR_BIT_EXT;
+                    // TODO: Un-comment the line below when we're confident in coverage of memory access checks
+                    //   so that precise/precise conflicts can be flagged as errors. Keeping everything a warning
+                    //   for early release and so that incorrect warnings can be flagged/fixed without causing errors.
+                    // if (earlier_access.precise && mem_access.precise) level = VK_DEBUG_REPORT_ERROR_BIT_EXT;
                     skip |= log_msg(report_data, level, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_MEMORY_EXT,
                                     HandleToUint64(mem_access.location.mem), 0, MEMTRACK_SYNCHRONIZATION_ERROR, "DS",
                                     "%s called on VkCommandBuffer 0x%" PRIxLEAST64
-                                    " causes a %s after %s conflict with memory object 0x%" PRIxLEAST64 ".",
+                                    " causes a %s after %s conflict with memory object 0x%" PRIxLEAST64 ". NOTE: This"
+                                    " race condition warning is a new feature in validation that still has some holes"
+                                    " in tracking Read/Write accesses as well as modeling synchronization objects. Don't"
+                                    " spend too much time investigating this warning, and feel free to file GitHub bugs "
+                                    " on any warning cases that you known are incorrect.",
                                     caller, HandleToUint64(cb_state->commandBuffer), access2, access1,
                                     HandleToUint64(mem_access.location.mem));
                 }
