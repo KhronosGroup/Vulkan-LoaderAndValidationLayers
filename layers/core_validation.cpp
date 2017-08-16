@@ -6967,7 +6967,7 @@ static void RecordBarrierMemoryAccess(layer_data *device_data, CMD_TYPE cmd, GLO
     cb_state->commands.emplace_back(unique_ptr<SynchCommand>(new SynchCommand(cmd, src_stage_mask, dst_stage_mask)));
     Command *cmd_ptr = cb_state->commands.back().get();
     SynchCommand *synch_cmd_ptr = static_cast<SynchCommand *>(cmd_ptr);
-    // First thing to do is parse through any previous barriers. If this barriers srcMasks match with
+    // First thing to do is parse through any previous barriers. If this barriers' srcMasks match with
     //  previous barriers destination masks, then incorporate the previous barrier srcMasks into our srcMask
     //  and merge in all of the previous barriers. This will account for dependency chains.
     for (const auto &synch_cmd : cb_state->synch_commands) {
@@ -7082,6 +7082,9 @@ VKAPI_ATTR void VKAPI_CALL CmdWaitEvents(VkCommandBuffer commandBuffer, uint32_t
                 return validateEventStageMask(q, cb_state, eventCount, first_event_index, sourceStageMask);
             });
             TransitionImageLayouts(dev_data, commandBuffer, imageMemoryBarrierCount, pImageMemoryBarriers);
+            RecordBarrierMemoryAccess(dev_data, CMD_WAITEVENTS, cb_state, commandBuffer, sourceStageMask, dstStageMask,
+                                      memoryBarrierCount, pMemoryBarriers, bufferMemoryBarrierCount, pBufferMemoryBarriers,
+                                      imageMemoryBarrierCount, pImageMemoryBarriers);
         }
     }
     lock.unlock();
