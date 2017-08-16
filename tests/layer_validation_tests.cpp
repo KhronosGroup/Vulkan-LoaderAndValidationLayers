@@ -11123,15 +11123,15 @@ TEST_F(VkLayerTest, DrawWithBufferWaRandRaWConflicts) {
                               buff_size};
     vkCmdCopyBuffer(m_commandBuffer->handle(), storage_buffer.handle(), uniform_buffer.handle(), 1, &buff_copy);
     //
-    OneOffDescriptorSet ds(m_device->device(), {
-                                                   {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL, nullptr},
-                                                   {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_ALL, nullptr},
-                                               });
+    OneOffDescriptorSet ds(m_device, {
+                                         {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL, nullptr},
+                                         {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_ALL, nullptr},
+                                     });
 
     VkPipelineLayoutCreateInfo pipeline_layout_ci = {};
     pipeline_layout_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipeline_layout_ci.setLayoutCount = 1;
-    pipeline_layout_ci.pSetLayouts = &ds.layout_;
+    pipeline_layout_ci.pSetLayouts = &ds.layout_.handle();
 
     VkPipelineLayout pipeline_layout;
     VkResult err = vkCreatePipelineLayout(m_device->device(), &pipeline_layout_ci, NULL, &pipeline_layout);
@@ -11179,7 +11179,8 @@ TEST_F(VkLayerTest, DrawWithBufferWaRandRaWConflicts) {
     VkPipelineObj pipe(m_device);
     pipe.AddShader(&vs);
     pipe.AddShader(&fs);
-    pipe.AddColorAttachment();
+    VkPipelineColorBlendAttachmentState att_state = {};
+    pipe.AddColorAttachment(0, att_state);
 
     err = pipe.CreateVKPipeline(pipeline_layout, renderPass());
     ASSERT_VK_SUCCESS(err);
