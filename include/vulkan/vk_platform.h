@@ -106,6 +106,7 @@ extern "C"
 #endif
 
 #ifdef VK_USE_PLATFORM_WIN32_KHR
+#include <vulkan/vk_sdk_platform.h>
 #include <windows.h>
 #endif
 

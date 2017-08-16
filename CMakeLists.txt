@@ -58,6 +58,7 @@ include_directories("${PROJECT_SOURCE_DIR}/include")
 
 if (CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
     set(COMMON_COMPILE_FLAGS "-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers")
+    set(COMMON_COMPILE_FLAGS "${COMMON_COMPILE_FLAGS} -Wno-unused-function")
     set(COMMON_COMPILE_FLAGS "${COMMON_COMPILE_FLAGS} -fno-strict-aliasing -fno-builtin-memcmp")
 
     # For GCC version 7.1 or greater, we need to disable the implicit fallthrough warning since
@@ -85,7 +86,7 @@ if(WIN32)
     add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/w34701>")
     add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/w34703>")
 
-    if (NOT MSVC_VERSION LESS 1900)
+    if (MSVC AND NOT MSVC_VERSION LESS 1900)
         # Enable control flow guard
         message(STATUS "Building with control flow guard")
         add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/guard:cf>")

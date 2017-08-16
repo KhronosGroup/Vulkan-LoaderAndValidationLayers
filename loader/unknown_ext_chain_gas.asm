@@ -48,7 +48,11 @@ terminError\num:
     sub     rsp, 56                                                             # Create the stack frame
     mov     rdi, [rax + INSTANCE_OFFSET_ICD_TERM]                               # Load the loader_instance into rdi (first arg)
     mov     r8, [rdi + (HASH_OFFSET_INSTANCE + (HASH_SIZE * \num) + FUNC_NAME_OFFSET_HASH)] # Load the func name into r8 (fifth arg)
+.ifndef mingw
     lea     rcx, termin_error_string@GOTPCREL                                   # Load the error string into rcx (fourth arg)
+.else
+    lea     rcx, termin_error_string                                            # Load the error string into rcx (fourth arg)
+.endif
     xor     edx, edx                                                            # Set rdx to zero (third arg)
     lea     esi, [rdx + VK_DEBUG_REPORT_ERROR_BIT_EXT]                          # Write the error logging bit to rsi (second arg)
     call    loader_log                                                          # Log the error message before we crash

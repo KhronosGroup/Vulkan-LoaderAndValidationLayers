@@ -47,8 +47,12 @@ if(WIN32)
     # If MSVC, disable some signed/unsigned mismatch warnings.
     if (MSVC)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4267")
+        # Workaround a bug in MSVC 2017
+        # _strdup is used which fires a warning which is meant to fire when strdup is used.
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_CRT_NONSTDC_NO_WARNINGS")
+    elseif(MINGW)
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unknown-pragmas")
     endif()
-
 else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 endif()
@@ -127,11 +131,19 @@ add_dependencies(vk_layer_validation_tests
 )
 
 if (WIN32)
-    # For Windows, copy necessary gtest DLLs to the right spot for the vk_layer_tests...
-    FILE(TO_NATIVE_PATH ${CMAKE_CURRENT_BINARY_DIR}/gtest-1.7.0/$<CONFIGURATION>/*.dll SRC_GTEST_DLLS)
-    FILE(TO_NATIVE_PATH ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIGURATION> DST_GTEST_DLLS)
-    add_custom_command(TARGET vk_layer_validation_tests POST_BUILD
-        COMMAND xcopy /Y /I ${SRC_GTEST_DLLS} ${DST_GTEST_DLLS})
+    if (CMAKE_GENERATOR MATCHES "^Visual Studio.*")
+        # For Windows, copy necessary gtest DLLs to the right spot for the vk_layer_tests...
+        FILE(TO_NATIVE_PATH ${CMAKE_CURRENT_BINARY_DIR}/gtest-1.7.0/$<CONFIGURATION>/*.dll SRC_GTEST_DLLS)
+        FILE(TO_NATIVE_PATH ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIGURATION> DST_GTEST_DLLS)
+        add_custom_command(TARGET vk_layer_validation_tests POST_BUILD
+            COMMAND xcopy /Y /I ${SRC_GTEST_DLLS} ${DST_GTEST_DLLS})
+    else()
+        # For Windows, copy necessary gtest DLLs to the right spot for the vk_layer_tests...
+        FILE(TO_NATIVE_PATH ${CMAKE_CURRENT_BINARY_DIR}/gtest-1.7.0/*.dll SRC_GTEST_DLLS)
+        FILE(TO_NATIVE_PATH ${CMAKE_CURRENT_BINARY_DIR}/ DST_GTEST_DLLS)
+        add_custom_command(TARGET vk_layer_validation_tests POST_BUILD
+            COMMAND xcopy /Y /I ${SRC_GTEST_DLLS} ${DST_GTEST_DLLS})
+    endif()
 endif()
 
 add_executable(vk_loader_validation_tests loader_validation_tests.cpp ${COMMON_CPP})

@@ -22,13 +22,16 @@
  */
 #pragma once
 
+// MinGW-w64 Needs to know this *BEFORE* WinSock2.h
+// is included, as it includes windows.h
+#include "vulkan/vk_sdk_platform.h"
+
 #if defined(_WIN32)
 // WinSock2.h must be included *BEFORE* windows.h
 #include <WinSock2.h>
 #endif  // _WIN32
 
 #include "vulkan/vk_platform.h"
-#include "vulkan/vk_sdk_platform.h"
 
 #if defined(__linux__)
 /* Linux-specific common code: */
@@ -259,14 +262,14 @@ static loader_platform_dl_handle loader_platform_open_library(const char *lib_pa
 }
 static char *loader_platform_open_library_error(const char *libPath) {
     static char errorMsg[164];
-    (void)snprintf(errorMsg, 163, "Failed to open dynamic library \"%s\" with error %d", libPath, GetLastError());
+    (void)snprintf(errorMsg, 163, "Failed to open dynamic library \"%s\" with error %lu", libPath, GetLastError());
     return errorMsg;
 }
 static void loader_platform_close_library(loader_platform_dl_handle library) { FreeLibrary(library); }
 static void *loader_platform_get_proc_address(loader_platform_dl_handle library, const char *name) {
     assert(library);
     assert(name);
-    return GetProcAddress(library, name);
+    return (void*)GetProcAddress(library, name);
 }
 static char *loader_platform_get_proc_address_error(const char *name) {
     static char errorMsg[120];
@@ -288,7 +291,7 @@ static BOOL CALLBACK InitFuncWrapper(PINIT_ONCE InitOnce, PVOID Parameter, PVOID
 static void loader_platform_thread_once(void *ctl, void (*func)(void)) {
     assert(func != NULL);
     assert(ctl != NULL);
-    InitOnceExecuteOnce((PINIT_ONCE)ctl, InitFuncWrapper, func, NULL);
+    InitOnceExecuteOnce((PINIT_ONCE)ctl, InitFuncWrapper, (PVOID)func, NULL);
 }
 
 // Thread IDs:

@@ -27,7 +27,7 @@ include_directories(
 
 add_library(vkjson STATIC vkjson.cc vkjson_instance.cc ../../loader/cJSON.c)
 
-if(UNIX)
+if(NOT MSVC)
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-sign-compare")
     add_executable(vkjson_unittest vkjson_unittest.cc)
     add_executable(vkjson_info vkjson_info.cc)

@@ -33,13 +33,19 @@
 #include <stdlib.h>
 #include <string.h>
 
+// This needs to be included because of MinGW-w64
+// This is because the default target version of the supplied
+// Windows SDK targets a version lower than Vista.
+// Thus the functions InitOnceExecuteOnce and friends will end up undefined.
+#include <vulkan/vk_sdk_platform.h>
+
 #ifdef _WIN32
+#undef NOMINMAX
 #define NOMINMAX
 // WinSock2.h must be included *BEFORE* windows.h
 #include <winsock2.h>
 #endif
 
-#include <vulkan/vk_sdk_platform.h>
 #include <vulkan/vulkan.h>
 
 #ifdef _WIN32

@@ -22,6 +22,10 @@
 #ifndef LAYER_LOGGING_H
 #define LAYER_LOGGING_H
 
+#ifdef __MINGW64__
+#define __STDC_FORMAT_MACROS
+#endif
+
 #include "vk_loader_layer.h"
 #include "vk_layer_config.h"
 #include "vk_layer_data.h"

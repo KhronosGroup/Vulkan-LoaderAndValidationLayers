@@ -22,6 +22,10 @@
 // Allow use of STL min and max functions in Windows
 #define NOMINMAX
 
+#ifdef __MINGW64__
+#define __STDC_FORMAT_MACROS
+#endif
+
 #include <inttypes.h>
 #include <sstream>
 #include <string>

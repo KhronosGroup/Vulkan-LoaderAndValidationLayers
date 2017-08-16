@@ -23,7 +23,9 @@
 #include <stdio.h>
 #include "loader.h"
 
-#if !defined(_MSC_VER) || (_MSC_VER >= 1900)
+#if defined(__MINGW64__)
+#define SIZE_T_FMT "%-8llu"
+#elif !defined(_MSC_VER) || (_MSC_VER >= 1900)
 #define SIZE_T_FMT "%-8zu"
 #else
 #define SIZE_T_FMT "%-8lu"
@@ -109,6 +111,9 @@ int main(int argc, char **argv) {
 #ifdef __x86_64__
         fprintf(file, ".set X86_64, 1\n");
 #endif // __x86_64__
+#ifdef __MINGW64__
+        fprintf(file, ".set mingw, 1\n");
+#endif
         for (size_t i = 0; i < sizeof(values)/sizeof(values[0]); ++i) {
             fprintf(file, ".set %-32s, " SIZE_T_FMT "# %s\n", values[i].name, values[i].value, values[i].comment);
         }

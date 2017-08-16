@@ -64,7 +64,7 @@ include_directories(
     ${CMAKE_BINARY_DIR}
 )
 
-if (WIN32)
+if (MSVC)
     set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -D_CRT_SECURE_NO_WARNINGS")
     set (CMAKE_C_FLAGS_RELEASE   "${CMAKE_C_FLAGS_RELEASE} -D_CRT_SECURE_NO_WARNINGS")
     set (CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG} -D_CRT_SECURE_NO_WARNINGS /bigobj")
@@ -96,11 +96,19 @@ set (DEVICE_PROFILE_API_SRCS
 add_vk_layer(device_profile_api ${DEVICE_PROFILE_API_SRCS})
 add_vk_layer(test ${TEST_SRCS})
 
-if (WIN32)
+if (MSVC)
     # For Windows, copy necessary gtest DLLs to the right spot for the vk_layer_tests...
     FILE(TO_NATIVE_PATH ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIGURATION>/*device_profile_api.* SRC_LAYER)
     FILE(TO_NATIVE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/windows/VkLayer_device_profile_api.json SRC_JSON)
     FILE(TO_NATIVE_PATH ${CMAKE_BINARY_DIR}/layers/$<CONFIGURATION> DST_LAYER)
+    add_custom_command(TARGET VkLayer_device_profile_api POST_BUILD
+        COMMAND xcopy /Y /I ${SRC_LAYER} ${DST_LAYER}
+        COMMAND xcopy /Y /I ${SRC_JSON} ${DST_LAYER})
+elseif(WIN32 AND NOT MSVC)
+    # For Windows, copy necessary gtest DLLs to the right spot for the vk_layer_tests...
+    FILE(TO_NATIVE_PATH ${CMAKE_CURRENT_BINARY_DIR}/*device_profile_api.* SRC_LAYER)
+    FILE(TO_NATIVE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/windows/VkLayer_device_profile_api.json SRC_JSON)
+    FILE(TO_NATIVE_PATH ${CMAKE_BINARY_DIR}/layers DST_LAYER)
     add_custom_command(TARGET VkLayer_device_profile_api POST_BUILD
         COMMAND xcopy /Y /I ${SRC_LAYER} ${DST_LAYER}
         COMMAND xcopy /Y /I ${SRC_JSON} ${DST_LAYER})

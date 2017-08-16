@@ -2,9 +2,9 @@
 // File: vk_sdk_platform.h
 //
 /*
- * Copyright (c) 2015-2016 The Khronos Group Inc.
- * Copyright (c) 2015-2016 Valve Corporation
- * Copyright (c) 2015-2016 LunarG, Inc.
+ * Copyright (c) 2015-2017 The Khronos Group Inc.
+ * Copyright (c) 2015-2017 Valve Corporation
+ * Copyright (c) 2015-2017 LunarG, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,8 @@
 #define VK_SDK_PLATFORM_H
 
 #if defined(_WIN32)
+// Silence redefinition warnings on MinGW-w64
+#undef NOMINMAX
 #define NOMINMAX
 #ifndef __cplusplus
 #undef inline
@@ -40,6 +42,20 @@
 #endif
 
 #define strdup _strdup
+
+//This is needed to make InitOnceExecuteOnce and friends
+// available on MinGW-w64.
+#ifdef __MINGW64__
+    #include <sdkddkver.h>
+    #ifdef WINVER
+        #undef WINVER
+    #endif
+    #ifdef _WIN32_WINNT
+        #undef _WIN32_WINNT
+    #endif
+    #define WINVER _WIN32_WINNT_WIN7 // Windows 7 minimum
+    #define _WIN32_WINNT _WIN32_WINNT_WIN7
+#endif
 
 #endif // _WIN32
 

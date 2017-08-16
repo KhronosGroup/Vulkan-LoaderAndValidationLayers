@@ -24,6 +24,10 @@
 
 #define NOMINMAX
 
+#ifdef __MINGW64__
+#define __STDC_FORMAT_MACROS
+#endif
+
 #include <limits.h>
 #include <math.h>
 #include <stdio.h>

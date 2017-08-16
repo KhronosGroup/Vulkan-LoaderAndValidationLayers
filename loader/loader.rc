@@ -42,8 +42,12 @@
 // End of customize section
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-
+ 
+#ifdef __MINGW64__
+#include <winresrc.h>
+#else // MSVC
 #include "winres.h"
+#endif
 
 #define VER_FILE_VERSION            VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH, VERSION_BUILDNO
 

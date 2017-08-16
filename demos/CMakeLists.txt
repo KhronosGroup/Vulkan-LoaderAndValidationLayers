@@ -74,12 +74,17 @@ if(WIN32)
     endif()
 
     # Use static MSVCRT libraries
-    foreach(configuration in CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELEASE CMAKE_C_FLAGS_RELWITHDEBINFO
-                             CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELEASE CMAKE_CXX_FLAGS_RELWITHDEBINFO)
-        if(${configuration} MATCHES "/MD")
-            string(REGEX REPLACE "/MD" "/MT" ${configuration} "${${configuration}}")
-        endif()
-    endforeach()
+    if(MSVC)
+        foreach(configuration in CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELEASE CMAKE_C_FLAGS_RELWITHDEBINFO
+                                 CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELEASE CMAKE_CXX_FLAGS_RELWITHDEBINFO)
+            if(${configuration} MATCHES "/MD")
+                string(REGEX REPLACE "/MD" "/MT" ${configuration} "${${configuration}}")
+            endif()
+        endforeach()
+    else()
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-unknown-pragmas")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unknown-pragmas")
+    endif()
 
     add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/demos/cube-vert.spv
        COMMAND ${GLSLANG_VALIDATOR} -s -V -o ${CMAKE_BINARY_DIR}/demos/cube-vert.spv ${PROJECT_SOURCE_DIR}/demos/cube.vert
