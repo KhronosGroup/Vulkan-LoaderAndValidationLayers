@@ -214,7 +214,7 @@ bool cvdescriptorset::DescriptorSetLayout::IsCompatible(DescriptorSetLayout cons
     // Trivial case
     if (layout_ == rh_ds_layout->GetDescriptorSetLayout()) return true;
     if (descriptor_count_ != rh_ds_layout->descriptor_count_) {
-        std::stringstream error_str;
+        std::ostringstream error_str;
         error_str << "DescriptorSetLayout " << layout_ << " has " << descriptor_count_ << " descriptors, but DescriptorSetLayout "
                   << rh_ds_layout->GetDescriptorSetLayout() << ", which comes from pipelineLayout, has "
                   << rh_ds_layout->descriptor_count_ << " descriptors.";
@@ -227,7 +227,7 @@ bool cvdescriptorset::DescriptorSetLayout::IsCompatible(DescriptorSetLayout cons
         // TODO : Do we also need to check immutable samplers?
         // VkDescriptorSetLayoutBinding *rh_binding;
         if (binding.descriptorCount != rh_ds_layout->GetDescriptorCountFromBinding(binding.binding)) {
-            std::stringstream error_str;
+            std::ostringstream error_str;
             error_str << "Binding " << binding.binding << " for DescriptorSetLayout " << layout_ << " has a descriptorCount of "
                       << binding.descriptorCount << " but binding " << binding.binding << " for DescriptorSetLayout "
                       << rh_ds_layout->GetDescriptorSetLayout() << ", which comes from pipelineLayout, has a descriptorCount of "
@@ -235,7 +235,7 @@ bool cvdescriptorset::DescriptorSetLayout::IsCompatible(DescriptorSetLayout cons
             *error_msg = error_str.str();
             return false;
         } else if (binding.descriptorType != rh_ds_layout->GetTypeFromBinding(binding.binding)) {
-            std::stringstream error_str;
+            std::ostringstream error_str;
             error_str << "Binding " << binding.binding << " for DescriptorSetLayout " << layout_ << " is type '"
                       << string_VkDescriptorType(binding.descriptorType) << "' but binding " << binding.binding
                       << " for DescriptorSetLayout " << rh_ds_layout->GetDescriptorSetLayout()
@@ -244,7 +244,7 @@ bool cvdescriptorset::DescriptorSetLayout::IsCompatible(DescriptorSetLayout cons
             *error_msg = error_str.str();
             return false;
         } else if (binding.stageFlags != rh_ds_layout->GetStageFlagsFromBinding(binding.binding)) {
-            std::stringstream error_str;
+            std::ostringstream error_str;
             error_str << "Binding " << binding.binding << " for DescriptorSetLayout " << layout_ << " has stageFlags "
                       << binding.stageFlags << " but binding " << binding.binding << " for DescriptorSetLayout "
                       << rh_ds_layout->GetDescriptorSetLayout() << ", which comes from pipelineLayout, has stageFlags "
@@ -297,7 +297,7 @@ bool cvdescriptorset::DescriptorSetLayout::VerifyUpdateConsistency(uint32_t curr
     while (update_count > binding_remaining) {  // While our updates overstep current binding
         // Verify next consecutive binding matches type, stage flags & immutable sampler use
         if (!IsNextBindingConsistent(current_binding++)) {
-            std::stringstream error_str;
+            std::ostringstream error_str;
             error_str << "Attempting " << type << " descriptor set " << set << " binding #" << orig_binding << " with #"
                       << update_count << " descriptors being updated but this update oversteps the bounds of this binding and the "
                                          "next binding is not consistent with current binding so this update is invalid.";
@@ -406,7 +406,7 @@ bool cvdescriptorset::DescriptorSet::ValidateDrawState(const std::map<uint32_t, 
     for (auto binding_pair : bindings) {
         auto binding = binding_pair.first;
         if (!p_layout_->HasBinding(binding)) {
-            std::stringstream error_str;
+            std::ostringstream error_str;
             error_str << "Attempting to validate DrawState for binding #" << binding
                       << " which is an invalid binding for this descriptor set.";
             *error = error_str.str();
@@ -417,7 +417,7 @@ bool cvdescriptorset::DescriptorSet::ValidateDrawState(const std::map<uint32_t, 
         auto array_idx = 0;  // Track array idx if we're dealing with array descriptors
         for (uint32_t i = start_idx; i <= end_idx; ++i, ++array_idx) {
             if (!descriptors_[i]->updated) {
-                std::stringstream error_str;
+                std::ostringstream error_str;
                 error_str << "Descriptor in binding #" << binding << " at global descriptor index " << i
                           << " is being used in draw but has not been updated.";
                 *error = error_str.str();
@@ -429,7 +429,7 @@ bool cvdescriptorset::DescriptorSet::ValidateDrawState(const std::map<uint32_t, 
                     auto buffer = static_cast<BufferDescriptor *>(descriptors_[i].get())->GetBuffer();
                     auto buffer_node = GetBufferState(device_data_, buffer);
                     if (!buffer_node) {
-                        std::stringstream error_str;
+                        std::ostringstream error_str;
                         error_str << "Descriptor in binding #" << binding << " at global descriptor index " << i
                                   << " references invalid buffer " << buffer << ".";
                         *error = error_str.str();
@@ -437,7 +437,7 @@ bool cvdescriptorset::DescriptorSet::ValidateDrawState(const std::map<uint32_t, 
                     } else {
                         for (auto mem_binding : buffer_node->GetBoundMemory()) {
                             if (!GetMemObjInfo(device_data_, mem_binding)) {
-                                std::stringstream error_str;
+                                std::ostringstream error_str;
                                 error_str << "Descriptor in binding #" << binding << " at global descriptor index " << i
                                           << " uses buffer " << buffer << " that references invalid memory " << mem_binding << ".";
                                 *error = error_str.str();
@@ -453,7 +453,7 @@ bool cvdescriptorset::DescriptorSet::ValidateDrawState(const std::map<uint32_t, 
                         auto dyn_offset = dynamic_offsets[GetDynamicOffsetIndexFromBinding(binding) + array_idx];
                         if (VK_WHOLE_SIZE == range) {
                             if ((dyn_offset + desc_offset) > buffer_size) {
-                                std::stringstream error_str;
+                                std::ostringstream error_str;
                                 error_str << "Dynamic descriptor in binding #" << binding << " at global descriptor index " << i
                                           << " uses buffer " << buffer << " with update range of VK_WHOLE_SIZE has dynamic offset "
                                           << dyn_offset << " combined with offset " << desc_offset
@@ -463,7 +463,7 @@ bool cvdescriptorset::DescriptorSet::ValidateDrawState(const std::map<uint32_t, 
                             }
                         } else {
                             if ((dyn_offset + desc_offset + range) > buffer_size) {
-                                std::stringstream error_str;
+                                std::ostringstream error_str;
                                 error_str << "Dynamic descriptor in binding #" << binding << " at global descriptor index " << i
                                           << " uses buffer " << buffer << " with dynamic offset " << dyn_offset
                                           << " combined with offset " << desc_offset << " and range " << range
@@ -489,7 +489,7 @@ bool cvdescriptorset::DescriptorSet::ValidateDrawState(const std::map<uint32_t, 
                     if (nullptr == image_view_state) {
                         // Image view must have been destroyed since initial update. Could potentially flag the descriptor
                         //  as "invalid" (updated = false) at DestroyImageView() time and detect this error at bind time
-                        std::stringstream error_str;
+                        std::ostringstream error_str;
                         error_str << "Descriptor in binding #" << binding << " at global descriptor index " << i
                                   << " is using imageView " << image_view << " that has been destroyed.";
                         *error = error_str.str();
@@ -499,7 +499,7 @@ bool cvdescriptorset::DescriptorSet::ValidateDrawState(const std::map<uint32_t, 
 
                     if ((reqs & DESCRIPTOR_REQ_ALL_VIEW_TYPE_BITS) && (~reqs & (1 << image_view_ci.viewType))) {
                         // bad view type
-                        std::stringstream error_str;
+                        std::ostringstream error_str;
                         error_str << "Descriptor in binding #" << binding << " at global descriptor index " << i
                                   << " requires an image view of type " << string_descriptor_req_view_type(reqs) << " but got "
                                   << string_VkImageViewType(image_view_ci.viewType) << ".";
@@ -530,7 +530,7 @@ bool cvdescriptorset::DescriptorSet::ValidateDrawState(const std::map<uint32_t, 
                     }
                     // Verify Sample counts
                     if ((reqs & DESCRIPTOR_REQ_SINGLE_SAMPLE) && image_node->createInfo.samples != VK_SAMPLE_COUNT_1_BIT) {
-                        std::stringstream error_str;
+                        std::ostringstream error_str;
                         error_str << "Descriptor in binding #" << binding << " at global descriptor index " << i
                                   << " requires bound image to have VK_SAMPLE_COUNT_1_BIT but got "
                                   << string_VkSampleCountFlagBits(image_node->createInfo.samples) << ".";
@@ -538,7 +538,7 @@ bool cvdescriptorset::DescriptorSet::ValidateDrawState(const std::map<uint32_t, 
                         return false;
                     }
                     if ((reqs & DESCRIPTOR_REQ_MULTI_SAMPLE) && image_node->createInfo.samples == VK_SAMPLE_COUNT_1_BIT) {
-                        std::stringstream error_str;
+                        std::ostringstream error_str;
                         error_str << "Descriptor in binding #" << binding << " at global descriptor index " << i
                                   << " requires bound image to have multiple samples, but got VK_SAMPLE_COUNT_1_BIT.";
                         *error = error_str.str();
@@ -629,7 +629,7 @@ bool cvdescriptorset::DescriptorSet::ValidateCopyUpdate(const debug_report_data 
     if (in_use.load()) {
         // TODO : Re-using Free Idle error code, need copy update idle error code
         *error_code = VALIDATION_ERROR_2860026a;
-        std::stringstream error_str;
+        std::ostringstream error_str;
         error_str << "Cannot call vkUpdateDescriptorSets() to perform copy update on descriptor set " << set_
                   << " that is in use by a command buffer";
         *error_msg = error_str.str();
@@ -637,14 +637,14 @@ bool cvdescriptorset::DescriptorSet::ValidateCopyUpdate(const debug_report_data 
     }
     if (!p_layout_->HasBinding(update->dstBinding)) {
         *error_code = VALIDATION_ERROR_032002b6;
-        std::stringstream error_str;
+        std::ostringstream error_str;
         error_str << "DescriptorSet " << set_ << " does not have copy update dest binding of " << update->dstBinding;
         *error_msg = error_str.str();
         return false;
     }
     if (!src_set->HasBinding(update->srcBinding)) {
         *error_code = VALIDATION_ERROR_032002b2;
-        std::stringstream error_str;
+        std::ostringstream error_str;
         error_str << "DescriptorSet " << set_ << " does not have copy update src binding of " << update->srcBinding;
         *error_msg = error_str.str();
         return false;
@@ -655,7 +655,7 @@ bool cvdescriptorset::DescriptorSet::ValidateCopyUpdate(const debug_report_data 
     if ((src_start_idx + update->descriptorCount) > src_set->GetTotalDescriptorCount()) {
         // SRC update out of bounds
         *error_code = VALIDATION_ERROR_032002b4;
-        std::stringstream error_str;
+        std::ostringstream error_str;
         error_str << "Attempting copy update from descriptorSet " << update->srcSet << " binding#" << update->srcBinding
                   << " with offset index of " << src_set->GetGlobalStartIndexFromBinding(update->srcBinding)
                   << " plus update array offset of " << update->srcArrayElement << " and update of " << update->descriptorCount
@@ -667,7 +667,7 @@ bool cvdescriptorset::DescriptorSet::ValidateCopyUpdate(const debug_report_data 
     if ((dst_start_idx + update->descriptorCount) > p_layout_->GetTotalDescriptorCount()) {
         // DST update out of bounds
         *error_code = VALIDATION_ERROR_032002b8;
-        std::stringstream error_str;
+        std::ostringstream error_str;
         error_str << "Attempting copy update to descriptorSet " << set_ << " binding#" << update->dstBinding
                   << " with offset index of " << p_layout_->GetGlobalStartIndexFromBinding(update->dstBinding)
                   << " plus update array offset of " << update->dstArrayElement << " and update of " << update->descriptorCount
@@ -682,7 +682,7 @@ bool cvdescriptorset::DescriptorSet::ValidateCopyUpdate(const debug_report_data 
     auto src_type = src_set->GetTypeFromBinding(update->srcBinding);
     auto dst_type = p_layout_->GetTypeFromBinding(update->dstBinding);
     if (src_type != dst_type) {
-        std::stringstream error_str;
+        std::ostringstream error_str;
         error_str << "Attempting copy update to descriptorSet " << set_ << " binding #" << update->dstBinding << " with type "
                   << string_VkDescriptorType(dst_type) << " from descriptorSet " << src_set->GetSet() << " binding #"
                   << update->srcBinding << " with type " << string_VkDescriptorType(src_type) << ". Types do not match";
@@ -699,7 +699,7 @@ bool cvdescriptorset::DescriptorSet::ValidateCopyUpdate(const debug_report_data 
     // First make sure source descriptors are updated
     for (uint32_t i = 0; i < update->descriptorCount; ++i) {
         if (!src_set->descriptors_[src_start_idx + i]) {
-            std::stringstream error_str;
+            std::ostringstream error_str;
             error_str << "Attempting copy update from descriptorSet " << src_set << " binding #" << update->srcBinding
                       << " but descriptor at array offset " << update->srcArrayElement + i << " has not been updated";
             *error_msg = error_str.str();
@@ -769,7 +769,7 @@ bool cvdescriptorset::ValidateImageUpdate(VkImageView image_view, VkImageLayout 
     *error_code = VALIDATION_ERROR_15c0028c;
     auto iv_state = GetImageViewState(dev_data, image_view);
     if (!iv_state) {
-        std::stringstream error_str;
+        std::ostringstream error_str;
         error_str << "Invalid VkImageView: " << image_view;
         *error_msg = error_str.str();
         return false;
@@ -806,7 +806,7 @@ bool cvdescriptorset::ValidateImageUpdate(VkImageView image_view, VkImageLayout 
     }
     // First validate that format and layout are compatible
     if (format == VK_FORMAT_MAX_ENUM) {
-        std::stringstream error_str;
+        std::ostringstream error_str;
         error_str << "Invalid image (" << image << ") in imageView (" << image_view << ").";
         *error_msg = error_str.str();
         return false;
@@ -818,7 +818,7 @@ bool cvdescriptorset::ValidateImageUpdate(VkImageView image_view, VkImageLayout 
         case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
             // Only Color bit must be set
             if ((aspect_mask & VK_IMAGE_ASPECT_COLOR_BIT) != VK_IMAGE_ASPECT_COLOR_BIT) {
-                std::stringstream error_str;
+                std::ostringstream error_str;
                 error_str << "ImageView (" << image_view << ") uses layout VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL but does "
                                                             "not have VK_IMAGE_ASPECT_COLOR_BIT set.";
                 *error_msg = error_str.str();
@@ -826,7 +826,7 @@ bool cvdescriptorset::ValidateImageUpdate(VkImageView image_view, VkImageLayout 
             }
             // format must NOT be DS
             if (ds) {
-                std::stringstream error_str;
+                std::ostringstream error_str;
                 error_str << "ImageView (" << image_view
                           << ") uses layout VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL but the image format is "
                           << string_VkFormat(format) << " which is not a color format.";
@@ -840,14 +840,14 @@ bool cvdescriptorset::ValidateImageUpdate(VkImageView image_view, VkImageLayout 
             if (aspect_mask & VK_IMAGE_ASPECT_DEPTH_BIT) {
                 if (aspect_mask & VK_IMAGE_ASPECT_STENCIL_BIT) {
                     // both  must NOT be set
-                    std::stringstream error_str;
+                    std::ostringstream error_str;
                     error_str << "ImageView (" << image_view << ") has both STENCIL and DEPTH aspects set";
                     *error_msg = error_str.str();
                     return false;
                 }
             } else if (!(aspect_mask & VK_IMAGE_ASPECT_STENCIL_BIT)) {
                 // Neither were set
-                std::stringstream error_str;
+                std::ostringstream error_str;
                 error_str << "ImageView (" << image_view << ") has layout " << string_VkImageLayout(image_layout)
                           << " but does not have STENCIL or DEPTH aspects set";
                 *error_msg = error_str.str();
@@ -855,7 +855,7 @@ bool cvdescriptorset::ValidateImageUpdate(VkImageView image_view, VkImageLayout 
             }
             // format must be DS
             if (!ds) {
-                std::stringstream error_str;
+                std::ostringstream error_str;
                 error_str << "ImageView (" << image_view << ") has layout " << string_VkImageLayout(image_layout)
                           << " but the image format is " << string_VkFormat(format) << " which is not a depth/stencil format.";
                 *error_msg = error_str.str();
@@ -868,7 +868,7 @@ bool cvdescriptorset::ValidateImageUpdate(VkImageView image_view, VkImageLayout 
                 if (aspect_mask & VK_IMAGE_ASPECT_DEPTH_BIT) {
                     if (aspect_mask & VK_IMAGE_ASPECT_STENCIL_BIT) {
                         // both  must NOT be set
-                        std::stringstream error_str;
+                        std::ostringstream error_str;
                         error_str << "ImageView (" << image_view << ") has layout " << string_VkImageLayout(image_layout)
                                   << " and is using depth/stencil image of format " << string_VkFormat(format)
                                   << " but it has both STENCIL and DEPTH aspects set, which is illegal. When using a depth/stencil "
@@ -901,7 +901,7 @@ bool cvdescriptorset::ValidateImageUpdate(VkImageView image_view, VkImageLayout 
             if (!(usage & VK_IMAGE_USAGE_STORAGE_BIT)) {
                 error_usage_bit = "VK_IMAGE_USAGE_STORAGE_BIT";
             } else if (VK_IMAGE_LAYOUT_GENERAL != image_layout) {
-                std::stringstream error_str;
+                std::ostringstream error_str;
                 // TODO : Need to create custom enum error codes for these cases
                 if (image_node->shared_presentable) {
                     if (VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR != image_layout) {
@@ -938,7 +938,7 @@ bool cvdescriptorset::ValidateImageUpdate(VkImageView image_view, VkImageLayout 
             break;
     }
     if (!error_usage_bit.empty()) {
-        std::stringstream error_str;
+        std::ostringstream error_str;
         error_str << "ImageView (" << image_view << ") with usage mask 0x" << usage
                   << " being used for a descriptor update of type " << string_VkDescriptorType(type) << " does not have "
                   << error_usage_bit << " set.";
@@ -1253,7 +1253,7 @@ bool cvdescriptorset::DescriptorSet::ValidateWriteUpdate(const debug_report_data
     if (in_use.load()) {
         // TODO : Re-using Free Idle error code, need write update idle error code
         *error_code = VALIDATION_ERROR_2860026a;
-        std::stringstream error_str;
+        std::ostringstream error_str;
         error_str << "Cannot call vkUpdateDescriptorSets() to perform write update on descriptor set " << set_
                   << " that is in use by a command buffer";
         *error_msg = error_str.str();
@@ -1262,7 +1262,7 @@ bool cvdescriptorset::DescriptorSet::ValidateWriteUpdate(const debug_report_data
     // Verify dst binding exists
     if (!p_layout_->HasBinding(update->dstBinding)) {
         *error_code = VALIDATION_ERROR_15c00276;
-        std::stringstream error_str;
+        std::ostringstream error_str;
         error_str << "DescriptorSet " << set_ << " does not have binding " << update->dstBinding;
         *error_msg = error_str.str();
         return false;
@@ -1270,7 +1270,7 @@ bool cvdescriptorset::DescriptorSet::ValidateWriteUpdate(const debug_report_data
         // Make sure binding isn't empty
         if (0 == p_layout_->GetDescriptorCountFromBinding(update->dstBinding)) {
             *error_code = VALIDATION_ERROR_15c00278;
-            std::stringstream error_str;
+            std::ostringstream error_str;
             error_str << "DescriptorSet " << set_ << " cannot updated binding " << update->dstBinding << " that has 0 descriptors";
             *error_msg = error_str.str();
             return false;
@@ -1281,7 +1281,7 @@ bool cvdescriptorset::DescriptorSet::ValidateWriteUpdate(const debug_report_data
     auto type = p_layout_->GetTypeFromBinding(update->dstBinding);
     if (type != update->descriptorType) {
         *error_code = VALIDATION_ERROR_15c0027e;
-        std::stringstream error_str;
+        std::ostringstream error_str;
         error_str << "Attempting write update to descriptor set " << set_ << " binding #" << update->dstBinding << " with type "
                   << string_VkDescriptorType(type) << " but update type is " << string_VkDescriptorType(update->descriptorType);
         *error_msg = error_str.str();
@@ -1289,7 +1289,7 @@ bool cvdescriptorset::DescriptorSet::ValidateWriteUpdate(const debug_report_data
     }
     if (update->descriptorCount > (descriptors_.size() - start_idx)) {
         *error_code = VALIDATION_ERROR_15c00282;
-        std::stringstream error_str;
+        std::ostringstream error_str;
         error_str << "Attempting write update to descriptor set " << set_ << " binding #" << update->dstBinding << " with "
                   << descriptors_.size() - start_idx
                   << " descriptors in that binding and all successive bindings of the set, but update of "
@@ -1307,7 +1307,7 @@ bool cvdescriptorset::DescriptorSet::ValidateWriteUpdate(const debug_report_data
     }
     // Update is within bounds and consistent so last step is to validate update contents
     if (!VerifyWriteUpdateContents(update, start_idx, error_code, error_msg)) {
-        std::stringstream error_str;
+        std::ostringstream error_str;
         error_str << "Write update to descriptor in set " << set_ << " binding #" << update->dstBinding
                   << " failed with error message: " << error_msg->c_str();
         *error_msg = error_str.str();
@@ -1354,7 +1354,7 @@ bool cvdescriptorset::DescriptorSet::ValidateBufferUsage(BUFFER_STATE const *buf
             break;
     }
     if (!error_usage_bit.empty()) {
-        std::stringstream error_str;
+        std::ostringstream error_str;
         error_str << "Buffer (" << buffer_node->buffer << ") with usage mask 0x" << usage
                   << " being used for a descriptor update of type " << string_VkDescriptorType(type) << " does not have "
                   << error_usage_bit << " set.";
@@ -1389,7 +1389,7 @@ bool cvdescriptorset::DescriptorSet::ValidateBufferUpdate(VkDescriptorBufferInfo
     // offset must be less than buffer size
     if (buffer_info->offset >= buffer_node->createInfo.size) {
         *error_code = VALIDATION_ERROR_044002a8;
-        std::stringstream error_str;
+        std::ostringstream error_str;
         error_str << "VkDescriptorBufferInfo offset of " << buffer_info->offset << " is greater than or equal to buffer "
                   << buffer_node->buffer << " size of " << buffer_node->createInfo.size;
         *error_msg = error_str.str();
@@ -1399,7 +1399,7 @@ bool cvdescriptorset::DescriptorSet::ValidateBufferUpdate(VkDescriptorBufferInfo
         // Range must be VK_WHOLE_SIZE or > 0
         if (!buffer_info->range) {
             *error_code = VALIDATION_ERROR_044002aa;
-            std::stringstream error_str;
+            std::ostringstream error_str;
             error_str << "VkDescriptorBufferInfo range is not VK_WHOLE_SIZE and is zero, which is not allowed.";
             *error_msg = error_str.str();
             return false;
@@ -1407,7 +1407,7 @@ bool cvdescriptorset::DescriptorSet::ValidateBufferUpdate(VkDescriptorBufferInfo
         // Range must be VK_WHOLE_SIZE or <= (buffer size - offset)
         if (buffer_info->range > (buffer_node->createInfo.size - buffer_info->offset)) {
             *error_code = VALIDATION_ERROR_044002ac;
-            std::stringstream error_str;
+            std::ostringstream error_str;
             error_str << "VkDescriptorBufferInfo range is " << buffer_info->range << " which is greater than buffer size ("
                       << buffer_node->createInfo.size << ") minus requested offset of " << buffer_info->offset;
             *error_msg = error_str.str();
@@ -1420,7 +1420,7 @@ bool cvdescriptorset::DescriptorSet::ValidateBufferUpdate(VkDescriptorBufferInfo
         // TODO : If range is WHOLE_SIZE, need to make sure underlying buffer size doesn't exceed device max
         if (buffer_info->range != VK_WHOLE_SIZE && buffer_info->range > max_ub_range) {
             *error_code = VALIDATION_ERROR_15c00298;
-            std::stringstream error_str;
+            std::ostringstream error_str;
             error_str << "VkDescriptorBufferInfo range is " << buffer_info->range
                       << " which is greater than this device's maxUniformBufferRange (" << max_ub_range << ")";
             *error_msg = error_str.str();
@@ -1431,7 +1431,7 @@ bool cvdescriptorset::DescriptorSet::ValidateBufferUpdate(VkDescriptorBufferInfo
         // TODO : If range is WHOLE_SIZE, need to make sure underlying buffer size doesn't exceed device max
         if (buffer_info->range != VK_WHOLE_SIZE && buffer_info->range > max_sb_range) {
             *error_code = VALIDATION_ERROR_15c0029a;
-            std::stringstream error_str;
+            std::ostringstream error_str;
             error_str << "VkDescriptorBufferInfo range is " << buffer_info->range
                       << " which is greater than this device's maxStorageBufferRange (" << max_sb_range << ")";
             *error_msg = error_str.str();
@@ -1452,7 +1452,7 @@ bool cvdescriptorset::DescriptorSet::VerifyWriteUpdateContents(const VkWriteDesc
                 auto image_view = update->pImageInfo[di].imageView;
                 auto image_layout = update->pImageInfo[di].imageLayout;
                 if (!ValidateImageUpdate(image_view, image_layout, update->descriptorType, device_data_, error_code, error_msg)) {
-                    std::stringstream error_str;
+                    std::ostringstream error_str;
                     error_str << "Attempted write update to combined image sampler descriptor failed due to: "
                               << error_msg->c_str();
                     *error_msg = error_str.str();
@@ -1466,7 +1466,7 @@ bool cvdescriptorset::DescriptorSet::VerifyWriteUpdateContents(const VkWriteDesc
                 if (!descriptors_[index + di].get()->IsImmutableSampler()) {
                     if (!ValidateSampler(update->pImageInfo[di].sampler, device_data_)) {
                         *error_code = VALIDATION_ERROR_15c0028a;
-                        std::stringstream error_str;
+                        std::ostringstream error_str;
                         error_str << "Attempted write update to sampler descriptor with invalid sampler: "
                                   << update->pImageInfo[di].sampler << ".";
                         *error_msg = error_str.str();
@@ -1485,7 +1485,7 @@ bool cvdescriptorset::DescriptorSet::VerifyWriteUpdateContents(const VkWriteDesc
                 auto image_view = update->pImageInfo[di].imageView;
                 auto image_layout = update->pImageInfo[di].imageLayout;
                 if (!ValidateImageUpdate(image_view, image_layout, update->descriptorType, device_data_, error_code, error_msg)) {
-                    std::stringstream error_str;
+                    std::ostringstream error_str;
                     error_str << "Attempted write update to image descriptor failed due to: " << error_msg->c_str();
                     *error_msg = error_str.str();
                     return false;
@@ -1500,14 +1500,14 @@ bool cvdescriptorset::DescriptorSet::VerifyWriteUpdateContents(const VkWriteDesc
                 auto bv_state = GetBufferViewState(device_data_, buffer_view);
                 if (!bv_state) {
                     *error_code = VALIDATION_ERROR_15c00286;
-                    std::stringstream error_str;
+                    std::ostringstream error_str;
                     error_str << "Attempted write update to texel buffer descriptor with invalid buffer view: " << buffer_view;
                     *error_msg = error_str.str();
                     return false;
                 }
                 auto buffer = bv_state->create_info.buffer;
                 if (!ValidateBufferUsage(GetBufferState(device_data_, buffer), update->descriptorType, error_code, error_msg)) {
-                    std::stringstream error_str;
+                    std::ostringstream error_str;
                     error_str << "Attempted write update to texel buffer descriptor failed due to: " << error_msg->c_str();
                     *error_msg = error_str.str();
                     return false;
@@ -1521,7 +1521,7 @@ bool cvdescriptorset::DescriptorSet::VerifyWriteUpdateContents(const VkWriteDesc
         case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC: {
             for (uint32_t di = 0; di < update->descriptorCount; ++di) {
                 if (!ValidateBufferUpdate(update->pBufferInfo + di, update->descriptorType, error_code, error_msg)) {
-                    std::stringstream error_str;
+                    std::ostringstream error_str;
                     error_str << "Attempted write update to buffer descriptor failed due to: " << error_msg->c_str();
                     *error_msg = error_str.str();
                     return false;
@@ -1550,7 +1550,7 @@ bool cvdescriptorset::DescriptorSet::VerifyCopyUpdateContents(const VkCopyDescri
                     auto update_sampler = static_cast<SamplerDescriptor *>(src_set->descriptors_[index + di].get())->GetSampler();
                     if (!ValidateSampler(update_sampler, device_data_)) {
                         *error_code = VALIDATION_ERROR_15c0028a;
-                        std::stringstream error_str;
+                        std::ostringstream error_str;
                         error_str << "Attempted copy update to sampler descriptor with invalid sampler: " << update_sampler << ".";
                         *error_msg = error_str.str();
                         return false;
@@ -1569,7 +1569,7 @@ bool cvdescriptorset::DescriptorSet::VerifyCopyUpdateContents(const VkCopyDescri
                     auto update_sampler = img_samp_desc->GetSampler();
                     if (!ValidateSampler(update_sampler, device_data_)) {
                         *error_code = VALIDATION_ERROR_15c0028a;
-                        std::stringstream error_str;
+                        std::ostringstream error_str;
                         error_str << "Attempted copy update to sampler descriptor with invalid sampler: " << update_sampler << ".";
                         *error_msg = error_str.str();
                         return false;
@@ -1581,7 +1581,7 @@ bool cvdescriptorset::DescriptorSet::VerifyCopyUpdateContents(const VkCopyDescri
                 auto image_view = img_samp_desc->GetImageView();
                 auto image_layout = img_samp_desc->GetImageLayout();
                 if (!ValidateImageUpdate(image_view, image_layout, type, device_data_, error_code, error_msg)) {
-                    std::stringstream error_str;
+                    std::ostringstream error_str;
                     error_str << "Attempted copy update to combined image sampler descriptor failed due to: " << error_msg->c_str();
                     *error_msg = error_str.str();
                     return false;
@@ -1595,7 +1595,7 @@ bool cvdescriptorset::DescriptorSet::VerifyCopyUpdateContents(const VkCopyDescri
                 auto image_view = img_desc->GetImageView();
                 auto image_layout = img_desc->GetImageLayout();
                 if (!ValidateImageUpdate(image_view, image_layout, type, device_data_, error_code, error_msg)) {
-                    std::stringstream error_str;
+                    std::ostringstream error_str;
                     error_str << "Attempted copy update to image descriptor failed due to: " << error_msg->c_str();
                     *error_msg = error_str.str();
                     return false;
@@ -1609,14 +1609,14 @@ bool cvdescriptorset::DescriptorSet::VerifyCopyUpdateContents(const VkCopyDescri
                 auto bv_state = GetBufferViewState(device_data_, buffer_view);
                 if (!bv_state) {
                     *error_code = VALIDATION_ERROR_15c00286;
-                    std::stringstream error_str;
+                    std::ostringstream error_str;
                     error_str << "Attempted copy update to texel buffer descriptor with invalid buffer view: " << buffer_view;
                     *error_msg = error_str.str();
                     return false;
                 }
                 auto buffer = bv_state->create_info.buffer;
                 if (!ValidateBufferUsage(GetBufferState(device_data_, buffer), type, error_code, error_msg)) {
-                    std::stringstream error_str;
+                    std::ostringstream error_str;
                     error_str << "Attempted copy update to texel buffer descriptor failed due to: " << error_msg->c_str();
                     *error_msg = error_str.str();
                     return false;
@@ -1628,7 +1628,7 @@ bool cvdescriptorset::DescriptorSet::VerifyCopyUpdateContents(const VkCopyDescri
             for (uint32_t di = 0; di < update->descriptorCount; ++di) {
                 auto buffer = static_cast<BufferDescriptor *>(src_set->descriptors_[index + di].get())->GetBuffer();
                 if (!ValidateBufferUsage(GetBufferState(device_data_, buffer), type, error_code, error_msg)) {
-                    std::stringstream error_str;
+                    std::ostringstream error_str;
                     error_str << "Attempted copy update to buffer descriptor failed due to: " << error_msg->c_str();
                     *error_msg = error_str.str();
                     return false;

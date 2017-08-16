@@ -2877,7 +2877,7 @@ static bool PreCreateRenderPass(layer_data *dev_data, const VkRenderPassCreateIn
 
     for (uint32_t i = 0; i < pCreateInfo->attachmentCount; ++i) {
         if (pCreateInfo->pAttachments[i].format == VK_FORMAT_UNDEFINED) {
-            std::stringstream ss;
+            std::ostringstream ss;
             ss << "vkCreateRenderPass: pCreateInfo->pAttachments[" << i << "].format is VK_FORMAT_UNDEFINED. "
                << validation_error_map[VALIDATION_ERROR_00809201];
             skip |= log_msg(dev_data->report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,

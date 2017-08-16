@@ -106,7 +106,7 @@ using std::unordered_set;
 using std::unique_ptr;
 using std::vector;
 using std::string;
-using std::stringstream;
+using std::ostringstream;
 using std::max;
 
 // WSI Image Objects bypass usual Image Object creation methods.  A special Memory
@@ -831,7 +831,7 @@ static bool attachment_references_compatible(const uint32_t index, const VkAttac
 static bool verify_renderpass_compatibility(const layer_data *dev_data, const VkRenderPassCreateInfo *primaryRPCI,
                                             const VkRenderPassCreateInfo *secondaryRPCI, string &errorMsg) {
     if (primaryRPCI->subpassCount != secondaryRPCI->subpassCount) {
-        stringstream errorStr;
+        ostringstream errorStr;
         errorStr << "RenderPass for primary cmdBuffer has " << primaryRPCI->subpassCount
                  << " subpasses but renderPass for secondary cmdBuffer has " << secondaryRPCI->subpassCount << " subpasses.";
         errorMsg = errorStr.str();
@@ -847,7 +847,7 @@ static bool verify_renderpass_compatibility(const layer_data *dev_data, const Vk
             if (!attachment_references_compatible(cIdx, primaryRPCI->pSubpasses[spIndex].pColorAttachments, primaryColorCount,
                                                   primaryRPCI->pAttachments, secondaryRPCI->pSubpasses[spIndex].pColorAttachments,
                                                   secondaryColorCount, secondaryRPCI->pAttachments)) {
-                stringstream errorStr;
+                ostringstream errorStr;
                 errorStr << "color attachments at index " << cIdx << " of subpass index " << spIndex << " are not compatible.";
                 errorMsg = errorStr.str();
                 return false;
@@ -855,7 +855,7 @@ static bool verify_renderpass_compatibility(const layer_data *dev_data, const Vk
                                                          primaryColorCount, primaryRPCI->pAttachments,
                                                          secondaryRPCI->pSubpasses[spIndex].pResolveAttachments,
                                                          secondaryColorCount, secondaryRPCI->pAttachments)) {
-                stringstream errorStr;
+                ostringstream errorStr;
                 errorStr << "resolve attachments at index " << cIdx << " of subpass index " << spIndex << " are not compatible.";
                 errorMsg = errorStr.str();
                 return false;
@@ -865,7 +865,7 @@ static bool verify_renderpass_compatibility(const layer_data *dev_data, const Vk
         if (!attachment_references_compatible(0, primaryRPCI->pSubpasses[spIndex].pDepthStencilAttachment, 1,
                                               primaryRPCI->pAttachments, secondaryRPCI->pSubpasses[spIndex].pDepthStencilAttachment,
                                               1, secondaryRPCI->pAttachments)) {
-            stringstream errorStr;
+            ostringstream errorStr;
             errorStr << "depth/stencil attachments of subpass index " << spIndex << " are not compatible.";
             errorMsg = errorStr.str();
             return false;
@@ -878,7 +878,7 @@ static bool verify_renderpass_compatibility(const layer_data *dev_data, const Vk
             if (!attachment_references_compatible(i, primaryRPCI->pSubpasses[spIndex].pInputAttachments, primaryInputCount,
                                                   primaryRPCI->pAttachments, secondaryRPCI->pSubpasses[spIndex].pInputAttachments,
                                                   secondaryInputCount, secondaryRPCI->pAttachments)) {
-                stringstream errorStr;
+                ostringstream errorStr;
                 errorStr << "input attachments at index " << i << " of subpass index " << spIndex << " are not compatible.";
                 errorMsg = errorStr.str();
                 return false;
@@ -961,7 +961,7 @@ static bool ValidatePipelineDrawtimeState(layer_data const *dev_data, LAST_BOUND
             auto requiredViewportsMask = (1 << pPipeline->graphicsPipelineCI.pViewportState->viewportCount) - 1;
             auto missingViewportMask = ~pCB->viewportMask & requiredViewportsMask;
             if (missingViewportMask) {
-                std::stringstream ss;
+                std::ostringstream ss;
                 ss << "Dynamic viewport(s) ";
                 list_bits(ss, missingViewportMask);
                 ss << " are used by pipeline state object, but were not provided via calls to vkCmdSetViewport().";
@@ -974,7 +974,7 @@ static bool ValidatePipelineDrawtimeState(layer_data const *dev_data, LAST_BOUND
             auto requiredScissorMask = (1 << pPipeline->graphicsPipelineCI.pViewportState->scissorCount) - 1;
             auto missingScissorMask = ~pCB->scissorMask & requiredScissorMask;
             if (missingScissorMask) {
-                std::stringstream ss;
+                std::ostringstream ss;
                 ss << "Dynamic scissor(s) ";
                 list_bits(ss, missingScissorMask);
                 ss << " are used by pipeline state object, but were not provided via calls to vkCmdSetScissor().";
@@ -1057,7 +1057,7 @@ static bool verify_set_layout_compatibility(const cvdescriptorset::DescriptorSet
                                             string &errorMsg) {
     auto num_sets = pipeline_layout->set_layouts.size();
     if (layoutIndex >= num_sets) {
-        stringstream errorStr;
+        ostringstream errorStr;
         errorStr << "VkPipelineLayout (" << pipeline_layout->layout << ") only contains " << num_sets
                  << " setLayouts corresponding to sets 0-" << num_sets - 1 << ", but you're attempting to bind set to index "
                  << layoutIndex;
@@ -9429,7 +9429,7 @@ static bool PreCallValidateCreateSharedSwapchainsKHR(layer_data *dev_data, uint3
         for (uint32_t i = 0; i < swapchainCount; i++) {
             surface_state.push_back(GetSurfaceState(dev_data->instance_data, pCreateInfos[i].surface));
             old_swapchain_state.push_back(GetSwapchainNode(dev_data, pCreateInfos[i].oldSwapchain));
-            std::stringstream func_name;
+            std::ostringstream func_name;
             func_name << "vkCreateSharedSwapchainsKHR[" << swapchainCount << "]";
             if (PreCallValidateCreateSwapchainKHR(dev_data, func_name.str().c_str(), &pCreateInfos[i], surface_state[i],
                                                   old_swapchain_state[i])) {
