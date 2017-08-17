@@ -688,14 +688,17 @@ bool MemoryConflict(MemoryAccess const *initial_access, MemoryAccess const *seco
     return true;
 }
 
-// Check given set of mem_accesses against memory accesses in cmd buffer up to this point and flag any conflicts
-bool ValidateMemoryAccesses(debug_report_data const *report_data, GLOBAL_CB_NODE const *cb_state,
+// Check given vector of new_mem_accesses against prev_mem_accesses map, which has live R/W access up to the point.
+//  The "live" R/W accesses in prev_mem_access_map means the accesses have no barrier has been identified.
+//  For any new accesses that conflict with prev accesses, flag an error
+bool ValidateMemoryAccesses(debug_report_data const *report_data, VkCommandBuffer command_buffer,
+                            const std::unordered_map<VkDeviceMemory, std::vector<MemoryAccess>> &prev_mem_access_map,
                             std::vector<MemoryAccess> *mem_accesses, const char *caller) {
     bool skip = false;
     for (const auto &mem_access : *mem_accesses) {
         auto mem_obj = mem_access.location.mem;
-        auto mem_access_pair = cb_state->mem_accesses.access_map.find(mem_obj);
-        if (mem_access_pair != cb_state->mem_accesses.access_map.end()) {
+        auto mem_access_pair = prev_mem_access_map.find(mem_obj);
+        if (mem_access_pair != prev_mem_access_map.end()) {
             for (const auto &earlier_access : mem_access_pair->second) {
                 if (MemoryConflict(&earlier_access, &mem_access)) {
                     const char *access1 = earlier_access.write ? "write" : "read";
@@ -706,16 +709,16 @@ bool ValidateMemoryAccesses(debug_report_data const *report_data, GLOBAL_CB_NODE
                     //   so that precise/precise conflicts can be flagged as errors. Keeping everything a warning
                     //   for early release and so that incorrect warnings can be flagged/fixed without causing errors.
                     // if (earlier_access.precise && mem_access.precise) level = VK_DEBUG_REPORT_ERROR_BIT_EXT;
-                    skip |= log_msg(report_data, level, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_MEMORY_EXT,
-                                    HandleToUint64(mem_access.location.mem), 0, MEMTRACK_SYNCHRONIZATION_ERROR, "DS",
+                    skip |= log_msg(report_data, level, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_MEMORY_EXT, HandleToUint64(mem_obj), 0,
+                                    MEMTRACK_SYNCHRONIZATION_ERROR, "DS",
                                     "%s called on VkCommandBuffer 0x%" PRIxLEAST64
-                                    " causes a %s after %s conflict with memory object 0x%" PRIxLEAST64 ". NOTE: This"
+                                    " causes a %s after %s conflict with memory object 0x%" PRIxLEAST64
+                                    ". NOTE: This"
                                     " race condition warning is a new feature in validation that still has some holes"
                                     " in tracking Read/Write accesses as well as modeling synchronization objects. Don't"
                                     " spend too much time investigating this warning, and feel free to file GitHub bugs "
                                     " on any warning cases that you known are incorrect.",
-                                    caller, HandleToUint64(cb_state->commandBuffer), access2, access1,
-                                    HandleToUint64(mem_access.location.mem));
+                                    caller, HandleToUint64(command_buffer), access2, access1, HandleToUint64(mem_obj));
                 }
             }
         }
@@ -1117,7 +1120,8 @@ bool PreCallValidateCmdClearColorImage(layer_data *dev_data, VkCommandBuffer com
     }
     // TODO: Currently treating all image accesses as imprecise & covering the whole image area, this should be per-range
     AddWriteMemoryAccess(CMD_CLEARCOLORIMAGE, mem_accesses, image_state->binding, false);
-    skip |= ValidateMemoryAccesses(core_validation::GetReportData(dev_data), cb_state, mem_accesses, "vkCmdClearColorImage()");
+    skip |= ValidateMemoryAccesses(core_validation::GetReportData(dev_data), commandBuffer, cb_state->mem_accesses.access_map,
+                                   mem_accesses, "vkCmdClearColorImage()");
     return skip;
 }
 
@@ -1180,7 +1184,8 @@ bool PreCallValidateCmdClearDepthStencilImage(layer_data *device_data, VkCommand
     }
     // TODO: Currently treating all image accesses as imprecise & covering the whole image area, this should be per-range
     AddWriteMemoryAccess(CMD_CLEARDEPTHSTENCILIMAGE, mem_accesses, image_state->binding, false);
-    skip |= ValidateMemoryAccesses(report_data, cb_state, mem_accesses, "vkCmdClearDepthStencilImage()");
+    skip |= ValidateMemoryAccesses(report_data, commandBuffer, cb_state->mem_accesses.access_map, mem_accesses,
+                                   "vkCmdClearDepthStencilImage()");
     return skip;
 }
 
@@ -2013,7 +2018,8 @@ bool PreCallValidateCmdCopyImage(layer_data *device_data, GLOBAL_CB_NODE *cb_sta
         // TODO: Currently treating all image accesses as imprecise & covering the whole image area
         AddReadMemoryAccess(CMD_COPYIMAGE, mem_accesses, src_image_state->binding, false);
         AddWriteMemoryAccess(CMD_COPYIMAGE, mem_accesses, dst_image_state->binding, false);
-        skip |= ValidateMemoryAccesses(report_data, cb_state, mem_accesses, "vkCmdCopyImage()");
+        skip |= ValidateMemoryAccesses(report_data, cb_state->commandBuffer, cb_state->mem_accesses.access_map, mem_accesses,
+                                       "vkCmdCopyImage()");
     }
 
     // The formats of src_image and dst_image must be compatible. Formats are considered compatible if their texel size in bytes
@@ -2213,7 +2219,8 @@ bool PreCallValidateCmdClearAttachments(layer_data *device_data, GLOBAL_CB_NODE 
                 // TODO: Just marking memory accesses as imprecise per-image binding basis for now, should be per-rect above
                 const auto image_state = GetImageState(device_data, image_view_state->create_info.image);
                 AddWriteMemoryAccess(CMD_CLEARATTACHMENTS, mem_accesses, image_state->binding, false);
-                skip |= ValidateMemoryAccesses(report_data, cb_state, mem_accesses, "vkCmdClearAttachments()");
+                skip |= ValidateMemoryAccesses(report_data, commandBuffer, cb_state->mem_accesses.access_map, mem_accesses,
+                                               "vkCmdClearAttachments()");
             }
         }
     }
@@ -2271,7 +2278,8 @@ bool PreCallValidateCmdResolveImage(layer_data *device_data, GLOBAL_CB_NODE *cb_
         // TODO: Currently treating all image accesses as imprecise & covering the whole image area
         AddReadMemoryAccess(CMD_RESOLVEIMAGE, mem_accesses, src_image_state->binding, false);
         AddWriteMemoryAccess(CMD_RESOLVEIMAGE, mem_accesses, dst_image_state->binding, false);
-        skip |= ValidateMemoryAccesses(report_data, cb_state, mem_accesses, "vkCmdResolveImage()");
+        skip |= ValidateMemoryAccesses(report_data, cb_state->commandBuffer, cb_state->mem_accesses.access_map, mem_accesses,
+                                       "vkCmdResolveImage()");
 
         if (src_image_state->createInfo.format != dst_image_state->createInfo.format) {
             char const str[] = "vkCmdResolveImage called with unmatched source and dest formats.";
@@ -2688,7 +2696,8 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_sta
         // TODO: Currently treating all image accesses as imprecise & covering the whole image area
         AddReadMemoryAccess(CMD_BLITIMAGE, mem_accesses, src_image_state->binding, false);
         AddWriteMemoryAccess(CMD_BLITIMAGE, mem_accesses, dst_image_state->binding, false);
-        skip |= ValidateMemoryAccesses(report_data, cb_state, mem_accesses, "vkCmdBlitImage()");
+        skip |= ValidateMemoryAccesses(report_data, cb_state->commandBuffer, cb_state->mem_accesses.access_map, mem_accesses,
+                                       "vkCmdBlitImage()");
     } else {
         assert(0);
     }
@@ -3618,7 +3627,8 @@ bool PreCallValidateCmdCopyBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_st
         AddReadMemoryAccess(CMD_COPYBUFFER, mem_accesses, {src_mem_obj, reg.srcOffset, reg.size}, true);
         AddWriteMemoryAccess(CMD_COPYBUFFER, mem_accesses, {dst_mem_obj, reg.dstOffset, reg.size}, true);
     }
-    skip |= ValidateMemoryAccesses(core_validation::GetReportData(device_data), cb_state, mem_accesses, "vkCmdCopyBuffer()");
+    skip |= ValidateMemoryAccesses(core_validation::GetReportData(device_data), cb_state->commandBuffer,
+                                   cb_state->mem_accesses.access_map, mem_accesses, "vkCmdCopyBuffer()");
     return skip;
 }
 
@@ -3732,7 +3742,8 @@ bool PreCallValidateCmdFillBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_st
                                      "vkCmdFillBuffer()", "VK_BUFFER_USAGE_TRANSFER_DST_BIT");
     skip |= insideRenderPass(device_data, cb_state, "vkCmdFillBuffer()", VALIDATION_ERROR_1b400017);
     AddWriteMemoryAccess(CMD_FILLBUFFER, mem_accesses, {buffer_state->binding.mem, offset, size}, true);
-    skip |= ValidateMemoryAccesses(core_validation::GetReportData(device_data), cb_state, mem_accesses, "vkCmdFillBuffer()");
+    skip |= ValidateMemoryAccesses(core_validation::GetReportData(device_data), cb_state->commandBuffer,
+                                   cb_state->mem_accesses.access_map, mem_accesses, "vkCmdFillBuffer()");
     return skip;
 }
 
