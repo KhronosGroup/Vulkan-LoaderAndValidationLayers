@@ -2618,6 +2618,10 @@ static void PostCallRecordQueueSubmit(layer_data *dev_data, VkQueue queue, uint3
     }
 }
 
+// Prototype
+void ReplayMemoryAccessCommands(layer_data *, std::vector<std::unique_ptr<Command>> *, uint32_t, uint32_t,
+                                std::unordered_map<VkDeviceMemory, std::vector<MemoryAccess>> *, std::vector<MemoryAccess> *);
+
 static bool PreCallValidateQueueSubmit(layer_data *dev_data, VkQueue queue, uint32_t submitCount, const VkSubmitInfo *pSubmits,
                                        VkFence fence) {
     auto pFence = GetFenceNode(dev_data, fence);
@@ -2631,6 +2635,14 @@ static bool PreCallValidateQueueSubmit(layer_data *dev_data, VkQueue queue, uint
     vector<VkCommandBuffer> current_cmds;
     unordered_map<ImageSubresourcePair, IMAGE_LAYOUT_NODE> localImageLayoutMap;
     // Now verify each individual submit
+    // We'll store a map of submit's memory accesses as we replace cmd buffers to find cross-cmd-buffer memory conflicts
+    std::unordered_map<VkDeviceMemory, std::vector<MemoryAccess>> submit_mem_access_map;
+    // If we hit a potential cross-CB synch conflict, we'll replay CBs up to point of conflict to verify if conflict is real
+    //  We have to copy the commands into local vector b/c we can't modify in the CBs themselves
+    std::vector<std::unique_ptr<Command>> submit_cmds;
+    std::vector<GLOBAL_CB_NODE *> replay_command_buffers;
+    uint32_t start_replay_index = 0, end_replay_index = 0;  // Indices that set bounds for replaying synch cmds
+    std::vector<MemoryAccess> cb_live_accesses;             // Store up mem accesses per CB that are still live (not visible)
     for (uint32_t submit_idx = 0; submit_idx < submitCount; submit_idx++) {
         const VkSubmitInfo *submit = &pSubmits[submit_idx];
         for (uint32_t i = 0; i < submit->waitSemaphoreCount; ++i) {
@@ -2672,6 +2684,7 @@ static bool PreCallValidateQueueSubmit(layer_data *dev_data, VkQueue queue, uint
             if (cb_node) {
                 skip |= ValidateCmdBufImageLayouts(dev_data, cb_node, dev_data->imageLayoutMap, localImageLayoutMap);
                 current_cmds.push_back(submit->pCommandBuffers[i]);
+                replay_command_buffers.push_back(cb_node);
                 skip |= validatePrimaryCommandBufferState(
                     dev_data, cb_node, (int)std::count(current_cmds.begin(), current_cmds.end(), submit->pCommandBuffers[i]));
                 skip |= validateQueueFamilyIndices(dev_data, cb_node, queue);
@@ -2690,6 +2703,67 @@ static bool PreCallValidateQueueSubmit(layer_data *dev_data, VkQueue queue, uint
                 }
                 for (auto &function : cb_node->queryUpdates) {
                     skip |= function(queue);
+                }
+                // TODO : Move this block of memory access check code to its own function, adding in-line to start
+                // Gather all outstanding accesses for this cmd buffer into a vector (Should already have this data struct
+                // pre-built)
+                cb_live_accesses.clear();
+                for (const auto &mem_access_pair : cb_node->mem_accesses.access_map) {
+                    for (const auto &mem_access : mem_access_pair.second) {
+                        if (!mem_access.Visible()) {
+                            // No applicable barrier so access is live
+                            cb_live_accesses.push_back(mem_access);
+                        }
+                    }
+                }
+                // Run a pre-check and if there's no conflicts, just record updated accesses
+                MemoryAccess *early_conflict = nullptr, *late_conflict = nullptr;
+                if (!ValidateMemoryAccesses(dev_data->report_data, cb_node->commandBuffer, submit_mem_access_map, &cb_live_accesses,
+                                            "vkQueueSubmit()", true, &early_conflict, &late_conflict)) {
+                    // Record accesses for this CB into Submit access going fwd
+                    for (const auto &mem_access : cb_live_accesses) {
+                        submit_mem_access_map[mem_access.location.mem].push_back(mem_access);
+                    }
+                } else {  // We have a pre-check conflict so have to replay Cmds to verify if conflict is real or cleared by a
+                          // inter-CB synch
+                    // This is the slow path
+                    // We have to replay so copy cmd sequence up to this point into local vector
+                    //  Then mark seq replay start & seq replay end indices which are seq cmds between conflicting mem accesses that
+                    //  must be replayed
+                    bool set_start_index = false, have_end_index = false;
+                    for (const auto &cbstate : replay_command_buffers) {
+                        for (const auto &cmd : cbstate->commands) {
+                            if (cmd.get() == early_conflict->cmd) {
+                                set_start_index = true;  // We'll grab next synch cmd index
+                            } else if (cmd.get() == late_conflict->cmd) {
+                                have_end_index = true;
+                            }
+                            if (cmd->synch) {
+                                if (set_start_index) {
+                                    start_replay_index = submit_cmds.size();
+                                }
+                                if (!have_end_index) {  // We'll just keep grabbing synch commands until we find late conflict
+                                                        // command above
+                                    end_replay_index = submit_cmds.size();
+                                }
+                                SynchCommand *synch_cmd = static_cast<SynchCommand *>(cmd.get());
+                                submit_cmds.emplace_back(unique_ptr<SynchCommand>(new SynchCommand(*synch_cmd)));
+                            } else {
+                                submit_cmds.emplace_back(unique_ptr<Command>(new Command(*cmd)));
+                            }
+                        }
+                    }
+                    if (start_replay_index && end_replay_index) {
+                        // We have synch commands between the conflict to replay. Clear current access map as well as live accesses
+                        // which will both be filled on replay.
+                        submit_mem_access_map.clear();
+                        cb_live_accesses.clear();
+                        ReplayMemoryAccessCommands(dev_data, &submit_cmds, start_replay_index, end_replay_index,
+                                                   &submit_mem_access_map, &cb_live_accesses);
+                    }
+                    // Now that any synch replays are done, validate the mem accesses for real
+                    skip |= ValidateMemoryAccesses(dev_data->report_data, cb_node->commandBuffer, submit_mem_access_map,
+                                                   &cb_live_accesses, "vkQueueSubmit()", false, nullptr, nullptr);
                 }
             }
         }
@@ -5791,7 +5865,8 @@ static bool ValidateCmdDrawType(layer_data *dev_data, VkCommandBuffer cmd_buffer
                     UpdateMemoryAccessVector(dev_data, cmd_type, mem_accesses, dd_mem_accesses);
                 }
             }
-            skip |= ValidateMemoryAccesses(dev_data->report_data, *cb_state, mem_accesses, caller);
+            skip |= ValidateMemoryAccesses(dev_data->report_data, cmd_buffer, (*cb_state)->mem_accesses.access_map, mem_accesses,
+                                           caller, false, nullptr, nullptr);
         }
     }
     return skip;
@@ -5883,7 +5958,8 @@ static bool PreCallValidateCmdDrawIndirect(layer_data *dev_data, VkCommandBuffer
     AddReadMemoryAccess(CMD_DRAWINDIRECT, mem_accesses, {(*buffer_state)->binding.mem, offset, size}, false);
     // TODO: Need a special draw mem access call here (or in existing shared function) that analyzes state and adds related R/W
     // accesses
-    skip |= ValidateMemoryAccesses(dev_data->report_data, *cb_state, mem_accesses, caller);
+    skip |= ValidateMemoryAccesses(dev_data->report_data, cmd_buffer, (*cb_state)->mem_accesses.access_map, mem_accesses, caller,
+                                   false, nullptr, nullptr);
     // TODO: If the drawIndirectFirstInstance feature is not enabled, all the firstInstance members of the
     // VkDrawIndirectCommand structures accessed by this command must be 0, which will require access to the contents of 'buffer'.
     return skip;
@@ -6163,7 +6239,8 @@ static bool PreCallCmdUpdateBuffer(layer_data *device_data, VkCommandBuffer comm
     skip |= insideRenderPass(device_data, *cb_state, "vkCmdUpdateBuffer()", VALIDATION_ERROR_1e400017);
     // Add mem access for writing buffer
     AddWriteMemoryAccess(CMD_UPDATEBUFFER, mem_accesses, (*dst_buffer_state)->binding, true);
-    skip |= ValidateMemoryAccesses(device_data->report_data, *cb_state, mem_accesses, "vkCmdUpdateBuffer()");
+    skip |= ValidateMemoryAccesses(device_data->report_data, commandBuffer, (*cb_state)->mem_accesses.access_map, mem_accesses,
+                                   "vkCmdUpdateBuffer()", false, nullptr, nullptr);
     return skip;
 }
 
@@ -6955,6 +7032,153 @@ bool ValidateStageMasksAgainstQueueCapabilities(layer_data *dev_data, GLOBAL_CB_
     return skip;
 }
 
+// Merge the given synch command with any previous synch cmds from given vector of synch commands
+//  This resolves dependency chains by pulling overlapping earlier barriers into current barrier
+// If current barriers' srcMasks match with previous barriers destination masks, then incorporate the
+//  previous barrier src & dst Masks into our src/dst Masks & merge in all of the previous barriers.
+// Return "true" if any merge occurs, "false" otherwise
+static bool MergeSynchCommands(const std::vector<SynchCommand *> &prev_synch_commands, SynchCommand *synch_command) {
+    bool merge = false;
+    for (const auto &psc : prev_synch_commands) {
+        if (psc->dst_stage_flags & synch_command->src_stage_flags) {
+            merge = true;
+            // scopes overlap so merge prev barrier mem masks into current masks
+            synch_command->src_stage_flags |= psc->src_stage_flags;
+            synch_command->dst_stage_flags |= psc->dst_stage_flags;
+            // Pull previous barriers into this barrier
+            for (const auto &gb : psc->global_barriers) {
+                synch_command->global_barriers.emplace_back(gb);
+            }
+            for (const auto &bb : psc->buffer_barriers) {
+                synch_command->buffer_barriers.emplace_back(bb);
+            }
+            for (const auto &ib : psc->image_barriers) {
+                synch_command->image_barriers.emplace_back(ib);
+            }
+        }
+    }
+    return merge;
+}
+
+// Record given synch cmd vs. outstanding memory accesses up to the point of the synch command,
+//  for each barrier, compare given existing mem accesses and record any applicable barriers
+static void ReplaySynchCommand(layer_data *device_data, SynchCommand *synch_cmd,
+                               std::unordered_map<VkDeviceMemory, std::vector<MemoryAccess>> *access_map) {
+    //    cb_state->commands.emplace_back(
+    //        unique_ptr<SynchCommand>(new SynchCommand(cmd, cb_state->commands.size(), cb_state, src_stage_mask, dst_stage_mask)));
+    //    Command *cmd_ptr = cb_state->commands.back().get();
+    //    SynchCommand *synch_cmd_ptr = static_cast<SynchCommand *>(cmd_ptr);
+    //    // First merge any overlapping previous barriers.
+    //    MergeSynchCommands(cb_state->synch_commands, synch_cmd_ptr);
+    //    // Now that we've merged previous synch commands, append this cmd to existing synch commands
+    //    cb_state->synch_commands.emplace_back(synch_cmd_ptr);
+    auto src_stage_mask = synch_cmd->src_stage_flags;
+    // TODO: Make this barrier/access parsing smarter
+    for (auto &mem_access_pair : *access_map) {
+        for (auto &mem_access : mem_access_pair.second) {
+            if (mem_access.src_stage_flags & src_stage_mask) {
+                // Record any execution barrier overlaps
+                mem_access.pipe_barrier = true;
+                mem_access.dst_stage_flags |= synch_cmd->dst_stage_flags;
+                // For every global barrier that matches access mask, record the barrier
+                for (const auto &global_barrier : synch_cmd->global_barriers) {
+                    if (0 != (global_barrier.srcAccessMask & mem_access.src_access_flags)) {
+                        // This memory barrier applies to mem_access so record details
+                        mem_access.mem_barrier = true;
+                        mem_access.dst_access_flags |= global_barrier.dstAccessMask;
+                        mem_access.synch_commands.push_back(synch_cmd);
+                    }
+                }
+            }
+        }
+    }
+    for (const auto &buff_barrier : synch_cmd->buffer_barriers) {
+        const auto &buff_state = GetBufferState(device_data, buff_barrier.buffer);
+        const auto mem_obj = buff_state->binding.mem;
+        // Make an access struct with barrier range details to check for overlap
+        // TODO: This is hacky, creating tmp access struct from barrier to check conflict
+        //    need to rework original function so this makes sense or write alternate function
+        MemoryAccess barrier_access = {};
+        barrier_access.location.mem = mem_obj;
+        barrier_access.location.offset = buff_barrier.offset;
+        barrier_access.location.size = buff_barrier.size;
+        barrier_access.mem_barrier = false;
+        barrier_access.pipe_barrier = false;
+        const auto &mem_access_pair = access_map->find(mem_obj);
+        if (mem_access_pair != access_map->end()) {
+            for (auto &mem_access : mem_access_pair->second) {
+                // If the pipe & access masks overlap, then barrier applies
+                if (((mem_access.src_access_flags & buff_barrier.srcAccessMask) != 0) &&
+                    ((mem_access.src_stage_flags & src_stage_mask) != 0)) {
+                    // Set buff access write opposite of actual access so conflict is flagged on overlap
+                    barrier_access.write = !mem_access.write;
+                    if (MemoryConflict(&barrier_access, &mem_access)) {
+                        mem_access.mem_barrier = true;
+                        mem_access.dst_stage_flags |= synch_cmd->dst_stage_flags;
+                        mem_access.dst_access_flags |= buff_barrier.dstAccessMask;
+                        mem_access.synch_commands.push_back(synch_cmd);
+                    }
+                }
+            }
+        }
+    }
+    // TODO: Handle image barriers
+}
+
+// For the given vector of commands, replay memory access commands, only replaying synch commands that occur between
+// start/end_synch_index For memory commands that are hit, put them into an access map For Synch commands between the indices that
+// are hit merge them with any previous synch commands then:
+//   1. Record them against any outstanding accesses
+//   2. Add them into a synch cmd vector for future merges
+// When the synch command at end_synch_index is replayed, we then store any remaining mem access commands into remaining_accesses
+// vector.
+//  This will include the previously conflicting late access, so the returned vector of live accesses can be checked against updated
+//  access_map.
+void ReplayMemoryAccessCommands(layer_data *device_data, std::vector<std::unique_ptr<Command>> *commands,
+                                uint32_t start_synch_index, uint32_t end_synch_index,
+                                std::unordered_map<VkDeviceMemory, std::vector<MemoryAccess>> *access_map,
+                                std::vector<MemoryAccess> *remaining_accesses) {
+    if (commands->empty()) {
+        return;  // early out
+    }
+    auto index = 0;
+    // Store running list of synch commands for merge purposes
+    std::vector<SynchCommand *> prev_synch_commands;
+    Command *cmd_ptr = nullptr;
+    while (index <= end_synch_index) {
+        cmd_ptr = (*commands)[index++].get();
+        // 1. Merge synch cmd and build up synch vector
+        //  Note that we only replay synch commands between the mem access points of interest where the potential conflict occurs
+        if (cmd_ptr->synch && (index >= start_synch_index && index <= end_synch_index)) {
+            auto synch_cmd_ptr = static_cast<SynchCommand *>(cmd_ptr);
+            MergeSynchCommands(prev_synch_commands, synch_cmd_ptr);
+            prev_synch_commands.push_back(synch_cmd_ptr);
+            // Now check synch command against outstanding memory accesses
+            ReplaySynchCommand(device_data, synch_cmd_ptr, access_map);
+        } else if (!cmd_ptr->synch) {
+            // Currently all non-synch commands should be memory access commands, if this assert fails, this
+            //  code must be updated to handle different command types
+            assert(!cmd_ptr->mem_accesses.empty());
+            // Record memory accesses into access map going fwd
+            for (const auto &mem_access : cmd_ptr->mem_accesses) {
+                (*access_map)[mem_access.location.mem].push_back(mem_access);
+            }
+        }
+        // 2. If we do merge synch commands, we'll need to re-check accesses
+    }
+    // Any remaining mem access commands (after last synch) are added into live access vector
+    while (index < commands->size()) {
+        cmd_ptr = (*commands)[index++].get();
+        // If there are no mem_accesses in the cmd (such as a later synch) this loop does nothing
+        for (const auto &mem_access : cmd_ptr->mem_accesses) {
+            if (!mem_access.Visible()) {
+                // We only want mem accesses that are still live
+                remaining_accesses->push_back(mem_access);
+            }
+        }
+    }
+}
+
 // Record given set of barriers vs. outstanding memory accesses for this cmd buffer
 //  1. First merge this barrier within any previous barriers in this CB
 //  2. For each barrier, compare given existing mem accesses and record any applicable barriers
@@ -6964,31 +7188,12 @@ static void RecordBarrierMemoryAccess(layer_data *device_data, CMD_TYPE cmd, GLO
                                       const VkMemoryBarrier *mem_barriers, uint32_t buffer_mem_barrier_count,
                                       const VkBufferMemoryBarrier *buffer_mem_barriers, uint32_t image_memory_barrier_count,
                                       const VkImageMemoryBarrier *image_memory_barriers) {
-    cb_state->commands.emplace_back(unique_ptr<SynchCommand>(new SynchCommand(cmd, src_stage_mask, dst_stage_mask)));
+    cb_state->commands.emplace_back(
+        unique_ptr<SynchCommand>(new SynchCommand(cmd, cb_state->commands.size(), cb_state, src_stage_mask, dst_stage_mask)));
     Command *cmd_ptr = cb_state->commands.back().get();
     SynchCommand *synch_cmd_ptr = static_cast<SynchCommand *>(cmd_ptr);
-    // First thing to do is parse through any previous barriers. If this barriers' srcMasks match with
-    //  previous barriers destination masks, then incorporate the previous barrier srcMasks into our srcMask
-    //  and merge in all of the previous barriers. This will account for dependency chains.
-    for (const auto &synch_cmd : cb_state->synch_commands) {
-        if (synch_cmd->dst_stage_flags & src_stage_mask) {
-            // scopes overlap so merge prev barrier masks into current masks
-            src_stage_mask |= synch_cmd->src_stage_flags;
-            synch_cmd_ptr->src_stage_flags = src_stage_mask;
-            dst_stage_mask |= synch_cmd->dst_stage_flags;
-            synch_cmd_ptr->dst_stage_flags = dst_stage_mask;
-            // Pull all previous overlapping barriers into this barrier
-            for (const auto &global_barrier : synch_cmd->global_barriers) {
-                synch_cmd_ptr->global_barriers.emplace_back(global_barrier);
-            }
-            for (const auto &buff_barrier : synch_cmd->buffer_barriers) {
-                synch_cmd_ptr->buffer_barriers.emplace_back(buff_barrier);
-            }
-            for (const auto &img_barrier : synch_cmd->image_barriers) {
-                synch_cmd_ptr->image_barriers.emplace_back(img_barrier);
-            }
-        }
-    }
+    // First merge any overlapping previous barriers.
+    MergeSynchCommands(cb_state->synch_commands, synch_cmd_ptr);
     // Now that we've merged previous synch commands, append this cmd to existing synch commands
     cb_state->synch_commands.emplace_back(synch_cmd_ptr);
     // TODO: Make this barrier/access parsing smarter
@@ -7041,6 +7246,18 @@ static void RecordBarrierMemoryAccess(layer_data *device_data, CMD_TYPE cmd, GLO
                 }
             }
         }
+    }
+    // TODO: Handle image barriers
+
+    // Now need to record these barriers into the cmd for any future merges
+    for (uint32_t i = 0; i < mem_barrier_count; ++i) {
+        synch_cmd_ptr->global_barriers.emplace_back(mem_barriers[i]);
+    }
+    for (uint32_t i = 0; i < buffer_mem_barrier_count; ++i) {
+        synch_cmd_ptr->buffer_barriers.emplace_back(buffer_mem_barriers[i]);
+    }
+    for (uint32_t i = 0; i < image_memory_barrier_count; ++i) {
+        synch_cmd_ptr->image_barriers.emplace_back(image_memory_barriers[i]);
     }
 }
 
@@ -7316,7 +7533,8 @@ static bool PreCallValidateCmdCopyQueryPoolResults(layer_data *device_data, GLOB
     auto precise = (element_size == stride) ? true : false;
     auto size = stride * (query_count - 1) + num_bytes;
     AddWriteMemoryAccess(CMD_COPYQUERYPOOLRESULTS, mem_accesses, {dst_buffer_state->binding.mem, offset, size}, precise);
-    skip |= ValidateMemoryAccesses(device_data->report_data, cb_state, mem_accesses, "vkCmdCopyQueryPoolResults()");
+    skip |= ValidateMemoryAccesses(device_data->report_data, cb_state->commandBuffer, cb_state->mem_accesses.access_map,
+                                   mem_accesses, "vkCmdCopyQueryPoolResults()", false, nullptr, nullptr);
     return skip;
 }
 

@@ -619,6 +619,12 @@ struct MemoryAccess {
           mem_barrier(false),
           pipe_barrier(false),
           synch_commands{} {};
+
+    // Once an appropriate barrier has been identified for an access, it will be Visible
+    bool Visible() const {
+        auto visible = (mem_barrier || (pipe_barrier && write));
+        return visible;
+    };
     bool precise;          // True if exact bounds of mem access are known, false if bounds are conservative
     bool write;            // False for read access
     Command *cmd;          // Ptr to cmd that makes this access
@@ -640,17 +646,25 @@ struct MemoryAccess {
 
 class Command {
    public:
-    Command(CMD_TYPE type) : type(type){};
+    Command(CMD_TYPE type, uint32_t seq, GLOBAL_CB_NODE *gcb) : type(type), seq(seq), cb_state(gcb), replay(false), synch(false){};
+    Command(CMD_TYPE type, uint32_t seq, GLOBAL_CB_NODE *gcb, bool synch)
+        : type(type), seq(seq), cb_state(gcb), replay(false), synch(synch){};
     virtual ~Command() {}
     void AddMemoryAccess(MemoryAccess access) { mem_accesses.push_back(access); };
+    void SetSeq(uint32_t seq_num) { seq = seq_num; };
     CMD_TYPE type;
+    uint32_t seq;  // seq # of cmd in this cmd buffer
+    GLOBAL_CB_NODE *cb_state;
+    bool replay;                             // Track if cmd has been replayed during QueueSubmit
+    bool synch;
     std::vector<MemoryAccess> mem_accesses;  // vector of all mem accesses by this cmd
 };
 
 class SynchCommand : public Command {
    public:
-    SynchCommand(CMD_TYPE type, VkPipelineStageFlags src_stage_flags, VkPipelineStageFlags dst_stage_flags)
-        : Command(type), src_stage_flags(src_stage_flags), dst_stage_flags(dst_stage_flags){};
+    SynchCommand(CMD_TYPE type, uint32_t seq, GLOBAL_CB_NODE *gcb, VkPipelineStageFlags src_stage_flags,
+                 VkPipelineStageFlags dst_stage_flags)
+        : Command(type, seq, gcb, true), src_stage_flags(src_stage_flags), dst_stage_flags(dst_stage_flags){};
     VkPipelineStageFlags src_stage_flags;
     VkPipelineStageFlags dst_stage_flags;
     std::vector<VkMemoryBarrier> global_barriers;
