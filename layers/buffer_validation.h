@@ -144,8 +144,10 @@ void AddWriteMemoryAccess(CMD_TYPE cmd, std::vector<MemoryAccess> *mem_accesses,
 
 bool MemoryConflict(MemoryAccess const *initial_access, MemoryAccess const *second_access);
 
-bool ValidateMemoryAccesses(debug_report_data const *report_data, GLOBAL_CB_NODE const *cb_state, std::vector<MemoryAccess> *mem_accesses,
-                            const char *caller);
+bool ValidateMemoryAccesses(debug_report_data const *report_data, VkCommandBuffer command_buffer,
+                            std::unordered_map<VkDeviceMemory, std::vector<MemoryAccess>> &prev_mem_access_map,
+                            std::vector<MemoryAccess> *mem_accesses, const char *caller, bool pre_check,
+                            MemoryAccess **early_conflict, MemoryAccess **late_conflict);
 
 void AddCommandBufferCommandMemoryAccesses(GLOBAL_CB_NODE *cb_state, CMD_TYPE cmd, std::vector<MemoryAccess> *mem_accesses);
 
