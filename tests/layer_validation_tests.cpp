@@ -10477,6 +10477,98 @@ TEST_F(VkLayerTest, UpdateBufferRaWDependencyMissingBarrier) {
     vkDestroyPipelineLayout(m_device->device(), pipeline_layout, nullptr);
 }
 
+TEST_F(VkLayerTest, TwoCommandBufferUpdateBufferRaWDependencyMissingBarrier) {
+    TEST_DESCRIPTION(
+        "Update buffer in first command buffer then use buffer in CmdDrawIndirect in second command buffer with no barrier before "
+        "use");
+
+    ASSERT_NO_FATAL_FAILURE(Init());
+    ASSERT_NO_FATAL_FAILURE(InitRenderTarget());
+
+    VkCommandBuffer cmd_bufs[2];
+    VkCommandBufferAllocateInfo alloc_info;
+    alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    alloc_info.pNext = nullptr;
+    alloc_info.commandBufferCount = 2;
+    alloc_info.commandPool = m_commandPool->handle();
+    alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    vkAllocateCommandBuffers(m_device->device(), &alloc_info, cmd_bufs);
+
+    VkCommandBufferBeginInfo cbbi;
+    cbbi.pNext = nullptr;
+    cbbi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    cbbi.pInheritanceInfo = VK_NULL_HANDLE;
+    cbbi.flags = 0;
+    vkBeginCommandBuffer(cmd_bufs[0], &cbbi);
+
+    VkMemoryPropertyFlags reqs = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+    vk_testing::Buffer dst_buffer;
+    dst_buffer.init_as_dst(*m_device, (VkDeviceSize)1024, reqs);
+
+    VkDeviceSize dstOffset = 0;
+    uint32_t Data[] = {1, 2, 3, 4, 5, 6, 7, 8};
+    VkDeviceSize dataSize = sizeof(Data) / sizeof(uint32_t);
+    vkCmdUpdateBuffer(cmd_bufs[0], dst_buffer.handle(), dstOffset, dataSize, &Data);
+    // No barrier between here and use of buffer in follow-on CB should cause RaW issue
+    vkEndCommandBuffer(cmd_bufs[0]);
+
+    vkBeginCommandBuffer(cmd_bufs[1], &cbbi);
+    // Start renderpass for DrawIndirect
+    vkCmdBeginRenderPass(cmd_bufs[1], &m_renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+    // Bind gfx PSO to prevent unexpected errors
+    // Create PSO to be used for draw-time errors below
+    VkShaderObj vs(m_device, bindStateVertShaderText, VK_SHADER_STAGE_VERTEX_BIT, this);
+    VkShaderObj fs(m_device, bindStateFragShaderText, VK_SHADER_STAGE_FRAGMENT_BIT, this);
+    VkPipelineObj pipe(m_device);
+    pipe.AddShader(&vs);
+    pipe.AddShader(&fs);
+    VkViewport view_port = {};
+    m_viewports.push_back(view_port);
+    pipe.SetViewport(m_viewports);
+    VkRect2D rect = {};
+    m_scissors.push_back(rect);
+    pipe.SetScissor(m_scissors);
+    pipe.AddColorAttachment();
+    VkPipelineLayoutCreateInfo pipeline_layout_ci = {};
+    pipeline_layout_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipeline_layout_ci.setLayoutCount = 0;
+    pipeline_layout_ci.pSetLayouts = NULL;
+
+    VkPipelineLayout pipeline_layout;
+    VkResult err = vkCreatePipelineLayout(m_device->device(), &pipeline_layout_ci, NULL, &pipeline_layout);
+    ASSERT_VK_SUCCESS(err);
+    pipe.CreateVKPipeline(pipeline_layout, renderPass());
+
+    vkCmdBindPipeline(cmd_bufs[1], VK_PIPELINE_BIND_POINT_GRAPHICS, pipe.handle());
+    // Now issue indirect draw using buffer written in 1st cmd buffer
+    vkCmdDrawIndirect(cmd_bufs[1], dst_buffer.handle(), 0, 1, 0);
+    vkCmdEndRenderPass(cmd_bufs[1]);
+    vkEndCommandBuffer(cmd_bufs[1]);
+    // Now submit the CBs back-to-back and verify that error occurs
+    VkSubmitInfo submit_info[2] = {};
+    submit_info[0].sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submit_info[0].commandBufferCount = 2;
+    submit_info[0].pCommandBuffers = cmd_bufs;
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_WARNING_BIT_EXT, " causes a read after write conflict with ");
+    vkQueueSubmit(m_device->m_queue, 1, submit_info, VK_NULL_HANDLE);
+    m_errorMonitor->VerifyFound();
+    vkQueueWaitIdle(m_device->m_queue);
+
+    // Submit the same cmd buffers in two separate submits
+    submit_info[0].sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submit_info[0].commandBufferCount = 1;
+    submit_info[0].pCommandBuffers = &cmd_bufs[0];
+    submit_info[1].sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submit_info[1].commandBufferCount = 1;
+    submit_info[1].pCommandBuffers = &cmd_bufs[1];
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_WARNING_BIT_EXT, " causes a read after write conflict with ");
+    vkQueueSubmit(m_device->m_queue, 2, submit_info, VK_NULL_HANDLE);
+    m_errorMonitor->VerifyFound();
+    vkQueueWaitIdle(m_device->m_queue);
+
+    vkDestroyPipelineLayout(m_device->device(), pipeline_layout, nullptr);
+}
+
 TEST_F(VkLayerTest, ClearColorImageWithBadRange) {
     TEST_DESCRIPTION("Record clear color with an invalid VkImageSubresourceRange");
 
