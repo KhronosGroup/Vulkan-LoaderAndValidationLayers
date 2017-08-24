@@ -7037,6 +7037,10 @@ bool ValidateStageMasksAgainstQueueCapabilities(layer_data *dev_data, GLOBAL_CB_
 // If current barriers' srcMasks match with previous barriers destination masks, then incorporate the
 //  previous barrier src & dst Masks into our src/dst Masks & merge in all of the previous barriers.
 // Return "true" if any merge occurs, "false" otherwise
+// TODO: Need to analyze this more and verify that it's correct. There may be a bug here where previous
+//  barriers get hoisted to a current barrier, but can then be applied to mem accesses that follow the
+//  hoisted barriers. I think that's wrong and if so could potentially be fixed by tracking seq# (or ptr
+//  to cmd of origin) for barriers and check sequencing when clearing mem accesses.
 static bool MergeSynchCommands(const std::vector<SynchCommand *> &prev_synch_commands, SynchCommand *synch_command) {
     bool merge = false;
     for (const auto &psc : prev_synch_commands) {
