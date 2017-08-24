@@ -10330,6 +10330,178 @@ TEST_F(VkLayerTest, DrawWithBufferWaRandRaWConflicts) {
     vkDestroyPipelineLayout(m_device->device(), pipeline_layout, nullptr);
 }
 
+// This is a positive test to verify inter-CB memory access code is working correctly
+// CB0 writes a SBuff
+// CB1 has a synch for the write, copies SBuff to UBuff, and has a synch that doesn't affect copy
+// CB2 has a synch that chains w/ last synch from prev CB and a Draw that reads UBuff & writes SBuff
+TEST_F(VkPositiveLayerTest, MultiCBDrawWithBufferWaRandRaWSynchChain) {
+    TEST_DESCRIPTION(
+        "Create a sequence of 3 CBs that contain memory dependencies that are"
+        "cleared by synchs across CBs.");
+
+    m_errorMonitor->ExpectSuccess();
+    ASSERT_NO_FATAL_FAILURE(Init());
+    ASSERT_NO_FATAL_FAILURE(InitViewport());
+    ASSERT_NO_FATAL_FAILURE(InitRenderTarget());
+
+    VkCommandBuffer cmd_bufs[3];
+    VkCommandBufferAllocateInfo alloc_info;
+    alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    alloc_info.pNext = nullptr;
+    alloc_info.commandBufferCount = 3;
+    alloc_info.commandPool = m_commandPool->handle();
+    alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    vkAllocateCommandBuffers(m_device->device(), &alloc_info, cmd_bufs);
+
+    // First command buffer will write into storage buffer
+    VkDeviceSize buff_size = 1024;
+    uint32_t qfi = 0;
+    VkBufferCreateInfo bci = {};
+    bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bci.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    bci.size = buff_size;
+    bci.queueFamilyIndexCount = 1;
+    bci.pQueueFamilyIndices = &qfi;
+    VkMemoryPropertyFlags reqs = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    vk_testing::Buffer storage_buffer;
+    storage_buffer.init(*m_device, bci, reqs);
+    bci.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    vk_testing::Buffer uniform_buffer;
+    uniform_buffer.init(*m_device, bci, reqs);
+
+    VkCommandBufferBeginInfo cbbi;
+    cbbi.pNext = nullptr;
+    cbbi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    cbbi.pInheritanceInfo = VK_NULL_HANDLE;
+    cbbi.flags = 0;
+    vkBeginCommandBuffer(cmd_bufs[0], &cbbi);
+
+    VkDeviceSize offset = 0;
+    uint32_t num_elements = (uint32_t)buff_size / sizeof(uint32_t);  // Number of 32bit elements
+    std::vector<uint32_t> Data(num_elements, 0);
+    // Fill in data buffer
+    for (uint32_t i = 0; i < num_elements; ++i) {
+        Data[i] = i;
+    }
+    VkDeviceSize data_size = Data.size() * sizeof(uint32_t);
+    // Write data into storage buffer
+    vkCmdUpdateBuffer(cmd_bufs[0], storage_buffer.handle(), offset, data_size, Data.data());
+    vkEndCommandBuffer(cmd_bufs[0]);
+
+    // Second command buffer starts with global barrier to clear buffer update
+    vkBeginCommandBuffer(cmd_bufs[1], &cbbi);
+    VkMemoryBarrier mem_barrier = {};
+    mem_barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+    mem_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    mem_barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    vkCmdPipelineBarrier(cmd_bufs[1], VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 1, &mem_barrier, 0,
+                         nullptr, 0, nullptr);
+    // Copy storage buffer contents to uniform buffer
+    VkBufferCopy buff_copy = {0,  // srcOffset
+                              0,  // dstOffset
+                              buff_size};
+    vkCmdCopyBuffer(cmd_bufs[1], storage_buffer.handle(), uniform_buffer.handle(), 1, &buff_copy);
+    // Now add a synch that doesn't affect outstanding R&W, but will chain with synch from next cmd buffer
+    // TODO: Would like to create synch chain here to verify synch merge code. Initial attempts cause other errors
+    //    mem_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_TRANSFER_READ_BIT;
+    //    vkCmdPipelineBarrier(cmd_bufs[1], VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1,
+    //                         &mem_barrier, 0, nullptr, 0, nullptr);
+    vkEndCommandBuffer(cmd_bufs[1]);
+
+    // Last Cmd buffer has synch that should chain with previous synch to make buffer accesses visible
+    vkBeginCommandBuffer(cmd_bufs[2], &cbbi);
+    mem_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_TRANSFER_READ_BIT;
+    mem_barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_TRANSFER_READ_BIT;
+    vkCmdPipelineBarrier(cmd_bufs[2], VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 1, &mem_barrier, 0,
+                         nullptr, 0, nullptr);
+    OneOffDescriptorSet ds(m_device->device(), {
+                                                   {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL, nullptr},
+                                                   {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_ALL, nullptr},
+                                               });
+
+    VkPipelineLayoutCreateInfo pipeline_layout_ci = {};
+    pipeline_layout_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipeline_layout_ci.setLayoutCount = 1;
+    pipeline_layout_ci.pSetLayouts = &ds.layout_;
+
+    VkPipelineLayout pipeline_layout;
+    VkResult err = vkCreatePipelineLayout(m_device->device(), &pipeline_layout_ci, NULL, &pipeline_layout);
+    ASSERT_VK_SUCCESS(err);
+
+    VkDescriptorBufferInfo buff_info = {};
+    buff_info.buffer = uniform_buffer.handle();
+    buff_info.range = buff_size;
+    VkWriteDescriptorSet descriptor_write = {};
+    descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptor_write.dstBinding = 0;
+    descriptor_write.descriptorCount = 1;
+    descriptor_write.pTexelBufferView = nullptr;
+    descriptor_write.pBufferInfo = &buff_info;
+    descriptor_write.pImageInfo = nullptr;
+    descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptor_write.dstSet = ds.set_;
+    vkUpdateDescriptorSets(m_device->device(), 1, &descriptor_write, 0, NULL);
+    //
+    buff_info.buffer = storage_buffer.handle();
+    descriptor_write.dstBinding = 1;
+    descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    vkUpdateDescriptorSets(m_device->device(), 1, &descriptor_write, 0, NULL);
+
+    // Create PSO that uses the uniform buffers
+    char const *vsSource =
+        "#version 450\n"
+        "\n"
+        "void main(){\n"
+        "   gl_Position = vec4(1);\n"
+        "}\n";
+    char const *fsSource =
+        "#version 450\n"
+        "\n"
+        "layout(location=0) out vec4 color;\n"
+        "layout(set=0, binding=0) uniform block { vec4 read; };\n"
+        "layout(set=0, binding=1) buffer block { vec4 write; };\n"
+        "void main(){\n"
+        "   write = read;\n"
+        "   color = vec4(1);"
+        "}\n";
+    VkShaderObj vs(m_device, vsSource, VK_SHADER_STAGE_VERTEX_BIT, this);
+    VkShaderObj fs(m_device, fsSource, VK_SHADER_STAGE_FRAGMENT_BIT, this);
+
+    VkPipelineObj pipe(m_device);
+    pipe.AddShader(&vs);
+    pipe.AddShader(&fs);
+    pipe.AddColorAttachment();
+
+    err = pipe.CreateVKPipeline(pipeline_layout, renderPass());
+    ASSERT_VK_SUCCESS(err);
+    vkCmdBeginRenderPass(cmd_bufs[2], &m_renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    vkCmdBindPipeline(cmd_bufs[2], VK_PIPELINE_BIND_POINT_GRAPHICS, pipe.handle());
+    vkCmdBindDescriptorSets(cmd_bufs[2], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 0, 1, &ds.set_, 0, nullptr);
+
+    VkViewport viewport = {0, 0, 16, 16, 0, 1};
+    vkCmdSetViewport(cmd_bufs[2], 0, 1, &viewport);
+    VkRect2D scissor = {{0, 0}, {16, 16}};
+    vkCmdSetScissor(cmd_bufs[2], 0, 1, &scissor);
+    // Should now trigger RaW and WaR errors at Draw time
+    //    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_WARNING_BIT_EXT, " causes a read after write conflict with ");
+    //    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_WARNING_BIT_EXT, " causes a write after read conflict with ");
+    vkCmdDraw(cmd_bufs[2], 3, 1, 0, 0);
+    //    m_errorMonitor->VerifyFound();
+    vkCmdEndRenderPass(cmd_bufs[2]);
+    vkEndCommandBuffer(cmd_bufs[2]);
+
+    // Submit command buffers and verify no error
+    VkSubmitInfo submit_info = {};
+    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submit_info.commandBufferCount = 3;
+    submit_info.pCommandBuffers = cmd_bufs;
+    vkQueueSubmit(m_device->m_queue, 1, &submit_info, VK_NULL_HANDLE);
+    vkQueueWaitIdle(m_device->m_queue);
+    m_errorMonitor->VerifyNotFound();
+    vkDestroyPipelineLayout(m_device->device(), pipeline_layout, nullptr);
+}
+
 TEST_F(VkPositiveLayerTest, UpdateBufferRaWDependencyWithBarrier) {
     TEST_DESCRIPTION("Update buffer used in CmdDrawIndirect w/ barrier before use");
 
