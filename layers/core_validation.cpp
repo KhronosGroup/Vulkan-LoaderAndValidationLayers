@@ -2619,7 +2619,7 @@ static void PostCallRecordQueueSubmit(layer_data *dev_data, VkQueue queue, uint3
 }
 
 // Prototype
-void ReplayMemoryAccessCommands(layer_data *, std::vector<std::unique_ptr<Command>> *, uint32_t, uint32_t,
+void ReplayMemoryAccessCommands(layer_data *, std::vector<std::unique_ptr<Command>> *, size_t, size_t,
                                 std::unordered_map<VkDeviceMemory, std::vector<MemoryAccess>> *, std::vector<MemoryAccess> *);
 
 static bool PreCallValidateQueueSubmit(layer_data *dev_data, VkQueue queue, uint32_t submitCount, const VkSubmitInfo *pSubmits,
@@ -2641,7 +2641,7 @@ static bool PreCallValidateQueueSubmit(layer_data *dev_data, VkQueue queue, uint
     //  We have to copy the commands into local vector b/c we can't modify in the CBs themselves
     std::vector<std::unique_ptr<Command>> submit_cmds;
     std::vector<GLOBAL_CB_NODE *> replay_command_buffers;
-    uint32_t start_replay_index = 0, end_replay_index = 0;  // Indices that set bounds for replaying synch cmds
+    size_t start_replay_index = 0, end_replay_index = 0;    // Indices that set bounds for replaying synch cmds
     std::vector<MemoryAccess> cb_live_accesses;             // Store up mem accesses per CB that are still live (not visible)
     for (uint32_t submit_idx = 0; submit_idx < submitCount; submit_idx++) {
         const VkSubmitInfo *submit = &pSubmits[submit_idx];
@@ -7138,14 +7138,13 @@ static void ReplaySynchCommand(layer_data *device_data, SynchCommand *synch_cmd,
 // vector.
 //  This will include the previously conflicting late access, so the returned vector of live accesses can be checked against updated
 //  access_map.
-void ReplayMemoryAccessCommands(layer_data *device_data, std::vector<std::unique_ptr<Command>> *commands,
-                                uint32_t start_synch_index, uint32_t end_synch_index,
-                                std::unordered_map<VkDeviceMemory, std::vector<MemoryAccess>> *access_map,
+void ReplayMemoryAccessCommands(layer_data *device_data, std::vector<std::unique_ptr<Command>> *commands, size_t start_synch_index,
+                                size_t end_synch_index, std::unordered_map<VkDeviceMemory, std::vector<MemoryAccess>> *access_map,
                                 std::vector<MemoryAccess> *remaining_accesses) {
     if (commands->empty()) {
         return;  // early out
     }
-    auto index = 0;
+    size_t index = 0;
     // Store running list of synch commands for merge purposes
     std::vector<SynchCommand *> prev_synch_commands;
     Command *cmd_ptr = nullptr;

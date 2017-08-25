@@ -646,14 +646,14 @@ struct MemoryAccess {
 
 class Command {
    public:
-    Command(CMD_TYPE type, uint32_t seq, GLOBAL_CB_NODE *gcb) : type(type), seq(seq), cb_state(gcb), replay(false), synch(false){};
-    Command(CMD_TYPE type, uint32_t seq, GLOBAL_CB_NODE *gcb, bool synch)
+    Command(CMD_TYPE type, size_t seq, GLOBAL_CB_NODE *gcb) : type(type), seq(seq), cb_state(gcb), replay(false), synch(false){};
+    Command(CMD_TYPE type, size_t seq, GLOBAL_CB_NODE *gcb, bool synch)
         : type(type), seq(seq), cb_state(gcb), replay(false), synch(synch){};
     virtual ~Command() {}
     void AddMemoryAccess(MemoryAccess access) { mem_accesses.push_back(access); };
-    void SetSeq(uint32_t seq_num) { seq = seq_num; };
+    void SetSeq(size_t seq_num) { seq = seq_num; };
     CMD_TYPE type;
-    uint32_t seq;  // seq # of cmd in this cmd buffer
+    size_t seq;  // seq # of cmd in this cmd buffer
     GLOBAL_CB_NODE *cb_state;
     bool replay;                             // Track if cmd has been replayed during QueueSubmit
     bool synch;
@@ -662,7 +662,7 @@ class Command {
 
 class SynchCommand : public Command {
    public:
-    SynchCommand(CMD_TYPE type, uint32_t seq, GLOBAL_CB_NODE *gcb, VkPipelineStageFlags src_stage_flags,
+    SynchCommand(CMD_TYPE type, size_t seq, GLOBAL_CB_NODE *gcb, VkPipelineStageFlags src_stage_flags,
                  VkPipelineStageFlags dst_stage_flags)
         : Command(type, seq, gcb, true), src_stage_flags(src_stage_flags), dst_stage_flags(dst_stage_flags){};
     VkPipelineStageFlags src_stage_flags;
