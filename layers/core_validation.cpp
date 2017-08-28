@@ -2622,6 +2622,75 @@ static void PostCallRecordQueueSubmit(layer_data *dev_data, VkQueue queue, uint3
 void ReplayMemoryAccessCommands(layer_data *, std::vector<std::unique_ptr<Command>> *, size_t, size_t,
                                 std::unordered_map<VkDeviceMemory, std::vector<MemoryAccess>> *, std::vector<MemoryAccess> *);
 
+// Validate if the commands in the given cb_state conflict with any of the live memory access commands that were previously executed
+// by commands in the replay_command_buffers vector and are stored in the mem_access_map mem_access_map will be updated to include
+// any new live mem accesses from commands in the current cb_state
+bool ValidateInterCmdBufferMemoryAccesses(layer_data *dev_data, GLOBAL_CB_NODE *cb_state,
+                                          const std::vector<GLOBAL_CB_NODE *> &replay_command_buffers,
+                                          std::unordered_map<VkDeviceMemory, std::vector<MemoryAccess>> *mem_access_map) {
+    bool skip = false;
+    // TODO: Currently constructing vector of live mem accesses for this CB on-the-fly. Really should have this pre-built
+    std::vector<MemoryAccess> cb_live_accesses;
+    for (const auto &mem_access_pair : cb_state->mem_accesses.access_map) {
+        for (const auto &mem_access : mem_access_pair.second) {
+            if (!mem_access.Visible()) {
+                // No applicable barrier so access is live
+                cb_live_accesses.push_back(mem_access);
+            }
+        }
+    }
+    // Run a pre-check and if there's no conflicts, just record updated accesses
+    MemoryAccess *early_conflict = nullptr, *late_conflict = nullptr;
+    if (ValidateMemoryAccesses(dev_data->report_data, cb_state->commandBuffer, *mem_access_map, &cb_live_accesses,
+                               "vkQueueSubmit()", true, &early_conflict, &late_conflict)) {
+        std::vector<std::unique_ptr<Command>> submit_cmds;
+        size_t start_replay_index = 0, end_replay_index = 0;  // Indices that set bounds for replaying synch cmds
+        // This is the slow path
+        // We have to replay so copy cmd sequence up to this point into local vector
+        //  Then mark seq replay start & seq replay end indices which are seq cmds between conflicting mem accesses that must be
+        //  replayed
+        bool set_start_index = false, have_end_index = false;
+        for (const auto &cbstate : replay_command_buffers) {
+            for (const auto &cmd : cbstate->commands) {
+                if (cmd.get() == early_conflict->cmd) {
+                    set_start_index = true;  // We'll grab next synch cmd index
+                } else if (cmd.get() == late_conflict->cmd) {
+                    have_end_index = true;
+                }
+                if (cmd->synch) {
+                    if (set_start_index) {
+                        start_replay_index = submit_cmds.size();
+                    }
+                    if (!have_end_index) {  // We'll just keep grabbing synch commands until we find late conflict
+                                            // command above
+                        end_replay_index = submit_cmds.size();
+                    }
+                    SynchCommand *synch_cmd = static_cast<SynchCommand *>(cmd.get());
+                    submit_cmds.emplace_back(unique_ptr<SynchCommand>(new SynchCommand(*synch_cmd)));
+                } else {
+                    submit_cmds.emplace_back(unique_ptr<Command>(new Command(*cmd)));
+                }
+            }
+        }
+        if (start_replay_index && end_replay_index) {
+            // We have synch commands between the conflict to replay. Clear current access map as well as live accesses
+            // which will both be filled on replay.
+            mem_access_map->clear();
+            cb_live_accesses.clear();
+            ReplayMemoryAccessCommands(dev_data, &submit_cmds, start_replay_index, end_replay_index, mem_access_map,
+                                       &cb_live_accesses);
+        }
+        // Now that any synch replays are done, validate the mem accesses for real
+        skip |= ValidateMemoryAccesses(dev_data->report_data, cb_state->commandBuffer, *mem_access_map, &cb_live_accesses,
+                                       "vkQueueSubmit()", false, nullptr, nullptr);
+    }
+    // We always update the access map with any outstanding live accesses for checks going fwd
+    for (const auto &mem_access : cb_live_accesses) {
+        (*mem_access_map)[mem_access.location.mem].push_back(mem_access);
+    }
+    return skip;
+}
+
 static bool PreCallValidateQueueSubmit(layer_data *dev_data, VkQueue queue, uint32_t submitCount, const VkSubmitInfo *pSubmits,
                                        VkFence fence) {
     auto pFence = GetFenceNode(dev_data, fence);
@@ -2635,14 +2704,10 @@ static bool PreCallValidateQueueSubmit(layer_data *dev_data, VkQueue queue, uint
     vector<VkCommandBuffer> current_cmds;
     unordered_map<ImageSubresourcePair, IMAGE_LAYOUT_NODE> localImageLayoutMap;
     // Now verify each individual submit
-    // We'll store a map of submit's memory accesses as we replace cmd buffers to find cross-cmd-buffer memory conflicts
+    // We'll store a map of submit's memory accesses as we submit cmd buffers in order to find cross-cmd-buffer memory conflicts
     std::unordered_map<VkDeviceMemory, std::vector<MemoryAccess>> submit_mem_access_map;
     // If we hit a potential cross-CB synch conflict, we'll replay CBs up to point of conflict to verify if conflict is real
-    //  We have to copy the commands into local vector b/c we can't modify in the CBs themselves
-    std::vector<std::unique_ptr<Command>> submit_cmds;
     std::vector<GLOBAL_CB_NODE *> replay_command_buffers;
-    size_t start_replay_index = 0, end_replay_index = 0;    // Indices that set bounds for replaying synch cmds
-    std::vector<MemoryAccess> cb_live_accesses;             // Store up mem accesses per CB that are still live (not visible)
     for (uint32_t submit_idx = 0; submit_idx < submitCount; submit_idx++) {
         const VkSubmitInfo *submit = &pSubmits[submit_idx];
         for (uint32_t i = 0; i < submit->waitSemaphoreCount; ++i) {
@@ -2704,67 +2769,7 @@ static bool PreCallValidateQueueSubmit(layer_data *dev_data, VkQueue queue, uint
                 for (auto &function : cb_node->queryUpdates) {
                     skip |= function(queue);
                 }
-                // TODO : Move this block of memory access check code to its own function, adding in-line to start
-                // Gather all outstanding accesses for this cmd buffer into a vector (Should already have this data struct
-                // pre-built)
-                cb_live_accesses.clear();
-                for (const auto &mem_access_pair : cb_node->mem_accesses.access_map) {
-                    for (const auto &mem_access : mem_access_pair.second) {
-                        if (!mem_access.Visible()) {
-                            // No applicable barrier so access is live
-                            cb_live_accesses.push_back(mem_access);
-                        }
-                    }
-                }
-                // Run a pre-check and if there's no conflicts, just record updated accesses
-                MemoryAccess *early_conflict = nullptr, *late_conflict = nullptr;
-                if (!ValidateMemoryAccesses(dev_data->report_data, cb_node->commandBuffer, submit_mem_access_map, &cb_live_accesses,
-                                            "vkQueueSubmit()", true, &early_conflict, &late_conflict)) {
-                    // Record accesses for this CB into Submit access going fwd
-                    for (const auto &mem_access : cb_live_accesses) {
-                        submit_mem_access_map[mem_access.location.mem].push_back(mem_access);
-                    }
-                } else {  // We have a pre-check conflict so have to replay Cmds to verify if conflict is real or cleared by a
-                          // inter-CB synch
-                    // This is the slow path
-                    // We have to replay so copy cmd sequence up to this point into local vector
-                    //  Then mark seq replay start & seq replay end indices which are seq cmds between conflicting mem accesses that
-                    //  must be replayed
-                    bool set_start_index = false, have_end_index = false;
-                    for (const auto &cbstate : replay_command_buffers) {
-                        for (const auto &cmd : cbstate->commands) {
-                            if (cmd.get() == early_conflict->cmd) {
-                                set_start_index = true;  // We'll grab next synch cmd index
-                            } else if (cmd.get() == late_conflict->cmd) {
-                                have_end_index = true;
-                            }
-                            if (cmd->synch) {
-                                if (set_start_index) {
-                                    start_replay_index = submit_cmds.size();
-                                }
-                                if (!have_end_index) {  // We'll just keep grabbing synch commands until we find late conflict
-                                                        // command above
-                                    end_replay_index = submit_cmds.size();
-                                }
-                                SynchCommand *synch_cmd = static_cast<SynchCommand *>(cmd.get());
-                                submit_cmds.emplace_back(unique_ptr<SynchCommand>(new SynchCommand(*synch_cmd)));
-                            } else {
-                                submit_cmds.emplace_back(unique_ptr<Command>(new Command(*cmd)));
-                            }
-                        }
-                    }
-                    if (start_replay_index && end_replay_index) {
-                        // We have synch commands between the conflict to replay. Clear current access map as well as live accesses
-                        // which will both be filled on replay.
-                        submit_mem_access_map.clear();
-                        cb_live_accesses.clear();
-                        ReplayMemoryAccessCommands(dev_data, &submit_cmds, start_replay_index, end_replay_index,
-                                                   &submit_mem_access_map, &cb_live_accesses);
-                    }
-                    // Now that any synch replays are done, validate the mem accesses for real
-                    skip |= ValidateMemoryAccesses(dev_data->report_data, cb_node->commandBuffer, submit_mem_access_map,
-                                                   &cb_live_accesses, "vkQueueSubmit()", false, nullptr, nullptr);
-                }
+                skip |= ValidateInterCmdBufferMemoryAccesses(dev_data, cb_node, replay_command_buffers, &submit_mem_access_map);
             }
         }
     }
