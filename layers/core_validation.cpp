@@ -1145,8 +1145,6 @@ static void UpdateDrawState(layer_data *dev_data, GLOBAL_CB_NODE *cb_state, cons
             cvdescriptorset::DescriptorSet *descriptor_set = state.boundDescriptorSets[setIndex];
             // Bind this set and its active descriptor resources to the command buffer
             descriptor_set->BindCommandBuffer(cb_state, set_binding_pair.second);
-            // For given active slots record updated images & buffers
-            descriptor_set->GetStorageUpdates(set_binding_pair.second, &cb_state->updateBuffers, &cb_state->updateImages);
         }
     }
     if (pPipe->vertexBindingDescriptions.size() > 0) {
@@ -1716,6 +1714,9 @@ static void resetCB(layer_data *dev_data, const VkCommandBuffer cb) {
         pCB->activeSubpassContents = VK_SUBPASS_CONTENTS_INLINE;
         pCB->activeSubpass = 0;
         pCB->broken_bindings.clear();
+        pCB->commands.clear();
+        pCB->synch_commands.clear();
+        pCB->mem_accesses.reset();
         pCB->waitedEvents.clear();
         pCB->events.clear();
         pCB->writeEventsBeforeWait.clear();
@@ -1741,8 +1742,6 @@ static void resetCB(layer_data *dev_data, const VkCommandBuffer cb) {
             pSubCB->linkedCommandBuffers.erase(pCB);
         }
         pCB->linkedCommandBuffers.clear();
-        pCB->updateImages.clear();
-        pCB->updateBuffers.clear();
         clear_cmd_buf_and_mem_references(dev_data, pCB);
         pCB->queue_submit_functions.clear();
         pCB->cmd_execute_commands_functions.clear();
@@ -3991,6 +3990,13 @@ VKAPI_ATTR VkResult VKAPI_CALL CreateQueryPool(VkDevice device, const VkQueryPoo
         lock_guard_t lock(global_lock);
         QUERY_POOL_NODE *qp_node = &dev_data->queryPoolMap[*pQueryPool];
         qp_node->createInfo = *pCreateInfo;
+        // Count data elements per query for later size calculation
+        size_t data_count = 1;
+        if (VK_QUERY_TYPE_PIPELINE_STATISTICS == pCreateInfo->queryType) {
+            std::bitset<32> stat_bits(pCreateInfo->pipelineStatistics);
+            data_count = stat_bits.count();
+        }
+        qp_node->data_count = data_count;
     }
     return result;
 }
@@ -5602,8 +5608,10 @@ VKAPI_ATTR void VKAPI_CALL CmdBindVertexBuffers(VkCommandBuffer commandBuffer, u
 }
 
 // Expects global_lock to be held by caller
-static void MarkStoreImagesAndBuffersAsWritten(layer_data *dev_data, GLOBAL_CB_NODE *pCB) {
-    for (auto imageView : pCB->updateImages) {
+//  Mark write buffers & images as valid & record all of the memory accesses into access_map for CB
+static void UpdateDrawMemoryAccessState(layer_data *dev_data, GLOBAL_CB_NODE *cb_state, CMD_TYPE cmd,
+                                        std::vector<MemoryAccess> *mem_accesses) {
+    for (auto imageView : cb_state->mem_accesses.write_images) {
         auto view_state = GetImageViewState(dev_data, imageView);
         if (!view_state) continue;
 
@@ -5613,24 +5621,62 @@ static void MarkStoreImagesAndBuffersAsWritten(layer_data *dev_data, GLOBAL_CB_N
             SetImageMemoryValid(dev_data, image_state, true);
             return false;
         };
-        pCB->queue_submit_functions.push_back(function);
+        cb_state->queue_submit_functions.push_back(function);
     }
-    for (auto buffer : pCB->updateBuffers) {
+    for (auto buffer : cb_state->mem_accesses.write_buffers) {
         auto buffer_state = GetBufferState(dev_data, buffer);
         assert(buffer_state);
         std::function<bool()> function = [=]() {
             SetBufferMemoryValid(dev_data, buffer_state, true);
             return false;
         };
-        pCB->queue_submit_functions.push_back(function);
+        cb_state->queue_submit_functions.push_back(function);
+    }
+    AddCommandBufferCommandMemoryAccesses(cb_state, cmd, mem_accesses);
+}
+
+// Update mem_access_vector from r/w buffer/image sets in given DrawDispatchAccesses struct
+static void UpdateMemoryAccessVector(layer_data *device_data, CMD_TYPE cmd, std::vector<MemoryAccess> *mem_access_vector,
+                                     const DrawDispatchAccesses &dd_mem_accesses) {
+    // Parse through r/w sets and conservatively add MemAccesses across whole bindings
+    // TODO: Would like to limit these to actual size of updates where possible
+    for (const auto buffer : dd_mem_accesses.read_buffers) {
+        const auto &buff_state = GetBufferState(device_data, buffer);
+        if (buff_state) {
+            AddReadMemoryAccess(cmd, mem_access_vector, buff_state->binding, false);
+        }
+    }
+    for (const auto iv : dd_mem_accesses.read_images) {
+        const auto &iv_state = GetImageViewState(device_data, iv);
+        if (iv_state) {
+            const auto &img_state = GetImageState(device_data, iv_state->create_info.image);
+            if (img_state) {
+                AddReadMemoryAccess(cmd, mem_access_vector, img_state->binding, false);
+            }
+        }
+    }
+    for (const auto buffer : dd_mem_accesses.write_buffers) {
+        const auto &buff_state = GetBufferState(device_data, buffer);
+        if (buff_state) {
+            AddWriteMemoryAccess(cmd, mem_access_vector, buff_state->binding, false);
+        }
+    }
+    for (const auto iv : dd_mem_accesses.write_images) {
+        const auto &iv_state = GetImageViewState(device_data, iv);
+        if (iv_state) {
+            const auto &img_state = GetImageState(device_data, iv_state->create_info.image);
+            if (img_state) {
+                AddWriteMemoryAccess(cmd, mem_access_vector, img_state->binding, false);
+            }
+        }
     }
 }
 
 // Generic function to handle validation for all CmdDraw* type functions
 static bool ValidateCmdDrawType(layer_data *dev_data, VkCommandBuffer cmd_buffer, bool indexed, VkPipelineBindPoint bind_point,
-                                CMD_TYPE cmd_type, GLOBAL_CB_NODE **cb_state, const char *caller, VkQueueFlags queue_flags,
-                                UNIQUE_VALIDATION_ERROR_CODE queue_flag_code, UNIQUE_VALIDATION_ERROR_CODE msg_code,
-                                UNIQUE_VALIDATION_ERROR_CODE const dynamic_state_msg_code) {
+                                CMD_TYPE cmd_type, GLOBAL_CB_NODE **cb_state, std::vector<MemoryAccess> *mem_accesses,
+                                const char *caller, VkQueueFlags queue_flags, UNIQUE_VALIDATION_ERROR_CODE queue_flag_code,
+                                UNIQUE_VALIDATION_ERROR_CODE msg_code, UNIQUE_VALIDATION_ERROR_CODE const dynamic_state_msg_code) {
     bool skip = false;
     *cb_state = GetCBNode(dev_data, cmd_buffer);
     if (*cb_state) {
@@ -5639,91 +5685,127 @@ static bool ValidateCmdDrawType(layer_data *dev_data, VkCommandBuffer cmd_buffer
         skip |= ValidateDrawState(dev_data, *cb_state, indexed, bind_point, caller, dynamic_state_msg_code);
         skip |= (VK_PIPELINE_BIND_POINT_GRAPHICS == bind_point) ? outsideRenderPass(dev_data, *cb_state, caller, msg_code)
                                                                 : insideRenderPass(dev_data, *cb_state, caller, msg_code);
+        // Grab mem accesses for this draw & check for missing synchs
+        auto const &state = (*cb_state)->lastBound[bind_point];
+        PIPELINE_STATE *pPipe = state.pipeline_state;
+        if (VK_NULL_HANDLE != state.pipeline_layout.layout) {
+            DrawDispatchAccesses dd_mem_accesses;
+            for (const auto &set_binding_pair : pPipe->active_slots) {
+                uint32_t setIndex = set_binding_pair.first;
+                // Pull the set node
+                cvdescriptorset::DescriptorSet *descriptor_set = state.boundDescriptorSets[setIndex];
+                if (descriptor_set) {
+                    // For given active slots record updated images & buffers
+                    descriptor_set->GetReadWriteBuffersAndImages(set_binding_pair.second, &dd_mem_accesses.read_buffers,
+                                                                 &dd_mem_accesses.read_images, &dd_mem_accesses.write_buffers,
+                                                                 &dd_mem_accesses.write_images);
+                    UpdateMemoryAccessVector(dev_data, cmd_type, mem_accesses, dd_mem_accesses);
+                }
+            }
+            skip |= ValidateMemoryAccesses(dev_data->report_data, *cb_state, mem_accesses, caller);
+        }
     }
     return skip;
 }
 
 // Generic function to handle state update for all CmdDraw* and CmdDispatch* type functions
-static void UpdateStateCmdDrawDispatchType(layer_data *dev_data, GLOBAL_CB_NODE *cb_state, VkPipelineBindPoint bind_point) {
+static void UpdateStateCmdDrawDispatchType(layer_data *dev_data, GLOBAL_CB_NODE *cb_state, CMD_TYPE cmd,
+                                           VkPipelineBindPoint bind_point, std::vector<MemoryAccess> *mem_accesses) {
     UpdateDrawState(dev_data, cb_state, bind_point);
-    MarkStoreImagesAndBuffersAsWritten(dev_data, cb_state);
+    UpdateDrawMemoryAccessState(dev_data, cb_state, cmd, mem_accesses);
 }
 
 // Generic function to handle state update for all CmdDraw* type functions
-static void UpdateStateCmdDrawType(layer_data *dev_data, GLOBAL_CB_NODE *cb_state, VkPipelineBindPoint bind_point) {
-    UpdateStateCmdDrawDispatchType(dev_data, cb_state, bind_point);
+static void UpdateStateCmdDrawType(layer_data *dev_data, GLOBAL_CB_NODE *cb_state, CMD_TYPE cmd, VkPipelineBindPoint bind_point,
+                                   std::vector<MemoryAccess> *mem_accesses) {
+    UpdateStateCmdDrawDispatchType(dev_data, cb_state, cmd, bind_point, mem_accesses);
     updateResourceTrackingOnDraw(cb_state);
     cb_state->hasDrawCmd = true;
 }
 
 static bool PreCallValidateCmdDraw(layer_data *dev_data, VkCommandBuffer cmd_buffer, bool indexed, VkPipelineBindPoint bind_point,
-                                   GLOBAL_CB_NODE **cb_state, const char *caller) {
-    return ValidateCmdDrawType(dev_data, cmd_buffer, indexed, bind_point, CMD_DRAW, cb_state, caller, VK_QUEUE_GRAPHICS_BIT,
-                               VALIDATION_ERROR_1a202415, VALIDATION_ERROR_1a200017, VALIDATION_ERROR_1a200376);
+                                   GLOBAL_CB_NODE **cb_state, std::vector<MemoryAccess> *mem_accesses, const char *caller) {
+    return ValidateCmdDrawType(dev_data, cmd_buffer, indexed, bind_point, CMD_DRAW, cb_state, mem_accesses, caller,
+                               VK_QUEUE_GRAPHICS_BIT, VALIDATION_ERROR_1a202415, VALIDATION_ERROR_1a200017,
+                               VALIDATION_ERROR_1a200376);
 }
 
-static void PostCallRecordCmdDraw(layer_data *dev_data, GLOBAL_CB_NODE *cb_state, VkPipelineBindPoint bind_point) {
-    UpdateStateCmdDrawType(dev_data, cb_state, bind_point);
+static void PreCallRecordCmdDraw(layer_data *dev_data, GLOBAL_CB_NODE *cb_state, CMD_TYPE cmd, VkPipelineBindPoint bind_point,
+                                 std::vector<MemoryAccess> *mem_accesses) {
+    UpdateStateCmdDrawType(dev_data, cb_state, cmd, bind_point, mem_accesses);
 }
 
 VKAPI_ATTR void VKAPI_CALL CmdDraw(VkCommandBuffer commandBuffer, uint32_t vertexCount, uint32_t instanceCount,
                                    uint32_t firstVertex, uint32_t firstInstance) {
     layer_data *dev_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
     GLOBAL_CB_NODE *cb_state = nullptr;
+    std::vector<MemoryAccess> mem_accesses;
     unique_lock_t lock(global_lock);
-    bool skip = PreCallValidateCmdDraw(dev_data, commandBuffer, false, VK_PIPELINE_BIND_POINT_GRAPHICS, &cb_state, "vkCmdDraw()");
-    lock.unlock();
+    bool skip = PreCallValidateCmdDraw(dev_data, commandBuffer, false, VK_PIPELINE_BIND_POINT_GRAPHICS, &cb_state, &mem_accesses,
+                                       "vkCmdDraw()");
     if (!skip) {
-        dev_data->dispatch_table.CmdDraw(commandBuffer, vertexCount, instanceCount, firstVertex, firstInstance);
-        lock.lock();
-        PostCallRecordCmdDraw(dev_data, cb_state, VK_PIPELINE_BIND_POINT_GRAPHICS);
+        PreCallRecordCmdDraw(dev_data, cb_state, CMD_DRAW, VK_PIPELINE_BIND_POINT_GRAPHICS, &mem_accesses);
         lock.unlock();
+        dev_data->dispatch_table.CmdDraw(commandBuffer, vertexCount, instanceCount, firstVertex, firstInstance);
     }
 }
 
 static bool PreCallValidateCmdDrawIndexed(layer_data *dev_data, VkCommandBuffer cmd_buffer, bool indexed,
-                                          VkPipelineBindPoint bind_point, GLOBAL_CB_NODE **cb_state, const char *caller) {
-    return ValidateCmdDrawType(dev_data, cmd_buffer, indexed, bind_point, CMD_DRAWINDEXED, cb_state, caller, VK_QUEUE_GRAPHICS_BIT,
-                               VALIDATION_ERROR_1a402415, VALIDATION_ERROR_1a400017, VALIDATION_ERROR_1a40039c);
+                                          VkPipelineBindPoint bind_point, GLOBAL_CB_NODE **cb_state,
+                                          std::vector<MemoryAccess> *mem_accesses, const char *caller) {
+    return ValidateCmdDrawType(dev_data, cmd_buffer, indexed, bind_point, CMD_DRAWINDEXED, cb_state, mem_accesses, caller,
+                               VK_QUEUE_GRAPHICS_BIT, VALIDATION_ERROR_1a402415, VALIDATION_ERROR_1a400017,
+                               VALIDATION_ERROR_1a40039c);
 }
 
-static void PostCallRecordCmdDrawIndexed(layer_data *dev_data, GLOBAL_CB_NODE *cb_state, VkPipelineBindPoint bind_point) {
-    UpdateStateCmdDrawType(dev_data, cb_state, bind_point);
+static void PreCallRecordCmdDrawIndexed(layer_data *dev_data, GLOBAL_CB_NODE *cb_state, CMD_TYPE cmd,
+                                        VkPipelineBindPoint bind_point, std::vector<MemoryAccess> *mem_accesses) {
+    UpdateStateCmdDrawType(dev_data, cb_state, cmd, bind_point, mem_accesses);
 }
 
 VKAPI_ATTR void VKAPI_CALL CmdDrawIndexed(VkCommandBuffer commandBuffer, uint32_t indexCount, uint32_t instanceCount,
                                           uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance) {
     layer_data *dev_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
     GLOBAL_CB_NODE *cb_state = nullptr;
+    std::vector<MemoryAccess> mem_accesses;
     unique_lock_t lock(global_lock);
     bool skip = PreCallValidateCmdDrawIndexed(dev_data, commandBuffer, true, VK_PIPELINE_BIND_POINT_GRAPHICS, &cb_state,
-                                              "vkCmdDrawIndexed()");
-    lock.unlock();
+                                              &mem_accesses, "vkCmdDrawIndexed()");
     if (!skip) {
-        dev_data->dispatch_table.CmdDrawIndexed(commandBuffer, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
-        lock.lock();
-        PostCallRecordCmdDrawIndexed(dev_data, cb_state, VK_PIPELINE_BIND_POINT_GRAPHICS);
+        PreCallRecordCmdDrawIndexed(dev_data, cb_state, CMD_DRAWINDEXED, VK_PIPELINE_BIND_POINT_GRAPHICS, &mem_accesses);
         lock.unlock();
+        dev_data->dispatch_table.CmdDrawIndexed(commandBuffer, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
     }
 }
 
 static bool PreCallValidateCmdDrawIndirect(layer_data *dev_data, VkCommandBuffer cmd_buffer, VkBuffer buffer, bool indexed,
                                            VkPipelineBindPoint bind_point, GLOBAL_CB_NODE **cb_state, BUFFER_STATE **buffer_state,
-                                           const char *caller) {
+                                           std::vector<MemoryAccess> *mem_accesses, VkDeviceSize offset, uint32_t count,
+                                           uint32_t stride, const char *caller) {
     bool skip =
-        ValidateCmdDrawType(dev_data, cmd_buffer, indexed, bind_point, CMD_DRAWINDIRECT, cb_state, caller, VK_QUEUE_GRAPHICS_BIT,
-                            VALIDATION_ERROR_1aa02415, VALIDATION_ERROR_1aa00017, VALIDATION_ERROR_1aa003cc);
+        ValidateCmdDrawType(dev_data, cmd_buffer, indexed, bind_point, CMD_DRAWINDIRECT, cb_state, mem_accesses, caller,
+                            VK_QUEUE_GRAPHICS_BIT, VALIDATION_ERROR_1aa02415, VALIDATION_ERROR_1aa00017, VALIDATION_ERROR_1aa003cc);
     *buffer_state = GetBufferState(dev_data, buffer);
     skip |= ValidateMemoryIsBoundToBuffer(dev_data, *buffer_state, caller, VALIDATION_ERROR_1aa003b4);
+    // TODO: This is temp code to test specific case that needs to be generalized for memory dependency checks
+    // First add mem read for indirect buffer
+    // make sure size is non-zero for count of 1
+    auto size = stride * (count-1) + sizeof(VkDrawIndirectCommand);
+    AddReadMemoryAccess(CMD_DRAWINDIRECT, mem_accesses, {(*buffer_state)->binding.mem, offset, size}, false);
+    // TODO: Need a special draw mem access call here (or in existing shared function) that analyzes state and adds related R/W
+    // accesses
+    skip |= ValidateMemoryAccesses(dev_data->report_data, *cb_state, mem_accesses, caller);
     // TODO: If the drawIndirectFirstInstance feature is not enabled, all the firstInstance members of the
     // VkDrawIndirectCommand structures accessed by this command must be 0, which will require access to the contents of 'buffer'.
     return skip;
 }
 
-static void PostCallRecordCmdDrawIndirect(layer_data *dev_data, GLOBAL_CB_NODE *cb_state, VkPipelineBindPoint bind_point,
-                                          BUFFER_STATE *buffer_state) {
-    UpdateStateCmdDrawType(dev_data, cb_state, bind_point);
+static void PreCallRecordCmdDrawIndirect(layer_data *dev_data, GLOBAL_CB_NODE *cb_state, VkPipelineBindPoint bind_point,
+                                         BUFFER_STATE *buffer_state, std::vector<MemoryAccess> *mem_accesses) {
+    UpdateStateCmdDrawType(dev_data, cb_state, CMD_DRAWINDIRECT, bind_point, mem_accesses);
     AddCommandBufferBindingBuffer(dev_data, cb_state, buffer_state);
+    // TODO: MemoryAccess can be merged with memory binding tracking
+    AddCommandBufferCommandMemoryAccesses(cb_state, CMD_DRAWINDIRECT, mem_accesses);
 }
 
 VKAPI_ATTR void VKAPI_CALL CmdDrawIndirect(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, uint32_t count,
@@ -5731,23 +5813,23 @@ VKAPI_ATTR void VKAPI_CALL CmdDrawIndirect(VkCommandBuffer commandBuffer, VkBuff
     layer_data *dev_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
     GLOBAL_CB_NODE *cb_state = nullptr;
     BUFFER_STATE *buffer_state = nullptr;
+    std::vector<MemoryAccess> mem_accesses;
     unique_lock_t lock(global_lock);
     bool skip = PreCallValidateCmdDrawIndirect(dev_data, commandBuffer, buffer, false, VK_PIPELINE_BIND_POINT_GRAPHICS, &cb_state,
-                                               &buffer_state, "vkCmdDrawIndirect()");
-    lock.unlock();
+                                               &buffer_state, &mem_accesses, offset, count, stride, "vkCmdDrawIndirect()");
     if (!skip) {
-        dev_data->dispatch_table.CmdDrawIndirect(commandBuffer, buffer, offset, count, stride);
-        lock.lock();
-        PostCallRecordCmdDrawIndirect(dev_data, cb_state, VK_PIPELINE_BIND_POINT_GRAPHICS, buffer_state);
+        PreCallRecordCmdDrawIndirect(dev_data, cb_state, VK_PIPELINE_BIND_POINT_GRAPHICS, buffer_state, &mem_accesses);
         lock.unlock();
+        dev_data->dispatch_table.CmdDrawIndirect(commandBuffer, buffer, offset, count, stride);
     }
 }
 
 static bool PreCallValidateCmdDrawIndexedIndirect(layer_data *dev_data, VkCommandBuffer cmd_buffer, VkBuffer buffer, bool indexed,
                                                   VkPipelineBindPoint bind_point, GLOBAL_CB_NODE **cb_state,
-                                                  BUFFER_STATE **buffer_state, const char *caller) {
+                                                  std::vector<MemoryAccess> *mem_accesses, BUFFER_STATE **buffer_state,
+                                                  const char *caller) {
     bool skip =
-        ValidateCmdDrawType(dev_data, cmd_buffer, indexed, bind_point, CMD_DRAWINDEXEDINDIRECT, cb_state, caller,
+        ValidateCmdDrawType(dev_data, cmd_buffer, indexed, bind_point, CMD_DRAWINDEXEDINDIRECT, cb_state, mem_accesses, caller,
                             VK_QUEUE_GRAPHICS_BIT, VALIDATION_ERROR_1a602415, VALIDATION_ERROR_1a600017, VALIDATION_ERROR_1a600434);
     *buffer_state = GetBufferState(dev_data, buffer);
     skip |= ValidateMemoryIsBoundToBuffer(dev_data, *buffer_state, caller, VALIDATION_ERROR_1a60041c);
@@ -5757,9 +5839,9 @@ static bool PreCallValidateCmdDrawIndexedIndirect(layer_data *dev_data, VkComman
     return skip;
 }
 
-static void PostCallRecordCmdDrawIndexedIndirect(layer_data *dev_data, GLOBAL_CB_NODE *cb_state, VkPipelineBindPoint bind_point,
-                                                 BUFFER_STATE *buffer_state) {
-    UpdateStateCmdDrawType(dev_data, cb_state, bind_point);
+static void PreCallRecordCmdDrawIndexedIndirect(layer_data *dev_data, GLOBAL_CB_NODE *cb_state, VkPipelineBindPoint bind_point,
+                                                BUFFER_STATE *buffer_state, std::vector<MemoryAccess> *mem_accesses) {
+    UpdateStateCmdDrawType(dev_data, cb_state, CMD_DRAWINDEXEDINDIRECT, bind_point, mem_accesses);
     AddCommandBufferBindingBuffer(dev_data, cb_state, buffer_state);
 }
 
@@ -5768,57 +5850,59 @@ VKAPI_ATTR void VKAPI_CALL CmdDrawIndexedIndirect(VkCommandBuffer commandBuffer,
     layer_data *dev_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
     GLOBAL_CB_NODE *cb_state = nullptr;
     BUFFER_STATE *buffer_state = nullptr;
+    std::vector<MemoryAccess> mem_accesses;
     unique_lock_t lock(global_lock);
     bool skip = PreCallValidateCmdDrawIndexedIndirect(dev_data, commandBuffer, buffer, true, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                                      &cb_state, &buffer_state, "vkCmdDrawIndexedIndirect()");
-    lock.unlock();
+                                                      &cb_state, &mem_accesses, &buffer_state, "vkCmdDrawIndexedIndirect()");
     if (!skip) {
-        dev_data->dispatch_table.CmdDrawIndexedIndirect(commandBuffer, buffer, offset, count, stride);
-        lock.lock();
-        PostCallRecordCmdDrawIndexedIndirect(dev_data, cb_state, VK_PIPELINE_BIND_POINT_GRAPHICS, buffer_state);
+        PreCallRecordCmdDrawIndexedIndirect(dev_data, cb_state, VK_PIPELINE_BIND_POINT_GRAPHICS, buffer_state, &mem_accesses);
         lock.unlock();
+        dev_data->dispatch_table.CmdDrawIndexedIndirect(commandBuffer, buffer, offset, count, stride);
     }
 }
 
 static bool PreCallValidateCmdDispatch(layer_data *dev_data, VkCommandBuffer cmd_buffer, bool indexed,
-                                       VkPipelineBindPoint bind_point, GLOBAL_CB_NODE **cb_state, const char *caller) {
-    return ValidateCmdDrawType(dev_data, cmd_buffer, indexed, bind_point, CMD_DISPATCH, cb_state, caller, VK_QUEUE_COMPUTE_BIT,
-                               VALIDATION_ERROR_19c02415, VALIDATION_ERROR_19c00017, VALIDATION_ERROR_UNDEFINED);
+                                       VkPipelineBindPoint bind_point, GLOBAL_CB_NODE **cb_state,
+                                       std::vector<MemoryAccess> *mem_accesses, const char *caller) {
+    return ValidateCmdDrawType(dev_data, cmd_buffer, indexed, bind_point, CMD_DISPATCH, cb_state, mem_accesses, caller,
+                               VK_QUEUE_COMPUTE_BIT, VALIDATION_ERROR_19c02415, VALIDATION_ERROR_19c00017,
+                               VALIDATION_ERROR_UNDEFINED);
 }
 
-static void PostCallRecordCmdDispatch(layer_data *dev_data, GLOBAL_CB_NODE *cb_state, VkPipelineBindPoint bind_point) {
-    UpdateStateCmdDrawDispatchType(dev_data, cb_state, bind_point);
+static void PreCallRecordCmdDispatch(layer_data *dev_data, GLOBAL_CB_NODE *cb_state, VkPipelineBindPoint bind_point,
+                                     std::vector<MemoryAccess> *mem_accesses) {
+    UpdateStateCmdDrawDispatchType(dev_data, cb_state, CMD_DISPATCH, bind_point, mem_accesses);
 }
 
 VKAPI_ATTR void VKAPI_CALL CmdDispatch(VkCommandBuffer commandBuffer, uint32_t x, uint32_t y, uint32_t z) {
     layer_data *dev_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
     GLOBAL_CB_NODE *cb_state = nullptr;
+    std::vector<MemoryAccess> mem_accesses;
     unique_lock_t lock(global_lock);
-    bool skip =
-        PreCallValidateCmdDispatch(dev_data, commandBuffer, false, VK_PIPELINE_BIND_POINT_COMPUTE, &cb_state, "vkCmdDispatch()");
-    lock.unlock();
+    bool skip = PreCallValidateCmdDispatch(dev_data, commandBuffer, false, VK_PIPELINE_BIND_POINT_COMPUTE, &cb_state, &mem_accesses,
+                                           "vkCmdDispatch()");
     if (!skip) {
-        dev_data->dispatch_table.CmdDispatch(commandBuffer, x, y, z);
-        lock.lock();
-        PostCallRecordCmdDispatch(dev_data, cb_state, VK_PIPELINE_BIND_POINT_COMPUTE);
+        PreCallRecordCmdDispatch(dev_data, cb_state, VK_PIPELINE_BIND_POINT_COMPUTE, &mem_accesses);
         lock.unlock();
+        dev_data->dispatch_table.CmdDispatch(commandBuffer, x, y, z);
     }
 }
 
 static bool PreCallValidateCmdDispatchIndirect(layer_data *dev_data, VkCommandBuffer cmd_buffer, VkBuffer buffer, bool indexed,
                                                VkPipelineBindPoint bind_point, GLOBAL_CB_NODE **cb_state,
-                                               BUFFER_STATE **buffer_state, const char *caller) {
+                                               BUFFER_STATE **buffer_state, std::vector<MemoryAccess> *mem_accesses,
+                                               const char *caller) {
     bool skip =
-        ValidateCmdDrawType(dev_data, cmd_buffer, indexed, bind_point, CMD_DISPATCHINDIRECT, cb_state, caller, VK_QUEUE_COMPUTE_BIT,
-                            VALIDATION_ERROR_1a002415, VALIDATION_ERROR_1a000017, VALIDATION_ERROR_UNDEFINED);
+        ValidateCmdDrawType(dev_data, cmd_buffer, indexed, bind_point, CMD_DISPATCHINDIRECT, cb_state, mem_accesses, caller,
+                            VK_QUEUE_COMPUTE_BIT, VALIDATION_ERROR_1a002415, VALIDATION_ERROR_1a000017, VALIDATION_ERROR_UNDEFINED);
     *buffer_state = GetBufferState(dev_data, buffer);
     skip |= ValidateMemoryIsBoundToBuffer(dev_data, *buffer_state, caller, VALIDATION_ERROR_1a000322);
     return skip;
 }
 
-static void PostCallRecordCmdDispatchIndirect(layer_data *dev_data, GLOBAL_CB_NODE *cb_state, VkPipelineBindPoint bind_point,
-                                              BUFFER_STATE *buffer_state) {
-    UpdateStateCmdDrawDispatchType(dev_data, cb_state, bind_point);
+static void PreCallRecordCmdDispatchIndirect(layer_data *dev_data, GLOBAL_CB_NODE *cb_state, VkPipelineBindPoint bind_point,
+                                             BUFFER_STATE *buffer_state, std::vector<MemoryAccess> *mem_accesses) {
+    UpdateStateCmdDrawDispatchType(dev_data, cb_state, CMD_DISPATCHINDIRECT, bind_point, mem_accesses);
     AddCommandBufferBindingBuffer(dev_data, cb_state, buffer_state);
 }
 
@@ -5826,21 +5910,21 @@ VKAPI_ATTR void VKAPI_CALL CmdDispatchIndirect(VkCommandBuffer commandBuffer, Vk
     layer_data *dev_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
     GLOBAL_CB_NODE *cb_state = nullptr;
     BUFFER_STATE *buffer_state = nullptr;
+    std::vector<MemoryAccess> mem_accesses;
     unique_lock_t lock(global_lock);
     bool skip = PreCallValidateCmdDispatchIndirect(dev_data, commandBuffer, buffer, false, VK_PIPELINE_BIND_POINT_COMPUTE,
-                                                   &cb_state, &buffer_state, "vkCmdDispatchIndirect()");
-    lock.unlock();
+                                                   &cb_state, &buffer_state, &mem_accesses, "vkCmdDispatchIndirect()");
     if (!skip) {
-        dev_data->dispatch_table.CmdDispatchIndirect(commandBuffer, buffer, offset);
-        lock.lock();
-        PostCallRecordCmdDispatchIndirect(dev_data, cb_state, VK_PIPELINE_BIND_POINT_COMPUTE, buffer_state);
+        PreCallRecordCmdDispatchIndirect(dev_data, cb_state, VK_PIPELINE_BIND_POINT_COMPUTE, buffer_state, &mem_accesses);
         lock.unlock();
+        dev_data->dispatch_table.CmdDispatchIndirect(commandBuffer, buffer, offset);
     }
 }
 
 VKAPI_ATTR void VKAPI_CALL CmdCopyBuffer(VkCommandBuffer commandBuffer, VkBuffer srcBuffer, VkBuffer dstBuffer,
                                          uint32_t regionCount, const VkBufferCopy *pRegions) {
     layer_data *device_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
+    std::vector<MemoryAccess> mem_accesses;
     unique_lock_t lock(global_lock);
 
     auto cb_node = GetCBNode(device_data, commandBuffer);
@@ -5848,9 +5932,10 @@ VKAPI_ATTR void VKAPI_CALL CmdCopyBuffer(VkCommandBuffer commandBuffer, VkBuffer
     auto dst_buffer_state = GetBufferState(device_data, dstBuffer);
 
     if (cb_node && src_buffer_state && dst_buffer_state) {
-        bool skip = PreCallValidateCmdCopyBuffer(device_data, cb_node, src_buffer_state, dst_buffer_state);
+        bool skip = PreCallValidateCmdCopyBuffer(device_data, cb_node, src_buffer_state, dst_buffer_state, regionCount, pRegions,
+                                                 &mem_accesses);
         if (!skip) {
-            PreCallRecordCmdCopyBuffer(device_data, cb_node, src_buffer_state, dst_buffer_state);
+            PreCallRecordCmdCopyBuffer(device_data, cb_node, src_buffer_state, dst_buffer_state, &mem_accesses);
             lock.unlock();
             device_data->dispatch_table.CmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, regionCount, pRegions);
         }
@@ -5865,6 +5950,7 @@ VKAPI_ATTR void VKAPI_CALL CmdCopyImage(VkCommandBuffer commandBuffer, VkImage s
                                         const VkImageCopy *pRegions) {
     bool skip = false;
     layer_data *device_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
+    std::vector<MemoryAccess> mem_accesses;
     unique_lock_t lock(global_lock);
 
     auto cb_node = GetCBNode(device_data, commandBuffer);
@@ -5872,10 +5958,10 @@ VKAPI_ATTR void VKAPI_CALL CmdCopyImage(VkCommandBuffer commandBuffer, VkImage s
     auto dst_image_state = GetImageState(device_data, dstImage);
     if (cb_node && src_image_state && dst_image_state) {
         skip = PreCallValidateCmdCopyImage(device_data, cb_node, src_image_state, dst_image_state, regionCount, pRegions,
-                                           srcImageLayout, dstImageLayout);
+                                           srcImageLayout, dstImageLayout, &mem_accesses);
         if (!skip) {
             PreCallRecordCmdCopyImage(device_data, cb_node, src_image_state, dst_image_state, regionCount, pRegions, srcImageLayout,
-                                      dstImageLayout);
+                                      dstImageLayout, &mem_accesses);
             lock.unlock();
             device_data->dispatch_table.CmdCopyImage(commandBuffer, srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount,
                                                      pRegions);
@@ -5904,16 +5990,18 @@ VKAPI_ATTR void VKAPI_CALL CmdBlitImage(VkCommandBuffer commandBuffer, VkImage s
                                         VkImage dstImage, VkImageLayout dstImageLayout, uint32_t regionCount,
                                         const VkImageBlit *pRegions, VkFilter filter) {
     layer_data *dev_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
+    std::vector<MemoryAccess> mem_accesses;
     unique_lock_t lock(global_lock);
 
     auto cb_node = GetCBNode(dev_data, commandBuffer);
     auto src_image_state = GetImageState(dev_data, srcImage);
     auto dst_image_state = GetImageState(dev_data, dstImage);
 
-    bool skip = PreCallValidateCmdBlitImage(dev_data, cb_node, src_image_state, dst_image_state, regionCount, pRegions, filter);
+    bool skip = PreCallValidateCmdBlitImage(dev_data, cb_node, src_image_state, dst_image_state, regionCount, pRegions, filter,
+                                            &mem_accesses);
 
     if (!skip) {
-        PreCallRecordCmdBlitImage(dev_data, cb_node, src_image_state, dst_image_state);
+        PreCallRecordCmdBlitImage(dev_data, cb_node, src_image_state, dst_image_state, &mem_accesses);
         lock.unlock();
         dev_data->dispatch_table.CmdBlitImage(commandBuffer, srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount,
                                               pRegions, filter);
@@ -5970,20 +6058,30 @@ VKAPI_ATTR void VKAPI_CALL CmdCopyImageToBuffer(VkCommandBuffer commandBuffer, V
     }
 }
 
-static bool PreCallCmdUpdateBuffer(layer_data *device_data, const GLOBAL_CB_NODE *cb_state, const BUFFER_STATE *dst_buffer_state) {
+static bool PreCallCmdUpdateBuffer(layer_data *device_data, VkCommandBuffer commandBuffer, VkBuffer dstBuffer, VkDeviceSize offset,
+                                   VkDeviceSize size, GLOBAL_CB_NODE **cb_state, BUFFER_STATE **dst_buffer_state,
+                                   std::vector<MemoryAccess> *mem_accesses) {
     bool skip = false;
-    skip |= ValidateMemoryIsBoundToBuffer(device_data, dst_buffer_state, "vkCmdUpdateBuffer()", VALIDATION_ERROR_1e400046);
+    *cb_state = GetCBNode(device_data, commandBuffer);
+    assert(*cb_state);
+    *dst_buffer_state = GetBufferState(device_data, dstBuffer);
+    assert(*dst_buffer_state);
+    skip |= ValidateMemoryIsBoundToBuffer(device_data, *dst_buffer_state, "vkCmdUpdateBuffer()", VALIDATION_ERROR_1e400046);
     // Validate that DST buffer has correct usage flags set
-    skip |= ValidateBufferUsageFlags(device_data, dst_buffer_state, VK_BUFFER_USAGE_TRANSFER_DST_BIT, true,
+    skip |= ValidateBufferUsageFlags(device_data, *dst_buffer_state, VK_BUFFER_USAGE_TRANSFER_DST_BIT, true,
                                      VALIDATION_ERROR_1e400044, "vkCmdUpdateBuffer()", "VK_BUFFER_USAGE_TRANSFER_DST_BIT");
-    skip |= ValidateCmdQueueFlags(device_data, cb_state, "vkCmdUpdateBuffer()",
+    skip |= ValidateCmdQueueFlags(device_data, *cb_state, "vkCmdUpdateBuffer()",
                                   VK_QUEUE_TRANSFER_BIT | VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT, VALIDATION_ERROR_1e402415);
-    skip |= ValidateCmd(device_data, cb_state, CMD_UPDATEBUFFER, "vkCmdUpdateBuffer()");
-    skip |= insideRenderPass(device_data, cb_state, "vkCmdUpdateBuffer()", VALIDATION_ERROR_1e400017);
+    skip |= ValidateCmd(device_data, *cb_state, CMD_UPDATEBUFFER, "vkCmdUpdateBuffer()");
+    skip |= insideRenderPass(device_data, *cb_state, "vkCmdUpdateBuffer()", VALIDATION_ERROR_1e400017);
+    // Add mem access for writing buffer
+    AddWriteMemoryAccess(CMD_UPDATEBUFFER, mem_accesses, (*dst_buffer_state)->binding, true);
+    skip |= ValidateMemoryAccesses(device_data->report_data, *cb_state, mem_accesses, "vkCmdUpdateBuffer()");
     return skip;
 }
 
-static void PostCallRecordCmdUpdateBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_state, BUFFER_STATE *dst_buffer_state) {
+static void PostCallRecordCmdUpdateBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_state, BUFFER_STATE *dst_buffer_state,
+                                          std::vector<MemoryAccess> *mem_accesses) {
     // Update bindings between buffer and cmd buffer
     AddCommandBufferBindingBuffer(device_data, cb_state, dst_buffer_state);
     std::function<bool()> function = [=]() {
@@ -5991,24 +6089,24 @@ static void PostCallRecordCmdUpdateBuffer(layer_data *device_data, GLOBAL_CB_NOD
         return false;
     };
     cb_state->queue_submit_functions.push_back(function);
+    AddCommandBufferCommandMemoryAccesses(cb_state, CMD_UPDATEBUFFER, mem_accesses);
 }
 
 VKAPI_ATTR void VKAPI_CALL CmdUpdateBuffer(VkCommandBuffer commandBuffer, VkBuffer dstBuffer, VkDeviceSize dstOffset,
                                            VkDeviceSize dataSize, const uint32_t *pData) {
     bool skip = false;
     layer_data *dev_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
+    GLOBAL_CB_NODE *cb_state = nullptr;
+    BUFFER_STATE *dst_buff_state = nullptr;
+    std::vector<MemoryAccess> mem_accesses;
     unique_lock_t lock(global_lock);
-
-    auto cb_state = GetCBNode(dev_data, commandBuffer);
-    assert(cb_state);
-    auto dst_buff_state = GetBufferState(dev_data, dstBuffer);
-    assert(dst_buff_state);
-    skip |= PreCallCmdUpdateBuffer(dev_data, cb_state, dst_buff_state);
+    skip |=
+        PreCallCmdUpdateBuffer(dev_data, commandBuffer, dstBuffer, dstOffset, dataSize, &cb_state, &dst_buff_state, &mem_accesses);
     lock.unlock();
     if (!skip) {
         dev_data->dispatch_table.CmdUpdateBuffer(commandBuffer, dstBuffer, dstOffset, dataSize, pData);
         lock.lock();
-        PostCallRecordCmdUpdateBuffer(dev_data, cb_state, dst_buff_state);
+        PostCallRecordCmdUpdateBuffer(dev_data, cb_state, dst_buff_state, &mem_accesses);
         lock.unlock();
     }
 }
@@ -6016,14 +6114,15 @@ VKAPI_ATTR void VKAPI_CALL CmdUpdateBuffer(VkCommandBuffer commandBuffer, VkBuff
 VKAPI_ATTR void VKAPI_CALL CmdFillBuffer(VkCommandBuffer commandBuffer, VkBuffer dstBuffer, VkDeviceSize dstOffset,
                                          VkDeviceSize size, uint32_t data) {
     layer_data *device_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
+    std::vector<MemoryAccess> mem_accesses;
     unique_lock_t lock(global_lock);
     auto cb_node = GetCBNode(device_data, commandBuffer);
     auto buffer_state = GetBufferState(device_data, dstBuffer);
 
     if (cb_node && buffer_state) {
-        bool skip = PreCallValidateCmdFillBuffer(device_data, cb_node, buffer_state);
+        bool skip = PreCallValidateCmdFillBuffer(device_data, cb_node, buffer_state, dstOffset, size, &mem_accesses);
         if (!skip) {
-            PreCallRecordCmdFillBuffer(device_data, cb_node, buffer_state);
+            PreCallRecordCmdFillBuffer(device_data, cb_node, buffer_state, &mem_accesses);
             lock.unlock();
             device_data->dispatch_table.CmdFillBuffer(commandBuffer, dstBuffer, dstOffset, size, data);
         }
@@ -6038,22 +6137,34 @@ VKAPI_ATTR void VKAPI_CALL CmdClearAttachments(VkCommandBuffer commandBuffer, ui
                                                const VkClearRect *pRects) {
     bool skip = false;
     layer_data *dev_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
-    {
-        lock_guard_t lock(global_lock);
-        skip = PreCallValidateCmdClearAttachments(dev_data, commandBuffer, attachmentCount, pAttachments, rectCount, pRects);
+    std::vector<MemoryAccess> mem_accesses;
+    unique_lock_t lock(global_lock);
+    auto cb_state = GetCBNode(dev_data, commandBuffer);
+    if (cb_state) {
+        skip =
+            PreCallValidateCmdClearAttachments(dev_data, cb_state, attachmentCount, pAttachments, rectCount, pRects, &mem_accesses);
+        if (!skip) {
+            PreCallRecordCmdClearAttachments(dev_data->report_data, cb_state, &mem_accesses);
+            lock.unlock();
+            dev_data->dispatch_table.CmdClearAttachments(commandBuffer, attachmentCount, pAttachments, rectCount, pRects);
+        }
+    } else {
+        lock.unlock();
+        assert(0);
     }
-    if (!skip) dev_data->dispatch_table.CmdClearAttachments(commandBuffer, attachmentCount, pAttachments, rectCount, pRects);
 }
 
 VKAPI_ATTR void VKAPI_CALL CmdClearColorImage(VkCommandBuffer commandBuffer, VkImage image, VkImageLayout imageLayout,
                                               const VkClearColorValue *pColor, uint32_t rangeCount,
                                               const VkImageSubresourceRange *pRanges) {
     layer_data *dev_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
+    std::vector<MemoryAccess> mem_accesses;
     unique_lock_t lock(global_lock);
 
-    bool skip = PreCallValidateCmdClearColorImage(dev_data, commandBuffer, image, imageLayout, rangeCount, pRanges);
+    bool skip = PreCallValidateCmdClearColorImage(dev_data, commandBuffer, image, imageLayout, rangeCount, pRanges, &mem_accesses);
     if (!skip) {
-        PreCallRecordCmdClearImage(dev_data, commandBuffer, image, imageLayout, rangeCount, pRanges);
+        PreCallRecordCmdClearImage(dev_data, commandBuffer, image, imageLayout, rangeCount, pRanges, CMD_CLEARCOLORIMAGE,
+                                   &mem_accesses);
         lock.unlock();
         dev_data->dispatch_table.CmdClearColorImage(commandBuffer, image, imageLayout, pColor, rangeCount, pRanges);
     }
@@ -6063,11 +6174,14 @@ VKAPI_ATTR void VKAPI_CALL CmdClearDepthStencilImage(VkCommandBuffer commandBuff
                                                      const VkClearDepthStencilValue *pDepthStencil, uint32_t rangeCount,
                                                      const VkImageSubresourceRange *pRanges) {
     layer_data *dev_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
+    std::vector<MemoryAccess> mem_accesses;
     unique_lock_t lock(global_lock);
 
-    bool skip = PreCallValidateCmdClearDepthStencilImage(dev_data, commandBuffer, image, imageLayout, rangeCount, pRanges);
+    bool skip =
+        PreCallValidateCmdClearDepthStencilImage(dev_data, commandBuffer, image, imageLayout, rangeCount, pRanges, &mem_accesses);
     if (!skip) {
-        PreCallRecordCmdClearImage(dev_data, commandBuffer, image, imageLayout, rangeCount, pRanges);
+        PreCallRecordCmdClearImage(dev_data, commandBuffer, image, imageLayout, rangeCount, pRanges, CMD_CLEARDEPTHSTENCILIMAGE,
+                                   &mem_accesses);
         lock.unlock();
         dev_data->dispatch_table.CmdClearDepthStencilImage(commandBuffer, image, imageLayout, pDepthStencil, rangeCount, pRanges);
     }
@@ -6077,16 +6191,18 @@ VKAPI_ATTR void VKAPI_CALL CmdResolveImage(VkCommandBuffer commandBuffer, VkImag
                                            VkImage dstImage, VkImageLayout dstImageLayout, uint32_t regionCount,
                                            const VkImageResolve *pRegions) {
     layer_data *dev_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
+    std::vector<MemoryAccess> mem_accesses;
     unique_lock_t lock(global_lock);
 
     auto cb_node = GetCBNode(dev_data, commandBuffer);
     auto src_image_state = GetImageState(dev_data, srcImage);
     auto dst_image_state = GetImageState(dev_data, dstImage);
 
-    bool skip = PreCallValidateCmdResolveImage(dev_data, cb_node, src_image_state, dst_image_state, regionCount, pRegions);
+    bool skip =
+        PreCallValidateCmdResolveImage(dev_data, cb_node, src_image_state, dst_image_state, regionCount, pRegions, &mem_accesses);
 
     if (!skip) {
-        PreCallRecordCmdResolveImage(dev_data, cb_node, src_image_state, dst_image_state);
+        PreCallRecordCmdResolveImage(dev_data, cb_node, src_image_state, dst_image_state, &mem_accesses);
         lock.unlock();
         dev_data->dispatch_table.CmdResolveImage(commandBuffer, srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount,
                                                  pRegions);
@@ -6752,6 +6868,95 @@ bool ValidateStageMasksAgainstQueueCapabilities(layer_data *dev_data, GLOBAL_CB_
     return skip;
 }
 
+// Record given set of barriers vs. outstanding memory accesses for this cmd buffer
+//  1. First merge this barrier within any previous barriers in this CB
+//  2. For each barrier, compare given existing mem accesses and record any applicable barriers
+static void RecordBarrierMemoryAccess(layer_data *device_data, CMD_TYPE cmd, GLOBAL_CB_NODE *cb_state,
+                                      VkCommandBuffer command_buffer, VkPipelineStageFlags src_stage_mask,
+                                      VkPipelineStageFlags dst_stage_mask, uint32_t mem_barrier_count,
+                                      const VkMemoryBarrier *mem_barriers, uint32_t buffer_mem_barrier_count,
+                                      const VkBufferMemoryBarrier *buffer_mem_barriers, uint32_t image_memory_barrier_count,
+                                      const VkImageMemoryBarrier *image_memory_barriers) {
+    cb_state->commands.emplace_back(unique_ptr<SynchCommand>(new SynchCommand(cmd, src_stage_mask, dst_stage_mask)));
+    Command *cmd_ptr = cb_state->commands.back().get();
+    SynchCommand *synch_cmd_ptr = static_cast<SynchCommand *>(cmd_ptr);
+    // First thing to do is parse through any previous barriers. If this barriers srcMasks match with
+    //  previous barriers destination masks, then incorporate the previous barrier srcMasks into our srcMask
+    //  and merge in all of the previous barriers. This will account for dependency chains.
+    for (const auto &synch_cmd : cb_state->synch_commands) {
+        if (synch_cmd->dst_stage_flags & src_stage_mask) {
+            // scopes overlap so merge prev barrier masks into current masks
+            src_stage_mask |= synch_cmd->src_stage_flags;
+            synch_cmd_ptr->src_stage_flags = src_stage_mask;
+            dst_stage_mask |= synch_cmd->dst_stage_flags;
+            synch_cmd_ptr->dst_stage_flags = dst_stage_mask;
+            // Pull all previous overlapping barriers into this barrier
+            for (const auto &global_barrier : synch_cmd->global_barriers) {
+                synch_cmd_ptr->global_barriers.emplace_back(global_barrier);
+            }
+            for (const auto &buff_barrier : synch_cmd->buffer_barriers) {
+                synch_cmd_ptr->buffer_barriers.emplace_back(buff_barrier);
+            }
+            for (const auto &img_barrier : synch_cmd->image_barriers) {
+                synch_cmd_ptr->image_barriers.emplace_back(img_barrier);
+            }
+        }
+    }
+    // Now that we've merged previous synch commands, append this cmd to existing synch commands
+    cb_state->synch_commands.emplace_back(synch_cmd_ptr);
+    // TODO: Make this barrier/access parsing smarter
+    for (auto &mem_access_pair : cb_state->mem_accesses.access_map) {
+        for (auto &mem_access : mem_access_pair.second) {
+            if (mem_access.src_stage_flags & src_stage_mask) {
+                // Record any execution barrier overlaps
+                mem_access.pipe_barrier = true;
+                mem_access.dst_stage_flags |= dst_stage_mask;
+                // For every global barrier that matches access mask, record the barrier
+                for (uint32_t i = 0; i < mem_barrier_count; ++i) {
+                    const auto &mem_barrier = mem_barriers[i];
+                    if ((mem_barrier.srcAccessMask & mem_access.src_access_flags) != 0) {
+                        // This memory barrier applies to earlier access so record details
+                        mem_access.mem_barrier = true;
+                        mem_access.dst_access_flags |= mem_barrier.dstAccessMask;
+                        mem_access.synch_commands.push_back(cmd_ptr);
+                    }
+                }
+            }
+        }
+    }
+    for (uint32_t i = 0; i < buffer_mem_barrier_count; ++i) {
+        const auto &buff_barrier = buffer_mem_barriers[i];
+        const auto &buff_state = GetBufferState(device_data, buff_barrier.buffer);
+        const auto mem_obj = buff_state->binding.mem;
+        // Make an access struct with barrier range details to check for overlap
+        // TODO: This is hacky, creating tmp access struct from barrier to check conflict
+        //    need to rework original function so this makes sense or write alternate function
+        MemoryAccess barrier_access = {};
+        barrier_access.location.mem = mem_obj;
+        barrier_access.location.offset = buff_barrier.offset;
+        barrier_access.location.size = buff_barrier.size;
+        barrier_access.mem_barrier = false;
+        barrier_access.pipe_barrier = false;
+        const auto &mem_access_pair = cb_state->mem_accesses.access_map.find(mem_obj);
+        if (mem_access_pair != cb_state->mem_accesses.access_map.end()) {
+            for (auto &mem_access : mem_access_pair->second) {
+                // If the pipe & access masks overlap, then barrier applies
+                if (((mem_access.src_access_flags & buff_barrier.srcAccessMask) != 0) &&
+                    ((mem_access.src_stage_flags & src_stage_mask) != 0)) {
+                    // Set buff access write opposite of actual access so conflict is flagged on overlap
+                    barrier_access.write = !mem_access.write;
+                    if (MemoryConflict(&barrier_access, &mem_access)) {
+                        mem_access.mem_barrier = true;
+                        mem_access.dst_stage_flags |= dst_stage_mask;
+                        mem_access.dst_access_flags |= buff_barrier.dstAccessMask;
+                        mem_access.synch_commands.push_back(cmd_ptr);
+                    }
+                }
+            }
+        }
+    }
+}
+
 VKAPI_ATTR void VKAPI_CALL CmdWaitEvents(VkCommandBuffer commandBuffer, uint32_t eventCount, const VkEvent *pEvents,
                                          VkPipelineStageFlags sourceStageMask, VkPipelineStageFlags dstStageMask,
                                          uint32_t memoryBarrierCount, const VkMemoryBarrier *pMemoryBarriers,
@@ -6829,8 +7034,18 @@ static bool PreCallValidateCmdPipelineBarrier(layer_data *device_data, GLOBAL_CB
 }
 
 static void PreCallRecordCmdPipelineBarrier(layer_data *device_data, GLOBAL_CB_NODE *cb_state, VkCommandBuffer commandBuffer,
-                                            uint32_t imageMemoryBarrierCount, const VkImageMemoryBarrier *pImageMemoryBarriers) {
+                                            VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask,
+                                            VkDependencyFlags dependencyFlags, uint32_t mem_barrier_count,
+                                            const VkMemoryBarrier *mem_barriers, uint32_t buffer_mem_barrier_count,
+                                            const VkBufferMemoryBarrier *buffer_mem_barriers, uint32_t imageMemoryBarrierCount,
+                                            const VkImageMemoryBarrier *pImageMemoryBarriers) {
     TransitionImageLayouts(device_data, commandBuffer, imageMemoryBarrierCount, pImageMemoryBarriers);
+
+    if (!cb_state->activeRenderPass) {  // Barriers in a renderpass are only for subpass self-dep
+        RecordBarrierMemoryAccess(device_data, CMD_PIPELINEBARRIER, cb_state, commandBuffer, src_stage_mask, dst_stage_mask,
+                                  mem_barrier_count, mem_barriers, buffer_mem_barrier_count, buffer_mem_barriers,
+                                  imageMemoryBarrierCount, pImageMemoryBarriers);
+    }
 }
 
 VKAPI_ATTR void VKAPI_CALL CmdPipelineBarrier(VkCommandBuffer commandBuffer, VkPipelineStageFlags srcStageMask,
@@ -6847,7 +7062,9 @@ VKAPI_ATTR void VKAPI_CALL CmdPipelineBarrier(VkCommandBuffer commandBuffer, VkP
                                                   memoryBarrierCount, pMemoryBarriers, bufferMemoryBarrierCount,
                                                   pBufferMemoryBarriers, imageMemoryBarrierCount, pImageMemoryBarriers);
         if (!skip) {
-            PreCallRecordCmdPipelineBarrier(device_data, cb_state, commandBuffer, imageMemoryBarrierCount, pImageMemoryBarriers);
+            PreCallRecordCmdPipelineBarrier(device_data, cb_state, commandBuffer, srcStageMask, dstStageMask, dependencyFlags,
+                                            memoryBarrierCount, pMemoryBarriers, bufferMemoryBarrierCount, pBufferMemoryBarriers,
+                                            imageMemoryBarrierCount, pImageMemoryBarriers);
         }
     } else {
         assert(0);
@@ -6987,45 +7204,69 @@ static bool validateQuery(VkQueue queue, GLOBAL_CB_NODE *pCB, VkQueryPool queryP
     return skip;
 }
 
+static bool PreCallValidateCmdCopyQueryPoolResults(layer_data *device_data, GLOBAL_CB_NODE *cb_state, VkQueryPool queryPool,
+                                                   uint32_t firstQuery, uint32_t query_count, BUFFER_STATE *dst_buffer_state,
+                                                   VkDeviceSize offset, VkDeviceSize stride, VkQueryResultFlags flags,
+                                                   std::vector<MemoryAccess> *mem_accesses) {
+    bool skip = false;
+    skip |= ValidateMemoryIsBoundToBuffer(device_data, dst_buffer_state, "vkCmdCopyQueryPoolResults()", VALIDATION_ERROR_19400674);
+    // Validate that DST buffer has correct usage flags set
+    skip |= ValidateBufferUsageFlags(device_data, dst_buffer_state, VK_BUFFER_USAGE_TRANSFER_DST_BIT, true,
+                                     VALIDATION_ERROR_19400672, "vkCmdCopyQueryPoolResults()", "VK_BUFFER_USAGE_TRANSFER_DST_BIT");
+    skip |= ValidateCmdQueueFlags(device_data, cb_state, "vkCmdCopyQueryPoolResults()",
+                                  VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT, VALIDATION_ERROR_19402415);
+    skip |= ValidateCmd(device_data, cb_state, CMD_COPYQUERYPOOLRESULTS, "vkCmdCopyQueryPoolResults()");
+    skip |= insideRenderPass(device_data, cb_state, "vkCmdCopyQueryPoolResults()", VALIDATION_ERROR_19400017);
+    // Add mem write to buffer.
+    // TODO: Initially if data is not tightly packed, just mark as imprecise and cover whole as written
+    //  we could make this case precise by splitting into a number of small accesses
+    auto const &qp_state = GetQueryPoolNode(device_data, queryPool);
+    auto num_bytes = (VK_QUERY_RESULT_64_BIT & flags) ? 8 : 4;
+    auto element_size = qp_state->data_count * num_bytes;
+    auto precise = (element_size == stride) ? true : false;
+    auto size = stride * (query_count - 1) + num_bytes;
+    AddWriteMemoryAccess(CMD_COPYQUERYPOOLRESULTS, mem_accesses, {dst_buffer_state->binding.mem, offset, size}, precise);
+    skip |= ValidateMemoryAccesses(device_data->report_data, cb_state, mem_accesses, "vkCmdCopyQueryPoolResults()");
+    return skip;
+}
+
+static void PreCallRecordCmdCopyQueryPoolResults(layer_data *device_data, GLOBAL_CB_NODE *cb_state, VkQueryPool queryPool,
+                                                 uint32_t firstQuery, uint32_t queryCount, BUFFER_STATE *dst_buffer_state,
+                                                 std::vector<MemoryAccess> *mem_accesses) {
+    AddCommandBufferBindingBuffer(device_data, cb_state, dst_buffer_state);
+    cb_state->queue_submit_functions.emplace_back([=]() {
+        SetBufferMemoryValid(device_data, dst_buffer_state, true);
+        return false;
+    });
+    cb_state->queryUpdates.emplace_back([=](VkQueue q) { return validateQuery(q, cb_state, queryPool, firstQuery, queryCount); });
+    addCommandBufferBinding(&GetQueryPoolNode(device_data, queryPool)->cb_bindings,
+                            {HandleToUint64(queryPool), kVulkanObjectTypeQueryPool}, cb_state);
+    AddCommandBufferCommandMemoryAccesses(cb_state, CMD_COPYQUERYPOOLRESULTS, mem_accesses);
+}
+
 VKAPI_ATTR void VKAPI_CALL CmdCopyQueryPoolResults(VkCommandBuffer commandBuffer, VkQueryPool queryPool, uint32_t firstQuery,
                                                    uint32_t queryCount, VkBuffer dstBuffer, VkDeviceSize dstOffset,
                                                    VkDeviceSize stride, VkQueryResultFlags flags) {
     bool skip = false;
     layer_data *dev_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
+    std::vector<MemoryAccess> mem_accesses;
     unique_lock_t lock(global_lock);
 
-    auto cb_node = GetCBNode(dev_data, commandBuffer);
+    auto cb_state = GetCBNode(dev_data, commandBuffer);
     auto dst_buff_state = GetBufferState(dev_data, dstBuffer);
-    if (cb_node && dst_buff_state) {
-        skip |= ValidateMemoryIsBoundToBuffer(dev_data, dst_buff_state, "vkCmdCopyQueryPoolResults()", VALIDATION_ERROR_19400674);
-        // Validate that DST buffer has correct usage flags set
-        skip |=
-            ValidateBufferUsageFlags(dev_data, dst_buff_state, VK_BUFFER_USAGE_TRANSFER_DST_BIT, true, VALIDATION_ERROR_19400672,
-                                     "vkCmdCopyQueryPoolResults()", "VK_BUFFER_USAGE_TRANSFER_DST_BIT");
-        skip |= ValidateCmdQueueFlags(dev_data, cb_node, "vkCmdCopyQueryPoolResults()",
-                                      VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT, VALIDATION_ERROR_19402415);
-        skip |= ValidateCmd(dev_data, cb_node, CMD_COPYQUERYPOOLRESULTS, "vkCmdCopyQueryPoolResults()");
-        skip |= insideRenderPass(dev_data, cb_node, "vkCmdCopyQueryPoolResults()", VALIDATION_ERROR_19400017);
-    }
-    lock.unlock();
-
-    if (skip) return;
-
-    dev_data->dispatch_table.CmdCopyQueryPoolResults(commandBuffer, queryPool, firstQuery, queryCount, dstBuffer, dstOffset,
-                                                     stride, flags);
-
-    lock.lock();
-    if (cb_node && dst_buff_state) {
-        AddCommandBufferBindingBuffer(dev_data, cb_node, dst_buff_state);
-        cb_node->queue_submit_functions.emplace_back([=]() {
-            SetBufferMemoryValid(dev_data, dst_buff_state, true);
-            return false;
-        });
-        cb_node->queryUpdates.emplace_back([=](VkQueue q) {
-            return validateQuery(q, cb_node, queryPool, firstQuery, queryCount);
-        });
-        addCommandBufferBinding(&GetQueryPoolNode(dev_data, queryPool)->cb_bindings,
-                                {HandleToUint64(queryPool), kVulkanObjectTypeQueryPool}, cb_node);
+    if (cb_state && dst_buff_state) {
+        skip |= PreCallValidateCmdCopyQueryPoolResults(dev_data, cb_state, queryPool, firstQuery, queryCount, dst_buff_state,
+                                                       dstOffset, stride, flags, &mem_accesses);
+        if (!skip) {
+            PreCallRecordCmdCopyQueryPoolResults(dev_data, cb_state, queryPool, firstQuery, queryCount, dst_buff_state,
+                                                 &mem_accesses);
+            lock.unlock();
+            dev_data->dispatch_table.CmdCopyQueryPoolResults(commandBuffer, queryPool, firstQuery, queryCount, dstBuffer, dstOffset,
+                                                             stride, flags);
+        }
+    } else {
+        lock.unlock();
+        assert(0);
     }
 }
 
@@ -7918,6 +8159,10 @@ VKAPI_ATTR void VKAPI_CALL CmdBeginRenderPass(VkCommandBuffer commandBuffer, con
                     };
                     cb_node->queue_submit_functions.push_back(function);
                 }
+            }
+            const auto &subpass_desc = render_pass_state->createInfo.pSubpasses[0];
+            for (uint32_t i = 0; i < subpass_desc.inputAttachmentCount; ++i) {
+                // Mark input attachments as read
             }
             if (clear_op_size > pRenderPassBegin->clearValueCount) {
                 skip |= log_msg(

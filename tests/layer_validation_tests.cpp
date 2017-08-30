@@ -10201,6 +10201,286 @@ TEST_F(VkLayerTest, UpdateBufferWithinRenderPass) {
     m_errorMonitor->VerifyFound();
 }
 
+TEST_F(VkLayerTest, DrawWithBufferWaRandRaWConflicts) {
+    TEST_DESCRIPTION(
+        "Attempt a draw that reads from a buffer that was written to and writes"
+        "to a buffer that was read from, both without any barrier present.");
+
+    ASSERT_NO_FATAL_FAILURE(Init());
+    ASSERT_NO_FATAL_FAILURE(InitViewport());
+    ASSERT_NO_FATAL_FAILURE(InitRenderTarget());
+
+    m_commandBuffer->begin();
+
+    // Don't try this at home. Writing data into buffer that will be used as storage buffer
+    //  for the draw. Before the Draw, though, copying data from the storage buffer into the
+    //  uniform buffer, which will then be read during the draw. This will create a RaW issue
+    //  for the uniform buffer and a WaR issue for the storage buffer.
+    VkDeviceSize buff_size = 1024;
+    uint32_t qfi = 0;
+    VkBufferCreateInfo bci = {};
+    bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bci.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    bci.size = buff_size;
+    bci.queueFamilyIndexCount = 1;
+    bci.pQueueFamilyIndices = &qfi;
+    VkMemoryPropertyFlags reqs = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    vk_testing::Buffer storage_buffer;
+    storage_buffer.init(*m_device, bci, reqs);
+    bci.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    vk_testing::Buffer uniform_buffer;
+    uniform_buffer.init(*m_device, bci, reqs);
+
+    VkDeviceSize offset = 0;
+    uint32_t num_elements = (uint32_t)buff_size / sizeof(uint32_t);  // Number of 32bit elements
+    std::vector<uint32_t> Data(num_elements, 0);
+    // Fill in data buffer
+    for (uint32_t i = 0; i < num_elements; ++i) {
+        Data[i] = i;
+    }
+    VkDeviceSize data_size = Data.size() * sizeof(uint32_t);
+    // Write data into storage buffer
+    vkCmdUpdateBuffer(m_commandBuffer->handle(), storage_buffer.handle(), offset, data_size, Data.data());
+    // Global Barrier to make sure buffer update completed (so we don't get RaW on copy)
+    VkMemoryBarrier mem_barrier = {};
+    mem_barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+    mem_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    mem_barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    vkCmdPipelineBarrier(m_commandBuffer->handle(), VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 1,
+                         &mem_barrier, 0, nullptr, 0, nullptr);
+    // Copy storage buffer contents to uniform buffer
+    VkBufferCopy buff_copy = {0,  // srcOffset
+                              0,  // dstOffset
+                              buff_size};
+    vkCmdCopyBuffer(m_commandBuffer->handle(), storage_buffer.handle(), uniform_buffer.handle(), 1, &buff_copy);
+    //
+    OneOffDescriptorSet ds(m_device->device(), {
+                                                   {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_ALL, nullptr},
+                                                   {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_ALL, nullptr},
+                                               });
+
+    VkPipelineLayoutCreateInfo pipeline_layout_ci = {};
+    pipeline_layout_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipeline_layout_ci.setLayoutCount = 1;
+    pipeline_layout_ci.pSetLayouts = &ds.layout_;
+
+    VkPipelineLayout pipeline_layout;
+    VkResult err = vkCreatePipelineLayout(m_device->device(), &pipeline_layout_ci, NULL, &pipeline_layout);
+    ASSERT_VK_SUCCESS(err);
+
+    VkDescriptorBufferInfo buff_info = {};
+    buff_info.buffer = uniform_buffer.handle();
+    buff_info.range = buff_size;
+    VkWriteDescriptorSet descriptor_write = {};
+    descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptor_write.dstBinding = 0;
+    descriptor_write.descriptorCount = 1;
+    descriptor_write.pTexelBufferView = nullptr;
+    descriptor_write.pBufferInfo = &buff_info;
+    descriptor_write.pImageInfo = nullptr;
+    descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptor_write.dstSet = ds.set_;
+    vkUpdateDescriptorSets(m_device->device(), 1, &descriptor_write, 0, NULL);
+    //
+    buff_info.buffer = storage_buffer.handle();
+    descriptor_write.dstBinding = 1;
+    descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    vkUpdateDescriptorSets(m_device->device(), 1, &descriptor_write, 0, NULL);
+
+    // Create PSO that uses the uniform buffers
+    char const *vsSource =
+        "#version 450\n"
+        "\n"
+        "void main(){\n"
+        "   gl_Position = vec4(1);\n"
+        "}\n";
+    char const *fsSource =
+        "#version 450\n"
+        "\n"
+        "layout(location=0) out vec4 color;\n"
+        "layout(set=0, binding=0) uniform block { vec4 read; };\n"
+        "layout(set=0, binding=1) buffer block { vec4 write; };\n"
+        "void main(){\n"
+        "   write = read;\n"
+        "   color = vec4(1);"
+        "}\n";
+    VkShaderObj vs(m_device, vsSource, VK_SHADER_STAGE_VERTEX_BIT, this);
+    VkShaderObj fs(m_device, fsSource, VK_SHADER_STAGE_FRAGMENT_BIT, this);
+
+    VkPipelineObj pipe(m_device);
+    pipe.AddShader(&vs);
+    pipe.AddShader(&fs);
+    pipe.AddColorAttachment();
+
+    err = pipe.CreateVKPipeline(pipeline_layout, renderPass());
+    ASSERT_VK_SUCCESS(err);
+    m_commandBuffer->BeginRenderPass(m_renderPassBeginInfo);
+
+    vkCmdBindPipeline(m_commandBuffer->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipe.handle());
+    vkCmdBindDescriptorSets(m_commandBuffer->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 0, 1, &ds.set_, 0,
+                            nullptr);
+
+    VkViewport viewport = {0, 0, 16, 16, 0, 1};
+    vkCmdSetViewport(m_commandBuffer->handle(), 0, 1, &viewport);
+    VkRect2D scissor = {{0, 0}, {16, 16}};
+    vkCmdSetScissor(m_commandBuffer->handle(), 0, 1, &scissor);
+    // Should now trigger RaW and WaR errors at Draw time
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_WARNING_BIT_EXT, " causes a read after write conflict with ");
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_WARNING_BIT_EXT, " causes a write after read conflict with ");
+    vkCmdDraw(m_commandBuffer->handle(), 3, 1, 0, 0);
+    m_errorMonitor->VerifyFound();
+    vkCmdEndRenderPass(m_commandBuffer->handle());
+    m_commandBuffer->end();
+    vkDestroyPipelineLayout(m_device->device(), pipeline_layout, nullptr);
+}
+
+TEST_F(VkPositiveLayerTest, UpdateBufferRaWDependencyWithBarrier) {
+    TEST_DESCRIPTION("Update buffer used in CmdDrawIndirect w/ barrier before use");
+
+    m_errorMonitor->ExpectSuccess();
+    ASSERT_NO_FATAL_FAILURE(Init());
+    ASSERT_NO_FATAL_FAILURE(InitRenderTarget());
+
+    m_commandBuffer->begin();
+
+    VkMemoryPropertyFlags reqs = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+    vk_testing::Buffer dst_buffer;
+    dst_buffer.init_as_dst(*m_device, (VkDeviceSize)1024, reqs);
+
+    VkDeviceSize dstOffset = 0;
+    uint32_t Data[] = {1, 2, 3, 4, 5, 6, 7, 8};
+    VkDeviceSize dataSize = sizeof(Data) / sizeof(uint32_t);
+    vkCmdUpdateBuffer(m_commandBuffer->handle(), dst_buffer.handle(), dstOffset, dataSize, &Data);
+    // Global Barrier to make sure buffer update completed
+    VkMemoryBarrier mem_barrier = {};
+    mem_barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+    mem_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    mem_barrier.dstAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
+    vkCmdPipelineBarrier(m_commandBuffer->handle(), VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT, 0, 1,
+                         &mem_barrier, 0, nullptr, 0, nullptr);
+    // Start renderpass for DrawIndirect
+    m_commandBuffer->BeginRenderPass(m_renderPassBeginInfo);
+    // Bind gfx PSO to prevent unexpected errors
+    // Create PSO to be used for draw-time errors below
+    VkShaderObj vs(m_device, bindStateVertShaderText, VK_SHADER_STAGE_VERTEX_BIT, this);
+    VkShaderObj fs(m_device, bindStateFragShaderText, VK_SHADER_STAGE_FRAGMENT_BIT, this);
+    VkPipelineObj pipe(m_device);
+    pipe.AddShader(&vs);
+    pipe.AddShader(&fs);
+    VkViewport view_port = {};
+    m_viewports.push_back(view_port);
+    pipe.SetViewport(m_viewports);
+    VkRect2D rect = {};
+    m_scissors.push_back(rect);
+    pipe.SetScissor(m_scissors);
+    pipe.AddColorAttachment();
+    VkPipelineLayoutCreateInfo pipeline_layout_ci = {};
+    pipeline_layout_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipeline_layout_ci.setLayoutCount = 0;
+    pipeline_layout_ci.pSetLayouts = NULL;
+
+    VkPipelineLayout pipeline_layout;
+    VkResult err = vkCreatePipelineLayout(m_device->device(), &pipeline_layout_ci, NULL, &pipeline_layout);
+    ASSERT_VK_SUCCESS(err);
+    pipe.CreateVKPipeline(pipeline_layout, renderPass());
+
+    vkCmdBindPipeline(m_commandBuffer->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipe.handle());
+    // Now issue indirect draw
+    vkCmdDrawIndirect(m_commandBuffer->handle(), dst_buffer.handle(), 0, 1, 0);
+    m_errorMonitor->VerifyNotFound();
+    vkDestroyPipelineLayout(m_device->device(), pipeline_layout, nullptr);
+}
+
+TEST_F(VkPositiveLayerTest, UpdateBufferWaRDependencyWithTwoBarrierChain) {
+    TEST_DESCRIPTION("Update buffer used in CmdDrawIndirect w/ barrier before use");
+
+    m_errorMonitor->ExpectSuccess();
+    ASSERT_NO_FATAL_FAILURE(Init());
+    ASSERT_NO_FATAL_FAILURE(InitRenderTarget());
+
+    m_commandBuffer->begin();
+
+    VkDeviceSize buff_size = 1024;
+
+    VkMemoryPropertyFlags reqs = VK_MEMORY_HEAP_DEVICE_LOCAL_BIT;
+    vk_testing::Buffer src_buffer;
+    src_buffer.init_as_src_and_dst(*m_device, buff_size, reqs);
+
+    reqs = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+    vk_testing::Buffer dst_buffer;
+    dst_buffer.init_as_dst(*m_device, buff_size, reqs);
+
+    VkBufferCopy buff_copy = {0,  // srcOffset
+                              0,  // dstOffset
+                              buff_size};
+    // Copy src to dst
+    vkCmdCopyBuffer(m_commandBuffer->handle(), src_buffer.handle(), dst_buffer.handle(), 1, &buff_copy);
+
+    // Create an execution barrier chain (no mem barrier needed for WaR dependency)
+    vkCmdPipelineBarrier(m_commandBuffer->handle(), VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0,
+                         nullptr, 0, nullptr, 0, nullptr);
+    // Now 2nd global barrier introduces dependency chain with first barrier that should handle following WaR dependency
+    vkCmdPipelineBarrier(m_commandBuffer->handle(), VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0,
+                         nullptr, 0, nullptr, 0, nullptr);
+    // Now write into dst buffer that was read above
+    uint32_t Data[] = {1, 2, 3, 4, 5, 6, 7, 8};
+    VkDeviceSize dataSize = sizeof(Data) / sizeof(uint32_t);
+    vkCmdUpdateBuffer(m_commandBuffer->handle(), src_buffer.handle(), 0, dataSize, &Data);
+    m_errorMonitor->VerifyNotFound();
+}
+
+TEST_F(VkLayerTest, UpdateBufferRaWDependencyMissingBarrier) {
+    TEST_DESCRIPTION("Update buffer used in CmdDrawIndirect without a barrier before use");
+
+    ASSERT_NO_FATAL_FAILURE(Init());
+    ASSERT_NO_FATAL_FAILURE(InitRenderTarget());
+
+    m_commandBuffer->begin();
+
+    VkMemoryPropertyFlags reqs = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+    vk_testing::Buffer dst_buffer;
+    dst_buffer.init_as_dst(*m_device, (VkDeviceSize)1024, reqs);
+
+    VkDeviceSize dstOffset = 0;
+    uint32_t Data[] = {1, 2, 3, 4, 5, 6, 7, 8};
+    VkDeviceSize dataSize = sizeof(Data) / sizeof(uint32_t);
+    vkCmdUpdateBuffer(m_commandBuffer->handle(), dst_buffer.handle(), dstOffset, dataSize, &Data);
+    // No barrier present here should lead to RaW error
+
+    // Start renderpass for DrawIndirect
+    m_commandBuffer->BeginRenderPass(m_renderPassBeginInfo);
+    // Bind gfx PSO to prevent unexpected errors
+    // Create PSO to be used for draw-time errors below
+    VkShaderObj vs(m_device, bindStateVertShaderText, VK_SHADER_STAGE_VERTEX_BIT, this);
+    VkShaderObj fs(m_device, bindStateFragShaderText, VK_SHADER_STAGE_FRAGMENT_BIT, this);
+    VkPipelineObj pipe(m_device);
+    pipe.AddShader(&vs);
+    pipe.AddShader(&fs);
+    VkViewport view_port = {};
+    m_viewports.push_back(view_port);
+    pipe.SetViewport(m_viewports);
+    VkRect2D rect = {};
+    m_scissors.push_back(rect);
+    pipe.SetScissor(m_scissors);
+    pipe.AddColorAttachment();
+    VkPipelineLayoutCreateInfo pipeline_layout_ci = {};
+    pipeline_layout_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipeline_layout_ci.setLayoutCount = 0;
+    pipeline_layout_ci.pSetLayouts = NULL;
+
+    VkPipelineLayout pipeline_layout;
+    VkResult err = vkCreatePipelineLayout(m_device->device(), &pipeline_layout_ci, NULL, &pipeline_layout);
+    ASSERT_VK_SUCCESS(err);
+    pipe.CreateVKPipeline(pipeline_layout, renderPass());
+
+    vkCmdBindPipeline(m_commandBuffer->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipe.handle());
+    // Now issue indirect draw
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_WARNING_BIT_EXT, " causes a read after write conflict with ");
+    vkCmdDrawIndirect(m_commandBuffer->handle(), dst_buffer.handle(), 0, 1, 0);
+    m_errorMonitor->VerifyFound();
+    vkDestroyPipelineLayout(m_device->device(), pipeline_layout, nullptr);
+}
+
 TEST_F(VkLayerTest, ClearColorImageWithBadRange) {
     TEST_DESCRIPTION("Record clear color with an invalid VkImageSubresourceRange");
 

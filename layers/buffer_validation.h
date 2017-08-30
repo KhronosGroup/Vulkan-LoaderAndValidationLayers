@@ -59,14 +59,16 @@ void RecordClearImageLayout(layer_data *dev_data, GLOBAL_CB_NODE *cb_node, VkIma
                             VkImageLayout dest_image_layout);
 
 bool PreCallValidateCmdClearColorImage(layer_data *dev_data, VkCommandBuffer commandBuffer, VkImage image,
-                                       VkImageLayout imageLayout, uint32_t rangeCount, const VkImageSubresourceRange *pRanges);
+                                       VkImageLayout imageLayout, uint32_t rangeCount, const VkImageSubresourceRange *pRanges,
+                                       std::vector<MemoryAccess> *mem_accesses);
 
 void PreCallRecordCmdClearImage(layer_data *dev_data, VkCommandBuffer commandBuffer, VkImage image, VkImageLayout imageLayout,
-                                uint32_t rangeCount, const VkImageSubresourceRange *pRanges);
+                                uint32_t rangeCount, const VkImageSubresourceRange *pRanges, CMD_TYPE cmd,
+                                std::vector<MemoryAccess> *mem_accesses);
 
 bool PreCallValidateCmdClearDepthStencilImage(layer_data *dev_data, VkCommandBuffer commandBuffer, VkImage image,
                                               VkImageLayout imageLayout, uint32_t rangeCount,
-                                              const VkImageSubresourceRange *pRanges);
+                                              const VkImageSubresourceRange *pRanges, std::vector<MemoryAccess> *mem_accesses);
 
 bool FindLayoutVerifyNode(layer_data const *device_data, GLOBAL_CB_NODE const *pCB, ImageSubresourcePair imgpair,
                           IMAGE_CMD_BUF_LAYOUT_NODE &node, const VkImageAspectFlags aspectMask);
@@ -133,24 +135,45 @@ bool VerifyDestImageLayout(layer_data *dev_data, GLOBAL_CB_NODE *cb_node, VkImag
 void TransitionFinalSubpassLayouts(layer_data *dev_data, GLOBAL_CB_NODE *pCB, const VkRenderPassBeginInfo *pRenderPassBegin,
                                    FRAMEBUFFER_STATE *framebuffer_state);
 
+void AddMemoryAccess(CMD_TYPE cmd, std::vector<MemoryAccess> *mem_accesses, MemoryAccess *mem_access, bool write,
+                     uint32_t rw_index);
+
+void AddReadMemoryAccess(CMD_TYPE cmd, std::vector<MemoryAccess> *mem_accesses, MEM_BINDING const &binding, bool precise);
+
+void AddWriteMemoryAccess(CMD_TYPE cmd, std::vector<MemoryAccess> *mem_accesses, MEM_BINDING const &binding, bool precise);
+
+bool MemoryConflict(MemoryAccess const *initial_access, MemoryAccess const *second_access);
+
+bool ValidateMemoryAccesses(debug_report_data const *report_data, GLOBAL_CB_NODE const *cb_state, std::vector<MemoryAccess> *mem_accesses,
+                            const char *caller);
+
+void AddCommandBufferCommandMemoryAccesses(GLOBAL_CB_NODE *cb_state, CMD_TYPE cmd, std::vector<MemoryAccess> *mem_accesses);
+
 bool PreCallValidateCmdCopyImage(layer_data *device_data, GLOBAL_CB_NODE *cb_node, IMAGE_STATE *src_image_state,
                                  IMAGE_STATE *dst_image_state, uint32_t region_count, const VkImageCopy *regions,
-                                 VkImageLayout src_image_layout, VkImageLayout dst_image_layout);
+                                 VkImageLayout src_image_layout, VkImageLayout dst_image_layout,
+                                 std::vector<MemoryAccess> *mem_accesses);
 
-bool PreCallValidateCmdClearAttachments(layer_data *device_data, VkCommandBuffer commandBuffer, uint32_t attachmentCount,
-                                        const VkClearAttachment *pAttachments, uint32_t rectCount, const VkClearRect *pRects);
+bool PreCallValidateCmdClearAttachments(layer_data *device_data, GLOBAL_CB_NODE *cb_state, uint32_t attachmentCount,
+                                        const VkClearAttachment *pAttachments, uint32_t rectCount, const VkClearRect *pRects,
+                                        std::vector<MemoryAccess> *mem_accesses);
+
+void PreCallRecordCmdClearAttachments(debug_report_data const *report_data, GLOBAL_CB_NODE *cb_state,
+                                      std::vector<MemoryAccess> *mem_accesses);
 
 bool PreCallValidateCmdResolveImage(layer_data *device_data, GLOBAL_CB_NODE *cb_node, IMAGE_STATE *src_image_state,
-                                    IMAGE_STATE *dst_image_state, uint32_t regionCount, const VkImageResolve *pRegions);
+                                    IMAGE_STATE *dst_image_state, uint32_t regionCount, const VkImageResolve *pRegions,
+                                    std::vector<MemoryAccess> *mem_accesses);
 
 void PreCallRecordCmdResolveImage(layer_data *device_data, GLOBAL_CB_NODE *cb_node, IMAGE_STATE *src_image_state,
-                                  IMAGE_STATE *dst_image_state);
+                                  IMAGE_STATE *dst_image_state, std::vector<MemoryAccess> *mem_accesses);
 
 bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_node, IMAGE_STATE *src_image_state,
-                                 IMAGE_STATE *dst_image_state, uint32_t regionCount, const VkImageBlit *pRegions, VkFilter filter);
+                                 IMAGE_STATE *dst_image_state, uint32_t regionCount, const VkImageBlit *pRegions, VkFilter filter,
+                                 std::vector<MemoryAccess> *mem_accesses);
 
 void PreCallRecordCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_node, IMAGE_STATE *src_image_state,
-                               IMAGE_STATE *dst_image_state);
+                               IMAGE_STATE *dst_image_state, std::vector<MemoryAccess> *mem_accesses);
 
 bool ValidateCmdBufImageLayouts(layer_data *device_data, GLOBAL_CB_NODE *pCB,
                                 std::unordered_map<ImageSubresourcePair, IMAGE_LAYOUT_NODE> const &globalImageLayoutMap,
@@ -209,13 +232,15 @@ bool ValidateCopyBufferImageTransferGranularityRequirements(layer_data *device_d
 
 void PreCallRecordCmdCopyImage(layer_data *device_data, GLOBAL_CB_NODE *cb_node, IMAGE_STATE *src_image_state,
                                IMAGE_STATE *dst_image_state, uint32_t region_count, const VkImageCopy *regions,
-                               VkImageLayout src_image_layout, VkImageLayout dst_image_layout);
+                               VkImageLayout src_image_layout, VkImageLayout dst_image_layout,
+                               std::vector<MemoryAccess> *mem_accesses);
 
 bool PreCallValidateCmdCopyBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_node, BUFFER_STATE *src_buffer_state,
-                                  BUFFER_STATE *dst_buffer_state);
+                                  BUFFER_STATE *dst_buffer_state, uint32_t region_count, const VkBufferCopy *regions,
+                                  std::vector<MemoryAccess> *mem_accesses);
 
 void PreCallRecordCmdCopyBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_node, BUFFER_STATE *src_buffer_state,
-                                BUFFER_STATE *dst_buffer_state);
+                                BUFFER_STATE *dst_buffer_state, std::vector<MemoryAccess> *mem_accesses);
 
 bool PreCallValidateDestroyImageView(layer_data *device_data, VkImageView image_view, IMAGE_VIEW_STATE **image_view_state,
                                      VK_OBJECT *obj_struct);
@@ -233,9 +258,11 @@ bool PreCallValidateDestroyBufferView(layer_data *device_data, VkBufferView buff
 void PostCallRecordDestroyBufferView(layer_data *device_data, VkBufferView buffer_view, BUFFER_VIEW_STATE *buffer_view_state,
                                      VK_OBJECT obj_struct);
 
-bool PreCallValidateCmdFillBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_node, BUFFER_STATE *buffer_state);
+bool PreCallValidateCmdFillBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_node, BUFFER_STATE *buffer_state, VkDeviceSize offset,
+                                  VkDeviceSize size, std::vector<MemoryAccess> *mem_accesses);
 
-void PreCallRecordCmdFillBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_node, BUFFER_STATE *buffer_state);
+void PreCallRecordCmdFillBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_node, BUFFER_STATE *buffer_state,
+                                std::vector<MemoryAccess> *mem_accesses);
 
 bool PreCallValidateCmdCopyImageToBuffer(layer_data *device_data, VkImageLayout srcImageLayout, GLOBAL_CB_NODE *cb_node,
                                          IMAGE_STATE *src_image_state, BUFFER_STATE *dst_buff_state, uint32_t regionCount,
