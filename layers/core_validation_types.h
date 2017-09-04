@@ -447,6 +447,9 @@ struct CmdFlags {
     VkAccessFlags access_flags;
 };
 
+static const uint32_t READ_INDEX = 0;
+static const uint32_t WRITE_INDEX = 1;
+
 // Per-cmd read/write flags Read flags in slot 0, Write in 1
 static const CmdFlags CommandToFlags[CMD_COUNT][2] = {
     //    CMD_NONE,
@@ -867,19 +870,21 @@ struct LAST_BOUND_STATE {
     }
 };
 
-// Struct container to group sets of r/w buffers & images
-struct DrawDispatchAccesses {
+// Struct container to group sets of r/w buffers & images & r/w mem access maps
+struct MemAccessGroup {
     std::unordered_set<VkImageView> read_images;
     std::unordered_set<VkBuffer> read_buffers;
     std::unordered_set<VkImageView> write_images;
     std::unordered_set<VkBuffer> write_buffers;
-    std::unordered_map<VkDeviceMemory, std::vector<MemoryAccess>> access_map;
+    std::vector<std::unordered_map<VkDeviceMemory, std::vector<MemoryAccess>>> access_maps;
+    MemAccessGroup() { access_maps.resize(2); }
     void reset() {
         read_images.clear();
         read_buffers.clear();
         write_images.clear();
         write_buffers.clear();
-        access_map.clear();
+        access_maps.clear();
+        access_maps.resize(2);
     }
 };
 
@@ -918,7 +923,7 @@ struct GLOBAL_CB_NODE : public BASE_NODE {
     std::vector<std::unique_ptr<Command>> commands;  // Commands in this command buffer
     std::vector<SynchCommand *> synch_commands;      // Synch Commands in this command buffer
     // Track all mem_accesses by this CB at the point of a draw
-    DrawDispatchAccesses mem_accesses;
+    MemAccessGroup mem_accesses;
 
     std::unordered_set<VkEvent> waitedEvents;
     std::vector<VkEvent> writeEventsBeforeWait;

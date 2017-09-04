@@ -142,12 +142,25 @@ void AddReadMemoryAccess(CMD_TYPE cmd, std::vector<MemoryAccess> *mem_accesses, 
 
 void AddWriteMemoryAccess(CMD_TYPE cmd, std::vector<MemoryAccess> *mem_accesses, MEM_BINDING const &binding, bool precise);
 
+bool CreateAndValidateReadMemoryAccess(debug_report_data const *report_data, CMD_TYPE cmd, VkCommandBuffer command_buffer,
+                                       const MemAccessGroup &prev_mem_accesses, std::vector<MemoryAccess> *mem_accesses,
+                                       MEM_BINDING const &binding, bool precise, const char *caller);
+
+bool CreateAndValidateWriteMemoryAccess(debug_report_data const *report_data, CMD_TYPE cmd, VkCommandBuffer command_buffer,
+                                        const MemAccessGroup &prev_mem_accesses, std::vector<MemoryAccess> *mem_accesses,
+                                        MEM_BINDING const &binding, bool precise, const char *caller);
+
 bool MemoryConflict(MemoryAccess const *initial_access, MemoryAccess const *second_access);
 
 bool ValidateMemoryAccesses(debug_report_data const *report_data, VkCommandBuffer command_buffer,
                             std::unordered_map<VkDeviceMemory, std::vector<MemoryAccess>> &prev_mem_access_map,
-                            std::vector<MemoryAccess> *mem_accesses, const char *caller, bool pre_check,
+                            std::vector<MemoryAccess> *new_accesses, const char *caller, bool pre_check,
                             MemoryAccess **early_conflict, MemoryAccess **late_conflict);
+
+bool ValidateRWMemoryAccesses(debug_report_data const *report_data, VkCommandBuffer command_buffer,
+                              MemAccessGroup &prev_mem_accesses, std::vector<MemoryAccess> *read_accesses,
+                              std::vector<MemoryAccess> *write_accesses, const char *caller, bool pre_check,
+                              MemoryAccess **early_conflict, MemoryAccess **late_conflict);
 
 void AddCommandBufferCommandMemoryAccesses(GLOBAL_CB_NODE *cb_state, CMD_TYPE cmd, std::vector<MemoryAccess> *mem_accesses);
 
@@ -237,12 +250,13 @@ void PreCallRecordCmdCopyImage(layer_data *device_data, GLOBAL_CB_NODE *cb_node,
                                VkImageLayout src_image_layout, VkImageLayout dst_image_layout,
                                std::vector<MemoryAccess> *mem_accesses);
 
-bool PreCallValidateCmdCopyBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_node, BUFFER_STATE *src_buffer_state,
+bool PreCallValidateCmdCopyBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_state, BUFFER_STATE *src_buffer_state,
                                   BUFFER_STATE *dst_buffer_state, uint32_t region_count, const VkBufferCopy *regions,
-                                  std::vector<MemoryAccess> *mem_accesses);
+                                  std::vector<MemoryAccess> *read_accesses, std::vector<MemoryAccess> *write_accesses);
 
 void PreCallRecordCmdCopyBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_node, BUFFER_STATE *src_buffer_state,
-                                BUFFER_STATE *dst_buffer_state, std::vector<MemoryAccess> *mem_accesses);
+                                BUFFER_STATE *dst_buffer_state, std::vector<MemoryAccess> *read_accesses,
+                                std::vector<MemoryAccess> *write_accesses);
 
 bool PreCallValidateDestroyImageView(layer_data *device_data, VkImageView image_view, IMAGE_VIEW_STATE **image_view_state,
                                      VK_OBJECT *obj_struct);

@@ -644,13 +644,11 @@ void AddMemoryAccess(CMD_TYPE cmd, std::vector<MemoryAccess> *mem_accesses, Memo
     mem_accesses->emplace_back(*mem_access);
 }
 
-// Create read memory access for given binding and add to mem_accesses
 void AddReadMemoryAccess(CMD_TYPE cmd, std::vector<MemoryAccess> *mem_accesses, MEM_BINDING const &binding, bool precise) {
     MemoryAccess mem_access(binding.mem, binding.offset, binding.size, precise);
     AddMemoryAccess(cmd, mem_accesses, &mem_access, false, 0);
 }
 
-// Create write memory access for given binding and add to mem_accesses
 void AddWriteMemoryAccess(CMD_TYPE cmd, std::vector<MemoryAccess> *mem_accesses, MEM_BINDING const &binding, bool precise) {
     MemoryAccess mem_access(binding.mem, binding.offset, binding.size, precise);
     AddMemoryAccess(cmd, mem_accesses, &mem_access, true, 1);
@@ -688,22 +686,91 @@ bool MemoryConflict(MemoryAccess const *initial_access, MemoryAccess const *seco
     return true;
 }
 
-// Check given vector of new_mem_accesses against prev_mem_accesses map, which has live R/W access up to the point.
-//  The "live" R/W accesses in prev_mem_access_map means the accesses have no barrier has been identified.
-//  For any new accesses that conflict with prev accesses, flag an error
-// If pre_check is true no callback will be issued, instead on any conflict set early & late conflict ptrs and return "true"
+bool FlagMemoryAccessError(debug_report_data const *report_data, VkCommandBuffer command_buffer, const MemoryAccess *first_access,
+                           const MemoryAccess *second_access, const char *caller) {
+    const char *first_type = first_access->write ? "write" : "read";
+    const char *second_type = second_access->write ? "write" : "read";
+    std::string inter_cb_info = "";
+    if (first_access->cmd && second_access->cmd && (first_access->cmd->cb_state != second_access->cmd->cb_state)) {
+        // This is inter-CB conflict so give a bit more error detail
+        inter_cb_info = " where the initial access occurred in cmd buffer " +
+                        std::to_string(HandleToUint64(first_access->cmd->cb_state->commandBuffer));
+    }
+    // If either access is imprecise can only warn, otherwise can error
+    auto level = VK_DEBUG_REPORT_WARNING_BIT_EXT;
+    // TODO: Un-comment the line below when we're confident in coverage of memory access checks
+    //   so that precise/precise conflicts can be flagged as errors. Keeping everything a warning
+    //   for early release and so that incorrect warnings can be flagged/fixed without causing errors.
+    // if (earlier_access.precise && mem_access.precise) level = VK_DEBUG_REPORT_ERROR_BIT_EXT;
+    const auto mem_obj = first_access->location.mem;
+    return log_msg(report_data, level, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_MEMORY_EXT, HandleToUint64(mem_obj), 0,
+                   MEMTRACK_SYNCHRONIZATION_ERROR, "DS",
+                   "%s called on VkCommandBuffer 0x%" PRIxLEAST64
+                   " causes a %s after %s conflict with memory object 0x%" PRIxLEAST64
+                   "%s."
+                   " NOTE: This"
+                   " race condition warning is a new feature in validation that still has some holes"
+                   " in tracking Read/Write accesses as well as modeling synchronization objects. Don't"
+                   " spend too much time investigating this warning, and feel free to file GitHub bugs "
+                   " on any warning cases that you known are incorrect.",
+                   caller, HandleToUint64(command_buffer), second_type, first_type, HandleToUint64(mem_obj), inter_cb_info.c_str());
+}
+
+bool ValidateMemoryAccess(debug_report_data const *report_data, VkCommandBuffer command_buffer,
+                          const std::unordered_map<VkDeviceMemory, std::vector<MemoryAccess>> &prev_mem_access_map,
+                          const MemoryAccess *new_access, const char *prev_type, const char *new_type, const char *caller) {
+    bool skip = false;
+    if ((nullptr == new_access) || (prev_mem_access_map.empty())) return skip;
+    // Check if new_access conflicts with any prev accesses and issue RaW or WaR warning as appropriate
+    auto mem_obj = new_access->location.mem;
+    auto mem_access_pair = prev_mem_access_map.find(mem_obj);
+    if (mem_access_pair != prev_mem_access_map.end()) {
+        for (auto &earlier_access : mem_access_pair->second) {
+            if (MemoryConflict(&earlier_access, new_access)) {
+                skip |= FlagMemoryAccessError(report_data, command_buffer, &earlier_access, new_access, caller);
+            }
+        }
+    }
+    return skip;
+}
+
+// Helper functions to pass correct "read" "write" strings into validation function above
+bool ValidateReadMemoryAccess(debug_report_data const *report_data, VkCommandBuffer command_buffer,
+                              const MemAccessGroup &prev_mem_accesses, const MemoryAccess *read_access, const char *caller) {
+    return ValidateMemoryAccess(report_data, command_buffer, prev_mem_accesses.access_maps[WRITE_INDEX], read_access, "write",
+                                "read", caller);
+}
+
+bool ValidateWriteMemoryAccess(debug_report_data const *report_data, VkCommandBuffer command_buffer,
+                               const MemAccessGroup &prev_mem_accesses, const MemoryAccess *write_access, const char *caller) {
+    return ValidateMemoryAccess(report_data, command_buffer, prev_mem_accesses.access_maps[READ_INDEX], write_access, "read",
+                                "write", caller);
+}
+
+// Create read memory access for given binding and add to mem_accesses
+bool CreateAndValidateReadMemoryAccess(debug_report_data const *report_data, CMD_TYPE cmd, VkCommandBuffer command_buffer,
+                                       const MemAccessGroup &prev_mem_accesses, std::vector<MemoryAccess> *mem_accesses,
+                                       MEM_BINDING const &binding, bool precise, const char *caller) {
+    AddReadMemoryAccess(cmd, mem_accesses, binding, precise);
+    return ValidateReadMemoryAccess(report_data, command_buffer, prev_mem_accesses, &mem_accesses->back(), caller);
+}
+
+// Create write memory access for given binding, add to mem_accesses vector, and validate against previous accesses
+bool CreateAndValidateWriteMemoryAccess(debug_report_data const *report_data, CMD_TYPE cmd, VkCommandBuffer command_buffer,
+                                        const MemAccessGroup &prev_mem_accesses, std::vector<MemoryAccess> *mem_accesses,
+                                        MEM_BINDING const &binding, bool precise, const char *caller) {
+    AddWriteMemoryAccess(cmd, mem_accesses, binding, precise);
+    return ValidateWriteMemoryAccess(report_data, command_buffer, prev_mem_accesses, &mem_accesses->back(), caller);
+}
+
 bool ValidateMemoryAccesses(debug_report_data const *report_data, VkCommandBuffer command_buffer,
                             std::unordered_map<VkDeviceMemory, std::vector<MemoryAccess>> &prev_mem_access_map,
-                            std::vector<MemoryAccess> *mem_accesses, const char *caller, bool pre_check,
+                            std::vector<MemoryAccess> *new_accesses, const char *caller, bool pre_check,
                             MemoryAccess **early_conflict, MemoryAccess **late_conflict) {
     bool skip = false;
-    // early out
-    if (prev_mem_access_map.empty()) return skip;
-    // Avoid warnings on return params w/ default values
-    (void)early_conflict;
-    (void)late_conflict;
-
-    for (auto &mem_access : *mem_accesses) {
+    if (nullptr == new_accesses) return skip;
+    // For each of the new accesses, check if it conflicts with any prev accesses and issue RaW or WaR warning as appropriate
+    for (auto &mem_access : *new_accesses) {
         auto mem_obj = mem_access.location.mem;
         auto mem_access_pair = prev_mem_access_map.find(mem_obj);
         if (mem_access_pair != prev_mem_access_map.end()) {
@@ -714,36 +781,52 @@ bool ValidateMemoryAccesses(debug_report_data const *report_data, VkCommandBuffe
                         *late_conflict = &mem_access;
                         return true;
                     }
-                    const char *access1 = earlier_access.write ? "write" : "read";
-                    const char *access2 = mem_access.write ? "write" : "read";
-                    std::string inter_cb_info = "";
-                    if (mem_access.cmd && earlier_access.cmd && (mem_access.cmd->cb_state != earlier_access.cmd->cb_state)) {
-                        // This is inter-CB conflict so give a bit more error detail
-                        inter_cb_info = " where the initial access occurred in cmd buffer " +
-                                        std::to_string(HandleToUint64(earlier_access.cmd->cb_state->commandBuffer));
-                    }
-                    // If either access is imprecise can only warn, otherwise can error
-                    auto level = VK_DEBUG_REPORT_WARNING_BIT_EXT;
-                    // TODO: Un-comment the line below when we're confident in coverage of memory access checks
-                    //   so that precise/precise conflicts can be flagged as errors. Keeping everything a warning
-                    //   for early release and so that incorrect warnings can be flagged/fixed without causing errors.
-                    // if (earlier_access.precise && mem_access.precise) level = VK_DEBUG_REPORT_ERROR_BIT_EXT;
-                    skip |= log_msg(report_data, level, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_MEMORY_EXT, HandleToUint64(mem_obj), 0,
-                                    MEMTRACK_SYNCHRONIZATION_ERROR, "DS",
-                                    "%s called on VkCommandBuffer 0x%" PRIxLEAST64
-                                    " causes a %s after %s conflict with memory object 0x%" PRIxLEAST64
-                                    "%s."
-                                    " NOTE: This"
-                                    " race condition warning is a new feature in validation that still has some holes"
-                                    " in tracking Read/Write accesses as well as modeling synchronization objects. Don't"
-                                    " spend too much time investigating this warning, and feel free to file GitHub bugs "
-                                    " on any warning cases that you known are incorrect.",
-                                    caller, HandleToUint64(command_buffer), access2, access1, HandleToUint64(mem_obj),
-                                    inter_cb_info.c_str());
+                    skip |= FlagMemoryAccessError(report_data, command_buffer, &earlier_access, &mem_access, caller);
                 }
             }
         }
     }
+    return skip;
+}
+
+// Helper functions to pass correct read or write map into validation function above
+bool ValidateReadMemoryAccesses(debug_report_data const *report_data, VkCommandBuffer command_buffer,
+                                MemAccessGroup &prev_mem_accesses, std::vector<MemoryAccess> *read_accesses, const char *caller,
+                                bool pre_check, MemoryAccess **early_conflict, MemoryAccess **late_conflict) {
+    return ValidateMemoryAccesses(report_data, command_buffer, prev_mem_accesses.access_maps[WRITE_INDEX], read_accesses, caller,
+                                  pre_check, early_conflict, late_conflict);
+}
+
+bool ValidateWriteMemoryAccesses(debug_report_data const *report_data, VkCommandBuffer command_buffer,
+                                 MemAccessGroup &prev_mem_accesses, std::vector<MemoryAccess> *write_accesses, const char *caller,
+                                 bool pre_check, MemoryAccess **early_conflict, MemoryAccess **late_conflict) {
+    return ValidateMemoryAccesses(report_data, command_buffer, prev_mem_accesses.access_maps[READ_INDEX], write_accesses, caller,
+                                  pre_check, early_conflict, late_conflict);
+}
+
+// Check given vector of new_mem_accesses against prev_mem_accesses map, which has live R/W access up to the point.
+//  The "live" R/W accesses in prev_mem_access_map means the accesses have no barrier has been identified.
+//  For any new accesses that conflict with prev accesses, flag an error
+// If pre_check is true no callback will be issued, instead on any conflict set early & late conflict ptrs and return "true"
+bool ValidateRWMemoryAccesses(debug_report_data const *report_data, VkCommandBuffer command_buffer,
+                              MemAccessGroup &prev_mem_accesses, std::vector<MemoryAccess> *read_accesses,
+                              std::vector<MemoryAccess> *write_accesses, const char *caller, bool pre_check,
+                              MemoryAccess **early_conflict, MemoryAccess **late_conflict) {
+    bool skip = false;
+    // early out if there's nothing to compare
+    if ((prev_mem_accesses.access_maps[READ_INDEX].empty() || nullptr == write_accesses || write_accesses->empty()) &&
+        (prev_mem_accesses.access_maps[WRITE_INDEX].empty() || nullptr == read_accesses || read_accesses->empty())) {
+        return skip;
+    }
+    // Avoid warnings on return params w/ default values
+    (void)early_conflict;
+    (void)late_conflict;
+
+    // Validate new reads against prev writes and vice-versa
+    skip |= ValidateReadMemoryAccesses(report_data, command_buffer, prev_mem_accesses, read_accesses, caller, pre_check,
+                                       early_conflict, late_conflict);
+    skip |= ValidateWriteMemoryAccesses(report_data, command_buffer, prev_mem_accesses, write_accesses, caller, pre_check,
+                                        early_conflict, late_conflict);
     return skip;
 }
 
@@ -754,7 +837,9 @@ void AddCommandBufferCommandMemoryAccesses(GLOBAL_CB_NODE *cb_state, CMD_TYPE cm
     for (auto &mem_access : *mem_accesses) {
         mem_access.cmd = cmd_ptr;
         cmd_ptr->AddMemoryAccess(mem_access);
-        cb_state->mem_accesses.access_map[mem_access.location.mem].push_back(mem_access);
+        auto &access_map =
+            mem_access.write ? cb_state->mem_accesses.access_maps[WRITE_INDEX] : cb_state->mem_accesses.access_maps[READ_INDEX];
+        access_map[mem_access.location.mem].push_back(mem_access);
     }
 }
 
@@ -1140,9 +1225,9 @@ bool PreCallValidateCmdClearColorImage(layer_data *dev_data, VkCommandBuffer com
         }
     }
     // TODO: Currently treating all image accesses as imprecise & covering the whole image area, this should be per-range
-    AddWriteMemoryAccess(CMD_CLEARCOLORIMAGE, mem_accesses, image_state->binding, false);
-    skip |= ValidateMemoryAccesses(core_validation::GetReportData(dev_data), commandBuffer, cb_state->mem_accesses.access_map,
-                                   mem_accesses, "vkCmdClearColorImage()", false, nullptr, nullptr);
+    skip |= CreateAndValidateWriteMemoryAccess(core_validation::GetReportData(dev_data), CMD_CLEARCOLORIMAGE, commandBuffer,
+                                               cb_state->mem_accesses, mem_accesses, image_state->binding, false,
+                                               "vkCmdClearColorImage()");
     return skip;
 }
 
@@ -1204,9 +1289,8 @@ bool PreCallValidateCmdClearDepthStencilImage(layer_data *device_data, VkCommand
         }
     }
     // TODO: Currently treating all image accesses as imprecise & covering the whole image area, this should be per-range
-    AddWriteMemoryAccess(CMD_CLEARDEPTHSTENCILIMAGE, mem_accesses, image_state->binding, false);
-    skip |= ValidateMemoryAccesses(report_data, commandBuffer, cb_state->mem_accesses.access_map, mem_accesses,
-                                   "vkCmdClearDepthStencilImage()", false, nullptr, nullptr);
+    skip |= CreateAndValidateWriteMemoryAccess(report_data, CMD_CLEARDEPTHSTENCILIMAGE, commandBuffer, cb_state->mem_accesses,
+                                               mem_accesses, image_state->binding, false, "vkCmdClearDepthStencilImage()");
     return skip;
 }
 
@@ -2037,10 +2121,10 @@ bool PreCallValidateCmdCopyImage(layer_data *device_data, GLOBAL_CB_NODE *cb_sta
         }
         // Add memory access for this image copy
         // TODO: Currently treating all image accesses as imprecise & covering the whole image area
-        AddReadMemoryAccess(CMD_COPYIMAGE, mem_accesses, src_image_state->binding, false);
-        AddWriteMemoryAccess(CMD_COPYIMAGE, mem_accesses, dst_image_state->binding, false);
-        skip |= ValidateMemoryAccesses(report_data, cb_state->commandBuffer, cb_state->mem_accesses.access_map, mem_accesses,
-                                       "vkCmdCopyImage()", false, nullptr, nullptr);
+        skip |= CreateAndValidateReadMemoryAccess(report_data, CMD_COPYIMAGE, cb_state->commandBuffer, cb_state->mem_accesses,
+                                                  mem_accesses, src_image_state->binding, false, "vkCmdCopyImage()");
+        skip |= CreateAndValidateWriteMemoryAccess(report_data, CMD_COPYIMAGE, cb_state->commandBuffer, cb_state->mem_accesses,
+                                                   mem_accesses, dst_image_state->binding, false, "vkCmdCopyImage()");
     }
 
     // The formats of src_image and dst_image must be compatible. Formats are considered compatible if their texel size in bytes
@@ -2239,9 +2323,8 @@ bool PreCallValidateCmdClearAttachments(layer_data *device_data, GLOBAL_CB_NODE 
                 }
                 // TODO: Just marking memory accesses as imprecise per-image binding basis for now, should be per-rect above
                 const auto image_state = GetImageState(device_data, image_view_state->create_info.image);
-                AddWriteMemoryAccess(CMD_CLEARATTACHMENTS, mem_accesses, image_state->binding, false);
-                skip |= ValidateMemoryAccesses(report_data, commandBuffer, cb_state->mem_accesses.access_map, mem_accesses,
-                                               "vkCmdClearAttachments()", false, nullptr, nullptr);
+                skip |= CreateAndValidateWriteMemoryAccess(report_data, CMD_CLEARATTACHMENTS, commandBuffer, cb_state->mem_accesses,
+                                                           mem_accesses, image_state->binding, false, "vkCmdClearAttachments()");
             }
         }
     }
@@ -2297,10 +2380,10 @@ bool PreCallValidateCmdResolveImage(layer_data *device_data, GLOBAL_CB_NODE *cb_
         }
         // Add memory access for this image resolve
         // TODO: Currently treating all image accesses as imprecise & covering the whole image area
-        AddReadMemoryAccess(CMD_RESOLVEIMAGE, mem_accesses, src_image_state->binding, false);
-        AddWriteMemoryAccess(CMD_RESOLVEIMAGE, mem_accesses, dst_image_state->binding, false);
-        skip |= ValidateMemoryAccesses(report_data, cb_state->commandBuffer, cb_state->mem_accesses.access_map, mem_accesses,
-                                       "vkCmdResolveImage()", false, nullptr, nullptr);
+        skip |= CreateAndValidateReadMemoryAccess(report_data, CMD_RESOLVEIMAGE, cb_state->commandBuffer, cb_state->mem_accesses,
+                                                  mem_accesses, src_image_state->binding, false, "vkCmdResolveImage()");
+        skip |= CreateAndValidateWriteMemoryAccess(report_data, CMD_RESOLVEIMAGE, cb_state->commandBuffer, cb_state->mem_accesses,
+                                                   mem_accesses, dst_image_state->binding, false, "vkCmdResolveImage()");
 
         if (src_image_state->createInfo.format != dst_image_state->createInfo.format) {
             char const str[] = "vkCmdResolveImage called with unmatched source and dest formats.";
@@ -2715,10 +2798,10 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_sta
         }  // per-region checks
         // Add memory access for this blit
         // TODO: Currently treating all image accesses as imprecise & covering the whole image area
-        AddReadMemoryAccess(CMD_BLITIMAGE, mem_accesses, src_image_state->binding, false);
-        AddWriteMemoryAccess(CMD_BLITIMAGE, mem_accesses, dst_image_state->binding, false);
-        skip |= ValidateMemoryAccesses(report_data, cb_state->commandBuffer, cb_state->mem_accesses.access_map, mem_accesses,
-                                       "vkCmdBlitImage()", false, nullptr, nullptr);
+        skip |= CreateAndValidateReadMemoryAccess(report_data, CMD_BLITIMAGE, cb_state->commandBuffer, cb_state->mem_accesses,
+                                                  mem_accesses, src_image_state->binding, false, "vkCmdBlitImage()");
+        skip |= CreateAndValidateWriteMemoryAccess(report_data, CMD_BLITIMAGE, cb_state->commandBuffer, cb_state->mem_accesses,
+                                                   mem_accesses, dst_image_state->binding, false, "vkCmdBlitImage()");
     } else {
         assert(0);
     }
@@ -3628,7 +3711,7 @@ void PostCallRecordCreateImageView(layer_data *device_data, const VkImageViewCre
 
 bool PreCallValidateCmdCopyBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_state, BUFFER_STATE *src_buffer_state,
                                   BUFFER_STATE *dst_buffer_state, uint32_t region_count, const VkBufferCopy *regions,
-                                  std::vector<MemoryAccess> *mem_accesses) {
+                                  std::vector<MemoryAccess> *read_accesses, std::vector<MemoryAccess> *write_accesses) {
     bool skip = false;
     skip |= ValidateMemoryIsBoundToBuffer(device_data, src_buffer_state, "vkCmdCopyBuffer()", VALIDATION_ERROR_18c000ee);
     skip |= ValidateMemoryIsBoundToBuffer(device_data, dst_buffer_state, "vkCmdCopyBuffer()", VALIDATION_ERROR_18c000f2);
@@ -3645,16 +3728,17 @@ bool PreCallValidateCmdCopyBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_st
     const auto dst_mem_obj = dst_buffer_state->binding.mem;
     for (uint32_t i = 0; i < region_count; ++i) {
         const auto &reg = regions[i];
-        AddReadMemoryAccess(CMD_COPYBUFFER, mem_accesses, {src_mem_obj, reg.srcOffset, reg.size}, true);
-        AddWriteMemoryAccess(CMD_COPYBUFFER, mem_accesses, {dst_mem_obj, reg.dstOffset, reg.size}, true);
+        AddReadMemoryAccess(CMD_COPYBUFFER, read_accesses, {src_mem_obj, reg.srcOffset, reg.size}, true);
+        AddWriteMemoryAccess(CMD_COPYBUFFER, write_accesses, {dst_mem_obj, reg.dstOffset, reg.size}, true);
     }
-    skip |= ValidateMemoryAccesses(core_validation::GetReportData(device_data), cb_state->commandBuffer,
-                                   cb_state->mem_accesses.access_map, mem_accesses, "vkCmdCopyBuffer()", false, nullptr, nullptr);
+    skip |= ValidateRWMemoryAccesses(core_validation::GetReportData(device_data), cb_state->commandBuffer, cb_state->mem_accesses,
+                                     read_accesses, write_accesses, "vkCmdCopyBuffer()", false, nullptr, nullptr);
     return skip;
 }
 
 void PreCallRecordCmdCopyBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_state, BUFFER_STATE *src_buffer_state,
-                                BUFFER_STATE *dst_buffer_state, std::vector<MemoryAccess> *mem_accesses) {
+                                BUFFER_STATE *dst_buffer_state, std::vector<MemoryAccess> *read_accesses,
+                                std::vector<MemoryAccess> *write_accesses) {
     // Update bindings between buffers and cmd buffer
     AddCommandBufferBindingBuffer(device_data, cb_state, src_buffer_state);
     AddCommandBufferBindingBuffer(device_data, cb_state, dst_buffer_state);
@@ -3668,7 +3752,8 @@ void PreCallRecordCmdCopyBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_stat
         return false;
     };
     cb_state->queue_submit_functions.push_back(function);
-    AddCommandBufferCommandMemoryAccesses(cb_state, CMD_COPYBUFFER, mem_accesses);
+    AddCommandBufferCommandMemoryAccesses(cb_state, CMD_COPYBUFFER, read_accesses);
+    AddCommandBufferCommandMemoryAccesses(cb_state, CMD_COPYBUFFER, write_accesses);
 }
 
 static bool validateIdleBuffer(layer_data *device_data, VkBuffer buffer) {
@@ -3762,9 +3847,9 @@ bool PreCallValidateCmdFillBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_st
     skip |= ValidateBufferUsageFlags(device_data, buffer_state, VK_BUFFER_USAGE_TRANSFER_DST_BIT, true, VALIDATION_ERROR_1b40003a,
                                      "vkCmdFillBuffer()", "VK_BUFFER_USAGE_TRANSFER_DST_BIT");
     skip |= insideRenderPass(device_data, cb_state, "vkCmdFillBuffer()", VALIDATION_ERROR_1b400017);
-    AddWriteMemoryAccess(CMD_FILLBUFFER, mem_accesses, {buffer_state->binding.mem, offset, size}, true);
-    skip |= ValidateMemoryAccesses(core_validation::GetReportData(device_data), cb_state->commandBuffer,
-                                   cb_state->mem_accesses.access_map, mem_accesses, "vkCmdFillBuffer()", false, nullptr, nullptr);
+    skip |= CreateAndValidateWriteMemoryAccess(core_validation::GetReportData(device_data), CMD_FILLBUFFER, cb_state->commandBuffer,
+                                               cb_state->mem_accesses, mem_accesses, {buffer_state->binding.mem, offset, size},
+                                               true, "vkCmdFillBuffer()");
     return skip;
 }
 
