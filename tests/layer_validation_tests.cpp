@@ -11070,6 +11070,7 @@ TEST_F(VkLayerTest, UpdateBufferWithinRenderPass) {
     m_errorMonitor->VerifyFound();
 }
 
+#ifdef ENABLE_MEMORY_ACCESS_CALLBACK
 TEST_F(VkLayerTest, DrawWithBufferWaRandRaWConflicts) {
     TEST_DESCRIPTION(
         "Attempt a draw that reads from a buffer that was written to and writes"
@@ -11358,11 +11359,7 @@ TEST_F(VkPositiveLayerTest, MultiCBDrawWithBufferWaRandRaWSynchChain) {
     vkCmdSetViewport(cmd_bufs[2], 0, 1, &viewport);
     VkRect2D scissor = {{0, 0}, {16, 16}};
     vkCmdSetScissor(cmd_bufs[2], 0, 1, &scissor);
-    // Should now trigger RaW and WaR errors at Draw time
-    //    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_WARNING_BIT_EXT, " causes a read after write conflict with ");
-    //    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_WARNING_BIT_EXT, " causes a write after read conflict with ");
     vkCmdDraw(cmd_bufs[2], 3, 1, 0, 0);
-    //    m_errorMonitor->VerifyFound();
     vkCmdEndRenderPass(cmd_bufs[2]);
     vkEndCommandBuffer(cmd_bufs[2]);
 
@@ -11376,7 +11373,7 @@ TEST_F(VkPositiveLayerTest, MultiCBDrawWithBufferWaRandRaWSynchChain) {
     m_errorMonitor->VerifyNotFound();
     vkDestroyPipelineLayout(m_device->device(), pipeline_layout, nullptr);
 }
-
+#endif
 TEST_F(VkPositiveLayerTest, UpdateBufferRaWDependencyWithBarrier) {
     TEST_DESCRIPTION("Update buffer used in CmdDrawIndirect w/ barrier before use");
 
@@ -11473,6 +11470,7 @@ TEST_F(VkPositiveLayerTest, UpdateBufferWaRDependencyWithTwoBarrierChain) {
     m_errorMonitor->VerifyNotFound();
 }
 
+#ifdef ENABLE_MEMORY_ACCESS_CALLBACK
 TEST_F(VkLayerTest, UpdateBufferRaWDependencyMissingBarrier) {
     TEST_DESCRIPTION("Update buffer used in CmdDrawIndirect without a barrier before use");
 
@@ -11618,7 +11616,7 @@ TEST_F(VkLayerTest, TwoCommandBufferUpdateBufferRaWDependencyMissingBarrier) {
 
     vkDestroyPipelineLayout(m_device->device(), pipeline_layout, nullptr);
 }
-
+#endif
 TEST_F(VkLayerTest, ClearColorImageWithBadRange) {
     TEST_DESCRIPTION("Record clear color with an invalid VkImageSubresourceRange");
 
