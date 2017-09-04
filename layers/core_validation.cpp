@@ -5857,6 +5857,12 @@ static bool ValidateCmdDrawType(layer_data *dev_data, VkCommandBuffer cmd_buffer
         skip |= ValidateDrawState(dev_data, *cb_state, indexed, bind_point, caller, dynamic_state_msg_code);
         skip |= (VK_PIPELINE_BIND_POINT_GRAPHICS == bind_point) ? outsideRenderPass(dev_data, *cb_state, caller, msg_code)
                                                                 : insideRenderPass(dev_data, *cb_state, caller, msg_code);
+#ifdef ENABLE_MEMORY_ACCESS_CALLBACK
+        // TODO : Early return here to skip the memory access checking below. The checks are functional but cause a perf hit
+        //  and the callback that's used is disabled, so also turning off these checks for now.
+        //  To re-enable the checks, just remove this early return
+        return skip;
+#endif
         // Grab mem accesses for this draw & check for missing synchs
         auto const &state = (*cb_state)->lastBound[bind_point];
         PIPELINE_STATE *pPipe = state.pipeline_state;

@@ -688,6 +688,11 @@ bool MemoryConflict(MemoryAccess const *initial_access, MemoryAccess const *seco
 
 bool FlagMemoryAccessError(debug_report_data const *report_data, VkCommandBuffer command_buffer, const MemoryAccess *first_access,
                            const MemoryAccess *second_access, const char *caller) {
+#ifdef ENABLE_MEMORY_ACCESS_CALLBACK
+    // TODO: Temporarily disabling this callback until memory access code more thoroughly tested
+    //  Remove this early return to enable the callback
+    return false;
+#endif
     const char *first_type = first_access->write ? "write" : "read";
     const char *second_type = second_access->write ? "write" : "read";
     std::string inter_cb_info = "";
