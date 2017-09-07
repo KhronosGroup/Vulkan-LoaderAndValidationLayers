@@ -9843,12 +9843,18 @@ VKAPI_ATTR void VKAPI_CALL CmdExecuteCommands(VkCommandBuffer commandBuffer, uin
                                               const VkCommandBuffer *pCommandBuffers) {
     bool skip = false;
     layer_data *dev_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
+    // Track memory accesses across secondary CBs
+    std::unordered_map<VkDeviceMemory, std::vector<MemoryAccess>> second_cb_access_map;
+    // If we hit a potential cross-secondary-CB synch conflict, we'll replay CBs up to point of conflict to verify if conflict is
+    // real
+    std::vector<GLOBAL_CB_NODE *> replay_command_buffers;
     unique_lock_t lock(global_lock);
     GLOBAL_CB_NODE *pCB = GetCBNode(dev_data, commandBuffer);
     if (pCB) {
         GLOBAL_CB_NODE *pSubCB = NULL;
         for (uint32_t i = 0; i < commandBuffersCount; i++) {
             pSubCB = GetCBNode(dev_data, pCommandBuffers[i]);
+            replay_command_buffers.push_back(pSubCB);
             assert(pSubCB);
             if (VK_COMMAND_BUFFER_LEVEL_PRIMARY == pSubCB->createInfo.level) {
                 skip |=
@@ -9888,6 +9894,7 @@ VKAPI_ATTR void VKAPI_CALL CmdExecuteCommands(VkCommandBuffer commandBuffer, uin
                     }
                 }
             }
+            skip |= ValidateInterCmdBufferMemoryAccesses(dev_data, pSubCB, replay_command_buffers, &second_cb_access_map);
             // TODO(mlentine): Move more logic into this method
             skip |= validateSecondaryCommandBufferState(dev_data, pCB, pSubCB);
             skip |= validateCommandBufferState(dev_data, pSubCB, "vkCmdExecuteCommands()", 0, VALIDATION_ERROR_1b2000b2);
