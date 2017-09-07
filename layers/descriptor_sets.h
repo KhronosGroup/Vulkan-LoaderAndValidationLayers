@@ -348,8 +348,10 @@ class DescriptorSet : public BASE_NODE {
                            const char *caller, std::string *) const;
     // For given set of bindings, add any buffers and images that will be updated to their respective unordered_sets & return number
     // of objects inserted
-    uint32_t GetStorageUpdates(const std::map<uint32_t, descriptor_req> &, std::unordered_set<VkBuffer> *,
-                               std::unordered_set<VkImageView> *) const;
+    uint32_t GetReadWriteBuffersAndImages(const std::map<uint32_t, descriptor_req> &, std::unordered_set<VkBuffer> *read_buffer_set,
+                                          std::unordered_set<VkImageView> *read_image_set,
+                                          std::unordered_set<VkBuffer> *write_buffer_set,
+                                          std::unordered_set<VkImageView> *write_image_set) const;
 
     // Descriptor Update functions. These functions validate state and perform update separately
     // Validate contents of a WriteUpdate

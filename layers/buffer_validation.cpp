@@ -635,6 +635,219 @@ void TransitionFinalSubpassLayouts(layer_data *device_data, GLOBAL_CB_NODE *pCB,
     }
 }
 
+// START: Memory Access Validation Functions
+void AddMemoryAccess(CMD_TYPE cmd, std::vector<MemoryAccess> *mem_accesses, MemoryAccess *mem_access, bool write,
+                     uint32_t rw_index) {
+    mem_access->write = write;
+    mem_access->src_stage_flags = CommandToFlags[cmd][rw_index].stage_flags;
+    mem_access->src_access_flags = CommandToFlags[cmd][rw_index].access_flags;
+    mem_accesses->emplace_back(*mem_access);
+}
+
+void AddReadMemoryAccess(CMD_TYPE cmd, std::vector<MemoryAccess> *mem_accesses, MEM_BINDING const &binding, bool precise) {
+    MemoryAccess mem_access(binding.mem, binding.offset, binding.size, precise);
+    AddMemoryAccess(cmd, mem_accesses, &mem_access, false, 0);
+}
+
+void AddWriteMemoryAccess(CMD_TYPE cmd, std::vector<MemoryAccess> *mem_accesses, MEM_BINDING const &binding, bool precise) {
+    MemoryAccess mem_access(binding.mem, binding.offset, binding.size, precise);
+    AddMemoryAccess(cmd, mem_accesses, &mem_access, true, 1);
+}
+
+// The first arg is an existing memory access that hasn't been verified by a synch object
+//  Check if the 2nd access conflicts with the first and return true if there's a conflict
+// Pre: Both accesses must occur on the same VkDeviceMemory object
+bool MemoryConflict(MemoryAccess const *initial_access, MemoryAccess const *second_access) {
+    assert(initial_access->location.mem == second_access->location.mem);
+    // read/read is ok
+    //  TODO: What to do for write/write? Warn? Nothing for now. Just allow RaR & WaW cases.
+    if (initial_access->write == second_access->write) return false;
+    // RaW & WaR can present conflicts
+    // If the second access is outside of the range of initial access, then no conflict
+    if ((initial_access->location.size != VK_WHOLE_SIZE && second_access->location.size != VK_WHOLE_SIZE) &&
+        ((second_access->location.offset + second_access->location.size) <= initial_access->location.offset) &&
+        (second_access->location.offset >= (initial_access->location.offset + initial_access->location.size))) {
+        return false;
+    }
+    // Without appropriate barrier & appropriate scope overlap we'll have a conflict
+    if (initial_access->mem_barrier) {
+        // If the initial dst masks match second access src masks, scopes are good
+        if ((0 != (initial_access->dst_stage_flags & second_access->src_stage_flags)) &&
+            (0 != (initial_access->dst_access_flags & second_access->src_access_flags))) {
+            return false;
+        }
+    } else if (initial_access->pipe_barrier && second_access->write) {
+        // Just need an execution dep here so check pipe masks
+        if (0 != (initial_access->dst_stage_flags & second_access->src_stage_flags)) {
+            return false;
+        }
+    }
+    // there's some amount of overlap in the accesses so flag conflict
+    return true;
+}
+
+bool FlagMemoryAccessError(debug_report_data const *report_data, VkCommandBuffer command_buffer, const MemoryAccess *first_access,
+                           const MemoryAccess *second_access, const char *caller) {
+#ifndef ENABLE_MEMORY_ACCESS_CALLBACK
+    // TODO: Temporarily disabling this callback until memory access code more thoroughly tested
+    //  Remove this early return to enable the callback
+    return false;
+#endif
+    const char *first_type = first_access->write ? "write" : "read";
+    const char *second_type = second_access->write ? "write" : "read";
+    std::string inter_cb_info = "";
+    if (first_access->cmd && second_access->cmd && (first_access->cmd->cb_state != second_access->cmd->cb_state)) {
+        // This is inter-CB conflict so give a bit more error detail
+        inter_cb_info = " where the initial access occurred in cmd buffer " +
+                        std::to_string(HandleToUint64(first_access->cmd->cb_state->commandBuffer));
+    }
+    // If either access is imprecise can only warn, otherwise can error
+    auto level = VK_DEBUG_REPORT_WARNING_BIT_EXT;
+    // TODO: Un-comment the line below when we're confident in coverage of memory access checks
+    //   so that precise/precise conflicts can be flagged as errors. Keeping everything a warning
+    //   for early release and so that incorrect warnings can be flagged/fixed without causing errors.
+    // if (earlier_access.precise && mem_access.precise) level = VK_DEBUG_REPORT_ERROR_BIT_EXT;
+    const auto mem_obj = first_access->location.mem;
+    return log_msg(report_data, level, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_MEMORY_EXT, HandleToUint64(mem_obj), 0,
+                   MEMTRACK_SYNCHRONIZATION_ERROR, "DS",
+                   "%s called on VkCommandBuffer 0x%" PRIxLEAST64
+                   " causes a %s after %s conflict with memory object 0x%" PRIxLEAST64
+                   "%s."
+                   " NOTE: This"
+                   " race condition warning is a new feature in validation that still has some holes"
+                   " in tracking Read/Write accesses as well as modeling synchronization objects. Don't"
+                   " spend too much time investigating this warning, and feel free to file GitHub bugs "
+                   " on any warning cases that you known are incorrect.",
+                   caller, HandleToUint64(command_buffer), second_type, first_type, HandleToUint64(mem_obj), inter_cb_info.c_str());
+}
+
+bool ValidateMemoryAccess(debug_report_data const *report_data, VkCommandBuffer command_buffer,
+                          const std::unordered_map<VkDeviceMemory, std::vector<MemoryAccess>> &prev_mem_access_map,
+                          const MemoryAccess *new_access, const char *prev_type, const char *new_type, const char *caller) {
+    bool skip = false;
+    if ((nullptr == new_access) || (prev_mem_access_map.empty())) return skip;
+    // Check if new_access conflicts with any prev accesses and issue RaW or WaR warning as appropriate
+    auto mem_obj = new_access->location.mem;
+    auto mem_access_pair = prev_mem_access_map.find(mem_obj);
+    if (mem_access_pair != prev_mem_access_map.end()) {
+        for (auto &earlier_access : mem_access_pair->second) {
+            if (MemoryConflict(&earlier_access, new_access)) {
+                skip |= FlagMemoryAccessError(report_data, command_buffer, &earlier_access, new_access, caller);
+            }
+        }
+    }
+    return skip;
+}
+
+// Helper functions to pass correct "read" "write" strings into validation function above
+bool ValidateReadMemoryAccess(debug_report_data const *report_data, VkCommandBuffer command_buffer,
+                              const MemAccessGroup &prev_mem_accesses, const MemoryAccess *read_access, const char *caller) {
+    return ValidateMemoryAccess(report_data, command_buffer, prev_mem_accesses.access_maps[WRITE_INDEX], read_access, "write",
+                                "read", caller);
+}
+
+bool ValidateWriteMemoryAccess(debug_report_data const *report_data, VkCommandBuffer command_buffer,
+                               const MemAccessGroup &prev_mem_accesses, const MemoryAccess *write_access, const char *caller) {
+    return ValidateMemoryAccess(report_data, command_buffer, prev_mem_accesses.access_maps[READ_INDEX], write_access, "read",
+                                "write", caller);
+}
+
+// Create read memory access for given binding and add to mem_accesses
+bool CreateAndValidateReadMemoryAccess(debug_report_data const *report_data, CMD_TYPE cmd, VkCommandBuffer command_buffer,
+                                       const MemAccessGroup &prev_mem_accesses, std::vector<MemoryAccess> *mem_accesses,
+                                       MEM_BINDING const &binding, bool precise, const char *caller) {
+    AddReadMemoryAccess(cmd, mem_accesses, binding, precise);
+    return ValidateReadMemoryAccess(report_data, command_buffer, prev_mem_accesses, &mem_accesses->back(), caller);
+}
+
+// Create write memory access for given binding, add to mem_accesses vector, and validate against previous accesses
+bool CreateAndValidateWriteMemoryAccess(debug_report_data const *report_data, CMD_TYPE cmd, VkCommandBuffer command_buffer,
+                                        const MemAccessGroup &prev_mem_accesses, std::vector<MemoryAccess> *mem_accesses,
+                                        MEM_BINDING const &binding, bool precise, const char *caller) {
+    AddWriteMemoryAccess(cmd, mem_accesses, binding, precise);
+    return ValidateWriteMemoryAccess(report_data, command_buffer, prev_mem_accesses, &mem_accesses->back(), caller);
+}
+
+bool ValidateMemoryAccesses(debug_report_data const *report_data, VkCommandBuffer command_buffer,
+                            std::unordered_map<VkDeviceMemory, std::vector<MemoryAccess>> &prev_mem_access_map,
+                            std::vector<MemoryAccess> *new_accesses, const char *caller, bool pre_check,
+                            MemoryAccess **early_conflict, MemoryAccess **late_conflict) {
+    bool skip = false;
+    if (nullptr == new_accesses) return skip;
+    // For each of the new accesses, check if it conflicts with any prev accesses and issue RaW or WaR warning as appropriate
+    for (auto &mem_access : *new_accesses) {
+        auto mem_obj = mem_access.location.mem;
+        auto mem_access_pair = prev_mem_access_map.find(mem_obj);
+        if (mem_access_pair != prev_mem_access_map.end()) {
+            for (auto &earlier_access : mem_access_pair->second) {
+                if (MemoryConflict(&earlier_access, &mem_access)) {
+                    if (pre_check) {
+                        *early_conflict = &earlier_access;
+                        *late_conflict = &mem_access;
+                        return true;
+                    }
+                    skip |= FlagMemoryAccessError(report_data, command_buffer, &earlier_access, &mem_access, caller);
+                }
+            }
+        }
+    }
+    return skip;
+}
+
+// Helper functions to pass correct read or write map into validation function above
+bool ValidateReadMemoryAccesses(debug_report_data const *report_data, VkCommandBuffer command_buffer,
+                                MemAccessGroup &prev_mem_accesses, std::vector<MemoryAccess> *read_accesses, const char *caller,
+                                bool pre_check, MemoryAccess **early_conflict, MemoryAccess **late_conflict) {
+    return ValidateMemoryAccesses(report_data, command_buffer, prev_mem_accesses.access_maps[WRITE_INDEX], read_accesses, caller,
+                                  pre_check, early_conflict, late_conflict);
+}
+
+bool ValidateWriteMemoryAccesses(debug_report_data const *report_data, VkCommandBuffer command_buffer,
+                                 MemAccessGroup &prev_mem_accesses, std::vector<MemoryAccess> *write_accesses, const char *caller,
+                                 bool pre_check, MemoryAccess **early_conflict, MemoryAccess **late_conflict) {
+    return ValidateMemoryAccesses(report_data, command_buffer, prev_mem_accesses.access_maps[READ_INDEX], write_accesses, caller,
+                                  pre_check, early_conflict, late_conflict);
+}
+
+// Check given vector of new_mem_accesses against prev_mem_accesses map, which has live R/W access up to the point.
+//  The "live" R/W accesses in prev_mem_access_map means the accesses have no barrier has been identified.
+//  For any new accesses that conflict with prev accesses, flag an error
+// If pre_check is true no callback will be issued, instead on any conflict set early & late conflict ptrs and return "true"
+bool ValidateRWMemoryAccesses(debug_report_data const *report_data, VkCommandBuffer command_buffer,
+                              MemAccessGroup &prev_mem_accesses, std::vector<MemoryAccess> *read_accesses,
+                              std::vector<MemoryAccess> *write_accesses, const char *caller, bool pre_check,
+                              MemoryAccess **early_conflict, MemoryAccess **late_conflict) {
+    bool skip = false;
+    // early out if there's nothing to compare
+    if ((prev_mem_accesses.access_maps[READ_INDEX].empty() || nullptr == write_accesses || write_accesses->empty()) &&
+        (prev_mem_accesses.access_maps[WRITE_INDEX].empty() || nullptr == read_accesses || read_accesses->empty())) {
+        return skip;
+    }
+    // Avoid warnings on return params w/ default values
+    (void)early_conflict;
+    (void)late_conflict;
+
+    // Validate new reads against prev writes and vice-versa
+    skip |= ValidateReadMemoryAccesses(report_data, command_buffer, prev_mem_accesses, read_accesses, caller, pre_check,
+                                       early_conflict, late_conflict);
+    skip |= ValidateWriteMemoryAccesses(report_data, command_buffer, prev_mem_accesses, write_accesses, caller, pre_check,
+                                        early_conflict, late_conflict);
+    return skip;
+}
+
+// Add the given cmd and its mem_accesses to the command buffer
+void AddCommandBufferCommandMemoryAccesses(GLOBAL_CB_NODE *cb_state, CMD_TYPE cmd, std::vector<MemoryAccess> *mem_accesses) {
+    cb_state->commands.emplace_back(std::unique_ptr<Command>(new Command(cmd, cb_state->commands.size(), cb_state)));
+    Command *cmd_ptr = cb_state->commands.back().get();
+    for (auto &mem_access : *mem_accesses) {
+        mem_access.cmd = cmd_ptr;
+        cmd_ptr->AddMemoryAccess(mem_access);
+        auto &access_map =
+            mem_access.write ? cb_state->mem_accesses.access_maps[WRITE_INDEX] : cb_state->mem_accesses.access_maps[READ_INDEX];
+        access_map[mem_access.location.mem].push_back(mem_access);
+    }
+}
+
 bool PreCallValidateCreateImage(layer_data *device_data, const VkImageCreateInfo *pCreateInfo,
                                 const VkAllocationCallbacks *pAllocator, VkImage *pImage) {
     bool skip = false;
@@ -997,65 +1210,72 @@ void RecordClearImageLayout(layer_data *device_data, GLOBAL_CB_NODE *cb_node, Vk
 }
 
 bool PreCallValidateCmdClearColorImage(layer_data *dev_data, VkCommandBuffer commandBuffer, VkImage image,
-                                       VkImageLayout imageLayout, uint32_t rangeCount, const VkImageSubresourceRange *pRanges) {
+                                       VkImageLayout imageLayout, uint32_t rangeCount, const VkImageSubresourceRange *pRanges,
+                                       std::vector<MemoryAccess> *mem_accesses) {
     bool skip = false;
     // TODO : Verify memory is in VK_IMAGE_STATE_CLEAR state
-    auto cb_node = GetCBNode(dev_data, commandBuffer);
+    auto cb_state = GetCBNode(dev_data, commandBuffer);
     auto image_state = GetImageState(dev_data, image);
-    if (cb_node && image_state) {
+    if (cb_state && image_state) {
         skip |= ValidateMemoryIsBoundToImage(dev_data, image_state, "vkCmdClearColorImage()", VALIDATION_ERROR_18800006);
-        skip |= ValidateCmdQueueFlags(dev_data, cb_node, "vkCmdClearColorImage()", VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT,
+        skip |= ValidateCmdQueueFlags(dev_data, cb_state, "vkCmdClearColorImage()", VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT,
                                       VALIDATION_ERROR_18802415);
-        skip |= ValidateCmd(dev_data, cb_node, CMD_CLEARCOLORIMAGE, "vkCmdClearColorImage()");
-        skip |= insideRenderPass(dev_data, cb_node, "vkCmdClearColorImage()", VALIDATION_ERROR_18800017);
+        skip |= ValidateCmd(dev_data, cb_state, CMD_CLEARCOLORIMAGE, "vkCmdClearColorImage()");
+        skip |= insideRenderPass(dev_data, cb_state, "vkCmdClearColorImage()", VALIDATION_ERROR_18800017);
         for (uint32_t i = 0; i < rangeCount; ++i) {
             std::string param_name = "pRanges[" + std::to_string(i) + "]";
             skip |= ValidateCmdClearColorSubresourceRange(dev_data, image_state, pRanges[i], param_name.c_str());
             skip |= ValidateImageAttributes(dev_data, image_state, pRanges[i]);
-            skip |= VerifyClearImageLayout(dev_data, cb_node, image_state, pRanges[i], imageLayout, "vkCmdClearColorImage()");
+            skip |= VerifyClearImageLayout(dev_data, cb_state, image_state, pRanges[i], imageLayout, "vkCmdClearColorImage()");
         }
     }
+    // TODO: Currently treating all image accesses as imprecise & covering the whole image area, this should be per-range
+    skip |= CreateAndValidateWriteMemoryAccess(core_validation::GetReportData(dev_data), CMD_CLEARCOLORIMAGE, commandBuffer,
+                                               cb_state->mem_accesses, mem_accesses, image_state->binding, false,
+                                               "vkCmdClearColorImage()");
     return skip;
 }
 
 // This state recording routine is shared between ClearColorImage and ClearDepthStencilImage
 void PreCallRecordCmdClearImage(layer_data *dev_data, VkCommandBuffer commandBuffer, VkImage image, VkImageLayout imageLayout,
-                                uint32_t rangeCount, const VkImageSubresourceRange *pRanges) {
-    auto cb_node = GetCBNode(dev_data, commandBuffer);
+                                uint32_t rangeCount, const VkImageSubresourceRange *pRanges, CMD_TYPE cmd,
+                                std::vector<MemoryAccess> *mem_accesses) {
+    auto cb_state = GetCBNode(dev_data, commandBuffer);
     auto image_state = GetImageState(dev_data, image);
-    if (cb_node && image_state) {
-        AddCommandBufferBindingImage(dev_data, cb_node, image_state);
+    if (cb_state && image_state) {
+        AddCommandBufferBindingImage(dev_data, cb_state, image_state);
         std::function<bool()> function = [=]() {
             SetImageMemoryValid(dev_data, image_state, true);
             return false;
         };
-        cb_node->queue_submit_functions.push_back(function);
+        cb_state->queue_submit_functions.push_back(function);
         for (uint32_t i = 0; i < rangeCount; ++i) {
-            RecordClearImageLayout(dev_data, cb_node, image, pRanges[i], imageLayout);
+            RecordClearImageLayout(dev_data, cb_state, image, pRanges[i], imageLayout);
         }
     }
+    AddCommandBufferCommandMemoryAccesses(cb_state, cmd, mem_accesses);
 }
 
 bool PreCallValidateCmdClearDepthStencilImage(layer_data *device_data, VkCommandBuffer commandBuffer, VkImage image,
                                               VkImageLayout imageLayout, uint32_t rangeCount,
-                                              const VkImageSubresourceRange *pRanges) {
+                                              const VkImageSubresourceRange *pRanges, std::vector<MemoryAccess> *mem_accesses) {
     bool skip = false;
     const debug_report_data *report_data = core_validation::GetReportData(device_data);
 
     // TODO : Verify memory is in VK_IMAGE_STATE_CLEAR state
-    auto cb_node = GetCBNode(device_data, commandBuffer);
+    auto cb_state = GetCBNode(device_data, commandBuffer);
     auto image_state = GetImageState(device_data, image);
-    if (cb_node && image_state) {
+    if (cb_state && image_state) {
         skip |= ValidateMemoryIsBoundToImage(device_data, image_state, "vkCmdClearDepthStencilImage()", VALIDATION_ERROR_18a00014);
-        skip |= ValidateCmdQueueFlags(device_data, cb_node, "vkCmdClearDepthStencilImage()", VK_QUEUE_GRAPHICS_BIT,
+        skip |= ValidateCmdQueueFlags(device_data, cb_state, "vkCmdClearDepthStencilImage()", VK_QUEUE_GRAPHICS_BIT,
                                       VALIDATION_ERROR_18a02415);
-        skip |= ValidateCmd(device_data, cb_node, CMD_CLEARDEPTHSTENCILIMAGE, "vkCmdClearDepthStencilImage()");
-        skip |= insideRenderPass(device_data, cb_node, "vkCmdClearDepthStencilImage()", VALIDATION_ERROR_18a00017);
+        skip |= ValidateCmd(device_data, cb_state, CMD_CLEARDEPTHSTENCILIMAGE, "vkCmdClearDepthStencilImage()");
+        skip |= insideRenderPass(device_data, cb_state, "vkCmdClearDepthStencilImage()", VALIDATION_ERROR_18a00017);
         for (uint32_t i = 0; i < rangeCount; ++i) {
             std::string param_name = "pRanges[" + std::to_string(i) + "]";
             skip |= ValidateCmdClearDepthSubresourceRange(device_data, image_state, pRanges[i], param_name.c_str());
-            skip |=
-                VerifyClearImageLayout(device_data, cb_node, image_state, pRanges[i], imageLayout, "vkCmdClearDepthStencilImage()");
+            skip |= VerifyClearImageLayout(device_data, cb_state, image_state, pRanges[i], imageLayout,
+                                           "vkCmdClearDepthStencilImage()");
             // Image aspect must be depth or stencil or both
             if (((pRanges[i].aspectMask & VK_IMAGE_ASPECT_DEPTH_BIT) != VK_IMAGE_ASPECT_DEPTH_BIT) &&
                 ((pRanges[i].aspectMask & VK_IMAGE_ASPECT_STENCIL_BIT) != VK_IMAGE_ASPECT_STENCIL_BIT)) {
@@ -1073,6 +1293,9 @@ bool PreCallValidateCmdClearDepthStencilImage(layer_data *device_data, VkCommand
                             validation_error_map[VALIDATION_ERROR_18a0001c]);
         }
     }
+    // TODO: Currently treating all image accesses as imprecise & covering the whole image area, this should be per-range
+    skip |= CreateAndValidateWriteMemoryAccess(report_data, CMD_CLEARDEPTHSTENCILIMAGE, commandBuffer, cb_state->mem_accesses,
+                                               mem_accesses, image_state->binding, false, "vkCmdClearDepthStencilImage()");
     return skip;
 }
 
@@ -1637,14 +1860,15 @@ bool ValidateImageCopyData(const layer_data *device_data, const debug_report_dat
     return skip;
 }
 
-bool PreCallValidateCmdCopyImage(layer_data *device_data, GLOBAL_CB_NODE *cb_node, IMAGE_STATE *src_image_state,
+bool PreCallValidateCmdCopyImage(layer_data *device_data, GLOBAL_CB_NODE *cb_state, IMAGE_STATE *src_image_state,
                                  IMAGE_STATE *dst_image_state, uint32_t region_count, const VkImageCopy *regions,
-                                 VkImageLayout src_image_layout, VkImageLayout dst_image_layout) {
+                                 VkImageLayout src_image_layout, VkImageLayout dst_image_layout,
+                                 std::vector<MemoryAccess> *mem_accesses) {
     bool skip = false;
     const debug_report_data *report_data = core_validation::GetReportData(device_data);
     skip = ValidateImageCopyData(device_data, report_data, region_count, regions, src_image_state, dst_image_state);
 
-    VkCommandBuffer command_buffer = cb_node->commandBuffer;
+    VkCommandBuffer command_buffer = cb_state->commandBuffer;
 
     for (uint32_t i = 0; i < region_count; i++) {
         bool slice_override = false;
@@ -1900,6 +2124,12 @@ bool PreCallValidateCmdCopyImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
                 }
             }
         }
+        // Add memory access for this image copy
+        // TODO: Currently treating all image accesses as imprecise & covering the whole image area
+        skip |= CreateAndValidateReadMemoryAccess(report_data, CMD_COPYIMAGE, cb_state->commandBuffer, cb_state->mem_accesses,
+                                                  mem_accesses, src_image_state->binding, false, "vkCmdCopyImage()");
+        skip |= CreateAndValidateWriteMemoryAccess(report_data, CMD_COPYIMAGE, cb_state->commandBuffer, cb_state->mem_accesses,
+                                                   mem_accesses, dst_image_state->binding, false, "vkCmdCopyImage()");
     }
 
     // The formats of src_image and dst_image must be compatible. Formats are considered compatible if their texel size in bytes
@@ -1937,41 +2167,43 @@ bool PreCallValidateCmdCopyImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
                                     "vkCmdCopyImage()", "VK_IMAGE_USAGE_TRANSFER_SRC_BIT");
     skip |= ValidateImageUsageFlags(device_data, dst_image_state, VK_IMAGE_USAGE_TRANSFER_DST_BIT, true, VALIDATION_ERROR_19000106,
                                     "vkCmdCopyImage()", "VK_IMAGE_USAGE_TRANSFER_DST_BIT");
-    skip |= ValidateCmdQueueFlags(device_data, cb_node, "vkCmdCopyImage()",
+    skip |= ValidateCmdQueueFlags(device_data, cb_state, "vkCmdCopyImage()",
                                   VK_QUEUE_TRANSFER_BIT | VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT, VALIDATION_ERROR_19002415);
-    skip |= ValidateCmd(device_data, cb_node, CMD_COPYIMAGE, "vkCmdCopyImage()");
-    skip |= insideRenderPass(device_data, cb_node, "vkCmdCopyImage()", VALIDATION_ERROR_19000017);
+    skip |= ValidateCmd(device_data, cb_state, CMD_COPYIMAGE, "vkCmdCopyImage()");
+    skip |= insideRenderPass(device_data, cb_state, "vkCmdCopyImage()", VALIDATION_ERROR_19000017);
     bool hit_error = false;
     for (uint32_t i = 0; i < region_count; ++i) {
-        skip |= VerifyImageLayout(device_data, cb_node, src_image_state, regions[i].srcSubresource, src_image_layout,
+        skip |= VerifyImageLayout(device_data, cb_state, src_image_state, regions[i].srcSubresource, src_image_layout,
                                   VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, "vkCmdCopyImage()", VALIDATION_ERROR_19000102, &hit_error);
-        skip |= VerifyImageLayout(device_data, cb_node, dst_image_state, regions[i].dstSubresource, dst_image_layout,
+        skip |= VerifyImageLayout(device_data, cb_state, dst_image_state, regions[i].dstSubresource, dst_image_layout,
                                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, "vkCmdCopyImage()", VALIDATION_ERROR_1900010c, &hit_error);
-        skip |= ValidateCopyImageTransferGranularityRequirements(device_data, cb_node, src_image_state, dst_image_state,
+        skip |= ValidateCopyImageTransferGranularityRequirements(device_data, cb_state, src_image_state, dst_image_state,
                                                                  &regions[i], i, "vkCmdCopyImage()");
     }
 
     return skip;
 }
 
-void PreCallRecordCmdCopyImage(layer_data *device_data, GLOBAL_CB_NODE *cb_node, IMAGE_STATE *src_image_state,
+void PreCallRecordCmdCopyImage(layer_data *device_data, GLOBAL_CB_NODE *cb_state, IMAGE_STATE *src_image_state,
                                IMAGE_STATE *dst_image_state, uint32_t region_count, const VkImageCopy *regions,
-                               VkImageLayout src_image_layout, VkImageLayout dst_image_layout) {
+                               VkImageLayout src_image_layout, VkImageLayout dst_image_layout,
+                               std::vector<MemoryAccess> *mem_accesses) {
     // Make sure that all image slices are updated to correct layout
     for (uint32_t i = 0; i < region_count; ++i) {
-        SetImageLayout(device_data, cb_node, src_image_state, regions[i].srcSubresource, src_image_layout);
-        SetImageLayout(device_data, cb_node, dst_image_state, regions[i].dstSubresource, dst_image_layout);
+        SetImageLayout(device_data, cb_state, src_image_state, regions[i].srcSubresource, src_image_layout);
+        SetImageLayout(device_data, cb_state, dst_image_state, regions[i].dstSubresource, dst_image_layout);
     }
     // Update bindings between images and cmd buffer
-    AddCommandBufferBindingImage(device_data, cb_node, src_image_state);
-    AddCommandBufferBindingImage(device_data, cb_node, dst_image_state);
+    AddCommandBufferBindingImage(device_data, cb_state, src_image_state);
+    AddCommandBufferBindingImage(device_data, cb_state, dst_image_state);
     std::function<bool()> function = [=]() { return ValidateImageMemoryIsValid(device_data, src_image_state, "vkCmdCopyImage()"); };
-    cb_node->queue_submit_functions.push_back(function);
+    cb_state->queue_submit_functions.push_back(function);
     function = [=]() {
         SetImageMemoryValid(device_data, dst_image_state, true);
         return false;
     };
-    cb_node->queue_submit_functions.push_back(function);
+    cb_state->queue_submit_functions.push_back(function);
+    AddCommandBufferCommandMemoryAccesses(cb_state, CMD_COPYIMAGE, mem_accesses);
 }
 
 // Returns true if sub_rect is entirely contained within rect
@@ -1982,37 +2214,35 @@ static inline bool ContainsRect(VkRect2D rect, VkRect2D sub_rect) {
     return true;
 }
 
-bool PreCallValidateCmdClearAttachments(layer_data *device_data, VkCommandBuffer commandBuffer, uint32_t attachmentCount,
-                                        const VkClearAttachment *pAttachments, uint32_t rectCount, const VkClearRect *pRects) {
-    GLOBAL_CB_NODE *cb_node = GetCBNode(device_data, commandBuffer);
+bool PreCallValidateCmdClearAttachments(layer_data *device_data, GLOBAL_CB_NODE *cb_state, uint32_t attachmentCount,
+                                        const VkClearAttachment *pAttachments, uint32_t rectCount, const VkClearRect *pRects,
+                                        std::vector<MemoryAccess> *mem_accesses) {
     const debug_report_data *report_data = core_validation::GetReportData(device_data);
-
+    const auto commandBuffer = cb_state->commandBuffer;
     bool skip = false;
-    if (cb_node) {
-        skip |= ValidateCmdQueueFlags(device_data, cb_node, "vkCmdClearAttachments()", VK_QUEUE_GRAPHICS_BIT,
-                                      VALIDATION_ERROR_18602415);
-        skip |= ValidateCmd(device_data, cb_node, CMD_CLEARATTACHMENTS, "vkCmdClearAttachments()");
-        // Warn if this is issued prior to Draw Cmd and clearing the entire attachment
-        if (!cb_node->hasDrawCmd && (cb_node->activeRenderPassBeginInfo.renderArea.extent.width == pRects[0].rect.extent.width) &&
-            (cb_node->activeRenderPassBeginInfo.renderArea.extent.height == pRects[0].rect.extent.height)) {
-            // There are times where app needs to use ClearAttachments (generally when reusing a buffer inside of a render pass)
-            // This warning should be made more specific. It'd be best to avoid triggering this test if it's a use that must call
-            // CmdClearAttachments.
-            skip |=
-                log_msg(report_data, VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
+
+    skip |=
+        ValidateCmdQueueFlags(device_data, cb_state, "vkCmdClearAttachments()", VK_QUEUE_GRAPHICS_BIT, VALIDATION_ERROR_18602415);
+    skip |= ValidateCmd(device_data, cb_state, CMD_CLEARATTACHMENTS, "vkCmdClearAttachments()");
+    // Warn if this is issued prior to Draw Cmd and clearing the entire attachment
+    if (!cb_state->hasDrawCmd && (cb_state->activeRenderPassBeginInfo.renderArea.extent.width == pRects[0].rect.extent.width) &&
+        (cb_state->activeRenderPassBeginInfo.renderArea.extent.height == pRects[0].rect.extent.height)) {
+        // There are times where app needs to use ClearAttachments (generally when reusing a buffer inside of a render pass)
+        // This warning should be made more specific. It'd be best to avoid triggering this test if it's a use that must call
+        // CmdClearAttachments.
+        skip |= log_msg(report_data, VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
                         HandleToUint64(commandBuffer), 0, DRAWSTATE_CLEAR_CMD_BEFORE_DRAW, "DS",
                         "vkCmdClearAttachments() issued on command buffer object 0x%p prior to any Draw Cmds."
                         " It is recommended you use RenderPass LOAD_OP_CLEAR on Attachments prior to any Draw.",
                         commandBuffer);
-        }
-        skip |= outsideRenderPass(device_data, cb_node, "vkCmdClearAttachments()", VALIDATION_ERROR_18600017);
     }
+    skip |= outsideRenderPass(device_data, cb_state, "vkCmdClearAttachments()", VALIDATION_ERROR_18600017);
 
     // Validate that attachment is in reference list of active subpass
-    if (cb_node->activeRenderPass) {
-        const VkRenderPassCreateInfo *renderpass_create_info = cb_node->activeRenderPass->createInfo.ptr();
-        const VkSubpassDescription *subpass_desc = &renderpass_create_info->pSubpasses[cb_node->activeSubpass];
-        auto framebuffer = GetFramebufferState(device_data, cb_node->activeFramebuffer);
+    if (cb_state->activeRenderPass) {
+        const VkRenderPassCreateInfo *renderpass_create_info = cb_state->activeRenderPass->createInfo.ptr();
+        const VkSubpassDescription *subpass_desc = &renderpass_create_info->pSubpasses[cb_state->activeSubpass];
+        auto framebuffer = GetFramebufferState(device_data, cb_state->activeFramebuffer);
 
         for (uint32_t i = 0; i < attachmentCount; i++) {
             auto clear_desc = &pAttachments[i];
@@ -2031,7 +2261,7 @@ bool PreCallValidateCmdClearAttachments(layer_data *device_data, VkCommandBuffer
                     skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
                                     HandleToUint64(commandBuffer), __LINE__, VALIDATION_ERROR_1860001e, "DS",
                                     "vkCmdClearAttachments() color attachment index %d out of range for active subpass %d. %s",
-                                    clear_desc->colorAttachment, cb_node->activeSubpass,
+                                    clear_desc->colorAttachment, cb_state->activeSubpass,
                                     validation_error_map[VALIDATION_ERROR_1860001e]);
                 } else if (subpass_desc->pColorAttachments[clear_desc->colorAttachment].attachment == VK_ATTACHMENT_UNUSED) {
                     skip |= log_msg(report_data, VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT,
@@ -2070,13 +2300,13 @@ bool PreCallValidateCmdClearAttachments(layer_data *device_data, VkCommandBuffer
                 }
             }
             if (image_view) {
-                auto image_view_state = GetImageViewState(device_data, image_view);
+                const auto image_view_state = GetImageViewState(device_data, image_view);
                 for (uint32_t j = 0; j < rectCount; j++) {
                     // The rectangular region specified by a given element of pRects must be contained within the render area of
                     // the current render pass instance
                     // TODO: This check should be moved to CmdExecuteCommands or QueueSubmit to cover secondary CB cases
-                    if ((cb_node->createInfo.level == VK_COMMAND_BUFFER_LEVEL_PRIMARY) &&
-                        (false == ContainsRect(cb_node->activeRenderPassBeginInfo.renderArea, pRects[j].rect))) {
+                    if ((cb_state->createInfo.level == VK_COMMAND_BUFFER_LEVEL_PRIMARY) &&
+                        (false == ContainsRect(cb_state->activeRenderPassBeginInfo.renderArea, pRects[j].rect))) {
                         skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
                                         HandleToUint64(commandBuffer), __LINE__, VALIDATION_ERROR_18600020, "DS",
                                         "vkCmdClearAttachments(): The area defined by pRects[%d] is not contained in the area of "
@@ -2096,23 +2326,33 @@ bool PreCallValidateCmdClearAttachments(layer_data *device_data, VkCommandBuffer
                                     j, i, validation_error_map[VALIDATION_ERROR_18600022]);
                     }
                 }
+                // TODO: Just marking memory accesses as imprecise per-image binding basis for now, should be per-rect above
+                const auto image_state = GetImageState(device_data, image_view_state->create_info.image);
+                skip |= CreateAndValidateWriteMemoryAccess(report_data, CMD_CLEARATTACHMENTS, commandBuffer, cb_state->mem_accesses,
+                                                           mem_accesses, image_state->binding, false, "vkCmdClearAttachments()");
             }
         }
     }
     return skip;
 }
 
-bool PreCallValidateCmdResolveImage(layer_data *device_data, GLOBAL_CB_NODE *cb_node, IMAGE_STATE *src_image_state,
-                                    IMAGE_STATE *dst_image_state, uint32_t regionCount, const VkImageResolve *pRegions) {
+void PreCallRecordCmdClearAttachments(debug_report_data const *report_data, GLOBAL_CB_NODE *cb_state,
+                                      std::vector<MemoryAccess> *mem_accesses) {
+    AddCommandBufferCommandMemoryAccesses(cb_state, CMD_CLEARATTACHMENTS, mem_accesses);
+}
+
+bool PreCallValidateCmdResolveImage(layer_data *device_data, GLOBAL_CB_NODE *cb_state, IMAGE_STATE *src_image_state,
+                                    IMAGE_STATE *dst_image_state, uint32_t regionCount, const VkImageResolve *pRegions,
+                                    std::vector<MemoryAccess> *mem_accesses) {
     const debug_report_data *report_data = core_validation::GetReportData(device_data);
     bool skip = false;
-    if (cb_node && src_image_state && dst_image_state) {
+    if (cb_state && src_image_state && dst_image_state) {
         skip |= ValidateMemoryIsBoundToImage(device_data, src_image_state, "vkCmdResolveImage()", VALIDATION_ERROR_1c800200);
         skip |= ValidateMemoryIsBoundToImage(device_data, dst_image_state, "vkCmdResolveImage()", VALIDATION_ERROR_1c800204);
         skip |=
-            ValidateCmdQueueFlags(device_data, cb_node, "vkCmdResolveImage()", VK_QUEUE_GRAPHICS_BIT, VALIDATION_ERROR_1c802415);
-        skip |= ValidateCmd(device_data, cb_node, CMD_RESOLVEIMAGE, "vkCmdResolveImage()");
-        skip |= insideRenderPass(device_data, cb_node, "vkCmdResolveImage()", VALIDATION_ERROR_1c800017);
+            ValidateCmdQueueFlags(device_data, cb_state, "vkCmdResolveImage()", VK_QUEUE_GRAPHICS_BIT, VALIDATION_ERROR_1c802415);
+        skip |= ValidateCmd(device_data, cb_state, CMD_RESOLVEIMAGE, "vkCmdResolveImage()");
+        skip |= insideRenderPass(device_data, cb_state, "vkCmdResolveImage()", VALIDATION_ERROR_1c800017);
 
         // For each region, the number of layers in the image subresource should not be zero
         // For each region, src and dest image aspect must be color only
@@ -2120,17 +2360,17 @@ bool PreCallValidateCmdResolveImage(layer_data *device_data, GLOBAL_CB_NODE *cb_
             if (pRegions[i].srcSubresource.layerCount == 0) {
                 char const str[] = "vkCmdResolveImage: number of layers in source subresource is zero";
                 skip |= log_msg(report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                                HandleToUint64(cb_node->commandBuffer), __LINE__, DRAWSTATE_MISMATCHED_IMAGE_ASPECT, "IMAGE", str);
+                                HandleToUint64(cb_state->commandBuffer), __LINE__, DRAWSTATE_MISMATCHED_IMAGE_ASPECT, "IMAGE", str);
             }
             if (pRegions[i].dstSubresource.layerCount == 0) {
                 char const str[] = "vkCmdResolveImage: number of layers in destination subresource is zero";
                 skip |= log_msg(report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                                HandleToUint64(cb_node->commandBuffer), __LINE__, DRAWSTATE_MISMATCHED_IMAGE_ASPECT, "IMAGE", str);
+                                HandleToUint64(cb_state->commandBuffer), __LINE__, DRAWSTATE_MISMATCHED_IMAGE_ASPECT, "IMAGE", str);
             }
             if (pRegions[i].srcSubresource.layerCount != pRegions[i].dstSubresource.layerCount) {
                 skip |= log_msg(
                     report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                    HandleToUint64(cb_node->commandBuffer), __LINE__, VALIDATION_ERROR_0a200216, "IMAGE",
+                    HandleToUint64(cb_state->commandBuffer), __LINE__, VALIDATION_ERROR_0a200216, "IMAGE",
                     "vkCmdResolveImage: layerCount in source and destination subresource of pRegions[%d] does not match. %s", i,
                     validation_error_map[VALIDATION_ERROR_0a200216]);
             }
@@ -2139,31 +2379,37 @@ bool PreCallValidateCmdResolveImage(layer_data *device_data, GLOBAL_CB_NODE *cb_
                 char const str[] =
                     "vkCmdResolveImage: src and dest aspectMasks for each region must specify only VK_IMAGE_ASPECT_COLOR_BIT";
                 skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                                HandleToUint64(cb_node->commandBuffer), __LINE__, VALIDATION_ERROR_0a200214, "IMAGE", "%s. %s", str,
-                                validation_error_map[VALIDATION_ERROR_0a200214]);
+                                HandleToUint64(cb_state->commandBuffer), __LINE__, VALIDATION_ERROR_0a200214, "IMAGE", "%s. %s",
+                                str, validation_error_map[VALIDATION_ERROR_0a200214]);
             }
         }
+        // Add memory access for this image resolve
+        // TODO: Currently treating all image accesses as imprecise & covering the whole image area
+        skip |= CreateAndValidateReadMemoryAccess(report_data, CMD_RESOLVEIMAGE, cb_state->commandBuffer, cb_state->mem_accesses,
+                                                  mem_accesses, src_image_state->binding, false, "vkCmdResolveImage()");
+        skip |= CreateAndValidateWriteMemoryAccess(report_data, CMD_RESOLVEIMAGE, cb_state->commandBuffer, cb_state->mem_accesses,
+                                                   mem_accesses, dst_image_state->binding, false, "vkCmdResolveImage()");
 
         if (src_image_state->createInfo.format != dst_image_state->createInfo.format) {
             char const str[] = "vkCmdResolveImage called with unmatched source and dest formats.";
             skip |= log_msg(report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                            HandleToUint64(cb_node->commandBuffer), __LINE__, DRAWSTATE_MISMATCHED_IMAGE_FORMAT, "IMAGE", str);
+                            HandleToUint64(cb_state->commandBuffer), __LINE__, DRAWSTATE_MISMATCHED_IMAGE_FORMAT, "IMAGE", str);
         }
         if (src_image_state->createInfo.imageType != dst_image_state->createInfo.imageType) {
             char const str[] = "vkCmdResolveImage called with unmatched source and dest image types.";
             skip |= log_msg(report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                            HandleToUint64(cb_node->commandBuffer), __LINE__, DRAWSTATE_MISMATCHED_IMAGE_TYPE, "IMAGE", str);
+                            HandleToUint64(cb_state->commandBuffer), __LINE__, DRAWSTATE_MISMATCHED_IMAGE_TYPE, "IMAGE", str);
         }
         if (src_image_state->createInfo.samples == VK_SAMPLE_COUNT_1_BIT) {
             char const str[] = "vkCmdResolveImage called with source sample count less than 2.";
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                            HandleToUint64(cb_node->commandBuffer), __LINE__, VALIDATION_ERROR_1c800202, "IMAGE", "%s. %s", str,
+                            HandleToUint64(cb_state->commandBuffer), __LINE__, VALIDATION_ERROR_1c800202, "IMAGE", "%s. %s", str,
                             validation_error_map[VALIDATION_ERROR_1c800202]);
         }
         if (dst_image_state->createInfo.samples != VK_SAMPLE_COUNT_1_BIT) {
             char const str[] = "vkCmdResolveImage called with dest sample count greater than 1.";
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                            HandleToUint64(cb_node->commandBuffer), __LINE__, VALIDATION_ERROR_1c800206, "IMAGE", "%s. %s", str,
+                            HandleToUint64(cb_state->commandBuffer), __LINE__, VALIDATION_ERROR_1c800206, "IMAGE", "%s. %s", str,
                             validation_error_map[VALIDATION_ERROR_1c800206]);
         }
         // TODO: Need to validate image layouts, which will include layout validation for shared presentable images
@@ -2173,29 +2419,31 @@ bool PreCallValidateCmdResolveImage(layer_data *device_data, GLOBAL_CB_NODE *cb_
     return skip;
 }
 
-void PreCallRecordCmdResolveImage(layer_data *device_data, GLOBAL_CB_NODE *cb_node, IMAGE_STATE *src_image_state,
-                                  IMAGE_STATE *dst_image_state) {
+void PreCallRecordCmdResolveImage(layer_data *device_data, GLOBAL_CB_NODE *cb_state, IMAGE_STATE *src_image_state,
+                                  IMAGE_STATE *dst_image_state, std::vector<MemoryAccess> *mem_accesses) {
     // Update bindings between images and cmd buffer
-    AddCommandBufferBindingImage(device_data, cb_node, src_image_state);
-    AddCommandBufferBindingImage(device_data, cb_node, dst_image_state);
+    AddCommandBufferBindingImage(device_data, cb_state, src_image_state);
+    AddCommandBufferBindingImage(device_data, cb_state, dst_image_state);
 
     std::function<bool()> function = [=]() {
         return ValidateImageMemoryIsValid(device_data, src_image_state, "vkCmdResolveImage()");
     };
-    cb_node->queue_submit_functions.push_back(function);
+    cb_state->queue_submit_functions.push_back(function);
     function = [=]() {
         SetImageMemoryValid(device_data, dst_image_state, true);
         return false;
     };
-    cb_node->queue_submit_functions.push_back(function);
+    cb_state->queue_submit_functions.push_back(function);
+    AddCommandBufferCommandMemoryAccesses(cb_state, CMD_RESOLVEIMAGE, mem_accesses);
 }
 
-bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_node, IMAGE_STATE *src_image_state,
-                                 IMAGE_STATE *dst_image_state, uint32_t regionCount, const VkImageBlit *pRegions, VkFilter filter) {
+bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_state, IMAGE_STATE *src_image_state,
+                                 IMAGE_STATE *dst_image_state, uint32_t regionCount, const VkImageBlit *pRegions, VkFilter filter,
+                                 std::vector<MemoryAccess> *mem_accesses) {
     const debug_report_data *report_data = core_validation::GetReportData(device_data);
 
     bool skip = false;
-    if (cb_node && src_image_state && dst_image_state) {
+    if (cb_state && src_image_state && dst_image_state) {
         skip |= ValidateImageSampleCount(device_data, src_image_state, VK_SAMPLE_COUNT_1_BIT, "vkCmdBlitImage(): srcImage",
                                          VALIDATION_ERROR_184001d2);
         skip |= ValidateImageSampleCount(device_data, dst_image_state, VK_SAMPLE_COUNT_1_BIT, "vkCmdBlitImage(): dstImage",
@@ -2206,9 +2454,9 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
                                         VALIDATION_ERROR_184001b6, "vkCmdBlitImage()", "VK_IMAGE_USAGE_TRANSFER_SRC_BIT");
         skip |= ValidateImageUsageFlags(device_data, dst_image_state, VK_IMAGE_USAGE_TRANSFER_DST_BIT, true,
                                         VALIDATION_ERROR_184001c0, "vkCmdBlitImage()", "VK_IMAGE_USAGE_TRANSFER_DST_BIT");
-        skip |= ValidateCmdQueueFlags(device_data, cb_node, "vkCmdBlitImage()", VK_QUEUE_GRAPHICS_BIT, VALIDATION_ERROR_18402415);
-        skip |= ValidateCmd(device_data, cb_node, CMD_BLITIMAGE, "vkCmdBlitImage()");
-        skip |= insideRenderPass(device_data, cb_node, "vkCmdBlitImage()", VALIDATION_ERROR_18400017);
+        skip |= ValidateCmdQueueFlags(device_data, cb_state, "vkCmdBlitImage()", VK_QUEUE_GRAPHICS_BIT, VALIDATION_ERROR_18402415);
+        skip |= ValidateCmd(device_data, cb_state, CMD_BLITIMAGE, "vkCmdBlitImage()");
+        skip |= insideRenderPass(device_data, cb_state, "vkCmdBlitImage()", VALIDATION_ERROR_18400017);
         // TODO: Need to validate image layouts, which will include layout validation for shared presentable images
 
         VkFormat src_format = src_image_state->createInfo.format;
@@ -2222,7 +2470,7 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
             (tiling == VK_IMAGE_TILING_LINEAR ? props.linearTilingFeatures : props.optimalTilingFeatures);
         if (VK_FORMAT_FEATURE_BLIT_SRC_BIT != (flags & VK_FORMAT_FEATURE_BLIT_SRC_BIT)) {
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                            HandleToUint64(cb_node->commandBuffer), __LINE__, VALIDATION_ERROR_184001b4, "IMAGE",
+                            HandleToUint64(cb_state->commandBuffer), __LINE__, VALIDATION_ERROR_184001b4, "IMAGE",
                             "vkCmdBlitImage: source image format %s does not support VK_FORMAT_FEATURE_BLIT_SRC_BIT feature. %s",
                             string_VkFormat(src_format), validation_error_map[VALIDATION_ERROR_184001b4]);
         }
@@ -2230,7 +2478,7 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
         if ((VK_FILTER_LINEAR == filter) &&
             (VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT != (flags & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT))) {
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                            HandleToUint64(cb_node->commandBuffer), __LINE__, VALIDATION_ERROR_184001d6, "IMAGE",
+                            HandleToUint64(cb_state->commandBuffer), __LINE__, VALIDATION_ERROR_184001d6, "IMAGE",
                             "vkCmdBlitImage: source image format %s does not support linear filtering. %s",
                             string_VkFormat(src_format), validation_error_map[VALIDATION_ERROR_184001d6]);
         }
@@ -2238,14 +2486,14 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
         if ((VK_FILTER_CUBIC_IMG == filter) && (VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_CUBIC_BIT_IMG !=
                                                 (flags & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_CUBIC_BIT_IMG))) {
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                            HandleToUint64(cb_node->commandBuffer), __LINE__, VALIDATION_ERROR_184001d8, "IMAGE",
+                            HandleToUint64(cb_state->commandBuffer), __LINE__, VALIDATION_ERROR_184001d8, "IMAGE",
                             "vkCmdBlitImage: source image format %s does not support cubic filtering. %s",
                             string_VkFormat(src_format), validation_error_map[VALIDATION_ERROR_184001d8]);
         }
 
         if ((VK_FILTER_CUBIC_IMG == filter) && (VK_IMAGE_TYPE_3D != src_type)) {
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                            HandleToUint64(cb_node->commandBuffer), __LINE__, VALIDATION_ERROR_184001da, "IMAGE",
+                            HandleToUint64(cb_state->commandBuffer), __LINE__, VALIDATION_ERROR_184001da, "IMAGE",
                             "vkCmdBlitImage: source image type must be VK_IMAGE_TYPE_3D when cubic filtering is specified. %s",
                             validation_error_map[VALIDATION_ERROR_184001da]);
         }
@@ -2256,7 +2504,7 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
         if (VK_FORMAT_FEATURE_BLIT_DST_BIT != (flags & VK_FORMAT_FEATURE_BLIT_DST_BIT)) {
             skip |=
                 log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                        HandleToUint64(cb_node->commandBuffer), __LINE__, VALIDATION_ERROR_184001be, "IMAGE",
+                        HandleToUint64(cb_state->commandBuffer), __LINE__, VALIDATION_ERROR_184001be, "IMAGE",
                         "vkCmdBlitImage: destination image format %s does not support VK_FORMAT_FEATURE_BLIT_DST_BIT feature. %s",
                         string_VkFormat(dst_format), validation_error_map[VALIDATION_ERROR_184001be]);
         }
@@ -2264,7 +2512,7 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
         if ((VK_SAMPLE_COUNT_1_BIT != src_image_state->createInfo.samples) ||
             (VK_SAMPLE_COUNT_1_BIT != dst_image_state->createInfo.samples)) {
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                            HandleToUint64(cb_node->commandBuffer), __LINE__, VALIDATION_ERROR_184001c8, "IMAGE",
+                            HandleToUint64(cb_state->commandBuffer), __LINE__, VALIDATION_ERROR_184001c8, "IMAGE",
                             "vkCmdBlitImage: source or dest image has sample count other than VK_SAMPLE_COUNT_1_BIT. %s",
                             validation_error_map[VALIDATION_ERROR_184001c8]);
         }
@@ -2276,7 +2524,7 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
                << "the other one must also have unsigned integer format.  "
                << "Source format is " << string_VkFormat(src_format) << " Destination format is " << string_VkFormat(dst_format);
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                            HandleToUint64(cb_node->commandBuffer), __LINE__, VALIDATION_ERROR_184001cc, "IMAGE", "%s. %s",
+                            HandleToUint64(cb_state->commandBuffer), __LINE__, VALIDATION_ERROR_184001cc, "IMAGE", "%s. %s",
                             ss.str().c_str(), validation_error_map[VALIDATION_ERROR_184001cc]);
         }
 
@@ -2287,7 +2535,7 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
                << "the other one must also have signed integer format.  "
                << "Source format is " << string_VkFormat(src_format) << " Destination format is " << string_VkFormat(dst_format);
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                            HandleToUint64(cb_node->commandBuffer), __LINE__, VALIDATION_ERROR_184001ca, "IMAGE", "%s. %s",
+                            HandleToUint64(cb_state->commandBuffer), __LINE__, VALIDATION_ERROR_184001ca, "IMAGE", "%s. %s",
                             ss.str().c_str(), validation_error_map[VALIDATION_ERROR_184001ca]);
         }
 
@@ -2297,7 +2545,7 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
             ss << "vkCmdBlitImage: If the format of srcImage is a depth, stencil, or depth stencil "
                << "then filter must be VK_FILTER_NEAREST.";
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                            HandleToUint64(cb_node->commandBuffer), __LINE__, VALIDATION_ERROR_184001d0, "IMAGE", "%s. %s",
+                            HandleToUint64(cb_state->commandBuffer), __LINE__, VALIDATION_ERROR_184001d0, "IMAGE", "%s. %s",
                             ss.str().c_str(), validation_error_map[VALIDATION_ERROR_184001d0]);
         }
 
@@ -2310,7 +2558,7 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
                    << "Source format is " << string_VkFormat(src_format) << " Destination format is "
                    << string_VkFormat(dst_format);
                 skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                                HandleToUint64(cb_node->commandBuffer), __LINE__, VALIDATION_ERROR_184001ce, "IMAGE", "%s. %s",
+                                HandleToUint64(cb_state->commandBuffer), __LINE__, VALIDATION_ERROR_184001ce, "IMAGE", "%s. %s",
                                 ss.str().c_str(), validation_error_map[VALIDATION_ERROR_184001ce]);
             }
 
@@ -2325,7 +2573,7 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
                             "VK_IMAGE_ASPECT_DEPTH_BIT "
                             << "and VK_IMAGE_ASPECT_STENCIL_BIT set in srcImage and dstImage";
                         skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                            HandleToUint64(cb_node->commandBuffer), __LINE__, DRAWSTATE_INVALID_IMAGE_ASPECT, "IMAGE",
+                            HandleToUint64(cb_state->commandBuffer), __LINE__, DRAWSTATE_INVALID_IMAGE_ASPECT, "IMAGE",
                             "%s", ss.str().c_str());
                     }
                 }
@@ -2335,7 +2583,7 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
                         ss << "vkCmdBlitImage: Stencil-only image formats must have only the VK_IMAGE_ASPECT_STENCIL_BIT "
                             << "set in both the srcImage and dstImage";
                         skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                            HandleToUint64(cb_node->commandBuffer), __LINE__, DRAWSTATE_INVALID_IMAGE_ASPECT, "IMAGE",
+                            HandleToUint64(cb_state->commandBuffer), __LINE__, DRAWSTATE_INVALID_IMAGE_ASPECT, "IMAGE",
                             "%s", ss.str().c_str());
                     }
                 }
@@ -2345,7 +2593,7 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
                         ss << "vkCmdBlitImage: Depth-only image formats must have only the VK_IMAGE_ASPECT_DEPTH "
                             << "set in both the srcImage and dstImage";
                         skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                            HandleToUint64(cb_node->commandBuffer), __LINE__, DRAWSTATE_INVALID_IMAGE_ASPECT, "IMAGE",
+                            HandleToUint64(cb_state->commandBuffer), __LINE__, DRAWSTATE_INVALID_IMAGE_ASPECT, "IMAGE",
                             "%s", ss.str().c_str());
                     }
                 }
@@ -2363,7 +2611,7 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
                 std::stringstream ss;
                 ss << "vkCmdBlitImage: pRegions[" << i << "].srcOffsets specify a zero-volume area.";
                 skip |= log_msg(report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                                HandleToUint64(cb_node->commandBuffer), __LINE__, DRAWSTATE_INVALID_EXTENTS, "IMAGE", "%s",
+                                HandleToUint64(cb_state->commandBuffer), __LINE__, DRAWSTATE_INVALID_EXTENTS, "IMAGE", "%s",
                                 ss.str().c_str());
             }
             if ((rgn.dstOffsets[0].x == rgn.dstOffsets[1].x) || (rgn.dstOffsets[0].y == rgn.dstOffsets[1].y) ||
@@ -2371,39 +2619,39 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
                 std::stringstream ss;
                 ss << "vkCmdBlitImage: pRegions[" << i << "].dstOffsets specify a zero-volume area.";
                 skip |= log_msg(report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                                HandleToUint64(cb_node->commandBuffer), __LINE__, DRAWSTATE_INVALID_EXTENTS, "IMAGE", "%s",
+                                HandleToUint64(cb_state->commandBuffer), __LINE__, DRAWSTATE_INVALID_EXTENTS, "IMAGE", "%s",
                                 ss.str().c_str());
             }
             if (rgn.srcSubresource.layerCount == 0) {
                 char const str[] = "vkCmdBlitImage: number of layers in source subresource is zero";
                 skip |= log_msg(report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                                HandleToUint64(cb_node->commandBuffer), __LINE__, DRAWSTATE_MISMATCHED_IMAGE_ASPECT, "IMAGE", str);
+                                HandleToUint64(cb_state->commandBuffer), __LINE__, DRAWSTATE_MISMATCHED_IMAGE_ASPECT, "IMAGE", str);
             }
             if (rgn.dstSubresource.layerCount == 0) {
                 char const str[] = "vkCmdBlitImage: number of layers in destination subresource is zero";
                 skip |= log_msg(report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                                HandleToUint64(cb_node->commandBuffer), __LINE__, DRAWSTATE_MISMATCHED_IMAGE_ASPECT, "IMAGE", str);
+                                HandleToUint64(cb_state->commandBuffer), __LINE__, DRAWSTATE_MISMATCHED_IMAGE_ASPECT, "IMAGE", str);
             }
 
             // Check that src/dst layercounts match
             if (rgn.srcSubresource.layerCount != rgn.dstSubresource.layerCount) {
                 skip |=
                     log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                            HandleToUint64(cb_node->commandBuffer), __LINE__, VALIDATION_ERROR_09a001de, "IMAGE",
+                            HandleToUint64(cb_state->commandBuffer), __LINE__, VALIDATION_ERROR_09a001de, "IMAGE",
                             "vkCmdBlitImage: layerCount in source and destination subresource of pRegions[%d] does not match. %s",
                             i, validation_error_map[VALIDATION_ERROR_09a001de]);
             }
 
             if (rgn.srcSubresource.aspectMask != rgn.dstSubresource.aspectMask) {
                 skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                                HandleToUint64(cb_node->commandBuffer), __LINE__, VALIDATION_ERROR_09a001dc, "IMAGE",
+                                HandleToUint64(cb_state->commandBuffer), __LINE__, VALIDATION_ERROR_09a001dc, "IMAGE",
                                 "vkCmdBlitImage: aspectMask members for pRegion[%d] do not match. %s", i,
                                 validation_error_map[VALIDATION_ERROR_09a001dc]);
             }
 
             if (!VerifyAspectsPresent(rgn.srcSubresource.aspectMask, src_format)) {
                 skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                                HandleToUint64(cb_node->commandBuffer), __LINE__, VALIDATION_ERROR_09a001e2, "IMAGE",
+                                HandleToUint64(cb_state->commandBuffer), __LINE__, VALIDATION_ERROR_09a001e2, "IMAGE",
                                 "vkCmdBlitImage: region [%d] source aspectMask (0x%x) specifies aspects not present in source "
                                 "image format %s. %s",
                                 i, rgn.srcSubresource.aspectMask, string_VkFormat(src_format),
@@ -2413,7 +2661,7 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
             if (!VerifyAspectsPresent(rgn.dstSubresource.aspectMask, dst_format)) {
                 skip |= log_msg(
                     report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                    HandleToUint64(cb_node->commandBuffer), __LINE__, VALIDATION_ERROR_09a001e4, "IMAGE",
+                    HandleToUint64(cb_state->commandBuffer), __LINE__, VALIDATION_ERROR_09a001e4, "IMAGE",
                     "vkCmdBlitImage: region [%d] dest aspectMask (0x%x) specifies aspects not present in dest image format %s. %s",
                     i, rgn.dstSubresource.aspectMask, string_VkFormat(dst_format), validation_error_map[VALIDATION_ERROR_09a001e4]);
             }
@@ -2423,7 +2671,7 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
             if (VK_IMAGE_TYPE_1D == src_type) {
                 if ((0 != rgn.srcOffsets[0].y) || (1 != rgn.srcOffsets[1].y)) {
                     skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                                    HandleToUint64(cb_node->commandBuffer), __LINE__, VALIDATION_ERROR_09a001ea, "IMAGE",
+                                    HandleToUint64(cb_state->commandBuffer), __LINE__, VALIDATION_ERROR_09a001ea, "IMAGE",
                                     "vkCmdBlitImage: region [%d], source image of type VK_IMAGE_TYPE_1D with srcOffset[].y values "
                                     "of (%1d, %1d). These must be (0, 1). %s",
                                     i, rgn.srcOffsets[0].y, rgn.srcOffsets[1].y, validation_error_map[VALIDATION_ERROR_09a001ea]);
@@ -2433,7 +2681,7 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
             if ((VK_IMAGE_TYPE_1D == src_type) || (VK_IMAGE_TYPE_2D == src_type)) {
                 if ((0 != rgn.srcOffsets[0].z) || (1 != rgn.srcOffsets[1].z)) {
                     skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                                    HandleToUint64(cb_node->commandBuffer), __LINE__, VALIDATION_ERROR_09a001ee, "IMAGE",
+                                    HandleToUint64(cb_state->commandBuffer), __LINE__, VALIDATION_ERROR_09a001ee, "IMAGE",
                                     "vkCmdBlitImage: region [%d], source image of type VK_IMAGE_TYPE_1D or VK_IMAGE_TYPE_2D with "
                                     "srcOffset[].z values of (%1d, %1d). These must be (0, 1). %s",
                                     i, rgn.srcOffsets[0].z, rgn.srcOffsets[1].z, validation_error_map[VALIDATION_ERROR_09a001ee]);
@@ -2446,7 +2694,7 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
                 oob = true;
                 skip |= log_msg(
                     report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                    HandleToUint64(cb_node->commandBuffer), __LINE__, VALIDATION_ERROR_09a001e6, "IMAGE",
+                    HandleToUint64(cb_state->commandBuffer), __LINE__, VALIDATION_ERROR_09a001e6, "IMAGE",
                     "vkCmdBlitImage: region [%d] srcOffset[].x values (%1d, %1d) exceed srcSubresource width extent (%1d). %s", i,
                     rgn.srcOffsets[0].x, rgn.srcOffsets[1].x, src_extent.width, validation_error_map[VALIDATION_ERROR_09a001e6]);
             }
@@ -2455,7 +2703,7 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
                 oob = true;
                 skip |= log_msg(
                     report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                    HandleToUint64(cb_node->commandBuffer), __LINE__, VALIDATION_ERROR_09a001e8, "IMAGE",
+                    HandleToUint64(cb_state->commandBuffer), __LINE__, VALIDATION_ERROR_09a001e8, "IMAGE",
                     "vkCmdBlitImage: region [%d] srcOffset[].y values (%1d, %1d) exceed srcSubresource height extent (%1d). %s", i,
                     rgn.srcOffsets[0].y, rgn.srcOffsets[1].y, src_extent.height, validation_error_map[VALIDATION_ERROR_09a001e8]);
             }
@@ -2464,18 +2712,18 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
                 oob = true;
                 skip |= log_msg(
                     report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                    HandleToUint64(cb_node->commandBuffer), __LINE__, VALIDATION_ERROR_09a001ec, "IMAGE",
+                    HandleToUint64(cb_state->commandBuffer), __LINE__, VALIDATION_ERROR_09a001ec, "IMAGE",
                     "vkCmdBlitImage: region [%d] srcOffset[].z values (%1d, %1d) exceed srcSubresource depth extent (%1d). %s", i,
                     rgn.srcOffsets[0].z, rgn.srcOffsets[1].z, src_extent.depth, validation_error_map[VALIDATION_ERROR_09a001ec]);
             }
             if (rgn.srcSubresource.mipLevel >= src_image_state->createInfo.mipLevels) {
                 skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                                HandleToUint64(cb_node->commandBuffer), __LINE__, VALIDATION_ERROR_184001ae, "IMAGE",
+                                HandleToUint64(cb_state->commandBuffer), __LINE__, VALIDATION_ERROR_184001ae, "IMAGE",
                                 "vkCmdBlitImage: region [%d] source image, attempt to access a non-existant mip level %1d. %s", i,
                                 rgn.srcSubresource.mipLevel, validation_error_map[VALIDATION_ERROR_184001ae]);
             } else if (oob) {
                 skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                                HandleToUint64(cb_node->commandBuffer), __LINE__, VALIDATION_ERROR_184001ae, "IMAGE",
+                                HandleToUint64(cb_state->commandBuffer), __LINE__, VALIDATION_ERROR_184001ae, "IMAGE",
                                 "vkCmdBlitImage: region [%d] source image blit region exceeds image dimensions. %s", i,
                                 validation_error_map[VALIDATION_ERROR_184001ae]);
             }
@@ -2485,7 +2733,7 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
             if (VK_IMAGE_TYPE_1D == dst_type) {
                 if ((0 != rgn.dstOffsets[0].y) || (1 != rgn.dstOffsets[1].y)) {
                     skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                                    HandleToUint64(cb_node->commandBuffer), __LINE__, VALIDATION_ERROR_09a001f4, "IMAGE",
+                                    HandleToUint64(cb_state->commandBuffer), __LINE__, VALIDATION_ERROR_09a001f4, "IMAGE",
                                     "vkCmdBlitImage: region [%d], dest image of type VK_IMAGE_TYPE_1D with dstOffset[].y values of "
                                     "(%1d, %1d). These must be (0, 1). %s",
                                     i, rgn.dstOffsets[0].y, rgn.dstOffsets[1].y, validation_error_map[VALIDATION_ERROR_09a001f4]);
@@ -2495,7 +2743,7 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
             if ((VK_IMAGE_TYPE_1D == dst_type) || (VK_IMAGE_TYPE_2D == dst_type)) {
                 if ((0 != rgn.dstOffsets[0].z) || (1 != rgn.dstOffsets[1].z)) {
                     skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                                    HandleToUint64(cb_node->commandBuffer), __LINE__, VALIDATION_ERROR_09a001f8, "IMAGE",
+                                    HandleToUint64(cb_state->commandBuffer), __LINE__, VALIDATION_ERROR_09a001f8, "IMAGE",
                                     "vkCmdBlitImage: region [%d], dest image of type VK_IMAGE_TYPE_1D or VK_IMAGE_TYPE_2D with "
                                     "dstOffset[].z values of (%1d, %1d). These must be (0, 1). %s",
                                     i, rgn.dstOffsets[0].z, rgn.dstOffsets[1].z, validation_error_map[VALIDATION_ERROR_09a001f8]);
@@ -2508,7 +2756,7 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
                 oob = true;
                 skip |= log_msg(
                     report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                    HandleToUint64(cb_node->commandBuffer), __LINE__, VALIDATION_ERROR_09a001f0, "IMAGE",
+                    HandleToUint64(cb_state->commandBuffer), __LINE__, VALIDATION_ERROR_09a001f0, "IMAGE",
                     "vkCmdBlitImage: region [%d] dstOffset[].x values (%1d, %1d) exceed dstSubresource width extent (%1d). %s", i,
                     rgn.dstOffsets[0].x, rgn.dstOffsets[1].x, dst_extent.width, validation_error_map[VALIDATION_ERROR_09a001f0]);
             }
@@ -2517,7 +2765,7 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
                 oob = true;
                 skip |= log_msg(
                     report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                    HandleToUint64(cb_node->commandBuffer), __LINE__, VALIDATION_ERROR_09a001f2, "IMAGE",
+                    HandleToUint64(cb_state->commandBuffer), __LINE__, VALIDATION_ERROR_09a001f2, "IMAGE",
                     "vkCmdBlitImage: region [%d] dstOffset[].y values (%1d, %1d) exceed dstSubresource height extent (%1d). %s", i,
                     rgn.dstOffsets[0].y, rgn.dstOffsets[1].y, dst_extent.height, validation_error_map[VALIDATION_ERROR_09a001f2]);
             }
@@ -2526,18 +2774,18 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
                 oob = true;
                 skip |= log_msg(
                     report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                    HandleToUint64(cb_node->commandBuffer), __LINE__, VALIDATION_ERROR_09a001f6, "IMAGE",
+                    HandleToUint64(cb_state->commandBuffer), __LINE__, VALIDATION_ERROR_09a001f6, "IMAGE",
                     "vkCmdBlitImage: region [%d] dstOffset[].z values (%1d, %1d) exceed dstSubresource depth extent (%1d). %s", i,
                     rgn.dstOffsets[0].z, rgn.dstOffsets[1].z, dst_extent.depth, validation_error_map[VALIDATION_ERROR_09a001f6]);
             }
             if (rgn.dstSubresource.mipLevel >= dst_image_state->createInfo.mipLevels) {
                 skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                                HandleToUint64(cb_node->commandBuffer), __LINE__, VALIDATION_ERROR_184001b0, "IMAGE",
+                                HandleToUint64(cb_state->commandBuffer), __LINE__, VALIDATION_ERROR_184001b0, "IMAGE",
                                 "vkCmdBlitImage: region [%d] destination image, attempt to access a non-existant mip level %1d. %s",
                                 i, rgn.dstSubresource.mipLevel, validation_error_map[VALIDATION_ERROR_184001b0]);
             } else if (oob) {
                 skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                                HandleToUint64(cb_node->commandBuffer), __LINE__, VALIDATION_ERROR_184001b0, "IMAGE",
+                                HandleToUint64(cb_state->commandBuffer), __LINE__, VALIDATION_ERROR_184001b0, "IMAGE",
                                 "vkCmdBlitImage: region [%d] destination image blit region exceeds image dimensions. %s", i,
                                 validation_error_map[VALIDATION_ERROR_184001b0]);
             }
@@ -2546,32 +2794,39 @@ bool PreCallValidateCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_nod
                 if ((0 != rgn.srcSubresource.baseArrayLayer) || (1 != rgn.srcSubresource.layerCount) ||
                     (0 != rgn.dstSubresource.baseArrayLayer) || (1 != rgn.dstSubresource.layerCount)) {
                     skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                                    HandleToUint64(cb_node->commandBuffer), __LINE__, VALIDATION_ERROR_09a001e0, "IMAGE",
+                                    HandleToUint64(cb_state->commandBuffer), __LINE__, VALIDATION_ERROR_09a001e0, "IMAGE",
                                     "vkCmdBlitImage: region [%d] blit to/from a 3D image type with a non-zero baseArrayLayer, or a "
                                     "layerCount other than 1. %s",
                                     i, validation_error_map[VALIDATION_ERROR_09a001e0]);
                 }
             }
         }  // per-region checks
+        // Add memory access for this blit
+        // TODO: Currently treating all image accesses as imprecise & covering the whole image area
+        skip |= CreateAndValidateReadMemoryAccess(report_data, CMD_BLITIMAGE, cb_state->commandBuffer, cb_state->mem_accesses,
+                                                  mem_accesses, src_image_state->binding, false, "vkCmdBlitImage()");
+        skip |= CreateAndValidateWriteMemoryAccess(report_data, CMD_BLITIMAGE, cb_state->commandBuffer, cb_state->mem_accesses,
+                                                   mem_accesses, dst_image_state->binding, false, "vkCmdBlitImage()");
     } else {
         assert(0);
     }
     return skip;
 }
 
-void PreCallRecordCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_node, IMAGE_STATE *src_image_state,
-                               IMAGE_STATE *dst_image_state) {
+void PreCallRecordCmdBlitImage(layer_data *device_data, GLOBAL_CB_NODE *cb_state, IMAGE_STATE *src_image_state,
+                               IMAGE_STATE *dst_image_state, std::vector<MemoryAccess> *mem_accesses) {
     // Update bindings between images and cmd buffer
-    AddCommandBufferBindingImage(device_data, cb_node, src_image_state);
-    AddCommandBufferBindingImage(device_data, cb_node, dst_image_state);
+    AddCommandBufferBindingImage(device_data, cb_state, src_image_state);
+    AddCommandBufferBindingImage(device_data, cb_state, dst_image_state);
 
     std::function<bool()> function = [=]() { return ValidateImageMemoryIsValid(device_data, src_image_state, "vkCmdBlitImage()"); };
-    cb_node->queue_submit_functions.push_back(function);
+    cb_state->queue_submit_functions.push_back(function);
     function = [=]() {
         SetImageMemoryValid(device_data, dst_image_state, true);
         return false;
     };
-    cb_node->queue_submit_functions.push_back(function);
+    cb_state->queue_submit_functions.push_back(function);
+    AddCommandBufferCommandMemoryAccesses(cb_state, CMD_BLITIMAGE, mem_accesses);
 }
 
 // This validates that the initial layout specified in the command buffer for
@@ -3459,8 +3714,9 @@ void PostCallRecordCreateImageView(layer_data *device_data, const VkImageViewCre
     sub_res_range.layerCount = ResolveRemainingLayers(&sub_res_range, image_state->createInfo.arrayLayers);
 }
 
-bool PreCallValidateCmdCopyBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_node, BUFFER_STATE *src_buffer_state,
-                                  BUFFER_STATE *dst_buffer_state) {
+bool PreCallValidateCmdCopyBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_state, BUFFER_STATE *src_buffer_state,
+                                  BUFFER_STATE *dst_buffer_state, uint32_t region_count, const VkBufferCopy *regions,
+                                  std::vector<MemoryAccess> *read_accesses, std::vector<MemoryAccess> *write_accesses) {
     bool skip = false;
     skip |= ValidateMemoryIsBoundToBuffer(device_data, src_buffer_state, "vkCmdCopyBuffer()", VALIDATION_ERROR_18c000ee);
     skip |= ValidateMemoryIsBoundToBuffer(device_data, dst_buffer_state, "vkCmdCopyBuffer()", VALIDATION_ERROR_18c000f2);
@@ -3469,28 +3725,40 @@ bool PreCallValidateCmdCopyBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_no
                                      VALIDATION_ERROR_18c000ec, "vkCmdCopyBuffer()", "VK_BUFFER_USAGE_TRANSFER_SRC_BIT");
     skip |= ValidateBufferUsageFlags(device_data, dst_buffer_state, VK_BUFFER_USAGE_TRANSFER_DST_BIT, true,
                                      VALIDATION_ERROR_18c000f0, "vkCmdCopyBuffer()", "VK_BUFFER_USAGE_TRANSFER_DST_BIT");
-    skip |= ValidateCmdQueueFlags(device_data, cb_node, "vkCmdCopyBuffer()",
+    skip |= ValidateCmdQueueFlags(device_data, cb_state, "vkCmdCopyBuffer()",
                                   VK_QUEUE_TRANSFER_BIT | VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT, VALIDATION_ERROR_18c02415);
-    skip |= ValidateCmd(device_data, cb_node, CMD_COPYBUFFER, "vkCmdCopyBuffer()");
-    skip |= insideRenderPass(device_data, cb_node, "vkCmdCopyBuffer()", VALIDATION_ERROR_18c00017);
+    skip |= ValidateCmd(device_data, cb_state, CMD_COPYBUFFER, "vkCmdCopyBuffer()");
+    skip |= insideRenderPass(device_data, cb_state, "vkCmdCopyBuffer()", VALIDATION_ERROR_18c00017);
+    const auto src_mem_obj = src_buffer_state->binding.mem;
+    const auto dst_mem_obj = dst_buffer_state->binding.mem;
+    for (uint32_t i = 0; i < region_count; ++i) {
+        const auto &reg = regions[i];
+        AddReadMemoryAccess(CMD_COPYBUFFER, read_accesses, {src_mem_obj, reg.srcOffset, reg.size}, true);
+        AddWriteMemoryAccess(CMD_COPYBUFFER, write_accesses, {dst_mem_obj, reg.dstOffset, reg.size}, true);
+    }
+    skip |= ValidateRWMemoryAccesses(core_validation::GetReportData(device_data), cb_state->commandBuffer, cb_state->mem_accesses,
+                                     read_accesses, write_accesses, "vkCmdCopyBuffer()", false, nullptr, nullptr);
     return skip;
 }
 
-void PreCallRecordCmdCopyBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_node, BUFFER_STATE *src_buffer_state,
-                                BUFFER_STATE *dst_buffer_state) {
+void PreCallRecordCmdCopyBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_state, BUFFER_STATE *src_buffer_state,
+                                BUFFER_STATE *dst_buffer_state, std::vector<MemoryAccess> *read_accesses,
+                                std::vector<MemoryAccess> *write_accesses) {
     // Update bindings between buffers and cmd buffer
-    AddCommandBufferBindingBuffer(device_data, cb_node, src_buffer_state);
-    AddCommandBufferBindingBuffer(device_data, cb_node, dst_buffer_state);
+    AddCommandBufferBindingBuffer(device_data, cb_state, src_buffer_state);
+    AddCommandBufferBindingBuffer(device_data, cb_state, dst_buffer_state);
 
     std::function<bool()> function = [=]() {
         return ValidateBufferMemoryIsValid(device_data, src_buffer_state, "vkCmdCopyBuffer()");
     };
-    cb_node->queue_submit_functions.push_back(function);
+    cb_state->queue_submit_functions.push_back(function);
     function = [=]() {
         SetBufferMemoryValid(device_data, dst_buffer_state, true);
         return false;
     };
-    cb_node->queue_submit_functions.push_back(function);
+    cb_state->queue_submit_functions.push_back(function);
+    AddCommandBufferCommandMemoryAccesses(cb_state, CMD_COPYBUFFER, read_accesses);
+    AddCommandBufferCommandMemoryAccesses(cb_state, CMD_COPYBUFFER, write_accesses);
 }
 
 static bool validateIdleBuffer(layer_data *device_data, VkBuffer buffer) {
@@ -3573,27 +3841,33 @@ void PostCallRecordDestroyBufferView(layer_data *device_data, VkBufferView buffe
     GetBufferViewMap(device_data)->erase(buffer_view);
 }
 
-bool PreCallValidateCmdFillBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_node, BUFFER_STATE *buffer_state) {
+bool PreCallValidateCmdFillBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_state, BUFFER_STATE *buffer_state, VkDeviceSize offset,
+                                  VkDeviceSize size, std::vector<MemoryAccess> *mem_accesses) {
     bool skip = false;
     skip |= ValidateMemoryIsBoundToBuffer(device_data, buffer_state, "vkCmdFillBuffer()", VALIDATION_ERROR_1b40003e);
-    skip |= ValidateCmdQueueFlags(device_data, cb_node, "vkCmdFillBuffer()",
+    skip |= ValidateCmdQueueFlags(device_data, cb_state, "vkCmdFillBuffer()",
                                   VK_QUEUE_TRANSFER_BIT | VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT, VALIDATION_ERROR_1b402415);
-    skip |= ValidateCmd(device_data, cb_node, CMD_FILLBUFFER, "vkCmdFillBuffer()");
+    skip |= ValidateCmd(device_data, cb_state, CMD_FILLBUFFER, "vkCmdFillBuffer()");
     // Validate that DST buffer has correct usage flags set
     skip |= ValidateBufferUsageFlags(device_data, buffer_state, VK_BUFFER_USAGE_TRANSFER_DST_BIT, true, VALIDATION_ERROR_1b40003a,
                                      "vkCmdFillBuffer()", "VK_BUFFER_USAGE_TRANSFER_DST_BIT");
-    skip |= insideRenderPass(device_data, cb_node, "vkCmdFillBuffer()", VALIDATION_ERROR_1b400017);
+    skip |= insideRenderPass(device_data, cb_state, "vkCmdFillBuffer()", VALIDATION_ERROR_1b400017);
+    skip |= CreateAndValidateWriteMemoryAccess(core_validation::GetReportData(device_data), CMD_FILLBUFFER, cb_state->commandBuffer,
+                                               cb_state->mem_accesses, mem_accesses, {buffer_state->binding.mem, offset, size},
+                                               true, "vkCmdFillBuffer()");
     return skip;
 }
 
-void PreCallRecordCmdFillBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_node, BUFFER_STATE *buffer_state) {
+void PreCallRecordCmdFillBuffer(layer_data *device_data, GLOBAL_CB_NODE *cb_state, BUFFER_STATE *buffer_state,
+                                std::vector<MemoryAccess> *mem_accesses) {
     std::function<bool()> function = [=]() {
         SetBufferMemoryValid(device_data, buffer_state, true);
         return false;
     };
-    cb_node->queue_submit_functions.push_back(function);
+    cb_state->queue_submit_functions.push_back(function);
     // Update bindings between buffer and cmd buffer
-    AddCommandBufferBindingBuffer(device_data, cb_node, buffer_state);
+    AddCommandBufferBindingBuffer(device_data, cb_state, buffer_state);
+    AddCommandBufferCommandMemoryAccesses(cb_state, CMD_FILLBUFFER, mem_accesses);
 }
 
 bool ValidateBufferImageCopyData(const debug_report_data *report_data, uint32_t regionCount, const VkBufferImageCopy *pRegions,

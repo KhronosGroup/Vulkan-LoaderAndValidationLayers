@@ -553,9 +553,11 @@ bool cvdescriptorset::DescriptorSet::ValidateDrawState(const std::map<uint32_t, 
 }
 
 // For given bindings, place any update buffers or images into the passed-in unordered_sets
-uint32_t cvdescriptorset::DescriptorSet::GetStorageUpdates(const std::map<uint32_t, descriptor_req> &bindings,
-                                                           std::unordered_set<VkBuffer> *buffer_set,
-                                                           std::unordered_set<VkImageView> *image_set) const {
+uint32_t cvdescriptorset::DescriptorSet::GetReadWriteBuffersAndImages(const std::map<uint32_t, descriptor_req> &bindings,
+                                                                      std::unordered_set<VkBuffer> *read_buffer_set,
+                                                                      std::unordered_set<VkImageView> *read_image_set,
+                                                                      std::unordered_set<VkBuffer> *write_buffer_set,
+                                                                      std::unordered_set<VkImageView> *write_image_set) const {
     auto num_updates = 0;
     for (auto binding_pair : bindings) {
         auto binding = binding_pair.first;
@@ -564,15 +566,32 @@ uint32_t cvdescriptorset::DescriptorSet::GetStorageUpdates(const std::map<uint32
             continue;
         }
         auto start_idx = p_layout_->GetGlobalStartIndexFromBinding(binding);
+        auto &buffer_set = read_buffer_set;
+        auto &image_set = read_image_set;
         if (descriptors_[start_idx]->IsStorage()) {
-            if (Image == descriptors_[start_idx]->descriptor_class) {
+            buffer_set = write_buffer_set;
+            image_set = write_image_set;
+        }
+        switch (descriptors_[start_idx]->descriptor_class) {
+            case (Image): {
                 for (uint32_t i = 0; i < p_layout_->GetDescriptorCountFromBinding(binding); ++i) {
                     if (descriptors_[start_idx + i]->updated) {
                         image_set->insert(static_cast<ImageDescriptor *>(descriptors_[start_idx + i].get())->GetImageView());
                         num_updates++;
                     }
                 }
-            } else if (TexelBuffer == descriptors_[start_idx]->descriptor_class) {
+                break;
+            }
+            case (ImageSampler): {
+                for (uint32_t i = 0; i < p_layout_->GetDescriptorCountFromBinding(binding); ++i) {
+                    if (descriptors_[start_idx + i]->updated) {
+                        image_set->insert(static_cast<ImageSamplerDescriptor *>(descriptors_[start_idx + i].get())->GetImageView());
+                        num_updates++;
+                    }
+                }
+                break;
+            }
+            case (TexelBuffer): {
                 for (uint32_t i = 0; i < p_layout_->GetDescriptorCountFromBinding(binding); ++i) {
                     if (descriptors_[start_idx + i]->updated) {
                         auto bufferview = static_cast<TexelDescriptor *>(descriptors_[start_idx + i].get())->GetBufferView();
@@ -583,14 +602,20 @@ uint32_t cvdescriptorset::DescriptorSet::GetStorageUpdates(const std::map<uint32
                         }
                     }
                 }
-            } else if (GeneralBuffer == descriptors_[start_idx]->descriptor_class) {
+                break;
+            }
+            case (GeneralBuffer): {
                 for (uint32_t i = 0; i < p_layout_->GetDescriptorCountFromBinding(binding); ++i) {
                     if (descriptors_[start_idx + i]->updated) {
                         buffer_set->insert(static_cast<BufferDescriptor *>(descriptors_[start_idx + i].get())->GetBuffer());
                         num_updates++;
                     }
                 }
+                break;
             }
+            default:
+                // Don't need to do anything for Sampler case
+                break;
         }
     }
     return num_updates;
