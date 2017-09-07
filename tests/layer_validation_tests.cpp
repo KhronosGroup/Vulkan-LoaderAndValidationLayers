@@ -11616,6 +11616,70 @@ TEST_F(VkLayerTest, TwoCommandBufferUpdateBufferRaWDependencyMissingBarrier) {
 
     vkDestroyPipelineLayout(m_device->device(), pipeline_layout, nullptr);
 }
+
+TEST_F(VkLayerTest, TwoSecondaryCBUpdateBufferRaWDependencyMissingBarrier) {
+    TEST_DESCRIPTION(
+        "Two secondary command buffers executed back to back where first writes buffer then second uses buffer with no barrier "
+        "before use");
+
+    ASSERT_NO_FATAL_FAILURE(Init());
+    ASSERT_NO_FATAL_FAILURE(InitRenderTarget());
+
+    // Two secondary cmd buffers ([0] writes buffer, [1] reads it)
+    VkCommandBuffer secondary_cbs[2];
+    VkCommandBufferAllocateInfo alloc_info;
+    alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    alloc_info.pNext = nullptr;
+    alloc_info.commandBufferCount = 2;
+    alloc_info.commandPool = m_commandPool->handle();
+    alloc_info.level = VK_COMMAND_BUFFER_LEVEL_SECONDARY;
+    vkAllocateCommandBuffers(m_device->device(), &alloc_info, secondary_cbs);
+
+    // First secondary command buffer will write to buffer
+    VkCommandBufferInheritanceInfo cbii = {};
+    cbii.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
+    VkCommandBufferBeginInfo cbbi;
+    cbbi.pNext = nullptr;
+    cbbi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    cbbi.pInheritanceInfo = &cbii;
+    cbbi.flags = 0;
+    vkBeginCommandBuffer(secondary_cbs[0], &cbbi);
+
+    VkDeviceSize buff_size = 1024;
+    uint32_t qfi = 0;
+    VkBufferCreateInfo bci = {};
+    bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bci.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    bci.size = buff_size;
+    bci.queueFamilyIndexCount = 1;
+    bci.pQueueFamilyIndices = &qfi;
+    VkMemoryPropertyFlags reqs = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    vk_testing::Buffer src_buffer;  // We update into this buffer then use it as copy src
+    src_buffer.init(*m_device, bci, reqs);
+    bci.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    vk_testing::Buffer dst_buffer;
+    dst_buffer.init(*m_device, bci, reqs);
+
+    VkDeviceSize update_offset = 0;
+    uint32_t Data[] = {1, 2, 3, 4, 5, 6, 7, 8};
+    VkDeviceSize data_size = sizeof(Data) / sizeof(uint32_t);
+    vkCmdUpdateBuffer(secondary_cbs[0], src_buffer.handle(), update_offset, data_size, &Data);
+    vkEndCommandBuffer(secondary_cbs[0]);
+
+    // Second secondary CB uses prev buffer as src for copy
+    vkBeginCommandBuffer(secondary_cbs[1], &cbbi);
+    // Copy src buffer contents to dst buffer
+    VkBufferCopy buff_copy = {0,  // srcOffset
+                              0,  // dstOffset
+                              buff_size};
+    vkCmdCopyBuffer(secondary_cbs[1], src_buffer.handle(), dst_buffer.handle(), 1, &buff_copy);
+    vkEndCommandBuffer(secondary_cbs[1]);
+    // Execute the secondary cmd buffers into the primary CB and verify that error occurs
+    m_commandBuffer->begin();
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_WARNING_BIT_EXT, " causes a read after write conflict with ");
+    vkCmdExecuteCommands(m_commandBuffer->handle(), 2, secondary_cbs);
+    m_errorMonitor->VerifyFound();
+}
 #endif
 TEST_F(VkLayerTest, ClearColorImageWithBadRange) {
     TEST_DESCRIPTION("Record clear color with an invalid VkImageSubresourceRange");
