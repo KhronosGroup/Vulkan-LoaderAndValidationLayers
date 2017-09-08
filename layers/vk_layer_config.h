@@ -29,6 +29,8 @@
 extern "C" {
 #endif
 
+//#define ENABLE_MEMORY_ACCESS_CALLBACK
+
 // Definitions for Debug Actions
 typedef enum VkLayerDbgActionBits {
     VK_DBG_LAYER_ACTION_IGNORE = 0x00000000,

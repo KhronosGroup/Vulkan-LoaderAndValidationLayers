@@ -6774,8 +6774,8 @@ static bool ValidateCmdDrawType(layer_data *dev_data, VkCommandBuffer cmd_buffer
         skip |= (VK_PIPELINE_BIND_POINT_GRAPHICS == bind_point) ? outsideRenderPass(dev_data, *cb_state, caller, msg_code)
                                                                 : insideRenderPass(dev_data, *cb_state, caller, msg_code);
 #ifndef ENABLE_MEMORY_ACCESS_CALLBACK
-        // TODO : Early return here to skip the memory access checking below. The checks are functional but cause a perf hit
-        //  and the callback that's used is disabled, so also turning off these checks for now.
+        // Early return here to skip the memory access checking below.
+        //  The callback that's used is disabled, so also turning off these checks for now.
         //  To re-enable the checks, just remove this early return
         return skip;
 #endif
@@ -6783,17 +6783,12 @@ static bool ValidateCmdDrawType(layer_data *dev_data, VkCommandBuffer cmd_buffer
         auto const &state = (*cb_state)->lastBound[bind_point];
         PIPELINE_STATE *pPipe = state.pipeline_state;
         if (pPipe && VK_NULL_HANDLE != pPipe->pipeline) {
-            MemAccessGroup mem_access_group;
             for (const auto &set_binding_pair : pPipe->active_slots) {
                 uint32_t setIndex = set_binding_pair.first;
                 // Pull the set node
                 cvdescriptorset::DescriptorSet *descriptor_set = state.boundDescriptorSets[setIndex];
                 if (descriptor_set) {
-                    // For given active slots record updated images & buffers
-                    descriptor_set->GetReadWriteBuffersAndImages(set_binding_pair.second, &mem_access_group.read_buffers,
-                                                                 &mem_access_group.read_images, &mem_access_group.write_buffers,
-                                                                 &mem_access_group.write_images);
-                    UpdateRWMemoryAccessVectors(dev_data, cmd_type, read_accesses, write_accesses, mem_access_group);
+                    descriptor_set->AddReadWriteBuffersAndImages(set_binding_pair.second, cmd_type, read_accesses, write_accesses);
                 }
             }
             skip |= ValidateRWMemoryAccesses(dev_data->report_data, cmd_buffer, (*cb_state)->mem_accesses, read_accesses,

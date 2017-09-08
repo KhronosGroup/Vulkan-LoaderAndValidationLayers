@@ -459,12 +459,10 @@ class DescriptorSet : public BASE_NODE {
     // For given bindings validate state at time of draw is correct, returning false on error and writing error details into string*
     bool ValidateDrawState(const std::map<uint32_t, descriptor_req> &, const std::vector<uint32_t> &, GLOBAL_CB_NODE *,
                            const char *caller, std::string *) const;
-    // For given set of bindings, add any buffers and images that will be updated to their respective unordered_sets & return number
-    // of objects inserted
-    uint32_t GetReadWriteBuffersAndImages(const std::map<uint32_t, descriptor_req> &, std::unordered_set<VkBuffer> *read_buffer_set,
-                                          std::unordered_set<VkImageView> *read_image_set,
-                                          std::unordered_set<VkBuffer> *write_buffer_set,
-                                          std::unordered_set<VkImageView> *write_image_set) const;
+    // For given set of bindings, add memory bindings for buffers and images that will be updated to respective read & write vectors
+    uint32_t AddReadWriteBuffersAndImages(const std::map<uint32_t, descriptor_req> &bindings, CMD_TYPE cmd,
+                                          std::vector<MemoryAccess> *read_access_vector,
+                                          std::vector<MemoryAccess> *write_access_vector) const;
 
     // Descriptor Update functions. These functions validate state and perform update separately
     // Validate contents of a WriteUpdate

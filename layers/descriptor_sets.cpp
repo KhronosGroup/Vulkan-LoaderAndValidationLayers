@@ -639,12 +639,11 @@ bool cvdescriptorset::DescriptorSet::ValidateDrawState(const std::map<uint32_t, 
     return true;
 }
 
-// For given bindings, place any update buffers or images into the passed-in unordered_sets
-uint32_t cvdescriptorset::DescriptorSet::GetReadWriteBuffersAndImages(const std::map<uint32_t, descriptor_req> &bindings,
-                                                                      std::unordered_set<VkBuffer> *read_buffer_set,
-                                                                      std::unordered_set<VkImageView> *read_image_set,
-                                                                      std::unordered_set<VkBuffer> *write_buffer_set,
-                                                                      std::unordered_set<VkImageView> *write_image_set) const {
+// For given bindings, place any active buffers or images into the passed-in vectors
+// TODO: Currently just adding entire binding as imprecise update, but ideally would limit access based on view
+uint32_t cvdescriptorset::DescriptorSet::AddReadWriteBuffersAndImages(const std::map<uint32_t, descriptor_req> &bindings,
+                                                                      CMD_TYPE cmd, std::vector<MemoryAccess> *read_access_vector,
+                                                                      std::vector<MemoryAccess> *write_access_vector) const {
     auto num_updates = 0;
     for (auto binding_pair : bindings) {
         auto binding = binding_pair.first;
@@ -653,49 +652,71 @@ uint32_t cvdescriptorset::DescriptorSet::GetReadWriteBuffersAndImages(const std:
             continue;
         }
         auto start_idx = p_layout_->GetGlobalIndexRangeFromBinding(binding).start;
-        auto &buffer_set = read_buffer_set;
-        auto &image_set = read_image_set;
+        const auto descriptor_count = p_layout_->GetDescriptorCountFromBinding(binding);
+        auto &update_vector = read_access_vector;
+        auto update_function = &AddReadMemoryAccess;
         if (descriptors_[start_idx]->IsStorage()) {
-            buffer_set = write_buffer_set;
-            image_set = write_image_set;
+            update_vector = write_access_vector;
+            update_function = &AddWriteMemoryAccess;
         }
         switch (descriptors_[start_idx]->descriptor_class) {
             case (Image): {
-                for (uint32_t i = 0; i < p_layout_->GetDescriptorCountFromBinding(binding); ++i) {
+                for (uint32_t i = 0; i < descriptor_count; ++i) {
                     if (descriptors_[start_idx + i]->updated) {
-                        image_set->insert(static_cast<ImageDescriptor *>(descriptors_[start_idx + i].get())->GetImageView());
-                        num_updates++;
+                        auto image_view = static_cast<ImageDescriptor *>(descriptors_[start_idx + i].get())->GetImageView();
+                        auto image_view_state = GetImageViewState(device_data_, image_view);
+                        if (image_view_state) {
+                            auto image_node = GetImageState(device_data_, image_view_state->create_info.image);
+                            if (image_node) {
+                                update_function(cmd, update_vector, image_node->binding, false);
+                                num_updates++;
+                            }
+                        }
                     }
                 }
                 break;
             }
             case (ImageSampler): {
-                for (uint32_t i = 0; i < p_layout_->GetDescriptorCountFromBinding(binding); ++i) {
+                for (uint32_t i = 0; i < descriptor_count; ++i) {
                     if (descriptors_[start_idx + i]->updated) {
-                        image_set->insert(static_cast<ImageSamplerDescriptor *>(descriptors_[start_idx + i].get())->GetImageView());
-                        num_updates++;
+                        auto image_view = static_cast<ImageSamplerDescriptor *>(descriptors_[start_idx + i].get())->GetImageView();
+                        auto image_view_state = GetImageViewState(device_data_, image_view);
+                        if (image_view_state) {
+                            auto image_node = GetImageState(device_data_, image_view_state->create_info.image);
+                            if (image_node) {
+                                update_function(cmd, update_vector, image_node->binding, false);
+                                num_updates++;
+                            }
+                        }
                     }
                 }
                 break;
             }
             case (TexelBuffer): {
-                for (uint32_t i = 0; i < p_layout_->GetDescriptorCountFromBinding(binding); ++i) {
+                for (uint32_t i = 0; i < descriptor_count; ++i) {
                     if (descriptors_[start_idx + i]->updated) {
                         auto bufferview = static_cast<TexelDescriptor *>(descriptors_[start_idx + i].get())->GetBufferView();
                         auto bv_state = GetBufferViewState(device_data_, bufferview);
                         if (bv_state) {
-                            buffer_set->insert(bv_state->create_info.buffer);
-                            num_updates++;
+                            auto buff_state = GetBufferState(device_data_, bv_state->create_info.buffer);
+                            if (buff_state) {
+                                update_function(cmd, update_vector, buff_state->binding, false);
+                                num_updates++;
+                            }
                         }
                     }
                 }
                 break;
             }
             case (GeneralBuffer): {
-                for (uint32_t i = 0; i < p_layout_->GetDescriptorCountFromBinding(binding); ++i) {
+                for (uint32_t i = 0; i < descriptor_count; ++i) {
                     if (descriptors_[start_idx + i]->updated) {
-                        buffer_set->insert(static_cast<BufferDescriptor *>(descriptors_[start_idx + i].get())->GetBuffer());
-                        num_updates++;
+                        auto buff_state = GetBufferState(
+                            device_data_, static_cast<BufferDescriptor *>(descriptors_[start_idx + i].get())->GetBuffer());
+                        if (buff_state) {
+                            update_function(cmd, update_vector, buff_state->binding, false);
+                            num_updates++;
+                        }
                     }
                 }
                 break;
