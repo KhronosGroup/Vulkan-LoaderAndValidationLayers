@@ -29,7 +29,7 @@
 extern "C" {
 #endif
 
-//#define ENABLE_MEMORY_ACCESS_CALLBACK
+#define ENABLE_MEMORY_ACCESS_CALLBACK
 
 // Definitions for Debug Actions
 typedef enum VkLayerDbgActionBits {
