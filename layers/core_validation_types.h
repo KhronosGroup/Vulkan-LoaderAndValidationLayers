@@ -490,7 +490,7 @@ static const uint32_t READ_INDEX = 0;
 static const uint32_t WRITE_INDEX = 1;
 
 // Per-cmd read/write flags Read flags in slot 0, Write in 1
-static const CmdFlags CommandToFlags[CMD_COUNT][2] = {
+constexpr CmdFlags CommandToFlags[CMD_COUNT + 1][2] = {
     //    CMD_NONE,
     {{0, 0}, {0, 0}},
     //    CMD_BEGINQUERY,
@@ -585,7 +585,7 @@ static const CmdFlags CommandToFlags[CMD_COUNT][2] = {
       VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT |
           VK_ACCESS_SHADER_READ_BIT},
      {VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, 0}},
-    //    CMD_DRAWINDIRECTCOUNTAMD,
+    //    CMD_DRAWINDIRECTCOUNTAMD, TODO : Make sure these are right
     {{VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_VERTEX_INPUT_BIT |
           VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
       VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT |
@@ -667,7 +667,12 @@ static const CmdFlags CommandToFlags[CMD_COUNT][2] = {
     {{0, 0}, {0, 0}},
     //    CMD_WRITETIMESTAMP,
     {{0, 0}, {0, 0}},
+    // MAGIC NUMBER ENTRY TO MAKE SURE ARRAY IS CORRECT SIZE
+    {{0, 0}, {0, 0xDEADBEEF}},
 };
+
+static_assert((CommandToFlags[CMD_WRITETIMESTAMP + 1][WRITE_INDEX].access_flags) == (0xDEADBEEF),
+              "CommandToFlags is not correct size. Must have an entry for each CMD_TYPE.");
 
 // fwd decl class for ptr below
 class Command;
