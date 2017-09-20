@@ -867,8 +867,9 @@ static bool validateSubpassCompatibility(layer_data const *dev_data, const char 
         if (i < secondary_desc.inputAttachmentCount) {
             secondary_input_attach = secondary_desc.pInputAttachments[i].attachment;
         }
-        skip |= validateAttachmentCompatibility(dev_data, type1_string, rp1_state, type2_string, rp2_state, primary_input_attach,
-                                                secondary_input_attach, caller, error_code);
+        if (validateAttachmentCompatibility(dev_data, type1_string, rp1_state, type2_string, rp2_state, primary_input_attach,
+                                            secondary_input_attach, caller, error_code))
+            return true;
     }
     uint32_t maxColorAttachmentCount = std::max(primary_desc.colorAttachmentCount, secondary_desc.colorAttachmentCount);
     for (uint32_t i = 0; i < maxColorAttachmentCount; ++i) {
@@ -879,8 +880,10 @@ static bool validateSubpassCompatibility(layer_data const *dev_data, const char 
         if (i < secondary_desc.colorAttachmentCount) {
             secondary_color_attach = secondary_desc.pColorAttachments[i].attachment;
         }
-        skip |= validateAttachmentCompatibility(dev_data, type1_string, rp1_state, type2_string, rp2_state, primary_color_attach,
-                                                secondary_color_attach, caller, error_code);
+        if (validateAttachmentCompatibility(dev_data, type1_string, rp1_state, type2_string, rp2_state, primary_color_attach,
+                                            secondary_color_attach, caller, error_code))
+            return true;
+
         uint32_t primary_resolve_attach = VK_ATTACHMENT_UNUSED, secondary_resolve_attach = VK_ATTACHMENT_UNUSED;
         if (i < primary_desc.colorAttachmentCount && primary_desc.pResolveAttachments) {
             primary_resolve_attach = primary_desc.pResolveAttachments[i].attachment;
@@ -888,8 +891,9 @@ static bool validateSubpassCompatibility(layer_data const *dev_data, const char 
         if (i < secondary_desc.colorAttachmentCount && secondary_desc.pResolveAttachments) {
             secondary_resolve_attach = secondary_desc.pResolveAttachments[i].attachment;
         }
-        skip |= validateAttachmentCompatibility(dev_data, type1_string, rp1_state, type2_string, rp2_state, primary_resolve_attach,
-                                                secondary_resolve_attach, caller, error_code);
+        if (validateAttachmentCompatibility(dev_data, type1_string, rp1_state, type2_string, rp2_state, primary_resolve_attach,
+                                            secondary_resolve_attach, caller, error_code))
+            return true;
     }
     uint32_t primary_depthstencil_attach = VK_ATTACHMENT_UNUSED, secondary_depthstencil_attach = VK_ATTACHMENT_UNUSED;
     if (primary_desc.pDepthStencilAttachment) {
@@ -8036,90 +8040,93 @@ VKAPI_ATTR void VKAPI_CALL CmdBeginRenderPass(VkCommandBuffer commandBuffer, con
     layer_data *dev_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
     unique_lock_t lock(global_lock);
     GLOBAL_CB_NODE *cb_node = GetCBNode(dev_data, commandBuffer);
-    auto render_pass_state = pRenderPassBegin ? GetRenderPassState(dev_data, pRenderPassBegin->renderPass) : nullptr;
-    auto framebuffer = pRenderPassBegin ? GetFramebufferState(dev_data, pRenderPassBegin->framebuffer) : nullptr;
-    if (cb_node) {
-        if (render_pass_state) {
-            uint32_t clear_op_size = 0;  // Make sure pClearValues is at least as large as last LOAD_OP_CLEAR
-            cb_node->activeFramebuffer = pRenderPassBegin->framebuffer;
-            for (uint32_t i = 0; i < render_pass_state->createInfo.attachmentCount; ++i) {
-                MT_FB_ATTACHMENT_INFO &fb_info = framebuffer->attachments[i];
-                auto pAttachment = &render_pass_state->createInfo.pAttachments[i];
-                if (FormatSpecificLoadAndStoreOpSettings(pAttachment->format, pAttachment->loadOp, pAttachment->stencilLoadOp,
-                                                         VK_ATTACHMENT_LOAD_OP_CLEAR)) {
-                    clear_op_size = static_cast<uint32_t>(i) + 1;
-                    std::function<bool()> function = [=]() {
-                        SetImageMemoryValid(dev_data, GetImageState(dev_data, fb_info.image), true);
-                        return false;
-                    };
-                    cb_node->queue_submit_functions.push_back(function);
-                } else if (FormatSpecificLoadAndStoreOpSettings(pAttachment->format, pAttachment->loadOp,
-                                                                pAttachment->stencilLoadOp, VK_ATTACHMENT_LOAD_OP_DONT_CARE)) {
-                    std::function<bool()> function = [=]() {
-                        SetImageMemoryValid(dev_data, GetImageState(dev_data, fb_info.image), false);
-                        return false;
-                    };
-                    cb_node->queue_submit_functions.push_back(function);
-                } else if (FormatSpecificLoadAndStoreOpSettings(pAttachment->format, pAttachment->loadOp,
-                                                                pAttachment->stencilLoadOp, VK_ATTACHMENT_LOAD_OP_LOAD)) {
-                    std::function<bool()> function = [=]() {
-                        return ValidateImageMemoryIsValid(dev_data, GetImageState(dev_data, fb_info.image),
-                                                          "vkCmdBeginRenderPass()");
-                    };
-                    cb_node->queue_submit_functions.push_back(function);
-                }
-                if (render_pass_state->attachment_first_read[i]) {
-                    std::function<bool()> function = [=]() {
-                        return ValidateImageMemoryIsValid(dev_data, GetImageState(dev_data, fb_info.image),
-                                                          "vkCmdBeginRenderPass()");
-                    };
-                    cb_node->queue_submit_functions.push_back(function);
-                }
-            }
-            if (clear_op_size > pRenderPassBegin->clearValueCount) {
-                skip |= log_msg(
-                    dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_RENDER_PASS_EXT,
-                    HandleToUint64(render_pass_state->renderPass), __LINE__, VALIDATION_ERROR_1200070c, "DS",
-                    "In vkCmdBeginRenderPass() the VkRenderPassBeginInfo struct has a clearValueCount of %u but there must "
-                    "be at least %u entries in pClearValues array to account for the highest index attachment in renderPass "
-                    "0x%" PRIx64
-                    " that uses VK_ATTACHMENT_LOAD_OP_CLEAR is %u. Note that the pClearValues array "
-                    "is indexed by attachment number so even if some pClearValues entries between 0 and %u correspond to "
-                    "attachments that aren't cleared they will be ignored. %s",
-                    pRenderPassBegin->clearValueCount, clear_op_size, HandleToUint64(render_pass_state->renderPass), clear_op_size,
-                    clear_op_size - 1, validation_error_map[VALIDATION_ERROR_1200070c]);
-            }
-            skip |= VerifyRenderAreaBounds(dev_data, pRenderPassBegin);
-            skip |= VerifyFramebufferAndRenderPassLayouts(dev_data, cb_node, pRenderPassBegin,
-                                                          GetFramebufferState(dev_data, pRenderPassBegin->framebuffer));
-            if (framebuffer->rp_state->renderPass != render_pass_state->renderPass) {
-                skip |= validateRenderPassCompatibility(dev_data, "render pass", render_pass_state, "framebuffer",
-                                                        framebuffer->rp_state.get(), "vkCmdBeginRenderPass()",
-                                                        VALIDATION_ERROR_12000710);
-            }
-            skip |= insideRenderPass(dev_data, cb_node, "vkCmdBeginRenderPass()", VALIDATION_ERROR_17a00017);
-            skip |= ValidateDependencies(dev_data, framebuffer, render_pass_state);
-            skip |= validatePrimaryCommandBuffer(dev_data, cb_node, "vkCmdBeginRenderPass()", VALIDATION_ERROR_17a00019);
-            skip |= ValidateCmdQueueFlags(dev_data, cb_node, "vkCmdBeginRenderPass()", VK_QUEUE_GRAPHICS_BIT,
-                                          VALIDATION_ERROR_17a02415);
-            skip |= ValidateCmd(dev_data, cb_node, CMD_BEGINRENDERPASS, "vkCmdBeginRenderPass()");
-            cb_node->activeRenderPass = render_pass_state;
-            // This is a shallow copy as that is all that is needed for now
-            cb_node->activeRenderPassBeginInfo = *pRenderPassBegin;
-            cb_node->activeSubpass = 0;
-            cb_node->activeSubpassContents = contents;
-            cb_node->framebuffers.insert(pRenderPassBegin->framebuffer);
-            // Connect this framebuffer and its children to this cmdBuffer
-            AddFramebufferBinding(dev_data, cb_node, framebuffer);
-            // Connect this RP to cmdBuffer
-            addCommandBufferBinding(&render_pass_state->cb_bindings,
-                                    {HandleToUint64(render_pass_state->renderPass), kVulkanObjectTypeRenderPass}, cb_node);
-            // transition attachments to the correct layouts for beginning of renderPass and first subpass
-            TransitionBeginRenderPassLayouts(dev_data, cb_node, render_pass_state, framebuffer);
+    assert(cb_node);
+    assert(pRenderPassBegin);
+    auto render_pass_state = GetRenderPassState(dev_data, pRenderPassBegin->renderPass);
+    auto framebuffer = GetFramebufferState(dev_data, pRenderPassBegin->framebuffer);
+    assert(render_pass_state);
+    assert(framebuffer);
+
+    uint32_t clear_op_size = 0;  // Make sure pClearValues is at least as large as last LOAD_OP_CLEAR
+    for (uint32_t i = 0; i < render_pass_state->createInfo.attachmentCount; ++i) {
+        auto pAttachment = &render_pass_state->createInfo.pAttachments[i];
+        if (FormatSpecificLoadAndStoreOpSettings(pAttachment->format, pAttachment->loadOp, pAttachment->stencilLoadOp,
+                                                 VK_ATTACHMENT_LOAD_OP_CLEAR)) {
+            clear_op_size = static_cast<uint32_t>(i) + 1;
         }
     }
-    lock.unlock();
+    if (clear_op_size > pRenderPassBegin->clearValueCount) {
+        skip |= log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_RENDER_PASS_EXT,
+                        HandleToUint64(render_pass_state->renderPass), __LINE__, VALIDATION_ERROR_1200070c, "DS",
+                        "In vkCmdBeginRenderPass() the VkRenderPassBeginInfo struct has a clearValueCount of %u but there must "
+                        "be at least %u entries in pClearValues array to account for the highest index attachment in renderPass "
+                        "0x%" PRIx64
+                        " that uses VK_ATTACHMENT_LOAD_OP_CLEAR is %u. Note that the pClearValues array "
+                        "is indexed by attachment number so even if some pClearValues entries between 0 and %u correspond to "
+                        "attachments that aren't cleared they will be ignored. %s",
+                        pRenderPassBegin->clearValueCount, clear_op_size, HandleToUint64(render_pass_state->renderPass),
+                        clear_op_size, clear_op_size - 1, validation_error_map[VALIDATION_ERROR_1200070c]);
+    }
+    skip |= VerifyRenderAreaBounds(dev_data, pRenderPassBegin);
+    skip |= VerifyFramebufferAndRenderPassLayouts(dev_data, cb_node, pRenderPassBegin,
+                                                  GetFramebufferState(dev_data, pRenderPassBegin->framebuffer));
+    if (framebuffer->rp_state->renderPass != render_pass_state->renderPass) {
+        skip |= validateRenderPassCompatibility(dev_data, "render pass", render_pass_state, "framebuffer",
+                                                framebuffer->rp_state.get(), "vkCmdBeginRenderPass()", VALIDATION_ERROR_12000710);
+    }
+    skip |= insideRenderPass(dev_data, cb_node, "vkCmdBeginRenderPass()", VALIDATION_ERROR_17a00017);
+    skip |= ValidateDependencies(dev_data, framebuffer, render_pass_state);
+    skip |= validatePrimaryCommandBuffer(dev_data, cb_node, "vkCmdBeginRenderPass()", VALIDATION_ERROR_17a00019);
+    skip |= ValidateCmdQueueFlags(dev_data, cb_node, "vkCmdBeginRenderPass()", VK_QUEUE_GRAPHICS_BIT, VALIDATION_ERROR_17a02415);
+    skip |= ValidateCmd(dev_data, cb_node, CMD_BEGINRENDERPASS, "vkCmdBeginRenderPass()");
     if (!skip) {
+        // Perform state updates prior to call down chain
+        cb_node->activeFramebuffer = pRenderPassBegin->framebuffer;
+        for (uint32_t i = 0; i < render_pass_state->createInfo.attachmentCount; ++i) {
+            MT_FB_ATTACHMENT_INFO &fb_info = framebuffer->attachments[i];
+            auto pAttachment = &render_pass_state->createInfo.pAttachments[i];
+            if (FormatSpecificLoadAndStoreOpSettings(pAttachment->format, pAttachment->loadOp, pAttachment->stencilLoadOp,
+                                                     VK_ATTACHMENT_LOAD_OP_CLEAR)) {
+                std::function<bool()> function = [=]() {
+                    SetImageMemoryValid(dev_data, GetImageState(dev_data, fb_info.image), true);
+                    return false;
+                };
+                cb_node->queue_submit_functions.push_back(function);
+            } else if (FormatSpecificLoadAndStoreOpSettings(pAttachment->format, pAttachment->loadOp, pAttachment->stencilLoadOp,
+                                                            VK_ATTACHMENT_LOAD_OP_DONT_CARE)) {
+                std::function<bool()> function = [=]() {
+                    SetImageMemoryValid(dev_data, GetImageState(dev_data, fb_info.image), false);
+                    return false;
+                };
+                cb_node->queue_submit_functions.push_back(function);
+            } else if (FormatSpecificLoadAndStoreOpSettings(pAttachment->format, pAttachment->loadOp, pAttachment->stencilLoadOp,
+                                                            VK_ATTACHMENT_LOAD_OP_LOAD)) {
+                std::function<bool()> function = [=]() {
+                    return ValidateImageMemoryIsValid(dev_data, GetImageState(dev_data, fb_info.image), "vkCmdBeginRenderPass()");
+                };
+                cb_node->queue_submit_functions.push_back(function);
+            }
+            if (render_pass_state->attachment_first_read[i]) {
+                std::function<bool()> function = [=]() {
+                    return ValidateImageMemoryIsValid(dev_data, GetImageState(dev_data, fb_info.image), "vkCmdBeginRenderPass()");
+                };
+                cb_node->queue_submit_functions.push_back(function);
+            }
+        }
+        cb_node->activeRenderPass = render_pass_state;
+        // This is a shallow copy as that is all that is needed for now
+        cb_node->activeRenderPassBeginInfo = *pRenderPassBegin;
+        cb_node->activeSubpass = 0;
+        cb_node->activeSubpassContents = contents;
+        cb_node->framebuffers.insert(pRenderPassBegin->framebuffer);
+        // Connect this framebuffer and its children to this cmdBuffer
+        AddFramebufferBinding(dev_data, cb_node, framebuffer);
+        // Connect this RP to cmdBuffer
+        addCommandBufferBinding(&render_pass_state->cb_bindings,
+                                {HandleToUint64(render_pass_state->renderPass), kVulkanObjectTypeRenderPass}, cb_node);
+        // transition attachments to the correct layouts for beginning of renderPass and first subpass
+        TransitionBeginRenderPassLayouts(dev_data, cb_node, render_pass_state, framebuffer);
+        lock.unlock();
         dev_data->dispatch_table.CmdBeginRenderPass(commandBuffer, pRenderPassBegin, contents);
     }
 }
