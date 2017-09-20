@@ -6013,6 +6013,8 @@ TEST_F(VkLayerTest, RenderPassInUseDestroyedSignaled) {
 
     // Wait for queue to complete so we can safely destroy rp
     vkQueueWaitIdle(m_device->m_queue);
+    m_errorMonitor->SetUnexpectedError("If renderPass is not VK_NULL_HANDLE, renderPass must be a valid VkRenderPass handle");
+    m_errorMonitor->SetUnexpectedError("Unable to remove RenderPass obj");
     vkDestroyRenderPass(m_device->device(), rp, nullptr);
 }
 
@@ -12355,7 +12357,8 @@ TEST_F(VkLayerTest, NumSamplesMismatch) {
 TEST_F(VkLayerTest, RenderPassIncompatible) {
     TEST_DESCRIPTION(
         "Hit RenderPass incompatible cases. "
-        "Initial case is drawing with an active renderpass that's "
+        "First attempt BeginRenderPass() with incompatible FrameBuffer,"
+        "then attempt to draw with an active renderpass that's "
         "not compatible with the bound pipeline state object's creation renderpass");
     VkResult err;
 
@@ -12426,17 +12429,20 @@ TEST_F(VkLayerTest, RenderPassIncompatible) {
     rpbi.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     rpbi.framebuffer = m_framebuffer;
     rpbi.renderPass = rp;
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_12000710);
     vkCmdBeginRenderPass(m_commandBuffer->handle(), &rpbi, VK_SUBPASS_CONTENTS_INLINE);
+    m_errorMonitor->VerifyFound();
+    // Now we want to bind the RenderPass to trigger Draw-time error so allow the error for this call
+    //  The better way to do this to avoid the error would be to create separate FB with compatible RP
+    //  and use that FB for this begin instead of m_framebuffer
+    m_errorMonitor->SetUnexpectedError("vkCmdBeginRenderPass(): RenderPasses incompatible between ");
+    vkCmdBeginRenderPass(m_commandBuffer->handle(), &rpbi, VK_SUBPASS_CONTENTS_INLINE);
+    // m_errorMonitor->VerifyFound();
     vkCmdBindPipeline(m_commandBuffer->handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipe.handle());
 
     m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_1a200366);
     // Render triangle (the error should trigger on the attempt to draw).
     m_commandBuffer->Draw(3, 1, 0, 0);
-
-    // Finalize recording of the command buffer
-    m_commandBuffer->EndRenderPass();
-    m_commandBuffer->end();
-
     m_errorMonitor->VerifyFound();
 
     vkDestroyPipelineLayout(m_device->device(), pipeline_layout, NULL);
