@@ -6013,7 +6013,6 @@ TEST_F(VkLayerTest, RenderPassInUseDestroyedSignaled) {
 
     // Wait for queue to complete so we can safely destroy rp
     vkQueueWaitIdle(m_device->m_queue);
-    vkDestroyRenderPass(m_device->device(), rp, nullptr);
 }
 
 TEST_F(VkLayerTest, ImageMemoryNotBound) {
