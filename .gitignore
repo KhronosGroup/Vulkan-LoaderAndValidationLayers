@@ -23,9 +23,6 @@ libs/Win32/Debug/*
 *.vcxproj
 *.sdf
 *.filters
-build
-build32
-dbuild
 external
 build-android/external
 *.config
