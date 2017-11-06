@@ -133,9 +133,9 @@ static VkPhysicalDeviceLimits SetLimits(VkPhysicalDeviceLimits *limits) {
     limits->viewportBoundsRange[1] = 8191;
     limits->viewportSubPixelBits = 0;
     limits->minMemoryMapAlignment = 64;
-    limits->minTexelBufferOffsetAlignment = 256;
-    limits->minUniformBufferOffsetAlignment = 256;
-    limits->minStorageBufferOffsetAlignment = 256;
+    limits->minTexelBufferOffsetAlignment = 16;
+    limits->minUniformBufferOffsetAlignment = 16;
+    limits->minStorageBufferOffsetAlignment = 16;
     limits->minTexelOffset = -8;
     limits->maxTexelOffset = 7;
     limits->minTexelGatherOffset = -8;
@@ -588,8 +588,12 @@ CUSTOM_C_INTERCEPTS = {
     GetPhysicalDeviceFeatures(physicalDevice, &pFeatures->features);
 ''',
 'vkGetPhysicalDeviceFormatProperties': '''
-    // TODO: Just returning full support for everything initially
-    *pFormatProperties = { 0x00FFFFFF, 0x00FFFFFF, 0x00FFFFFF };
+    if (VK_FORMAT_UNDEFINED == format) {
+        *pFormatProperties = { 0x0, 0x0, 0x0 };
+    } else {
+        // TODO: Just returning full support for everything initially
+        *pFormatProperties = { 0x00FFFFFF, 0x00FFFFFF, 0x00FFFFFF };
+    }
 ''',
 'vkGetPhysicalDeviceFormatProperties2KHR': '''
     GetPhysicalDeviceFormatProperties(physicalDevice, format, &pFormatProperties->formatProperties);

@@ -5695,7 +5695,7 @@ TEST_F(VkLayerTest, InvalidCmdBufferBufferDestroyed) {
 
     VkMemoryAllocateInfo alloc_info = {};
     alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    alloc_info.allocationSize = 256;
+    alloc_info.allocationSize = mem_reqs.size;
     bool pass = false;
     pass = m_device->phy().set_memory_type(mem_reqs.memoryTypeBits, &alloc_info, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
     if (!pass) {
@@ -6676,14 +6676,13 @@ TEST_F(VkLayerTest, InvalidCmdBufferDescriptorSetBufferDestroyed) {
     ASSERT_VK_SUCCESS(err);
     // Allocate memory and bind to buffer so we can make it to the appropriate
     // error
+    VkMemoryRequirements memReqs;
+    vkGetBufferMemoryRequirements(m_device->device(), buffer, &memReqs);
     VkMemoryAllocateInfo mem_alloc = {};
     mem_alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     mem_alloc.pNext = NULL;
-    mem_alloc.allocationSize = 1024;
+    mem_alloc.allocationSize = memReqs.size;
     mem_alloc.memoryTypeIndex = 0;
-
-    VkMemoryRequirements memReqs;
-    vkGetBufferMemoryRequirements(m_device->device(), buffer, &memReqs);
     bool pass = m_device->phy().set_memory_type(memReqs.memoryTypeBits, &mem_alloc, 0);
     if (!pass) {
         vkDestroyBuffer(m_device->device(), buffer, NULL);
@@ -7055,7 +7054,8 @@ TEST_F(VkLayerTest, InvalidCmdBufferDescriptorSetImageSamplerDestroyed) {
     // TODO - though the particular error above doesn't re-occur, there are other 'unexpecteds' still to clean up
     vkQueueWaitIdle(m_device->m_queue);
     m_errorMonitor->SetUnexpectedError(
-        "pDescriptorSets must be a pointer to an array of descriptorSetCount VkDescriptorSet handles, each element of which must "
+        "pDescriptorSets must be a valid pointer to an array of descriptorSetCount VkDescriptorSet handles, each element of which "
+        "must "
         "either be a valid handle or VK_NULL_HANDLE");
     m_errorMonitor->SetUnexpectedError("Unable to remove DescriptorSet obj");
     vkFreeDescriptorSets(m_device->device(), ds_pool, 1, &descriptorSet);
@@ -7868,16 +7868,14 @@ TEST_F(VkLayerTest, InvalidDynamicOffsetCases) {
     VkBuffer dyub;
     err = vkCreateBuffer(m_device->device(), &buffCI, NULL, &dyub);
     ASSERT_VK_SUCCESS(err);
-    // Allocate memory and bind to buffer so we can make it to the appropriate
-    // error
+    // Allocate memory and bind to buffer so we can make it to the appropriate error
+    VkMemoryRequirements memReqs;
+    vkGetBufferMemoryRequirements(m_device->device(), dyub, &memReqs);
     VkMemoryAllocateInfo mem_alloc = {};
     mem_alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     mem_alloc.pNext = NULL;
-    mem_alloc.allocationSize = 1024;
+    mem_alloc.allocationSize = memReqs.size;
     mem_alloc.memoryTypeIndex = 0;
-
-    VkMemoryRequirements memReqs;
-    vkGetBufferMemoryRequirements(m_device->device(), dyub, &memReqs);
     bool pass = m_device->phy().set_memory_type(memReqs.memoryTypeBits, &mem_alloc, 0);
     if (!pass) {
         vkDestroyBuffer(m_device->device(), dyub, NULL);
@@ -11623,6 +11621,9 @@ TEST_F(VkLayerTest, DSUsageBitsErrors) {
     vkGetBufferMemoryRequirements(m_device->device(), storage_texel_buffer, &mem_reqs);
     pass = m_device->phy().set_memory_type(mem_reqs.memoryTypeBits, &mem_alloc_info, 0);
     if (!pass) {
+        for (uint32_t i = 0; i < VK_DESCRIPTOR_TYPE_RANGE_SIZE; ++i) {
+            vkDestroyDescriptorSetLayout(m_device->device(), ds_layouts[i], NULL);
+        }
         vkDestroyBuffer(m_device->device(), buffer, NULL);
         vkDestroyBufferView(m_device->device(), buff_view, NULL);
         vkFreeMemory(m_device->device(), mem, NULL);
@@ -11658,6 +11659,17 @@ TEST_F(VkLayerTest, DSUsageBitsErrors) {
         }
     }
     if (image_ci.format == VK_FORMAT_UNDEFINED) {
+        // Cleanup before early return
+        for (uint32_t i = 0; i < VK_DESCRIPTOR_TYPE_RANGE_SIZE; ++i) {
+            vkDestroyDescriptorSetLayout(m_device->device(), ds_layouts[i], NULL);
+        }
+        vkDestroyBuffer(m_device->device(), buffer, NULL);
+        vkDestroyBuffer(m_device->device(), storage_texel_buffer, NULL);
+        vkDestroyBufferView(m_device->device(), buff_view, NULL);
+        vkDestroyBufferView(m_device->device(), storage_texel_buffer_view, NULL);
+        vkFreeMemory(m_device->device(), mem, NULL);
+        vkFreeMemory(m_device->device(), storage_texel_buffer_mem, NULL);
+        vkDestroyDescriptorPool(m_device->device(), ds_pool, NULL);
         return;
     }
 
@@ -11788,14 +11800,13 @@ TEST_F(VkLayerTest, DSBufferInfoErrors) {
     ASSERT_VK_SUCCESS(err);
 
     // Have to bind memory to buffer before descriptor update
+    VkMemoryRequirements mem_reqs;
+    vkGetBufferMemoryRequirements(m_device->device(), buffer, &mem_reqs);
     VkMemoryAllocateInfo mem_alloc = {};
     mem_alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     mem_alloc.pNext = NULL;
-    mem_alloc.allocationSize = buff_ci.size;
+    mem_alloc.allocationSize = mem_reqs.size;
     mem_alloc.memoryTypeIndex = 0;
-
-    VkMemoryRequirements mem_reqs;
-    vkGetBufferMemoryRequirements(m_device->device(), buffer, &mem_reqs);
     bool pass = m_device->phy().set_memory_type(mem_reqs.memoryTypeBits, &mem_alloc, 0);
     if (!pass) {
         vkDestroyBuffer(m_device->device(), buffer, NULL);
