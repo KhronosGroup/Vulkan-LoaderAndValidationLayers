@@ -341,11 +341,16 @@ VKAPI_ATTR void VKAPI_CALL DestroyInstance(VkInstance instance, const VkAllocati
         ObjTrackState *pNode = iit->second;
 
         VkDevice device = reinterpret_cast<VkDevice>(pNode->handle);
-        VkDebugReportObjectTypeEXT debug_object_type = get_debug_report_enum[pNode->object_type];
+        log_msg(instance_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_EXT,
+                HandleToUint64(device), __LINE__, VALIDATION_ERROR_258004ea, LayerName,
+                "OBJ ERROR : VkDevice object 0x%" PRIxLEAST64 " has not been destroyed. %s", HandleToUint64(device),
+                validation_error_map[VALIDATION_ERROR_258004ea]);
 
+        VkDebugReportObjectTypeEXT debug_object_type = get_debug_report_enum[pNode->object_type];
         log_msg(instance_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, debug_object_type, pNode->handle, __LINE__,
-                OBJTRACK_OBJECT_LEAK, LayerName, "OBJ ERROR : %s object 0x%" PRIxLEAST64 " has not been destroyed.",
-                string_VkDebugReportObjectTypeEXT(debug_object_type), pNode->handle);
+                VALIDATION_ERROR_258004ea, LayerName, "OBJ ERROR : %s object 0x%" PRIxLEAST64 " has not been destroyed. %s",
+                string_VkDebugReportObjectTypeEXT(debug_object_type), pNode->handle,
+                validation_error_map[VALIDATION_ERROR_258004ea]);
 
         ReportUndestroyedObjects(device, VALIDATION_ERROR_258004ea);
     }
