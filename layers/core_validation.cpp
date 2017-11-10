@@ -147,9 +147,9 @@ struct layer_data {
     // Layer specific data
     unordered_map<VkSampler, unique_ptr<SAMPLER_STATE>> samplerMap;
     unordered_map<VkImageView, unique_ptr<IMAGE_VIEW_STATE>> imageViewMap;
-    unordered_map<VkImage, unique_ptr<IMAGE_STATE>> imageMap;
+    mutex_value<unordered_map<VkImage, unique_ptr<IMAGE_STATE>>> imageMap;
     unordered_map<VkBufferView, unique_ptr<BUFFER_VIEW_STATE>> bufferViewMap;
-    unordered_map<VkBuffer, unique_ptr<BUFFER_STATE>> bufferMap;
+    mutex_value<unordered_map<VkBuffer, unique_ptr<BUFFER_STATE>>> bufferMap;
     unordered_map<VkPipeline, unique_ptr<PIPELINE_STATE>> pipelineMap;
     unordered_map<VkCommandPool, COMMAND_POOL_NODE> commandPoolMap;
     unordered_map<VkDescriptorPool, DESCRIPTOR_POOL_STATE *> descriptorPoolMap;
@@ -230,16 +230,18 @@ SAMPLER_STATE *GetSamplerState(const layer_data *dev_data, VkSampler sampler) {
 }
 // Return image state ptr for specified image or else NULL
 IMAGE_STATE *GetImageState(const layer_data *dev_data, VkImage image) {
-    auto img_it = dev_data->imageMap.find(image);
-    if (img_it == dev_data->imageMap.end()) {
+    auto imageMap = dev_data->imageMap.get();
+    auto img_it = imageMap->find(image);
+    if (img_it == imageMap->end()) {
         return nullptr;
     }
     return img_it->second.get();
 }
 // Return buffer state ptr for specified buffer or else NULL
 BUFFER_STATE *GetBufferState(const layer_data *dev_data, VkBuffer buffer) {
-    auto buff_it = dev_data->bufferMap.find(buffer);
-    if (buff_it == dev_data->bufferMap.end()) {
+    auto bufferMap = dev_data->bufferMap.get();
+    auto buff_it = bufferMap->find(buffer);
+    if (buff_it == bufferMap->end()) {
         return nullptr;
     }
     return buff_it->second.get();
@@ -2227,11 +2229,11 @@ VKAPI_ATTR void VKAPI_CALL DestroyDevice(VkDevice device, const VkAllocationCall
     assert(dev_data->setMap.empty());
     dev_data->descriptorSetLayoutMap.clear();
     dev_data->imageViewMap.clear();
-    dev_data->imageMap.clear();
+    dev_data->imageMap->clear();
     dev_data->imageSubresourceMap.clear();
     dev_data->imageLayoutMap.clear();
     dev_data->bufferViewMap.clear();
-    dev_data->bufferMap.clear();
+    dev_data->bufferMap->clear();
     // Queues persist until device is destroyed
     dev_data->queueMap.clear();
     // Report any memory leaks
@@ -3820,7 +3822,7 @@ static bool PreCallValidateBindBufferMemory(layer_data *dev_data, VkBuffer buffe
             dev_data->phys_dev_properties.properties.limits.minTexelBufferOffsetAlignment,
             dev_data->phys_dev_properties.properties.limits.minUniformBufferOffsetAlignment,
             dev_data->phys_dev_properties.properties.limits.minStorageBufferOffsetAlignment};
-        VkBufferUsageFlags usage = dev_data->bufferMap[buffer].get()->createInfo.usage;
+        VkBufferUsageFlags usage = dev_data->bufferMap->at(buffer)->createInfo.usage;
 
         for (int i = 0; i < 3; i++) {
             if (usage & usage_list[i]) {
@@ -3876,11 +3878,7 @@ VKAPI_ATTR void VKAPI_CALL GetBufferMemoryRequirements(VkDevice device, VkBuffer
                                                        VkMemoryRequirements *pMemoryRequirements) {
     layer_data *dev_data = GetLayerDataPtr(get_dispatch_key(device), layer_data_map);
     dev_data->dispatch_table.GetBufferMemoryRequirements(device, buffer, pMemoryRequirements);
-    BUFFER_STATE* buffer_state;
-    {
-        unique_lock_t lock(global_lock);
-        buffer_state = GetBufferState(dev_data, buffer);
-    }
+    auto buffer_state = GetBufferState(dev_data, buffer);
     if (buffer_state) {
         buffer_state->requirements = *pMemoryRequirements;
         buffer_state->memory_requirements_checked = true;
@@ -3890,11 +3888,7 @@ VKAPI_ATTR void VKAPI_CALL GetBufferMemoryRequirements(VkDevice device, VkBuffer
 VKAPI_ATTR void VKAPI_CALL GetImageMemoryRequirements(VkDevice device, VkImage image, VkMemoryRequirements *pMemoryRequirements) {
     layer_data *dev_data = GetLayerDataPtr(get_dispatch_key(device), layer_data_map);
     dev_data->dispatch_table.GetImageMemoryRequirements(device, image, pMemoryRequirements);
-    IMAGE_STATE* image_state;
-    {
-        unique_lock_t lock(global_lock);
-        image_state = GetImageState(dev_data, image);
-    }
+    auto image_state = GetImageState(dev_data, image);
     if (image_state) {
         image_state->requirements = *pMemoryRequirements;
         image_state->memory_requirements_checked = true;
@@ -4419,7 +4413,7 @@ const VkPhysicalDeviceProperties *GetPhysicalDeviceProperties(core_validation::l
 
 const CHECK_DISABLED *GetDisables(core_validation::layer_data *device_data) { return &device_data->instance_data->disabled; }
 
-std::unordered_map<VkImage, std::unique_ptr<IMAGE_STATE>> *GetImageMap(core_validation::layer_data *device_data) {
+mutex_value<std::unordered_map<VkImage, std::unique_ptr<IMAGE_STATE>>> *GetImageMap(core_validation::layer_data *device_data) {
     return &device_data->imageMap;
 }
 
@@ -4435,7 +4429,7 @@ std::unordered_map<ImageSubresourcePair, IMAGE_LAYOUT_NODE> const *GetImageLayou
     return &device_data->imageLayoutMap;
 }
 
-std::unordered_map<VkBuffer, std::unique_ptr<BUFFER_STATE>> *GetBufferMap(layer_data *device_data) {
+mutex_value<std::unordered_map<VkBuffer, std::unique_ptr<BUFFER_STATE>>> *GetBufferMap(layer_data *device_data) {
     return &device_data->bufferMap;
 }
 
@@ -9539,7 +9533,7 @@ VKAPI_ATTR void VKAPI_CALL DestroySwapchainKHR(VkDevice device, VkSwapchainKHR s
                     dev_data->imageSubresourceMap.erase(image_sub);
                 }
                 skip = ClearMemoryObjectBindings(dev_data, HandleToUint64(swapchain_image), kVulkanObjectTypeSwapchainKHR);
-                dev_data->imageMap.erase(swapchain_image);
+                dev_data->imageMap->erase(swapchain_image);
             }
         }
 
@@ -9608,10 +9602,10 @@ static void PostCallRecordGetSwapchainImagesKHR(layer_data *device_data, SWAPCHA
             image_ci.tiling = VK_IMAGE_TILING_OPTIMAL;
             image_ci.usage = swapchain_state->createInfo.imageUsage;
             image_ci.sharingMode = swapchain_state->createInfo.imageSharingMode;
-            device_data->imageMap[pSwapchainImages[i]] = unique_ptr<IMAGE_STATE>(new IMAGE_STATE(pSwapchainImages[i], &image_ci));
-            auto &image_state = device_data->imageMap[pSwapchainImages[i]];
+            auto image_state = std::make_unique<IMAGE_STATE>(pSwapchainImages[i], &image_ci);
             image_state->valid = false;
             image_state->binding.mem = MEMTRACKER_SWAP_CHAIN_IMAGE_KEY;
+            (*device_data->imageMap.get())[pSwapchainImages[i]] = std::move(image_state);
             swapchain_state->images[i] = pSwapchainImages[i];
             ImageSubresourcePair subpair = {pSwapchainImages[i], false, VkImageSubresource()};
             device_data->imageSubresourceMap[pSwapchainImages[i]].push_back(subpair);
@@ -10902,7 +10896,7 @@ VKAPI_ATTR VkResult VKAPI_CALL GetDisplayPlaneCapabilitiesKHR(VkPhysicalDevice p
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL DebugMarkerSetObjectNameEXT(VkDevice device, const VkDebugMarkerObjectNameInfoEXT *pNameInfo) {
-    std::unique_lock<std::mutex> lock(global_lock);
+    unique_lock_t lock(global_lock);
     layer_data *device_data = GetLayerDataPtr(get_dispatch_key(device), layer_data_map);
     if (pNameInfo->pObjectName) {
         device_data->report_data->debugObjectNameMap->insert(

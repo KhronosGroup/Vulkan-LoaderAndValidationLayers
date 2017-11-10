@@ -837,7 +837,9 @@ void PostCallRecordCreateImage(layer_data *device_data, const VkImageCreateInfo 
     IMAGE_LAYOUT_NODE image_state;
     image_state.layout = pCreateInfo->initialLayout;
     image_state.format = pCreateInfo->format;
-    GetImageMap(device_data)->insert(std::make_pair(*pImage, std::unique_ptr<IMAGE_STATE>(new IMAGE_STATE(*pImage, pCreateInfo))));
+    GetImageMap(device_data)
+        ->get()
+        ->insert(std::make_pair(*pImage, std::unique_ptr<IMAGE_STATE>(new IMAGE_STATE(*pImage, pCreateInfo))));
     ImageSubresourcePair subpair{*pImage, false, VkImageSubresource()};
     (*core_validation::GetImageSubresourceMap(device_data))[*pImage].push_back(subpair);
     (*core_validation::GetImageLayoutMap(device_data))[subpair] = image_state;
@@ -867,7 +869,7 @@ void PostCallRecordDestroyImage(layer_data *device_data, VkImage image, IMAGE_ST
     }
     core_validation::ClearMemoryObjectBindings(device_data, obj_struct.handle, kVulkanObjectTypeImage);
     // Remove image from imageMap
-    core_validation::GetImageMap(device_data)->erase(image);
+    core_validation::GetImageMap(device_data)->get()->erase(image);
     std::unordered_map<VkImage, std::vector<ImageSubresourcePair>> *imageSubresourceMap =
         core_validation::GetImageSubresourceMap(device_data);
 
@@ -3043,6 +3045,7 @@ bool PreCallValidateCreateBuffer(layer_data *device_data, const VkBufferCreateIn
 void PostCallRecordCreateBuffer(layer_data *device_data, const VkBufferCreateInfo *pCreateInfo, VkBuffer *pBuffer) {
     // TODO : This doesn't create deep copy of pQueueFamilyIndices so need to fix that if/when we want that data to be valid
     GetBufferMap(device_data)
+        ->get()
         ->insert(std::make_pair(*pBuffer, std::unique_ptr<BUFFER_STATE>(new BUFFER_STATE(*pBuffer, pCreateInfo))));
 }
 
@@ -3566,7 +3569,7 @@ void PostCallRecordDestroyBuffer(layer_data *device_data, VkBuffer buffer, BUFFE
         }
     }
     ClearMemoryObjectBindings(device_data, HandleToUint64(buffer), kVulkanObjectTypeBuffer);
-    GetBufferMap(device_data)->erase(buffer_state->buffer);
+    GetBufferMap(device_data)->get()->erase(buffer_state->buffer);
 }
 
 bool PreCallValidateDestroyBufferView(layer_data *device_data, VkBufferView buffer_view, BUFFER_VIEW_STATE **buffer_view_state,
