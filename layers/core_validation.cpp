@@ -9602,7 +9602,7 @@ static void PostCallRecordGetSwapchainImagesKHR(layer_data *device_data, SWAPCHA
             image_ci.tiling = VK_IMAGE_TILING_OPTIMAL;
             image_ci.usage = swapchain_state->createInfo.imageUsage;
             image_ci.sharingMode = swapchain_state->createInfo.imageSharingMode;
-            auto image_state = std::make_unique<IMAGE_STATE>(pSwapchainImages[i], &image_ci);
+            auto image_state = std::unique_ptr<IMAGE_STATE>(new IMAGE_STATE(pSwapchainImages[i], &image_ci));
             image_state->valid = false;
             image_state->binding.mem = MEMTRACKER_SWAP_CHAIN_IMAGE_KEY;
             (*device_data->imageMap.get())[pSwapchainImages[i]] = std::move(image_state);
