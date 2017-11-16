@@ -632,7 +632,7 @@ CUSTOM_C_INTERCEPTS = {
     // TODO: Just hard-coding reqs for now
     pMemoryRequirements->size = 4096;
     pMemoryRequirements->alignment = 1;
-    pMemoryRequirements->memoryTypeBits = 0x1F;
+    pMemoryRequirements->memoryTypeBits = 0xFFFF;
 ''',
 'vkGetBufferMemoryRequirements2KHR': '''
     GetBufferMemoryRequirements(device, pInfo->buffer, &pMemoryRequirements->memoryRequirements);
@@ -641,16 +641,16 @@ CUSTOM_C_INTERCEPTS = {
     // TODO: Just hard-coding reqs for now
     pMemoryRequirements->size = 4096;
     pMemoryRequirements->alignment = 1;
-    pMemoryRequirements->memoryTypeBits = 0x1F;
+    pMemoryRequirements->memoryTypeBits = 0xFFFF;
 ''',
 'vkGetImageMemoryRequirements2KHR': '''
     GetImageMemoryRequirements(device, pInfo->image, &pMemoryRequirements->memoryRequirements);
 ''',
 'vkMapMemory': '''
     unique_lock_t lock(global_lock);
-    // TODO: Just hard-coding 4k whole size for now
+    // TODO: Just hard-coding 64k whole size for now
     if (VK_WHOLE_SIZE == size)
-        size = 4096;
+        size = 0x10000;
     void* map_addr = malloc((size_t)size);
     mapped_memory_map[memory].push_back(map_addr);
     *ppData = map_addr;

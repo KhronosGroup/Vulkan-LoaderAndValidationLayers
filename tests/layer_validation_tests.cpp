@@ -448,7 +448,14 @@ class VkLayerTest : public VkRenderFramework {
         m_instance_layer_names.push_back("VK_LAYER_LUNARG_object_tracker");
         m_instance_layer_names.push_back("VK_LAYER_LUNARG_core_validation");
         m_instance_layer_names.push_back("VK_LAYER_GOOGLE_unique_objects");
-
+        if (VkTestFramework::m_devsim_layer) {
+            if (InstanceLayerSupported("VK_LAYER_LUNARG_device_simulation")) {
+                m_instance_layer_names.push_back("VK_LAYER_LUNARG_device_simulation");
+            } else {
+                VkTestFramework::m_devsim_layer = false;
+                printf("             Did not find VK_LAYER_LUNARG_device_simulation layer so it will not be enabled.\n");
+            }
+        }
         if (m_enableWSI) {
             m_instance_extension_names.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
             m_device_extension_names.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
@@ -748,6 +755,7 @@ class VkBufferTest {
             bool pass = aVulkanDevice->phy().set_memory_type(memory_requirements.memoryTypeBits, &memory_allocate_info,
                                                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
             if (!pass) {
+                CreateCurrent = false;
                 vkDestroyBuffer(VulkanDevice, VulkanBuffer, nullptr);
                 return;
             }
@@ -2806,12 +2814,7 @@ TEST_F(VkLayerTest, ExceedMemoryAllocationCount) {
     const int max_mems = 32;
     VkDeviceMemory mems[max_mems + 1];
 
-    if (InstanceLayerSupported("VK_LAYER_LUNARG_device_profile_api")) {
-        m_instance_layer_names.push_back("VK_LAYER_LUNARG_device_profile_api");
-    } else {
-        printf("             Did not find VK_LAYER_LUNARG_device_profile_api layer; skipped.\n");
-        return;
-    }
+    if (!EnableDeviceProfileLayer()) return;
 
     ASSERT_NO_FATAL_FAILURE(InitFramework(myDbgFunc, m_errorMonitor));
 
@@ -10245,9 +10248,7 @@ TEST_F(VkLayerTest, VALIDATION_ERROR_14a004dc) {
         "Test VALIDATION_ERROR_14a004dc: offset must be less than or equal to "
         "VkPhysicalDeviceLimits::maxVertexInputAttributeOffset");
 
-    if (InstanceLayerSupported("VK_LAYER_LUNARG_device_profile_api")) {
-        m_instance_layer_names.push_back("VK_LAYER_LUNARG_device_profile_api");
-    }
+    EnableDeviceProfileLayer();
 
     ASSERT_NO_FATAL_FAILURE(InitFramework(myDbgFunc, m_errorMonitor));
 
@@ -12230,6 +12231,11 @@ TEST_F(VkLayerTest, DSUpdateOutOfBounds) {
     });
 
     VkBufferTest buffer_test(m_device, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+    if (!buffer_test.GetBufferCurrent()) {
+        // Something prevented creation of buffer so abort
+        printf("             Buffer creation failed, skipping test\n");
+        return;
+    }
 
     // Correctly update descriptor to avoid "NOT_UPDATED" error
     VkDescriptorBufferInfo buff_info = {};
@@ -14278,6 +14284,8 @@ TEST_F(VkLayerTest, CreateImageViewBreaksParameterCompatibilityRequirements) {
 
 TEST_F(VkLayerTest, CreateImageViewFormatFeatureMismatch) {
     TEST_DESCRIPTION("Create view with a format that does not have the same features as the image format.");
+
+    if (!EnableDeviceProfileLayer()) return;
 
     ASSERT_NO_FATAL_FAILURE(InitFramework(myDbgFunc, m_errorMonitor));
     ASSERT_NO_FATAL_FAILURE(InitState());
@@ -17746,12 +17754,8 @@ TEST_F(VkLayerTest, ImageLayerUnsupportedFormat) {
 TEST_F(VkLayerTest, CreateImageViewFormatMismatchUnrelated) {
     TEST_DESCRIPTION("Create an image with a color format, then try to create a depth view of it");
 
-    if (InstanceLayerSupported("VK_LAYER_LUNARG_device_profile_api")) {
-        m_instance_layer_names.push_back("VK_LAYER_LUNARG_device_profile_api");
-    } else {
-        printf("             Did not find VK_LAYER_LUNARG_device_profile_api layer; skipped.\n");
-        return;
-    }
+    if (!EnableDeviceProfileLayer()) return;
+
     ASSERT_NO_FATAL_FAILURE(InitFramework(myDbgFunc, m_errorMonitor));
     ASSERT_NO_FATAL_FAILURE(InitState());
 
@@ -17803,6 +17807,8 @@ TEST_F(VkLayerTest, CreateImageViewFormatMismatchUnrelated) {
 
 TEST_F(VkLayerTest, CreateImageViewNoMutableFormatBit) {
     TEST_DESCRIPTION("Create an image view with a different format, when the image does not have MUTABLE_FORMAT bit");
+
+    if (!EnableDeviceProfileLayer()) return;
 
     ASSERT_NO_FATAL_FAILURE(InitFramework(myDbgFunc, m_errorMonitor));
     ASSERT_NO_FATAL_FAILURE(InitState());
@@ -22945,14 +22951,14 @@ TEST_F(VkPositiveLayerTest, QueryAndCopySecondaryCommandBuffers) {
     VkBuffer buffer;
     err = vkCreateBuffer(m_device->device(), &buff_create_info, NULL, &buffer);
     ASSERT_VK_SUCCESS(err);
-    VkMemoryAllocateInfo mem_alloc = {};
-    mem_alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    mem_alloc.pNext = NULL;
-    mem_alloc.allocationSize = 1024;
-    mem_alloc.memoryTypeIndex = 0;
 
     VkMemoryRequirements memReqs;
     vkGetBufferMemoryRequirements(m_device->device(), buffer, &memReqs);
+    VkMemoryAllocateInfo mem_alloc = {};
+    mem_alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    mem_alloc.pNext = NULL;
+    mem_alloc.allocationSize = memReqs.size;
+    mem_alloc.memoryTypeIndex = 0;
     bool pass = m_device->phy().set_memory_type(memReqs.memoryTypeBits, &mem_alloc, 0);
     if (!pass) {
         vkDestroyBuffer(m_device->device(), buffer, NULL);
@@ -23045,14 +23051,14 @@ TEST_F(VkPositiveLayerTest, QueryAndCopyMultipleCommandBuffers) {
     VkBuffer buffer;
     err = vkCreateBuffer(m_device->device(), &buff_create_info, NULL, &buffer);
     ASSERT_VK_SUCCESS(err);
-    VkMemoryAllocateInfo mem_alloc = {};
-    mem_alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    mem_alloc.pNext = NULL;
-    mem_alloc.allocationSize = 1024;
-    mem_alloc.memoryTypeIndex = 0;
 
     VkMemoryRequirements memReqs;
     vkGetBufferMemoryRequirements(m_device->device(), buffer, &memReqs);
+    VkMemoryAllocateInfo mem_alloc = {};
+    mem_alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    mem_alloc.pNext = NULL;
+    mem_alloc.allocationSize = memReqs.size;
+    mem_alloc.memoryTypeIndex = 0;
     bool pass = m_device->phy().set_memory_type(memReqs.memoryTypeBits, &mem_alloc, 0);
     if (!pass) {
         vkDestroyBuffer(m_device->device(), buffer, NULL);
@@ -24642,13 +24648,28 @@ TEST_F(VkPositiveLayerTest, CreatePipeline64BitAttributesPositive) {
         "locations.");
     m_errorMonitor->ExpectSuccess();
 
-    ASSERT_NO_FATAL_FAILURE(Init());
+    if (!EnableDeviceProfileLayer()) return;
+
+    ASSERT_NO_FATAL_FAILURE(InitFramework(myDbgFunc, m_errorMonitor));
+    ASSERT_NO_FATAL_FAILURE(InitState());
     ASSERT_NO_FATAL_FAILURE(InitRenderTarget());
 
     if (!m_device->phy().features().shaderFloat64) {
         printf("             Device does not support 64bit vertex attributes; skipped.\n");
         return;
     }
+    // Set 64bit format to support VTX Buffer feature
+    PFN_vkSetPhysicalDeviceFormatPropertiesEXT fpvkSetPhysicalDeviceFormatPropertiesEXT = nullptr;
+    PFN_vkGetOriginalPhysicalDeviceFormatPropertiesEXT fpvkGetOriginalPhysicalDeviceFormatPropertiesEXT = nullptr;
+
+    // Load required functions
+    if (!LoadDeviceProfileLayer(fpvkSetPhysicalDeviceFormatPropertiesEXT, fpvkGetOriginalPhysicalDeviceFormatPropertiesEXT)) {
+        return;
+    }
+    VkFormatProperties format_props;
+    fpvkGetOriginalPhysicalDeviceFormatPropertiesEXT(gpu(), VK_FORMAT_R64G64B64A64_SFLOAT, &format_props);
+    format_props.bufferFeatures |= VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT;
+    fpvkSetPhysicalDeviceFormatPropertiesEXT(gpu(), VK_FORMAT_R64G64B64A64_SFLOAT, format_props);
 
     VkVertexInputBindingDescription input_bindings[1];
     memset(input_bindings, 0, sizeof(input_bindings));
@@ -25835,13 +25856,21 @@ TEST_F(VkPositiveLayerTest, ParameterLayerFeatures2Capture) {
     // We're not creating a valid m_device, but the phy wrapper is useful
     vk_testing::PhysicalDevice physical_device(gpu());
     vk_testing::QueueCreateInfoArray queue_info(physical_device.queue_properties());
+    // Only request creation with queuefamilies that have at least one queue
+    std::vector<VkDeviceQueueCreateInfo> create_queue_infos;
+    auto qci = queue_info.data();
+    for (uint32_t i = 0; i < queue_info.size(); ++i) {
+        if (qci[i].queueCount) {
+            create_queue_infos.push_back(qci[i]);
+        }
+    }
 
     VkDeviceCreateInfo dev_info = {};
     dev_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     dev_info.pNext = &features2;
     dev_info.flags = 0;
-    dev_info.queueCreateInfoCount = queue_info.size();
-    dev_info.pQueueCreateInfos = queue_info.data();
+    dev_info.queueCreateInfoCount = create_queue_infos.size();
+    dev_info.pQueueCreateInfos = create_queue_infos.data();
     dev_info.enabledLayerCount = 0;
     dev_info.ppEnabledLayerNames = nullptr;
     dev_info.enabledExtensionCount = 0;
