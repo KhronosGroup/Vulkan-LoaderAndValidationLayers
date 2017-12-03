@@ -98,15 +98,14 @@ bool FindLayoutVerifyNode(layer_data const *device_data, GLOBAL_CB_NODE const *p
     if (node.layout != VK_IMAGE_LAYOUT_MAX_ENUM && node.layout != imgsubIt->second.layout) {
         log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, HandleToUint64(imgpair.image),
                 __LINE__, DRAWSTATE_INVALID_LAYOUT, "DS",
-                "Cannot query for VkImage 0x%" PRIx64 " layout when combined aspect mask %d has multiple layout types: %s and %s",
+                "Cannot query for VkImage 0x%llx layout when combined aspect mask %d has multiple layout types: %s and %s",
                 HandleToUint64(imgpair.image), oldAspectMask, string_VkImageLayout(node.layout),
                 string_VkImageLayout(imgsubIt->second.layout));
     }
     if (node.initialLayout != VK_IMAGE_LAYOUT_MAX_ENUM && node.initialLayout != imgsubIt->second.initialLayout) {
         log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, HandleToUint64(imgpair.image),
                 __LINE__, DRAWSTATE_INVALID_LAYOUT, "DS",
-                "Cannot query for VkImage 0x%" PRIx64
-                " layout when combined aspect mask %d has multiple initial layout types: %s and %s",
+                "Cannot query for VkImage 0x%llx layout when combined aspect mask %d has multiple initial layout types: %s and %s",
                 HandleToUint64(imgpair.image), oldAspectMask, string_VkImageLayout(node.initialLayout),
                 string_VkImageLayout(imgsubIt->second.initialLayout));
     }
@@ -129,7 +128,7 @@ bool FindLayoutVerifyLayout(layer_data const *device_data, ImageSubresourcePair 
     if (layout != VK_IMAGE_LAYOUT_MAX_ENUM && layout != imgsubIt->second.layout) {
         log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, HandleToUint64(imgpair.image),
                 __LINE__, DRAWSTATE_INVALID_LAYOUT, "DS",
-                "Cannot query for VkImage 0x%" PRIx64 " layout when combined aspect mask %d has multiple layout types: %s and %s",
+                "Cannot query for VkImage 0x%llx layout when combined aspect mask %d has multiple layout types: %s and %s",
                 HandleToUint64(imgpair.image), oldAspectMask, string_VkImageLayout(layout),
                 string_VkImageLayout(imgsubIt->second.layout));
     }
@@ -365,13 +364,12 @@ bool ValidateImageAspectLayout(layer_data *device_data, GLOBAL_CB_NODE const *pC
     if (mem_barrier->oldLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
         // TODO: Set memory invalid which is in mem_tracker currently
     } else if (node.layout != mem_barrier->oldLayout) {
-        skip |=
-            log_msg(core_validation::GetReportData(device_data), VK_DEBUG_REPORT_ERROR_BIT_EXT,
-                    VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT, HandleToUint64(pCB->commandBuffer), __LINE__,
-                    DRAWSTATE_INVALID_IMAGE_LAYOUT, "DS",
-                    "For image 0x%" PRIxLEAST64 " you cannot transition the layout of aspect %d from %s when current layout is %s.",
-                    HandleToUint64(mem_barrier->image), aspect, string_VkImageLayout(mem_barrier->oldLayout),
-                    string_VkImageLayout(node.layout));
+        skip |= log_msg(core_validation::GetReportData(device_data), VK_DEBUG_REPORT_ERROR_BIT_EXT,
+                        VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT, HandleToUint64(pCB->commandBuffer), __LINE__,
+                        DRAWSTATE_INVALID_IMAGE_LAYOUT, "DS",
+                        "For image 0x%llx you cannot transition the layout of aspect %d from %s when current layout is %s.",
+                        HandleToUint64(mem_barrier->image), aspect, string_VkImageLayout(mem_barrier->oldLayout),
+                        string_VkImageLayout(node.layout));
     }
     return skip;
 }
@@ -467,12 +465,11 @@ bool ValidateBarrierLayoutToImageUsage(layer_data *device_data, const VkImageMem
     }
 
     if (msg_code != VALIDATION_ERROR_UNDEFINED) {
-        skip |=
-            log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT,
-                    HandleToUint64(img_barrier->image), __LINE__, msg_code, "DS",
-                    "%s: Image barrier 0x%p %sLayout=%s is not compatible with image 0x%" PRIx64 " usage flags 0x%" PRIx32 ". %s",
-                    func_name, img_barrier, ((new_not_old) ? "new" : "old"), string_VkImageLayout(layout),
-                    HandleToUint64(img_barrier->image), usage_flags, validation_error_map[msg_code]);
+        skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT,
+                        HandleToUint64(img_barrier->image), __LINE__, msg_code, "DS",
+                        "%s: Image barrier 0x%p %sLayout=%s is not compatible with image 0x%llx usage flags 0x%llx. %s", func_name,
+                        img_barrier, ((new_not_old) ? "new" : "old"), string_VkImageLayout(layout),
+                        HandleToUint64(img_barrier->image), usage_flags, validation_error_map[msg_code]);
     }
     return skip;
 }
@@ -495,13 +492,12 @@ bool ValidateBarriersToImages(layer_data *device_data, GLOBAL_CB_NODE const *cb_
             // Make sure layout is able to be transitioned, currently only presented shared presentable images are locked
             if (image_state->layout_locked) {
                 // TODO: Add unique id for error when available
-                skip |= log_msg(
-                    core_validation::GetReportData(device_data), VK_DEBUG_REPORT_ERROR_BIT_EXT,
-                    VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, __LINE__, 0, "DS",
-                    "Attempting to transition shared presentable image 0x%" PRIxLEAST64
-                    " from layout %s to layout %s, but image has already been presented and cannot have its layout transitioned.",
-                    reinterpret_cast<const uint64_t &>(img_barrier->image), string_VkImageLayout(img_barrier->oldLayout),
-                    string_VkImageLayout(img_barrier->newLayout));
+                skip |= log_msg(core_validation::GetReportData(device_data), VK_DEBUG_REPORT_ERROR_BIT_EXT,
+                                VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, __LINE__, 0, "DS",
+                                "Attempting to transition shared presentable image 0x%llx from layout %s to layout %s, but image "
+                                "has already been presented and cannot have its layout transitioned.",
+                                reinterpret_cast<const uint64_t &>(img_barrier->image),
+                                string_VkImageLayout(img_barrier->oldLayout), string_VkImageLayout(img_barrier->newLayout));
             }
         }
 
@@ -515,9 +511,8 @@ bool ValidateBarriersToImages(layer_data *device_data, GLOBAL_CB_NODE const *cb_
                     log_msg(core_validation::GetReportData(device_data), VK_DEBUG_REPORT_ERROR_BIT_EXT,
                             VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, HandleToUint64(img_barrier->image), __LINE__,
                             VALIDATION_ERROR_0a00096e, "DS",
-                            "%s: Image barrier 0x%p references image 0x%" PRIx64
-                            " of format %s that must have the depth and stencil aspects set, but its "
-                            "aspectMask is 0x%" PRIx32 ". %s",
+                            "%s: Image barrier 0x%p references image 0x%llx of format %s that must have the depth and stencil "
+                            "aspects set, but its aspectMask is 0x%llx. %s",
                             func_name, img_barrier, HandleToUint64(img_barrier->image), string_VkFormat(image_create_info->format),
                             aspect_mask, validation_error_map[VALIDATION_ERROR_0a00096e]);
             }
@@ -579,12 +574,11 @@ bool VerifyImageLayout(layer_data const *device_data, GLOBAL_CB_NODE const *cb_n
             if (node.layout != explicit_layout) {
                 *error = true;
                 // TODO: Improve log message in the next pass
-                skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                                HandleToUint64(cb_node->commandBuffer), __LINE__, DRAWSTATE_INVALID_IMAGE_LAYOUT, "DS",
-                                "%s: Cannot use image 0x%" PRIxLEAST64
-                                " with specific layout %s that doesn't match the actual current layout %s.",
-                                caller, HandleToUint64(image), string_VkImageLayout(explicit_layout),
-                                string_VkImageLayout(node.layout));
+                skip |= log_msg(
+                    report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
+                    HandleToUint64(cb_node->commandBuffer), __LINE__, DRAWSTATE_INVALID_IMAGE_LAYOUT, "DS",
+                    "%s: Cannot use image 0x%llx with specific layout %s that doesn't match the actual current layout %s.", caller,
+                    HandleToUint64(image), string_VkImageLayout(explicit_layout), string_VkImageLayout(node.layout));
             }
         }
     }
@@ -596,8 +590,8 @@ bool VerifyImageLayout(layer_data const *device_data, GLOBAL_CB_NODE const *cb_n
                 skip |= log_msg(report_data, VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT,
                                 VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT, HandleToUint64(cb_node->commandBuffer), __LINE__,
                                 DRAWSTATE_INVALID_IMAGE_LAYOUT, "DS",
-                                "%s: For optimal performance image 0x%" PRIxLEAST64 " layout should be %s instead of GENERAL.",
-                                caller, HandleToUint64(image), string_VkImageLayout(optimal_layout));
+                                "%s: For optimal performance image 0x%llx layout should be %s instead of GENERAL.", caller,
+                                HandleToUint64(image), string_VkImageLayout(optimal_layout));
             }
         } else if (GetDeviceExtensions(device_data)->vk_khr_shared_presentable_image) {
             if (image_state->shared_presentable) {
@@ -613,9 +607,9 @@ bool VerifyImageLayout(layer_data const *device_data, GLOBAL_CB_NODE const *cb_n
             *error = true;
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
                             HandleToUint64(cb_node->commandBuffer), __LINE__, msg_code, "DS",
-                            "%s: Layout for image 0x%" PRIxLEAST64 " is %s but can only be %s or VK_IMAGE_LAYOUT_GENERAL. %s",
-                            caller, HandleToUint64(image), string_VkImageLayout(explicit_layout),
-                            string_VkImageLayout(optimal_layout), validation_error_map[msg_code]);
+                            "%s: Layout for image 0x%llx is %s but can only be %s or VK_IMAGE_LAYOUT_GENERAL. %s", caller,
+                            HandleToUint64(image), string_VkImageLayout(explicit_layout), string_VkImageLayout(optimal_layout),
+                            validation_error_map[msg_code]);
         }
     }
     return skip;
@@ -757,7 +751,7 @@ bool PreCallValidateCreateImage(layer_data *device_data, const VkImageCreateInfo
         skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, 0, __LINE__,
                         IMAGE_INVALID_FORMAT_LIMITS_VIOLATION, "Image",
                         "CreateImage resource size exceeds allowable maximum "
-                        "Image resource size = 0x%" PRIxLEAST64 ", maximum resource size = 0x%" PRIxLEAST64 " ",
+                        "Image resource size = 0x%llx, maximum resource size = 0x%llx ",
                         totalSize, ImageFormatProperties.maxResourceSize);
     }
 
@@ -1350,9 +1344,8 @@ static inline bool CheckItgSize(layer_data *device_data, const GLOBAL_CB_NODE *c
     if (SafeModulo(value, granularity) != 0) {
         skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
                         HandleToUint64(cb_node->commandBuffer), __LINE__, DRAWSTATE_IMAGE_TRANSFER_GRANULARITY, "DS",
-                        "%s: pRegion[%d].%s (%" PRIdLEAST64
-                        ") must be an even integer multiple of this command buffer's queue family image transfer "
-                        "granularity width (%d).",
+                        "%s: pRegion[%d].%s (%llu) must be an even integer multiple of this command buffer's queue family image "
+                        "transfer granularity width (%d).",
                         function, i, member, value, granularity);
     }
     return skip;
@@ -2676,18 +2669,15 @@ bool ValidateCmdBufImageLayouts(layer_data *device_data, GLOBAL_CB_NODE *pCB,
                 if (cb_image_data.first.hasSubresource) {
                     skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
                                     HandleToUint64(pCB->commandBuffer), __LINE__, DRAWSTATE_INVALID_IMAGE_LAYOUT, "DS",
-                                    "Cannot submit cmd buffer using image (0x%" PRIx64
-                                    ") [sub-resource: aspectMask 0x%X array layer %u, mip level %u], "
-                                    "with layout %s when first use is %s.",
+                                    "Cannot submit cmd buffer using image (0x%llx) [sub-resource: aspectMask 0x%X array layer %u, "
+                                    "mip level %u], with layout %s when first use is %s.",
                                     HandleToUint64(cb_image_data.first.image), cb_image_data.first.subresource.aspectMask,
                                     cb_image_data.first.subresource.arrayLayer, cb_image_data.first.subresource.mipLevel,
                                     string_VkImageLayout(imageLayout), string_VkImageLayout(cb_image_data.second.initialLayout));
                 } else {
                     skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
                                     HandleToUint64(pCB->commandBuffer), __LINE__, DRAWSTATE_INVALID_IMAGE_LAYOUT, "DS",
-                                    "Cannot submit cmd buffer using image (0x%" PRIx64
-                                    ") with layout %s when "
-                                    "first use is %s.",
+                                    "Cannot submit cmd buffer using image (0x%llx) with layout %s when first use is %s.",
                                     HandleToUint64(cb_image_data.first.image), string_VkImageLayout(imageLayout),
                                     string_VkImageLayout(cb_image_data.second.initialLayout));
                 }
@@ -2990,15 +2980,14 @@ static bool validate_usage_flags(layer_data *device_data, VkFlags actual, VkFlag
             // TODO: Fix callers with msgCode == -1 to use correct validation checks.
             skip = log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, get_debug_report_enum[obj_type], obj_handle, __LINE__,
                            MEMTRACK_INVALID_USAGE_FLAG, "MEM",
-                           "Invalid usage flag for %s 0x%" PRIxLEAST64
-                           " used by %s. In this case, %s should have %s set during creation.",
+                           "Invalid usage flag for %s 0x%llx used by %s. In this case, %s should have %s set during creation.",
                            type_str, obj_handle, func_name, type_str, usage_str);
         } else {
             const char *valid_usage = (msgCode == -1) ? "" : validation_error_map[msgCode];
-            skip = log_msg(
-                report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, get_debug_report_enum[obj_type], obj_handle, __LINE__, msgCode, "MEM",
-                "Invalid usage flag for %s 0x%" PRIxLEAST64 " used by %s. In this case, %s should have %s set during creation. %s",
-                type_str, obj_handle, func_name, type_str, usage_str, valid_usage);
+            skip = log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, get_debug_report_enum[obj_type], obj_handle, __LINE__,
+                           msgCode, "MEM",
+                           "Invalid usage flag for %s 0x%llx used by %s. In this case, %s should have %s set during creation. %s",
+                           type_str, obj_handle, func_name, type_str, usage_str, valid_usage);
         }
     }
     return skip;
@@ -3154,8 +3143,8 @@ bool ValidateImageSubresourceRange(const layer_data *device_data, const uint32_t
     if (subresourceRange.baseMipLevel >= image_mip_count) {
         skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, image_handle, __LINE__,
                         errorCodes.base_mip_err, "IMAGE",
-                        "%s: %s.baseMipLevel (= %" PRIu32
-                        ") is greater or equal to the mip level count of the image (i.e. greater or equal to %" PRIu32 "). %s",
+                        "%s: %s.baseMipLevel (= %lu) is greater or equal to the mip level count of the image (i.e. greater or "
+                        "equal to %lu). %s",
                         cmd_name, param_name, subresourceRange.baseMipLevel, image_mip_count,
                         validation_error_map[errorCodes.base_mip_err]);
     }
@@ -3171,8 +3160,8 @@ bool ValidateImageSubresourceRange(const layer_data *device_data, const uint32_t
             if (necessary_mip_count > image_mip_count) {
                 skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, image_handle,
                                 __LINE__, errorCodes.mip_count_err, "IMAGE",
-                                "%s: %s.baseMipLevel + .levelCount (= %" PRIu32 " + %" PRIu32 " = %" PRIu64
-                                ") is greater than the mip level count of the image (i.e. greater than %" PRIu32 "). %s",
+                                "%s: %s.baseMipLevel + .levelCount (= %lu + %lu = %llu) is greater than the mip level count of the "
+                                "image (i.e. greater than %lu). %s",
                                 cmd_name, param_name, subresourceRange.baseMipLevel, subresourceRange.levelCount,
                                 necessary_mip_count, image_mip_count, validation_error_map[errorCodes.mip_count_err]);
             }
@@ -3181,13 +3170,12 @@ bool ValidateImageSubresourceRange(const layer_data *device_data, const uint32_t
 
     // Validate array layers
     if (subresourceRange.baseArrayLayer >= image_layer_count) {
-        skip |=
-            log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, image_handle, __LINE__,
-                    errorCodes.base_layer_err, "IMAGE",
-                    "%s: %s.baseArrayLayer (= %" PRIu32
-                    ") is greater or equal to the %s of the image when it was created (i.e. greater or equal to %" PRIu32 "). %s",
-                    cmd_name, param_name, subresourceRange.baseArrayLayer, image_layer_count_var_name, image_layer_count,
-                    validation_error_map[errorCodes.base_layer_err]);
+        skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, image_handle, __LINE__,
+                        errorCodes.base_layer_err, "IMAGE",
+                        "%s: %s.baseArrayLayer (= %lu) is greater or equal to the %s of the image when it was created (i.e. "
+                        "greater or equal to %lu). %s",
+                        cmd_name, param_name, subresourceRange.baseArrayLayer, image_layer_count_var_name, image_layer_count,
+                        validation_error_map[errorCodes.base_layer_err]);
     }
 
     if (subresourceRange.layerCount != VK_REMAINING_ARRAY_LAYERS) {
@@ -3202,8 +3190,8 @@ bool ValidateImageSubresourceRange(const layer_data *device_data, const uint32_t
             if (necessary_layer_count > image_layer_count) {
                 skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, image_handle,
                                 __LINE__, errorCodes.layer_count_err, "IMAGE",
-                                "%s: %s.baseArrayLayer + .layerCount (= %" PRIu32 " + %" PRIu32 " = %" PRIu64
-                                ") is greater than the %s of the image when it was created (i.e. greater than %" PRIu32 "). %s",
+                                "%s: %s.baseArrayLayer + .layerCount (= %lu + %lu = %llu) is greater than the %s of the image when "
+                                "it was created (i.e. greater than %lu). %s",
                                 cmd_name, param_name, subresourceRange.baseArrayLayer, subresourceRange.layerCount,
                                 necessary_layer_count, image_layer_count_var_name, image_layer_count,
                                 validation_error_map[errorCodes.layer_count_err]);
@@ -3527,13 +3515,13 @@ static bool validateIdleBuffer(layer_data *device_data, VkBuffer buffer) {
     auto buffer_state = GetBufferState(device_data, buffer);
     if (!buffer_state) {
         skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_EXT, HandleToUint64(buffer),
-                        __LINE__, DRAWSTATE_DOUBLE_DESTROY, "DS",
-                        "Cannot free buffer 0x%" PRIxLEAST64 " that has not been allocated.", HandleToUint64(buffer));
+                        __LINE__, DRAWSTATE_DOUBLE_DESTROY, "DS", "Cannot free buffer 0x%llx that has not been allocated.",
+                        HandleToUint64(buffer));
     } else {
         if (buffer_state->in_use.load()) {
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_EXT,
                             HandleToUint64(buffer), __LINE__, VALIDATION_ERROR_23c00734, "DS",
-                            "Cannot free buffer 0x%" PRIxLEAST64 " that is in use by a command buffer. %s", HandleToUint64(buffer),
+                            "Cannot free buffer 0x%llx that is in use by a command buffer. %s", HandleToUint64(buffer),
                             validation_error_map[VALIDATION_ERROR_23c00734]);
         }
     }
@@ -3670,8 +3658,7 @@ bool ValidateBufferImageCopyData(const debug_report_data *report_data, uint32_t 
         if (!FormatIsDepthAndStencil(image_state->createInfo.format) && SafeModulo(pRegions[i].bufferOffset, texel_size) != 0) {
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT,
                             HandleToUint64(image_state->image), __LINE__, VALIDATION_ERROR_01600182, "IMAGE",
-                            "%s(): pRegion[%d] bufferOffset 0x%" PRIxLEAST64
-                            " must be a multiple of this format's texel size (" PRINTF_SIZE_T_SPECIFIER "). %s",
+                            "%s(): pRegion[%d] bufferOffset 0x%llx must be a multiple of this format's texel size (%zu). %s",
                             function, i, pRegions[i].bufferOffset, texel_size, validation_error_map[VALIDATION_ERROR_01600182]);
         }
 
@@ -3679,7 +3666,7 @@ bool ValidateBufferImageCopyData(const debug_report_data *report_data, uint32_t 
         if (SafeModulo(pRegions[i].bufferOffset, 4) != 0) {
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT,
                             HandleToUint64(image_state->image), __LINE__, VALIDATION_ERROR_01600184, "IMAGE",
-                            "%s(): pRegion[%d] bufferOffset 0x%" PRIxLEAST64 " must be a multiple of 4. %s", function, i,
+                            "%s(): pRegion[%d] bufferOffset 0x%llx must be a multiple of 4. %s", function, i,
                             pRegions[i].bufferOffset, validation_error_map[VALIDATION_ERROR_01600184]);
         }
 
@@ -3766,9 +3753,8 @@ bool ValidateBufferImageCopyData(const debug_report_data *report_data, uint32_t 
             if (SafeModulo(pRegions[i].bufferOffset, block_size_in_bytes) != 0) {
                 skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT,
                                 HandleToUint64(image_state->image), __LINE__, VALIDATION_ERROR_0160019c, "IMAGE",
-                                "%s(): pRegion[%d] bufferOffset (0x%" PRIxLEAST64
-                                ") must be a multiple of the compressed image's texel block "
-                                "size (" PRINTF_SIZE_T_SPECIFIER "). %s.",
+                                "%s(): pRegion[%d] bufferOffset (0x%llx) must be a multiple of the compressed image's texel block "
+                                "size (%zu). %s.",
                                 function, i, pRegions[i].bufferOffset, block_size_in_bytes,
                                 validation_error_map[VALIDATION_ERROR_0160019c]);
             }
@@ -3912,10 +3898,9 @@ static inline bool ValidateBufferBounds(const debug_report_data *report_data, IM
             max_buffer_offset += pRegions[i].bufferOffset;                                       // add initial offset (bytes)
 
             if (buffer_size < max_buffer_offset) {
-                skip |=
-                    log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT, (uint64_t)0,
-                            __LINE__, msg_code, "IMAGE", "%s: pRegion[%d] exceeds buffer size of %" PRIu64 " bytes. %s.", func_name,
-                            i, buffer_size, validation_error_map[msg_code]);
+                skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
+                                (uint64_t)0, __LINE__, msg_code, "IMAGE", "%s: pRegion[%d] exceeds buffer size of %llu bytes. %s.",
+                                func_name, i, buffer_size, validation_error_map[msg_code]);
             }
         }
     }

@@ -376,8 +376,8 @@ static inline VKAPI_ATTR VkBool32 VKAPI_CALL log_callback(VkFlags msgFlags, VkDe
 
     print_msg_flags(msgFlags, msg_flags);
 
-    fprintf((FILE *)pUserData, "%s(%s): object: 0x%" PRIx64 " type: %d location: %lu msgCode: %d: %s\n", pLayerPrefix, msg_flags,
-            srcObject, objType, (unsigned long)location, msgCode, pMsg);
+    fprintf((FILE *)pUserData, "%s(%s): object: 0x%llx type: %d location: %zu msgCode: %d: %s\n", pLayerPrefix, msg_flags,
+            srcObject, objType, location, msgCode, pMsg);
     fflush((FILE *)pUserData);
 
     return false;
@@ -391,9 +391,8 @@ static inline VKAPI_ATTR VkBool32 VKAPI_CALL win32_debug_output_msg(VkFlags msgF
     char buf[2048];
 
     print_msg_flags(msgFlags, msg_flags);
-    _snprintf(buf, sizeof(buf) - 1,
-              "%s (%s): object: 0x%" PRIxPTR " type: %d location: " PRINTF_SIZE_T_SPECIFIER " msgCode: %d: %s\n", pLayerPrefix,
-              msg_flags, (size_t)srcObject, objType, location, msgCode, pMsg);
+    _snprintf(buf, sizeof(buf) - 1, "%s (%s): object: 0x%llx type: %d location: %zu msgCode: %d: %s\n", pLayerPrefix, msg_flags,
+              srcObject, objType, location, msgCode, pMsg);
 
     OutputDebugString(buf);
 #endif

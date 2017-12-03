@@ -185,7 +185,6 @@ static inline void loader_platform_thread_cond_broadcast(loader_platform_thread_
 #define RELATIVE_VK_DRIVERS_INFO ""
 #define RELATIVE_VK_ELAYERS_INFO ""
 #define RELATIVE_VK_ILAYERS_INFO ""
-#define PRINTF_SIZE_T_SPECIFIER "%Iu"
 
 #if defined(_WIN32)
 // Get the key for the plug n play driver registry
