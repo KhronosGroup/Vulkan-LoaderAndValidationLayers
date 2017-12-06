@@ -148,9 +148,8 @@ static bool ValidateDeviceQueueFamily(layer_data *device_data, uint32_t queue_fa
     } else if (device_data->queueFamilyIndexMap.find(queue_family) == device_data->queueFamilyIndexMap.end()) {
         skip |= log_msg(device_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_EXT,
                         HandleToUint64(device_data->device), __LINE__, error_code, LayerName,
-                        "%s: %s (= %" PRIu32
-                        ") is not one of the queue families given via VkDeviceQueueCreateInfo structures when "
-                        "the device was created. %s",
+                        "%s: %s (= %lu) is not one of the queue families given via VkDeviceQueueCreateInfo structures when the "
+                        "device was created. %s",
                         cmd_name, parameter_name, queue_family, vu_note);
     }
 
@@ -172,7 +171,7 @@ static bool ValidateQueueFamilies(layer_data *device_data, uint32_t queue_family
             if (set.count(queue_families[i])) {
                 skip |= log_msg(device_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_EXT,
                                 HandleToUint64(device_data->device), __LINE__, VALIDATION_ERROR_056002e8, LayerName,
-                                "%s: %s (=%" PRIu32 ") is not unique within %s array. %s", cmd_name, parameter_name.c_str(),
+                                "%s: %s (=%lu) is not unique within %s array. %s", cmd_name, parameter_name.c_str(),
                                 queue_families[i], array_parameter_name, unique_vu_note);
             } else {
                 set.insert(queue_families[i]);
@@ -381,17 +380,15 @@ static bool ValidateDeviceCreateInfo(instance_layer_data *instance_data, VkPhysi
                 skip |= log_msg(instance_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT,
                                 VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, HandleToUint64(physicalDevice), __LINE__,
                                 VALIDATION_ERROR_06c002fa, LayerName,
-                                "vkCreateDevice: pCreateInfo->pQueueCreateInfos[%" PRIu32
-                                "].queueFamilyIndex is "
-                                "VK_QUEUE_FAMILY_IGNORED, but it is required to provide a valid queue family index value. %s",
+                                "vkCreateDevice: pCreateInfo->pQueueCreateInfos[%lu].queueFamilyIndex is VK_QUEUE_FAMILY_IGNORED, "
+                                "but it is required to provide a valid queue family index value. %s",
                                 i, validation_error_map[VALIDATION_ERROR_06c002fa]);
             } else if (set.count(requested_queue_family)) {
                 skip |= log_msg(instance_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT,
                                 VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, HandleToUint64(physicalDevice), __LINE__,
                                 VALIDATION_ERROR_056002e8, LayerName,
-                                "vkCreateDevice: pCreateInfo->pQueueCreateInfos[%" PRIu32 "].queueFamilyIndex (=%" PRIu32
-                                ") is "
-                                "not unique within pCreateInfo->pQueueCreateInfos array. %s",
+                                "vkCreateDevice: pCreateInfo->pQueueCreateInfos[%lu].queueFamilyIndex (=%lu) is not unique within "
+                                "pCreateInfo->pQueueCreateInfos array. %s",
                                 i, requested_queue_family, validation_error_map[VALIDATION_ERROR_056002e8]);
             } else {
                 set.insert(requested_queue_family);
@@ -404,8 +401,8 @@ static bool ValidateDeviceCreateInfo(instance_layer_data *instance_data, VkPhysi
                         skip |= log_msg(instance_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT,
                                         VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, HandleToUint64(physicalDevice), __LINE__,
                                         VALIDATION_ERROR_06c002fe, LayerName,
-                                        "vkCreateDevice: pCreateInfo->pQueueCreateInfos[%" PRIu32 "].pQueuePriorities[%" PRIu32
-                                        "] (=%f) is not between 0 and 1 (inclusive). %s",
+                                        "vkCreateDevice: pCreateInfo->pQueueCreateInfos[%lu].pQueuePriorities[%lu] (=%f) is not "
+                                        "between 0 and 1 (inclusive). %s",
                                         i, j, queue_priority, validation_error_map[VALIDATION_ERROR_06c002fe]);
                     }
                 }
@@ -523,9 +520,8 @@ bool pv_vkGetDeviceQueue(VkDevice device, uint32_t queueFamilyIndex, uint32_t qu
     if (queue_data != device_data->queueFamilyIndexMap.end() && queue_data->second <= queueIndex) {
         skip |= log_msg(device_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_EXT,
                         HandleToUint64(device), __LINE__, VALIDATION_ERROR_29600302, LayerName,
-                        "vkGetDeviceQueue: queueIndex (=%" PRIu32
-                        ") is not less than the number of queues requested from "
-                        "queueFamilyIndex (=%" PRIu32 ") when the device was created (i.e. is not less than %" PRIu32 "). %s",
+                        "vkGetDeviceQueue: queueIndex (=%lu) is not less than the number of queues requested from queueFamilyIndex "
+                        "(=%lu) when the device was created (i.e. is not less than %lu). %s",
                         queueIndex, queueFamilyIndex, queue_data->second, validation_error_map[VALIDATION_ERROR_29600302]);
     }
     return skip;
@@ -1048,9 +1044,9 @@ bool pv_vkCreateGraphicsPipelines(VkDevice device, VkPipelineCache pipelineCache
                 if (pCreateInfos[i].pViewportState == nullptr) {
                     skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT,
                                     VK_NULL_HANDLE, __LINE__, VALIDATION_ERROR_096005dc, LayerName,
-                                    "vkCreateGraphicsPipelines: Rasterization is enabled (pCreateInfos[%" PRIu32
-                                    "].pRasterizationState->rasterizerDiscardEnable is VK_FALSE), but pCreateInfos[%" PRIu32
-                                    "].pViewportState (=NULL) is not a valid pointer. %s",
+                                    "vkCreateGraphicsPipelines: Rasterization is enabled "
+                                    "(pCreateInfos[%lu].pRasterizationState->rasterizerDiscardEnable is VK_FALSE), but "
+                                    "pCreateInfos[%lu].pViewportState (=NULL) is not a valid pointer. %s",
                                     i, i, validation_error_map[VALIDATION_ERROR_096005dc]);
                 } else {
                     const auto &viewport_state = *pCreateInfos[i].pViewportState;
@@ -1058,8 +1054,8 @@ bool pv_vkCreateGraphicsPipelines(VkDevice device, VkPipelineCache pipelineCache
                     if (viewport_state.sType != VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO) {
                         skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT,
                                         VK_NULL_HANDLE, __LINE__, VALIDATION_ERROR_10c2b00b, LayerName,
-                                        "vkCreateGraphicsPipelines: pCreateInfos[%" PRIu32
-                                        "].pViewportState->sType is not VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO. %s",
+                                        "vkCreateGraphicsPipelines: pCreateInfos[%lu].pViewportState->sType is not "
+                                        "VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO. %s",
                                         i, validation_error_map[VALIDATION_ERROR_10c2b00b]);
                     }
 
@@ -1083,8 +1079,7 @@ bool pv_vkCreateGraphicsPipelines(VkDevice device, VkPipelineCache pipelineCache
                             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT,
                                             VK_NULL_HANDLE, __LINE__, VALIDATION_ERROR_10c00980, LayerName,
                                             "vkCreateGraphicsPipelines: The VkPhysicalDeviceFeatures::multiViewport feature is "
-                                            "disabled, but pCreateInfos[%" PRIu32 "].pViewportState->viewportCount (=%" PRIu32
-                                            ") is not 1. %s",
+                                            "disabled, but pCreateInfos[%lu].pViewportState->viewportCount (=%lu) is not 1. %s",
                                             i, viewport_state.viewportCount, validation_error_map[VALIDATION_ERROR_10c00980]);
                         }
 
@@ -1092,23 +1087,20 @@ bool pv_vkCreateGraphicsPipelines(VkDevice device, VkPipelineCache pipelineCache
                             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT,
                                             VK_NULL_HANDLE, __LINE__, VALIDATION_ERROR_10c00982, LayerName,
                                             "vkCreateGraphicsPipelines: The VkPhysicalDeviceFeatures::multiViewport feature is "
-                                            "disabled, but pCreateInfos[%" PRIu32 "].pViewportState->scissorCount (=%" PRIu32
-                                            ") is not 1. %s",
+                                            "disabled, but pCreateInfos[%lu].pViewportState->scissorCount (=%lu) is not 1. %s",
                                             i, viewport_state.scissorCount, validation_error_map[VALIDATION_ERROR_10c00982]);
                         }
                     } else {  // multiViewport enabled
                         if (viewport_state.viewportCount == 0) {
                             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT,
                                             VK_NULL_HANDLE, __LINE__, VALIDATION_ERROR_10c30a1b, LayerName,
-                                            "vkCreateGraphicsPipelines: pCreateInfos[%" PRIu32
-                                            "].pViewportState->viewportCount is 0. %s",
+                                            "vkCreateGraphicsPipelines: pCreateInfos[%lu].pViewportState->viewportCount is 0. %s",
                                             i, validation_error_map[VALIDATION_ERROR_10c30a1b]);
                         } else if (viewport_state.viewportCount > device_data->device_limits.maxViewports) {
                             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT,
                                             VK_NULL_HANDLE, __LINE__, VALIDATION_ERROR_10c00984, LayerName,
-                                            "vkCreateGraphicsPipelines: pCreateInfos[%" PRIu32
-                                            "].pViewportState->viewportCount (=%" PRIu32
-                                            ") is greater than VkPhysicalDeviceLimits::maxViewports (=%" PRIu32 "). %s",
+                                            "vkCreateGraphicsPipelines: pCreateInfos[%lu].pViewportState->viewportCount (=%lu) is "
+                                            "greater than VkPhysicalDeviceLimits::maxViewports (=%lu). %s",
                                             i, viewport_state.viewportCount, device_data->device_limits.maxViewports,
                                             validation_error_map[VALIDATION_ERROR_10c00984]);
                         }
@@ -1116,15 +1108,13 @@ bool pv_vkCreateGraphicsPipelines(VkDevice device, VkPipelineCache pipelineCache
                         if (viewport_state.scissorCount == 0) {
                             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT,
                                             VK_NULL_HANDLE, __LINE__, VALIDATION_ERROR_10c2b61b, LayerName,
-                                            "vkCreateGraphicsPipelines: pCreateInfos[%" PRIu32
-                                            "].pViewportState->scissorCount is 0. %s",
-                                            i, validation_error_map[VALIDATION_ERROR_10c2b61b]);
+                                            "vkCreateGraphicsPipelines: pCreateInfos[%lu].pViewportState->scissorCount is 0. %s", i,
+                                            validation_error_map[VALIDATION_ERROR_10c2b61b]);
                         } else if (viewport_state.scissorCount > device_data->device_limits.maxViewports) {
                             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT,
                                             VK_NULL_HANDLE, __LINE__, VALIDATION_ERROR_10c00986, LayerName,
-                                            "vkCreateGraphicsPipelines: pCreateInfos[%" PRIu32
-                                            "].pViewportState->scissorCount (=%" PRIu32
-                                            ") is greater than VkPhysicalDeviceLimits::maxViewports (=%" PRIu32 "). %s",
+                                            "vkCreateGraphicsPipelines: pCreateInfos[%lu].pViewportState->scissorCount (=%lu) is "
+                                            "greater than VkPhysicalDeviceLimits::maxViewports (=%lu). %s",
                                             i, viewport_state.scissorCount, device_data->device_limits.maxViewports,
                                             validation_error_map[VALIDATION_ERROR_10c00986]);
                         }
@@ -1133,31 +1123,30 @@ bool pv_vkCreateGraphicsPipelines(VkDevice device, VkPipelineCache pipelineCache
                     if (viewport_state.scissorCount != viewport_state.viewportCount) {
                         skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT,
                                         VK_NULL_HANDLE, __LINE__, VALIDATION_ERROR_10c00988, LayerName,
-                                        "vkCreateGraphicsPipelines: pCreateInfos[%" PRIu32
-                                        "].pViewportState->scissorCount (=%" PRIu32 ") is not identical to pCreateInfos[%" PRIu32
-                                        "].pViewportState->viewportCount (=%" PRIu32 "). %s",
+                                        "vkCreateGraphicsPipelines: pCreateInfos[%lu].pViewportState->scissorCount (=%lu) is not "
+                                        "identical to pCreateInfos[%lu].pViewportState->viewportCount (=%lu). %s",
                                         i, viewport_state.scissorCount, i, viewport_state.viewportCount,
                                         validation_error_map[VALIDATION_ERROR_10c00988]);
                     }
 
                     if (!has_dynamic_viewport && viewport_state.viewportCount > 0 && viewport_state.pViewports == nullptr) {
-                        skip |= log_msg(
-                            report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT, VK_NULL_HANDLE,
-                            __LINE__, VALIDATION_ERROR_096005d6, LayerName,
-                            "vkCreateGraphicsPipelines: The viewport state is static (pCreateInfos[%" PRIu32
-                            "].pDynamicState->pDynamicStates does not contain VK_DYNAMIC_STATE_VIEWPORT), but pCreateInfos[%" PRIu32
-                            "].pViewportState->pViewports (=NULL) is an invalid pointer. %s",
-                            i, i, validation_error_map[VALIDATION_ERROR_096005d6]);
+                        skip |=
+                            log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT,
+                                    VK_NULL_HANDLE, __LINE__, VALIDATION_ERROR_096005d6, LayerName,
+                                    "vkCreateGraphicsPipelines: The viewport state is static "
+                                    "(pCreateInfos[%lu].pDynamicState->pDynamicStates does not contain VK_DYNAMIC_STATE_VIEWPORT), "
+                                    "but pCreateInfos[%lu].pViewportState->pViewports (=NULL) is an invalid pointer. %s",
+                                    i, i, validation_error_map[VALIDATION_ERROR_096005d6]);
                     }
 
                     if (!has_dynamic_scissor && viewport_state.scissorCount > 0 && viewport_state.pScissors == nullptr) {
-                        skip |= log_msg(
-                            report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT, VK_NULL_HANDLE,
-                            __LINE__, VALIDATION_ERROR_096005d8, LayerName,
-                            "vkCreateGraphicsPipelines: The scissor state is static (pCreateInfos[%" PRIu32
-                            "].pDynamicState->pDynamicStates does not contain VK_DYNAMIC_STATE_SCISSOR), but pCreateInfos[%" PRIu32
-                            "].pViewportState->pScissors (=NULL) is an invalid pointer. %s",
-                            i, i, validation_error_map[VALIDATION_ERROR_096005d8]);
+                        skip |=
+                            log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT,
+                                    VK_NULL_HANDLE, __LINE__, VALIDATION_ERROR_096005d8, LayerName,
+                                    "vkCreateGraphicsPipelines: The scissor state is static "
+                                    "(pCreateInfos[%lu].pDynamicState->pDynamicStates does not contain VK_DYNAMIC_STATE_SCISSOR), "
+                                    "but pCreateInfos[%lu].pViewportState->pScissors (=NULL) is an invalid pointer. %s",
+                                    i, i, validation_error_map[VALIDATION_ERROR_096005d8]);
                     }
 
                     // TODO: validate the VkViewports in pViewports here
@@ -1483,10 +1472,9 @@ bool pv_vkCreateGraphicsPipelines(VkDevice device, VkPipelineCache pipelineCache
                     (pCreateInfos[i].pRasterizationState->lineWidth != 1.0f)) {
                     skip |= log_msg(device_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT,
                                     VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT, 0, __LINE__, VALIDATION_ERROR_096005da, LayerName,
-                                    "The line width state is static (pCreateInfos[%" PRIu32
-                                    "].pDynamicState->pDynamicStates does not contain VK_DYNAMIC_STATE_LINE_WIDTH) and "
-                                    "VkPhysicalDeviceFeatures::wideLines is disabled, but pCreateInfos[%" PRIu32
-                                    "].pRasterizationState->lineWidth (=%f) is not 1.0. %s",
+                                    "The line width state is static (pCreateInfos[%lu].pDynamicState->pDynamicStates does not "
+                                    "contain VK_DYNAMIC_STATE_LINE_WIDTH) and VkPhysicalDeviceFeatures::wideLines is disabled, but "
+                                    "pCreateInfos[%lu].pRasterizationState->lineWidth (=%f) is not 1.0. %s",
                                     i, i, pCreateInfos[i].pRasterizationState->lineWidth,
                                     validation_error_map[VALIDATION_ERROR_096005da]);
                 }
@@ -1769,13 +1757,13 @@ bool pv_vkUpdateDescriptorSets(VkDevice device, uint32_t descriptorWriteCount, c
                 for (uint32_t j = 0; j < pDescriptorWrites[i].descriptorCount; j++) {
                     if (pDescriptorWrites[i].pBufferInfo != NULL) {
                         if (SafeModulo(pDescriptorWrites[i].pBufferInfo[j].offset, uniformAlignment) != 0) {
-                            skip |= log_msg(
-                                device_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT,
-                                VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, 0, __LINE__, VALIDATION_ERROR_15c0028e, LayerName,
-                                "vkUpdateDescriptorSets(): pDescriptorWrites[%d].pBufferInfo[%d].offset (0x%" PRIxLEAST64
-                                ") must be a multiple of device limit minUniformBufferOffsetAlignment 0x%" PRIxLEAST64 ". %s",
-                                i, j, pDescriptorWrites[i].pBufferInfo[j].offset, uniformAlignment,
-                                validation_error_map[VALIDATION_ERROR_15c0028e]);
+                            skip |= log_msg(device_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT,
+                                            VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, 0, __LINE__, VALIDATION_ERROR_15c0028e,
+                                            LayerName,
+                                            "vkUpdateDescriptorSets(): pDescriptorWrites[%d].pBufferInfo[%d].offset (0x%llx) must "
+                                            "be a multiple of device limit minUniformBufferOffsetAlignment 0x%llx. %s",
+                                            i, j, pDescriptorWrites[i].pBufferInfo[j].offset, uniformAlignment,
+                                            validation_error_map[VALIDATION_ERROR_15c0028e]);
                         }
                     }
                 }
@@ -1785,13 +1773,13 @@ bool pv_vkUpdateDescriptorSets(VkDevice device, uint32_t descriptorWriteCount, c
                 for (uint32_t j = 0; j < pDescriptorWrites[i].descriptorCount; j++) {
                     if (pDescriptorWrites[i].pBufferInfo != NULL) {
                         if (SafeModulo(pDescriptorWrites[i].pBufferInfo[j].offset, storageAlignment) != 0) {
-                            skip |= log_msg(
-                                device_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT,
-                                VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, 0, __LINE__, VALIDATION_ERROR_15c00290, LayerName,
-                                "vkUpdateDescriptorSets(): pDescriptorWrites[%d].pBufferInfo[%d].offset (0x%" PRIxLEAST64
-                                ") must be a multiple of device limit minStorageBufferOffsetAlignment 0x%" PRIxLEAST64 ". %s",
-                                i, j, pDescriptorWrites[i].pBufferInfo[j].offset, storageAlignment,
-                                validation_error_map[VALIDATION_ERROR_15c00290]);
+                            skip |= log_msg(device_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT,
+                                            VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, 0, __LINE__, VALIDATION_ERROR_15c00290,
+                                            LayerName,
+                                            "vkUpdateDescriptorSets(): pDescriptorWrites[%d].pBufferInfo[%d].offset (0x%llx) must "
+                                            "be a multiple of device limit minStorageBufferOffsetAlignment 0x%llx. %s",
+                                            i, j, pDescriptorWrites[i].pBufferInfo[j].offset, storageAlignment,
+                                            validation_error_map[VALIDATION_ERROR_15c00290]);
                         }
                     }
                 }
@@ -2193,21 +2181,21 @@ bool pv_vkCmdUpdateBuffer(VkCommandBuffer commandBuffer, VkBuffer dstBuffer, VkD
     if (dstOffset & 3) {
         skip |= log_msg(device_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
                         __LINE__, VALIDATION_ERROR_1e400048, LayerName,
-                        "vkCmdUpdateBuffer() parameter, VkDeviceSize dstOffset (0x%" PRIxLEAST64 "), is not a multiple of 4. %s",
-                        dstOffset, validation_error_map[VALIDATION_ERROR_1e400048]);
+                        "vkCmdUpdateBuffer() parameter, VkDeviceSize dstOffset (0x%llx), is not a multiple of 4. %s", dstOffset,
+                        validation_error_map[VALIDATION_ERROR_1e400048]);
     }
 
     if ((dataSize <= 0) || (dataSize > 65536)) {
         skip |= log_msg(device_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
                         __LINE__, VALIDATION_ERROR_1e40004a, LayerName,
-                        "vkCmdUpdateBuffer() parameter, VkDeviceSize dataSize (0x%" PRIxLEAST64
-                        "), must be greater than zero and less than or equal to 65536. %s",
+                        "vkCmdUpdateBuffer() parameter, VkDeviceSize dataSize (0x%llx), must be greater than zero and less than or "
+                        "equal to 65536. %s",
                         dataSize, validation_error_map[VALIDATION_ERROR_1e40004a]);
     } else if (dataSize & 3) {
         skip |= log_msg(device_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
                         __LINE__, VALIDATION_ERROR_1e40004c, LayerName,
-                        "vkCmdUpdateBuffer() parameter, VkDeviceSize dataSize (0x%" PRIxLEAST64 "), is not a multiple of 4. %s",
-                        dataSize, validation_error_map[VALIDATION_ERROR_1e40004c]);
+                        "vkCmdUpdateBuffer() parameter, VkDeviceSize dataSize (0x%llx), is not a multiple of 4. %s", dataSize,
+                        validation_error_map[VALIDATION_ERROR_1e40004c]);
     }
     return skip;
 }
@@ -2220,20 +2208,20 @@ bool pv_vkCmdFillBuffer(VkCommandBuffer commandBuffer, VkBuffer dstBuffer, VkDev
     if (dstOffset & 3) {
         skip |= log_msg(device_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
                         __LINE__, VALIDATION_ERROR_1b400032, LayerName,
-                        "vkCmdFillBuffer() parameter, VkDeviceSize dstOffset (0x%" PRIxLEAST64 "), is not a multiple of 4. %s",
-                        dstOffset, validation_error_map[VALIDATION_ERROR_1b400032]);
+                        "vkCmdFillBuffer() parameter, VkDeviceSize dstOffset (0x%llx), is not a multiple of 4. %s", dstOffset,
+                        validation_error_map[VALIDATION_ERROR_1b400032]);
     }
 
     if (size != VK_WHOLE_SIZE) {
         if (size <= 0) {
             skip |= log_msg(device_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
                             __LINE__, VALIDATION_ERROR_1b400034, LayerName,
-                            "vkCmdFillBuffer() parameter, VkDeviceSize size (0x%" PRIxLEAST64 "), must be greater than zero. %s",
-                            size, validation_error_map[VALIDATION_ERROR_1b400034]);
+                            "vkCmdFillBuffer() parameter, VkDeviceSize size (0x%llx), must be greater than zero. %s", size,
+                            validation_error_map[VALIDATION_ERROR_1b400034]);
         } else if (size & 3) {
             skip |= log_msg(device_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
                             __LINE__, VALIDATION_ERROR_1b400038, LayerName,
-                            "vkCmdFillBuffer() parameter, VkDeviceSize size (0x%" PRIxLEAST64 "), is not a multiple of 4. %s", size,
+                            "vkCmdFillBuffer() parameter, VkDeviceSize size (0x%llx), is not a multiple of 4. %s", size,
                             validation_error_map[VALIDATION_ERROR_1b400038]);
         }
     }
@@ -2435,8 +2423,8 @@ bool pv_vkCreateDescriptorPool(VkDevice device, const VkDescriptorPoolCreateInfo
                     skip |= log_msg(
                         device_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_DESCRIPTOR_POOL_EXT,
                         VK_NULL_HANDLE, __LINE__, VALIDATION_ERROR_04a0025c, LayerName,
-                        "vkCreateDescriptorPool(): pCreateInfo->pPoolSizes[%" PRIu32 "].descriptorCount is not greater than 0. %s",
-                        i, validation_error_map[VALIDATION_ERROR_04a0025c]);
+                        "vkCreateDescriptorPool(): pCreateInfo->pPoolSizes[%lu].descriptorCount is not greater than 0. %s", i,
+                        validation_error_map[VALIDATION_ERROR_04a0025c]);
                 }
             }
         }
