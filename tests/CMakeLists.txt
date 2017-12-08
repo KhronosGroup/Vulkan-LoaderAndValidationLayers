@@ -44,13 +44,23 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 if(WIN32)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_CRT_SECURE_NO_WARNINGS -D_USE_MATH_DEFINES")
 
-    # If MSVC, disable some signed/unsigned mismatch warnings.
     if (MSVC)
+        # If MSVC, disable some signed/unsigned mismatch warnings.
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4267")
     endif()
+endif()
 
+if (MSVC)
+    if ((MSVC_VERSION GREATER 1900) OR (MSVC_VERSION EQUAL 1900))
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /std:c++14")
+        # WORKAROUND: for gtest build
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /DGTEST_HAS_TR1_TUPLE=0") 
+    endif()
+    if ((MSVC_VERSION GREATER 1911) OR (MSVC_VERSION EQUAL 1911))
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /permissive-")
+    endif()
 else()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pedantic")
 endif()
 
 set (LIBGLM_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/libs)
