@@ -61,6 +61,7 @@
 #include <vector>
 #include <memory>
 #include <list>
+#include <mutex>
 
 // Fwd declarations
 namespace cvdescriptorset {
@@ -781,6 +782,29 @@ public:
         : framebuffer(fb), createInfo(pCreateInfo), rp_state(rpstate){};
 };
 
+template <typename VALUE_TYPE, typename MUTEX_TYPE = std::mutex>
+class mutex_value {
+   public:
+    template <typename LOCKED_VALUE_TYPE>
+    struct unique_lock_value {
+        unique_lock_value(LOCKED_VALUE_TYPE &_value, MUTEX_TYPE &mutex) : value(_value), lock(mutex) {}
+        LOCKED_VALUE_TYPE *operator->() const { return &value; }
+        LOCKED_VALUE_TYPE &operator*() const { return value; }
+
+       private:
+        LOCKED_VALUE_TYPE &value;
+        std::unique_lock<MUTEX_TYPE> lock;
+    };
+    unique_lock_value<VALUE_TYPE> get() { return {value, mutex}; }
+    unique_lock_value<VALUE_TYPE const> get() const { return {value, mutex}; }
+    unique_lock_value<VALUE_TYPE> operator->() { return {value, mutex}; }
+    unique_lock_value<VALUE_TYPE const> operator->() const { return {value, mutex}; }
+
+   private:
+    VALUE_TYPE value;
+    MUTEX_TYPE mutable mutex;
+};
+
 struct shader_module;
 struct DeviceExtensions;
 
@@ -847,11 +871,11 @@ VkImageFormatProperties GetImageFormatProperties(core_validation::layer_data *de
 const debug_report_data *GetReportData(const layer_data *);
 const VkPhysicalDeviceProperties *GetPhysicalDeviceProperties(layer_data *);
 const CHECK_DISABLED *GetDisables(layer_data *);
-std::unordered_map<VkImage, std::unique_ptr<IMAGE_STATE>> *GetImageMap(core_validation::layer_data *);
+mutex_value<std::unordered_map<VkImage, std::unique_ptr<IMAGE_STATE>>> *GetImageMap(core_validation::layer_data *);
 std::unordered_map<VkImage, std::vector<ImageSubresourcePair>> *GetImageSubresourceMap(layer_data *);
 std::unordered_map<ImageSubresourcePair, IMAGE_LAYOUT_NODE> *GetImageLayoutMap(layer_data *);
 std::unordered_map<ImageSubresourcePair, IMAGE_LAYOUT_NODE> const *GetImageLayoutMap(layer_data const *);
-std::unordered_map<VkBuffer, std::unique_ptr<BUFFER_STATE>> *GetBufferMap(layer_data *device_data);
+mutex_value<std::unordered_map<VkBuffer, std::unique_ptr<BUFFER_STATE>>> *GetBufferMap(layer_data *device_data);
 std::unordered_map<VkBufferView, std::unique_ptr<BUFFER_VIEW_STATE>> *GetBufferViewMap(layer_data *device_data);
 std::unordered_map<VkImageView, std::unique_ptr<IMAGE_VIEW_STATE>> *GetImageViewMap(layer_data *device_data);
 const DeviceExtensions *GetDeviceExtensions(const layer_data *);
