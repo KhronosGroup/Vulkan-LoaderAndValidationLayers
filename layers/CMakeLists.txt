@@ -225,6 +225,9 @@ add_vk_layer(unique_objects unique_objects.cpp unique_objects_wrappers.h vk_laye
 add_vk_layer(parameter_validation parameter_validation.cpp parameter_validation_utils.cpp parameter_validation.h vk_layer_table.cpp vk_validation_error_messages.h)
 
 # Core validation has additional dependencies
+# Dependency on unique_objects is only to prevent parallel build of both layers.
+# Visual Studio has trouble with clobbering vk_safe_struct.cpp if both build in parallel.
+add_dependencies(VkLayer_core_validation VkLayer_unique_objects)
 target_include_directories(VkLayer_core_validation PRIVATE ${GLSLANG_SPIRV_INCLUDE_DIR})
 target_include_directories(VkLayer_core_validation PRIVATE ${SPIRV_TOOLS_INCLUDE_DIR})
 target_link_libraries(VkLayer_core_validation ${SPIRV_TOOLS_LIBRARIES})
