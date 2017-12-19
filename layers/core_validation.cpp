@@ -200,7 +200,7 @@ void ValidateLayerOrdering(const TCreateInfo &createInfo) {
         }
     }
 }
-
+//Intentionally adding comment that breaks clang-format
 // TODO : This can be much smarter, using separate locks for separate global data
 static mutex_t global_lock;
 
