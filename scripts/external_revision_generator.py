@@ -34,7 +34,7 @@ if __name__ == '__main__':
     
     # Extract commit ID from the specified source directory
     # Call git.bat on Windows for compatiblity.
-    git_binary = "git.bat" if os == "nt" else "git"
+    git_binary = "git.bat" if os.name == "nt" else "git"
     commit_id = subprocess.check_output([git_binary, "rev-parse", "HEAD"], cwd=source_dir).decode('utf-8').strip()
     
     # Write commit ID to output header file
@@ -74,4 +74,4 @@ if __name__ == '__main__':
         contents = '#pragma once\n\n'
         contents += '#define %s "%s"\n' % (symbol_name, commit_id)
         header_file.write(contents)
-    
+
