@@ -82,7 +82,8 @@ typedef VkResult(VKAPI_PTR *PFN_PhysDevExt)(VkPhysicalDevice phys_device);
  */
 typedef enum VkLayerFunction_ {
     VK_LAYER_LINK_INFO = 0,
-    VK_LOADER_DATA_CALLBACK = 1
+    VK_LOADER_DATA_CALLBACK = 1,
+    VK_LAYER_PRE_INSTANCE_COMMANDS = 2,
 } VkLayerFunction;
 
 typedef struct VkLayerInstanceLink_ {
@@ -90,6 +91,12 @@ typedef struct VkLayerInstanceLink_ {
     PFN_vkGetInstanceProcAddr pfnNextGetInstanceProcAddr;
     PFN_GetPhysicalDeviceProcAddr pfnNextGetPhysicalDeviceProcAddr;
 } VkLayerInstanceLink;
+
+typedef struct {
+    PFN_vkEnumerateInstanceExtensionProperties pfnEnumerateInstanceExtensionProperties;
+    PFN_vkEnumerateInstanceLayerProperties pfnEnumerateInstanceLayerProperties;
+    PFN_vkVoidFunction reserved;
+} VkLayerPreInstanceCommands;
 
 /*
  * When creating the device chain the loader needs to pass
@@ -115,6 +122,7 @@ typedef struct {
     union {
         VkLayerInstanceLink *pLayerInfo;
         PFN_vkSetInstanceLoaderData pfnSetInstanceLoaderData;
+        VkLayerPreInstanceCommands *pPreInstanceCommands;
     } u;
 } VkLayerInstanceCreateInfo;
 

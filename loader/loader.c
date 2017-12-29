@@ -4461,6 +4461,8 @@ VkResult loader_create_instance_chain(const VkInstanceCreateInfo *pCreateInfo, c
     uint32_t activated_layers = 0;
     VkLayerInstanceCreateInfo chain_info;
     VkLayerInstanceLink *layer_instance_link_info = NULL;
+    VkLayerInstanceCreateInfo pre_instance_info;
+    VkLayerPreInstanceCommands pre_instance_commands;
     VkInstanceCreateInfo loader_create_info;
     VkResult res;
 
@@ -4472,8 +4474,16 @@ VkResult loader_create_instance_chain(const VkInstanceCreateInfo *pCreateInfo, c
     memcpy(&loader_create_info, pCreateInfo, sizeof(VkInstanceCreateInfo));
 
     if (inst->expanded_activated_layer_list.count > 0) {
+        pre_instance_info.sType = VK_STRUCTURE_TYPE_LOADER_INSTANCE_CREATE_INFO;
+        pre_instance_info.pNext = pCreateInfo->pNext;
+        pre_instance_info.function = VK_LAYER_PRE_INSTANCE_COMMANDS;
+        pre_instance_commands.pfnEnumerateInstanceExtensionProperties = &vkEnumerateInstanceExtensionProperties;
+        pre_instance_commands.pfnEnumerateInstanceLayerProperties = &vkEnumerateInstanceLayerProperties;
+        pre_instance_commands.reserved = NULL;
+        pre_instance_info.u.pPreInstanceCommands = &pre_instance_commands;
+
         chain_info.u.pLayerInfo = NULL;
-        chain_info.pNext = pCreateInfo->pNext;
+        chain_info.pNext = &pre_instance_info;
         chain_info.sType = VK_STRUCTURE_TYPE_LOADER_INSTANCE_CREATE_INFO;
         chain_info.function = VK_LAYER_LINK_INFO;
         loader_create_info.pNext = &chain_info;
