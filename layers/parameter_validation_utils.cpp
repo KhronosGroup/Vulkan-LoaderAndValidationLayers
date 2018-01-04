@@ -2625,9 +2625,9 @@ VK_LAYER_EXPORT bool pv_vkNegotiateLoaderLayerInterfaceVersion(VkNegotiateLayerI
 
     // Fill in the function pointers if our version is at least capable of having the structure contain them.
     if (pVersionStruct->loaderLayerInterfaceVersion >= 2) {
-        pVersionStruct->pfnGetInstanceProcAddr = vkGetInstanceProcAddr;
-        pVersionStruct->pfnGetDeviceProcAddr = vkGetDeviceProcAddr;
-        pVersionStruct->pfnGetPhysicalDeviceProcAddr = vk_layerGetPhysicalDeviceProcAddr;
+        pVersionStruct->pfnGetInstanceProcAddr = parameter_validation::vkGetInstanceProcAddr;
+        pVersionStruct->pfnGetDeviceProcAddr = parameter_validation::vkGetDeviceProcAddr;
+        pVersionStruct->pfnGetPhysicalDeviceProcAddr = parameter_validation::vkGetPhysicalDeviceProcAddr;
     }
 
     if (pVersionStruct->loaderLayerInterfaceVersion < CURRENT_LOADER_LAYER_INTERFACE_VERSION) {
