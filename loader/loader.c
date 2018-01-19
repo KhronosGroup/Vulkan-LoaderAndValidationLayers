@@ -93,6 +93,12 @@ uint32_t g_loader_log_msgs = 0;
 loader_platform_thread_mutex loader_lock;
 loader_platform_thread_mutex loader_json_lock;
 
+// A list of ICDs that gets initialized when the loader does its global initialization. This list should never be used by anything
+// other than loader_initialize() and loader_release(). This list does not change functionality, but the fact that the libraries
+// already been loaded causes any call that needs to load ICD libraries to speed up significantly. This can have a huge impact when
+// making repeated calls to vkEnumerateInstanceExtensionProperties and vkCreateInstance.
+static struct loader_icd_tramp_list scanned_icds;
+
 void *loader_instance_heap_alloc(const struct loader_instance *instance, size_t size, VkSystemAllocationScope alloc_scope) {
     void *pMemory = NULL;
 #if (DEBUG_DISABLE_APP_ALLOCATORS == 1)
@@ -1918,18 +1924,28 @@ void loader_initialize(void) {
         .malloc_fn = loader_instance_tls_heap_alloc, .free_fn = loader_instance_tls_heap_free,
     };
     cJSON_InitHooks(&alloc_fns);
+
+    // Load the ICD libraries that are likely to be needed so we don't repeateldy load/unload them later
+    memset(&scanned_icds, 0, sizeof(scanned_icds));
+    VkResult result = loader_icd_scan(NULL, &scanned_icds);
+    if (result != VK_SUCCESS) {
+        loader_scanned_icd_clear(NULL, &scanned_icds);
+    }
+}
+
+void loader_release() {
+    // Release the ICD libraries that we stored earlier to speed things up
+    loader_scanned_icd_clear(NULL, &scanned_icds);
+
+    // release mutexs
+    loader_platform_thread_delete_mutex(&loader_lock);
+    loader_platform_thread_delete_mutex(&loader_json_lock);
 }
 
 struct loader_manifest_files {
     uint32_t count;
     char **filename_list;
 };
-
-void loader_release() {
-    // release mutexs
-    loader_platform_thread_delete_mutex(&loader_lock);
-    loader_platform_thread_delete_mutex(&loader_json_lock);
-}
 
 // Get next file or dirname given a string list or registry key path
 //
