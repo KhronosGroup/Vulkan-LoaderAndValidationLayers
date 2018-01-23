@@ -173,6 +173,8 @@ run_vk_xml_generate(unique_objects_generator.py unique_objects_wrappers.h)
 run_vk_xml_generate(dispatch_table_helper_generator.py vk_dispatch_table_helper.h)
 run_vk_xml_generate(object_tracker_generator.py object_tracker.cpp)
 
+run_vk_xml_generate(helper_file_generator.py vk_safe_struct.cpp)
+
 # Layer Utils Library
 # For Windows, we use a static lib because the Windows loader has a fairly restrictive loader search
 # path that can't be easily modified to point it to the same directory that contains the layers.
@@ -186,14 +188,17 @@ else()
 endif()
 add_dependencies(VkLayer_utils generate_helper_files)
 
-add_vk_layer(core_validation core_validation.cpp vk_layer_table.cpp descriptor_sets.cpp buffer_validation.cpp shader_validation.cpp xxhash.c)
+add_vk_layer(core_validation core_validation.cpp vk_layer_table.cpp descriptor_sets.cpp buffer_validation.cpp shader_validation.cpp xxhash.c vk_safe_struct.cpp)
 add_vk_layer(object_tracker object_tracker.cpp object_tracker_utils.cpp vk_layer_table.cpp)
 # generated
 add_vk_layer(threading threading.cpp thread_check.h vk_layer_table.cpp)
-add_vk_layer(unique_objects unique_objects.cpp unique_objects_wrappers.h vk_layer_table.cpp)
+add_vk_layer(unique_objects unique_objects.cpp unique_objects_wrappers.h vk_layer_table.cpp vk_safe_struct.cpp)
 add_vk_layer(parameter_validation parameter_validation.cpp parameter_validation_utils.cpp parameter_validation.h vk_layer_table.cpp vk_validation_error_messages.h)
 
 # Core validation has additional dependencies
+# Dependency on unique_objects is only to prevent parallel build of both layers.
+# Visual Studio has trouble with clobbering vk_safe_struct.cpp if both build in parallel.
+add_dependencies(VkLayer_core_validation VkLayer_unique_objects)
 target_include_directories(VkLayer_core_validation PRIVATE ${GLSLANG_SPIRV_INCLUDE_DIR})
 target_include_directories(VkLayer_core_validation PRIVATE ${SPIRV_TOOLS_INCLUDE_DIR})
 target_link_libraries(VkLayer_core_validation ${SPIRV_TOOLS_LIBRARIES})

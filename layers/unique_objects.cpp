@@ -49,9 +49,6 @@
 #include "vk_extension_helper.h"
 #include "vulkan/vk_layer.h"
 
-// This intentionally includes a cpp file
-#include "vk_safe_struct.cpp"
-
 #include "unique_objects_wrappers.h"
 
 namespace unique_objects {
