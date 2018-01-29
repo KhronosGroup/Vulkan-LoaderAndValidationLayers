@@ -526,13 +526,30 @@ bool ValidateBarriersToImages(layer_data *device_data, GLOBAL_CB_NODE const *cb_
     return skip;
 }
 
-void TransitionImageLayouts(layer_data *device_data, VkCommandBuffer cmdBuffer, uint32_t memBarrierCount,
-                            const VkImageMemoryBarrier *pImgMemBarriers) {
-    GLOBAL_CB_NODE *pCB = GetCBNode(device_data, cmdBuffer);
+static bool IsReleaseOp(layer_data *device_data, GLOBAL_CB_NODE *cb_state, VkImageMemoryBarrier const *barrier) {
+    if (barrier->srcQueueFamilyIndex == barrier->dstQueueFamilyIndex)
+        return false;
 
+    auto pool = GetCommandPoolNode(device_data, cb_state->createInfo.commandPool);
+    return pool->queueFamilyIndex == barrier->srcQueueFamilyIndex;
+}
+
+void TransitionImageLayouts(layer_data *device_data, GLOBAL_CB_NODE *cb_state, uint32_t memBarrierCount,
+                            const VkImageMemoryBarrier *pImgMemBarriers) {
     for (uint32_t i = 0; i < memBarrierCount; ++i) {
         auto mem_barrier = &pImgMemBarriers[i];
         if (!mem_barrier) continue;
+
+        // For ownership transfers, the barrier is specified twice; as a release
+        // operation on the yielding queue family, and as an acquire operation
+        // on the acquiring queue family. This barrier may also include a layout
+        // transition, which occurs 'between' the two operations. For validation
+        // purposes it doesn't seem important which side performs the layout
+        // transition, but it must not be performed twice. We'll arbitrarily
+        // choose to perform it as part of the acquire operation.
+        if (IsReleaseOp(device_data, cb_state, mem_barrier)) {
+            continue;
+        }
 
         VkImageCreateInfo *image_create_info = &(GetImageState(device_data, mem_barrier->image)->createInfo);
         uint32_t level_count = ResolveRemainingLevels(&mem_barrier->subresourceRange, image_create_info->mipLevels);
@@ -542,10 +559,10 @@ void TransitionImageLayouts(layer_data *device_data, VkCommandBuffer cmdBuffer, 
             uint32_t level = mem_barrier->subresourceRange.baseMipLevel + j;
             for (uint32_t k = 0; k < layer_count; k++) {
                 uint32_t layer = mem_barrier->subresourceRange.baseArrayLayer + k;
-                TransitionImageAspectLayout(device_data, pCB, mem_barrier, level, layer, VK_IMAGE_ASPECT_COLOR_BIT);
-                TransitionImageAspectLayout(device_data, pCB, mem_barrier, level, layer, VK_IMAGE_ASPECT_DEPTH_BIT);
-                TransitionImageAspectLayout(device_data, pCB, mem_barrier, level, layer, VK_IMAGE_ASPECT_STENCIL_BIT);
-                TransitionImageAspectLayout(device_data, pCB, mem_barrier, level, layer, VK_IMAGE_ASPECT_METADATA_BIT);
+                TransitionImageAspectLayout(device_data, cb_state, mem_barrier, level, layer, VK_IMAGE_ASPECT_COLOR_BIT);
+                TransitionImageAspectLayout(device_data, cb_state, mem_barrier, level, layer, VK_IMAGE_ASPECT_DEPTH_BIT);
+                TransitionImageAspectLayout(device_data, cb_state, mem_barrier, level, layer, VK_IMAGE_ASPECT_STENCIL_BIT);
+                TransitionImageAspectLayout(device_data, cb_state, mem_barrier, level, layer, VK_IMAGE_ASPECT_METADATA_BIT);
             }
         }
     }
