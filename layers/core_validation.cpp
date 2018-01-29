@@ -594,7 +594,7 @@ static void SetMemBinding(layer_data *dev_data, VkDeviceMemory mem, BINDABLE *me
             if (kVulkanObjectTypeImage == type) {
                 auto const image_state = reinterpret_cast<const IMAGE_STATE *>(mem_binding);
                 if (image_state) {
-                    VkImageCreateInfo ici = image_state->createInfo;
+                    auto const & ici = image_state->createInfo;
                     if (ici.usage & (VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)) {
                         // TODO::  More memory state transition stuff.
                     }
@@ -7880,7 +7880,7 @@ static bool MatchUsage(layer_data *dev_data, uint32_t count, const VkAttachmentR
                 const VkImageView *image_view = &fbci->pAttachments[attachments[attach].attachment];
                 auto view_state = GetImageViewState(dev_data, *image_view);
                 if (view_state) {
-                    const VkImageCreateInfo *ici = &GetImageState(dev_data, view_state->create_info.image)->createInfo;
+                    auto ici = GetImageState(dev_data, view_state->create_info.image)->createInfo.ptr();
                     if (ici != nullptr) {
                         if ((ici->usage & usage_flag) == 0) {
                             skip |= log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT,
@@ -7937,7 +7937,7 @@ static bool ValidateFramebufferCreateInfo(layer_data *dev_data, const VkFramebuf
                         i, string_VkFormat(ivci.format), string_VkFormat(rpci->pAttachments[i].format),
                         HandleToUint64(pCreateInfo->renderPass), validation_error_map[VALIDATION_ERROR_094006e0]);
                 }
-                const VkImageCreateInfo *ici = &GetImageState(dev_data, ivci.image)->createInfo;
+                auto ici = GetImageState(dev_data, ivci.image)->createInfo.ptr();
                 if (ici->samples != rpci->pAttachments[i].samples) {
                     skip |= log_msg(
                         dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_RENDER_PASS_EXT,

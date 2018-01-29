@@ -493,7 +493,7 @@ bool ValidateBarriersToImages(layer_data *device_data, GLOBAL_CB_NODE const *cb_
             }
         }
 
-        VkImageCreateInfo *image_create_info = &(GetImageState(device_data, img_barrier->image)->createInfo);
+        auto image_create_info = GetImageState(device_data, img_barrier->image)->createInfo.ptr();
         // For a Depth/Stencil image both aspects MUST be set
         if (FormatIsDepthAndStencil(image_create_info->format)) {
             auto const aspect_mask = img_barrier->subresourceRange.aspectMask;
@@ -534,7 +534,7 @@ void TransitionImageLayouts(layer_data *device_data, VkCommandBuffer cmdBuffer, 
         auto mem_barrier = &pImgMemBarriers[i];
         if (!mem_barrier) continue;
 
-        VkImageCreateInfo *image_create_info = &(GetImageState(device_data, mem_barrier->image)->createInfo);
+        auto image_create_info = GetImageState(device_data, mem_barrier->image)->createInfo.ptr();
         uint32_t level_count = ResolveRemainingLevels(&mem_barrier->subresourceRange, image_create_info->mipLevels);
         uint32_t layer_count = ResolveRemainingLayers(&mem_barrier->subresourceRange, image_create_info->arrayLayers);
 
@@ -984,7 +984,7 @@ bool VerifyClearImageLayout(layer_data *device_data, GLOBAL_CB_NODE *cb_node, IM
 
 void RecordClearImageLayout(layer_data *device_data, GLOBAL_CB_NODE *cb_node, VkImage image, VkImageSubresourceRange range,
                             VkImageLayout dest_image_layout) {
-    VkImageCreateInfo *image_create_info = &(GetImageState(device_data, image)->createInfo);
+    auto image_create_info = GetImageState(device_data, image)->createInfo.ptr();
     uint32_t level_count = ResolveRemainingLevels(&range, image_create_info->mipLevels);
     uint32_t layer_count = ResolveRemainingLayers(&range, image_create_info->arrayLayers);
 
@@ -3298,6 +3298,16 @@ bool ValidateImageBarrierSubresourceRange(const layer_data *device_data, const I
                                          subresourceRangeErrorCodes);
 }
 
+template<typename T>
+static T const * GetExtensionStruct(void const *base_struct, VkStructureType stype) {
+    for (auto t = (T const *)((T const *)base_struct)->pNext; t; t = (T const *)t->pNext) {
+        if (t->sType == stype)
+            return t;
+    }
+
+    return nullptr;
+}
+
 bool PreCallValidateCreateImageView(layer_data *device_data, const VkImageViewCreateInfo *create_info) {
     const debug_report_data *report_data = core_validation::GetReportData(device_data);
     bool skip = false;
@@ -3341,6 +3351,21 @@ bool PreCallValidateCreateImageView(layer_data *device_data, const VkImageViewCr
                     skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
                                     __LINE__, VALIDATION_ERROR_0ac007f4, "IMAGE", "%s %s", ss.str().c_str(),
                                     validation_error_map[VALIDATION_ERROR_0ac007f4]);
+                }
+
+                else if (GetDeviceExtensions(device_data)->vk_khr_image_format_list) {
+                    auto format_list = GetExtensionStruct<VkImageFormatListCreateInfoKHR>(image_state->createInfo.ptr(),
+                                                                                          VK_STRUCTURE_TYPE_IMAGE_FORMAT_LIST_CREATE_INFO_KHR);
+                    if (format_list && format_list->viewFormatCount) {
+                        auto end = format_list->pViewFormats + format_list->viewFormatCount;
+                        if (std::find(format_list->pViewFormats, end, view_format) == end) {
+                            skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
+                                            __LINE__, VALIDATION_ERROR_0ac00c62, "CORE", "vkCreateImageView(): image view format %s is "
+                                            "not included in the list of supported view formats supplied at creation of image %"
+                                            PRIu64 ". %s", string_VkFormat(view_format), HandleToUint64(create_info->image),
+                                            validation_error_map[VALIDATION_ERROR_0ac00c62]);
+                        }
+                    }
                 }
             }
         } else {
@@ -3836,7 +3861,7 @@ bool ValidateBufferImageCopyData(const debug_report_data *report_data, uint32_t 
 static bool ValidateImageBounds(const debug_report_data *report_data, const IMAGE_STATE *image_state, const uint32_t regionCount,
                                 const VkBufferImageCopy *pRegions, const char *func_name, UNIQUE_VALIDATION_ERROR_CODE msg_code) {
     bool skip = false;
-    const VkImageCreateInfo *image_info = &(image_state->createInfo);
+    auto image_info = image_state->createInfo.ptr();
 
     for (uint32_t i = 0; i < regionCount; i++) {
         VkExtent3D extent = pRegions[i].imageExtent;
