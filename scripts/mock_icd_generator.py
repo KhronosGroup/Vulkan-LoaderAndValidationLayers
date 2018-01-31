@@ -710,6 +710,55 @@ CUSTOM_C_INTERCEPTS = {
 ''',
 'vkGetPhysicalDeviceFeatures2KHR': '''
     GetPhysicalDeviceFeatures(physicalDevice, &pFeatures->features);
+    // Handle any extension properties queried down pNext chain
+    if (pFeatures->pNext) {
+        auto struct_header = reinterpret_cast<GENERIC_HEADER *>(pFeatures->pNext);
+        while (struct_header) {
+            switch (struct_header->sType) {
+                case VK_STRUCTURE_TYPE_DEVICE_GENERATED_COMMANDS_FEATURES_NVX: {
+                    VkDeviceGeneratedCommandsFeaturesNVX *gc_feat = reinterpret_cast<VkDeviceGeneratedCommandsFeaturesNVX *>(struct_header);
+                    gc_feat->computeBindingPointSupport = VK_TRUE;
+                    break;
+                }
+                case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VARIABLE_POINTER_FEATURES_KHR: {
+                    VkPhysicalDeviceVariablePointerFeaturesKHR *vp_feat = reinterpret_cast<VkPhysicalDeviceVariablePointerFeaturesKHR *>(struct_header);
+                    vp_feat->variablePointersStorageBuffer = VK_TRUE;
+                    vp_feat->variablePointers = VK_TRUE;
+                    break;
+                }
+                case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES_KHX: {
+                    VkPhysicalDeviceMultiviewFeaturesKHX *mv_feat = reinterpret_cast<VkPhysicalDeviceMultiviewFeaturesKHX *>(struct_header);
+                    mv_feat->multiview = VK_TRUE;
+                    mv_feat->multiviewGeometryShader = VK_TRUE;
+                    mv_feat->multiviewTessellationShader = VK_TRUE;
+                    break;
+                }
+                case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES_KHR: {
+                    VkPhysicalDevice16BitStorageFeaturesKHR *sbs_feat = reinterpret_cast<VkPhysicalDevice16BitStorageFeaturesKHR *>(struct_header);
+                    sbs_feat->storageBuffer16BitAccess = VK_TRUE;
+                    sbs_feat->uniformAndStorageBuffer16BitAccess = VK_TRUE;
+                    sbs_feat->storagePushConstant16 = VK_TRUE;
+                    sbs_feat->storageInputOutput16 = VK_TRUE;
+                    break;
+                }
+                case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_YCBCR_CONVERSION_FEATURES_KHR: {
+                    VkPhysicalDeviceSamplerYcbcrConversionFeaturesKHR *syc_feat = reinterpret_cast<VkPhysicalDeviceSamplerYcbcrConversionFeaturesKHR *>(struct_header);
+                    syc_feat->samplerYcbcrConversion = VK_TRUE;
+                    break;
+                }
+                case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BLEND_OPERATION_ADVANCED_FEATURES_EXT: {
+                    VkPhysicalDeviceBlendOperationAdvancedFeaturesEXT *boa_feat = reinterpret_cast<VkPhysicalDeviceBlendOperationAdvancedFeaturesEXT *>(struct_header);
+                    boa_feat->advancedBlendCoherentOperations = VK_TRUE;
+                    break;
+                }
+                default:
+                    assert(0);
+                    // Unknown extension feature request needs to be added to mock_icd
+                    break;
+            }
+            struct_header = reinterpret_cast<GENERIC_HEADER *>(struct_header->pNext);
+        }
+    }
 ''',
 'vkGetPhysicalDeviceFormatProperties': '''
     if (VK_FORMAT_UNDEFINED == format) {
