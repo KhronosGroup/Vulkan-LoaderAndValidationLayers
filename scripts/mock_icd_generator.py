@@ -48,6 +48,11 @@ static void* CreateDispObjHandle() {
 static void DestroyDispObjHandle(void* handle) {
     delete reinterpret_cast<VK_LOADER_DATA*>(handle);
 }
+
+struct GENERIC_HEADER {
+    VkStructureType sType;
+    void *pNext;
+};
 '''
 
 # Manual code at the top of the cpp source file
@@ -746,6 +751,101 @@ CUSTOM_C_INTERCEPTS = {
 ''',
 'vkGetPhysicalDeviceProperties2KHR': '''
     GetPhysicalDeviceProperties(physicalDevice, &pProperties->properties);
+    // Handle any extension properties queried down pNext chain
+    if (pProperties->pNext) {
+        auto struct_header = reinterpret_cast<GENERIC_HEADER *>(pProperties->pNext);
+        while (struct_header) {
+            switch (struct_header->sType) {
+                case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES_KHR: {
+                    VkPhysicalDeviceIDPropertiesKHR *id_prop = reinterpret_cast<VkPhysicalDeviceIDPropertiesKHR *>(struct_header);
+                    // This is a dummy ID intended to represent "ICDGOOG" for mock ICD
+                    uint8_t icd_id[] = {1, 0xc, 0xd, 6, 0, 0, 6};
+                    std::copy(icd_id, icd_id + 7, id_prop->deviceUUID);
+                    std::copy(icd_id, icd_id + 7, id_prop->driverUUID);
+                    id_prop->deviceLUID[0] = 0;
+                    id_prop->deviceNodeMask = 1;
+                    id_prop->deviceLUIDValid = VK_FALSE; // This causes the above 2 values to be ignored
+                    break;
+                }
+                case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PUSH_DESCRIPTOR_PROPERTIES_KHR: {
+                    VkPhysicalDevicePushDescriptorPropertiesKHR *pd_prop = reinterpret_cast<VkPhysicalDevicePushDescriptorPropertiesKHR *>(struct_header);
+                    pd_prop->maxPushDescriptors = 32;
+                    break;
+                }
+                case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PROPERTIES_KHX: {
+                    VkPhysicalDeviceMultiviewPropertiesKHX *mv_prop = reinterpret_cast<VkPhysicalDeviceMultiviewPropertiesKHX *>(struct_header);
+                    mv_prop->maxMultiviewViewCount = 6;
+                    mv_prop->maxMultiviewInstanceIndex = 0x7FFFFFF;
+                    break;
+                }
+                case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DISCARD_RECTANGLE_PROPERTIES_EXT: {
+                    VkPhysicalDeviceDiscardRectanglePropertiesEXT *rect_prop = reinterpret_cast<VkPhysicalDeviceDiscardRectanglePropertiesEXT *>(struct_header);
+                    rect_prop->maxDiscardRectangles = 4;
+                    break;
+                }
+                case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLE_LOCATIONS_PROPERTIES_EXT: {
+                    VkPhysicalDeviceSampleLocationsPropertiesEXT *dsl_prop = reinterpret_cast<VkPhysicalDeviceSampleLocationsPropertiesEXT *>(struct_header);
+                    dsl_prop->sampleLocationSampleCounts = VK_SAMPLE_COUNT_4_BIT;
+                    dsl_prop->maxSampleLocationGridSize.width = 1;
+                    dsl_prop->maxSampleLocationGridSize.height = 1;
+                    dsl_prop->sampleLocationCoordinateRange[0] = 0.0;
+                    dsl_prop->sampleLocationCoordinateRange[1] = 0.9375;
+                    dsl_prop->sampleLocationSubPixelBits = 4;
+                    dsl_prop->variableSampleLocations = VK_FALSE;
+                    break;
+                }
+                case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_MEMORY_HOST_PROPERTIES_EXT: {
+                    VkPhysicalDeviceExternalMemoryHostPropertiesEXT *mh_prop = reinterpret_cast<VkPhysicalDeviceExternalMemoryHostPropertiesEXT *>(struct_header);
+                    mh_prop->minImportedHostPointerAlignment = 65536;
+                    break;
+                }
+                case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PER_VIEW_ATTRIBUTES_PROPERTIES_NVX: {
+                    VkPhysicalDeviceMultiviewPerViewAttributesPropertiesNVX *mpva_prop = reinterpret_cast<VkPhysicalDeviceMultiviewPerViewAttributesPropertiesNVX *>(struct_header);
+                    mpva_prop->perViewPositionAllComponents = VK_TRUE;
+                    break;
+                }
+                case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_POINT_CLIPPING_PROPERTIES_KHR: {
+                    VkPhysicalDevicePointClippingPropertiesKHR *pc_prop = reinterpret_cast<VkPhysicalDevicePointClippingPropertiesKHR *>(struct_header);
+                    pc_prop->pointClippingBehavior = VK_POINT_CLIPPING_BEHAVIOR_ALL_CLIP_PLANES_KHR;
+                    break;
+                }
+                case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BLEND_OPERATION_ADVANCED_PROPERTIES_EXT: {
+                    VkPhysicalDeviceBlendOperationAdvancedPropertiesEXT *boa_prop = reinterpret_cast<VkPhysicalDeviceBlendOperationAdvancedPropertiesEXT *>(struct_header);
+                    boa_prop->advancedBlendMaxColorAttachments = 1;
+                    boa_prop->advancedBlendIndependentBlend = VK_FALSE;
+                    boa_prop->advancedBlendNonPremultipliedSrcColor = VK_FALSE;
+                    boa_prop->advancedBlendNonPremultipliedDstColor = VK_FALSE;
+                    boa_prop->advancedBlendCorrelatedOverlap = VK_FALSE;
+                    boa_prop->advancedBlendAllOperations = VK_FALSE;
+                    break;
+                }
+                case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_FILTER_MINMAX_PROPERTIES_EXT: {
+                    VkPhysicalDeviceSamplerFilterMinmaxPropertiesEXT *sfm_prop = reinterpret_cast<VkPhysicalDeviceSamplerFilterMinmaxPropertiesEXT *>(struct_header);
+                    sfm_prop->filterMinmaxSingleComponentFormats = VK_TRUE;
+                    sfm_prop->filterMinmaxImageComponentMapping = VK_TRUE;
+                    break;
+                }
+                case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CONSERVATIVE_RASTERIZATION_PROPERTIES_EXT: {
+                    VkPhysicalDeviceConservativeRasterizationPropertiesEXT *cr_prop = reinterpret_cast<VkPhysicalDeviceConservativeRasterizationPropertiesEXT *>(struct_header);
+                    cr_prop->primitiveOverestimationSize = 0.0;
+                    cr_prop->maxExtraPrimitiveOverestimationSize = 0.0;
+                    cr_prop->extraPrimitiveOverestimationSizeGranularity = 0.0;
+                    cr_prop->primitiveUnderestimation = VK_FALSE;
+                    cr_prop->conservativePointAndLineRasterization = VK_FALSE;
+                    cr_prop->degenerateTrianglesRasterized = VK_FALSE;
+                    cr_prop->degenerateLinesRasterized = VK_FALSE;
+                    cr_prop->fullyCoveredFragmentShaderInputVariable = VK_FALSE;
+                    cr_prop->conservativeRasterizationPostDepthCoverage = VK_FALSE;
+                    break;
+                }
+                default:
+                    assert(0);
+                    // Unknown extension property request needs to be added to mock_icd
+                    break;
+            }
+            struct_header = reinterpret_cast<GENERIC_HEADER *>(struct_header->pNext);
+        }
+    }
 ''',
 'vkGetBufferMemoryRequirements': '''
     // TODO: Just hard-coding reqs for now
@@ -967,6 +1067,8 @@ class MockICDOutputGenerator(OutputGenerator):
             write('#include "mock_icd.h"', file=self.outFile)
             write('#include <stdlib.h>', file=self.outFile)
             write('#include <vector>', file=self.outFile)
+            write('#include <cassert>', file=self.outFile)
+            write('#include <algorithm>', file=self.outFile)
 
         write('namespace vkmock {', file=self.outFile)
         if self.header:
@@ -976,7 +1078,7 @@ class MockICDOutputGenerator(OutputGenerator):
             device_exts = []
             instance_exts = []
             # Ignore extensions that ICDs should not implement or are not safe to report
-            ignore_exts = ['VK_EXT_validation_cache', 'VK_KHR_push_descriptor']
+            ignore_exts = ['VK_EXT_validation_cache']
             for ext in self.registry.tree.findall("extensions/extension"):
                 if ext.attrib['supported'] != 'disabled': # Only include enabled extensions
                     if (ext.attrib['name'] in ignore_exts):
