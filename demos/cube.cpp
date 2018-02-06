@@ -40,6 +40,7 @@
 #define VULKAN_HPP_NO_EXCEPTIONS
 #include <vulkan/vulkan.hpp>
 #include <vulkan/vk_sdk_platform.h>
+#include <vulkan/vk_standard_validation.h>
 
 #include "linmath.h"
 
@@ -1006,16 +1007,10 @@ Demo::Demo()
     void Demo::init_vk() {
         uint32_t instance_extension_count = 0;
         uint32_t instance_layer_count = 0;
-        uint32_t validation_layer_count = 0;
-        char const *const *instance_validation_layers = nullptr;
+        uint32_t validation_layer_count = vkval::VALIDATION_LAYER_COUNT;
+        char const *const *instance_validation_layers = vkval::standard_validation_array;
         enabled_extension_count = 0;
         enabled_layer_count = 0;
-
-        char const *const instance_validation_layers_alt1[] = {"VK_LAYER_LUNARG_standard_validation"};
-
-        char const *const instance_validation_layers_alt2[] = {
-            "VK_LAYER_GOOGLE_threading", "VK_LAYER_LUNARG_parameter_validation", "VK_LAYER_LUNARG_object_tracker",
-            "VK_LAYER_LUNARG_core_validation", "VK_LAYER_GOOGLE_unique_objects"};
 
         // Look for validation layers
         vk::Bool32 validation_found = VK_FALSE;
@@ -1023,25 +1018,15 @@ Demo::Demo()
             auto result = vk::enumerateInstanceLayerProperties(&instance_layer_count, nullptr);
             VERIFY(result == vk::Result::eSuccess);
 
-            instance_validation_layers = instance_validation_layers_alt1;
-            if (instance_layer_count > 0) {
+            if (instance_layer_count >= validation_layer_count) {
                 std::unique_ptr<vk::LayerProperties[]> instance_layers(new vk::LayerProperties[instance_layer_count]);
                 result = vk::enumerateInstanceLayerProperties(&instance_layer_count, instance_layers.get());
                 VERIFY(result == vk::Result::eSuccess);
 
-                validation_found = check_layers(ARRAY_SIZE(instance_validation_layers_alt1), instance_validation_layers,
-                                                instance_layer_count, instance_layers.get());
+                validation_found =
+                    check_layers(validation_layer_count, instance_validation_layers, instance_layer_count, instance_layers.get());
                 if (validation_found) {
-                    enabled_layer_count = ARRAY_SIZE(instance_validation_layers_alt1);
-                    enabled_layers[0] = "VK_LAYER_LUNARG_standard_validation";
-                    validation_layer_count = 1;
-                } else {
-                    // use alternative set of validation layers
-                    instance_validation_layers = instance_validation_layers_alt2;
-                    enabled_layer_count = ARRAY_SIZE(instance_validation_layers_alt2);
-                    validation_found = check_layers(ARRAY_SIZE(instance_validation_layers_alt2), instance_validation_layers,
-                                                    instance_layer_count, instance_layers.get());
-                    validation_layer_count = ARRAY_SIZE(instance_validation_layers_alt2);
+                    enabled_layer_count = validation_layer_count;
                     for (uint32_t i = 0; i < validation_layer_count; i++) {
                         enabled_layers[i] = instance_validation_layers[i];
                     }
