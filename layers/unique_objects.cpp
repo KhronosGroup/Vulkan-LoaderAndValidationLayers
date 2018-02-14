@@ -502,7 +502,14 @@ VKAPI_ATTR VkResult VKAPI_CALL GetSwapchainImagesKHR(VkDevice device, VkSwapchai
         if ((*pSwapchainImageCount > 0) && pSwapchainImages) {
             std::lock_guard<std::mutex> lock(global_lock);
             for (uint32_t i = 0; i < *pSwapchainImageCount; ++i) {
-                pSwapchainImages[i] = WrapNew(my_device_data, pSwapchainImages[i]);
+                uint64_t unwrapped_handle = HandleToUint64(pSwapchainImages[i]);
+                if (my_device_data->swapchain_image_handle_map.find(unwrapped_handle) ==
+                    my_device_data->swapchain_image_handle_map.end()) {
+                    pSwapchainImages[i] = WrapNew(my_device_data, pSwapchainImages[i]);
+                    my_device_data->swapchain_image_handle_map[unwrapped_handle] = HandleToUint64(pSwapchainImages[i]);
+                } else {
+                    pSwapchainImages[i] = reinterpret_cast<VkImage &>(my_device_data->swapchain_image_handle_map[unwrapped_handle]);
+                }
             }
         }
     }

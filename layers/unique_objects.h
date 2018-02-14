@@ -79,6 +79,9 @@ struct layer_data {
     // uses unwrapped handles
     std::unordered_map<VkRenderPass, SubpassesUsageStates> renderpasses_states;
 
+    // Map of swapchain image handles to wrapped IDs -- we don't want to re-wrap these if they exist
+    std::unordered_map<uint64_t, uint64_t> swapchain_image_handle_map;
+
     layer_data() : wsi_enabled(false), gpu(VK_NULL_HANDLE){};
 };
 
