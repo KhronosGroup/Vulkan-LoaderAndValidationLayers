@@ -34,13 +34,15 @@ logging callbacks.
 
 Note that some layers are code-generated and will therefore exist in the directory `(build_dir)/layers`
 
-`include/vkLayer.h` - header file for layer code.
+`include/vulkan/vkLayer.h` - header file for layer code.
 
 ### Layer Details
-For complete details of current validation layers, including all of the validation checks that they perform, please refer to the document `layers/vk_validation_layer_details.md`. Below is a brief overview of each layer.
+For complete details of current validation layers, the code is the ultimate source. There is also a text database file that contains all of the valid usage statements from the Vulkan specification and catalogs which checks are currently covered in the validation layers. The database file can be accessed at `layers/vk_validation_error_database.txt`. Below is a brief overview of each layer.
 
 ### Standard Validation
-This is a meta-layer managed by the loader. (name = `VK_LAYER_LUNARG_standard_validation`) - specifying this layer name will cause the loader to load the all of the standard validation layers (listed below) in the following optimal order:  `VK_LAYER_GOOGLE_threading`, `VK_LAYER_LUNARG_parameter_validation`, `VK_LAYER_LUNARG_object_tracker`, `VK_LAYER_LUNARG_core_validation`, and `VK_LAYER_GOOGLE_unique_objects`. Other layers can be specified and the loader will remove duplicates.
+"Standard Validation" refers to the recommended stack of validation layers that should be used to validate an application's correct use of Vulkan. To enable the standard validation layer, its recommended that you include `include/vulkan/vk_standard_validation.h` which has const vars that contain the standard validation stack. Usage details are included in that header file, with the concept being that you pass the const vars into VkCreateInstanceInfo when creating the VkInstance. This will work across all platforms.
+
+There is also a deprecated meta-layer that works on some loaders. (name = `VK_LAYER_LUNARG_standard_validation`) - specifying this layer name will cause a supporting loader to load the all of the standard validation layers (listed below) in the following optimal order:  `VK_LAYER_GOOGLE_threading`, `VK_LAYER_LUNARG_parameter_validation`, `VK_LAYER_LUNARG_object_tracker`, `VK_LAYER_LUNARG_core_validation`, and `VK_LAYER_GOOGLE_unique_objects`. Other layers can be specified and the loader will remove duplicates.
 
 ### Object Validation and Statistics
 (build dir)/layers/object_tracker.cpp (name=`VK_LAYER_LUNARG_object_tracker`) - Track object creation, use, and destruction. As objects are created they are stored in a map. As objects are used the layer verifies they exist in the map, flagging errors for unknown objects. As objects are destroyed they are removed from the map. At `vkDestroyDevice()` and `vkDestroyInstance()` times, if any objects have not been destroyed they are reported as leaked objects. If a Dbg callback function is registered this layer will use callback function(s) for reporting, otherwise it will use stdout.

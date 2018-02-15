@@ -454,12 +454,11 @@ the case.  See the [Overall Layer Ordering](#overall-layer-ordering) section
 for more information.
 
 The following code section shows how you would go about enabling the
-VK_LAYER_LUNARG_standard_validation layer.
+standard validation layer stack.
 
 ```
-   char *instance_validation_layers[] = {
-        "VK_LAYER_LUNARG_standard_validation"
-    };
+    #include <vulkan/vk_standard_validation.h>
+    char *instance_validation_layers[] = standard_validation_array;
     const VkApplicationInfo app = {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
         .pNext = NULL,
@@ -1410,7 +1409,9 @@ other layers (called component layers).
 
 The most common example of a meta-layer is the
 `VK_LAYER_LUNARG_standard_validation` layer which groups all the most common
-individual validation layers into a single layer for ease-of-use.
+individual validation layers into a single layer for ease-of-use. Note that this
+meta-layer has been deprecated in favor of using the `vk_standard_validation.h`
+header which works on all platforms. (see `include/vulkan/vk_standard_validation.h`)
 
 The benefits of a meta-layer are:
  1. You can activate more than one layer using a single layer name by simply

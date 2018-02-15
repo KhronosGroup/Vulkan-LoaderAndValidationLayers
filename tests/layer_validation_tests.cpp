@@ -38,6 +38,7 @@
 
 #include "icd-spv.h"
 #include "test_common.h"
+#include <vulkan/vk_standard_validation.h>
 #include "vk_layer_config.h"
 #include "vk_format_utils.h"
 #include "vk_validation_error_messages.h"
@@ -448,11 +449,7 @@ class VkLayerTest : public VkRenderFramework {
 
         // Use Threading layer first to protect others from
         // ThreadCommandBufferCollision test
-        m_instance_layer_names.push_back("VK_LAYER_GOOGLE_threading");
-        m_instance_layer_names.push_back("VK_LAYER_LUNARG_parameter_validation");
-        m_instance_layer_names.push_back("VK_LAYER_LUNARG_object_tracker");
-        m_instance_layer_names.push_back("VK_LAYER_LUNARG_core_validation");
-        m_instance_layer_names.push_back("VK_LAYER_GOOGLE_unique_objects");
+        m_instance_layer_names = vkval::standard_validation_vector;
         if (VkTestFramework::m_devsim_layer) {
             if (InstanceLayerSupported("VK_LAYER_LUNARG_device_simulation")) {
                 m_instance_layer_names.push_back("VK_LAYER_LUNARG_device_simulation");

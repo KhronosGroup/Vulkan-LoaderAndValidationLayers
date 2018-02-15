@@ -22,6 +22,7 @@
 #include "Helpers.h"
 #include "Game.h"
 #include "ShellAndroid.h"
+#include "vk_standard_validation.h"
 
 namespace {
 
@@ -103,11 +104,7 @@ std::vector<std::string> ShellAndroid::get_args(android_app &app) {
 
 ShellAndroid::ShellAndroid(android_app &app, Game &game) : Shell(game), app_(app) {
     if (game.settings().validate) {
-        instance_layers_.push_back("VK_LAYER_GOOGLE_threading");
-        instance_layers_.push_back("VK_LAYER_LUNARG_parameter_validation");
-        instance_layers_.push_back("VK_LAYER_LUNARG_object_tracker");
-        instance_layers_.push_back("VK_LAYER_LUNARG_core_validation");
-        instance_layers_.push_back("VK_LAYER_GOOGLE_unique_objects");
+        instance_layers_ = vkval::standard_validation_vector;
     }
 
     instance_extensions_.push_back(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);

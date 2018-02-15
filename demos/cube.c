@@ -55,6 +55,7 @@
 #endif
 
 #include <vulkan/vk_sdk_platform.h>
+#include <vulkan/vk_standard_validation.h>
 #include "linmath.h"
 
 #include "gettime.h"
@@ -380,7 +381,7 @@ struct demo {
     uint32_t enabled_extension_count;
     uint32_t enabled_layer_count;
     char *extension_names[64];
-    char *enabled_layers[64];
+    char const *enabled_layers[64];
 
     int width, height;
     VkFormat format;
@@ -2921,8 +2922,7 @@ static void demo_run_display(struct demo *demo)
  * Return 1 (true) if all layer names specified in check_names
  * can be found in given layer properties.
  */
-static VkBool32 demo_check_layers(uint32_t check_count, char **check_names,
-                                  uint32_t layer_count,
+static VkBool32 demo_check_layers(uint32_t check_count, char const *const *check_names, uint32_t layer_count,
                                   VkLayerProperties *layers) {
     for (uint32_t i = 0; i < check_count; i++) {
         VkBool32 found = 0;
@@ -2944,20 +2944,10 @@ static void demo_init_vk(struct demo *demo) {
     VkResult err;
     uint32_t instance_extension_count = 0;
     uint32_t instance_layer_count = 0;
-    uint32_t validation_layer_count = 0;
-    char **instance_validation_layers = NULL;
+    uint32_t validation_layer_count = VALIDATION_LAYER_COUNT;
+    char const *const *instance_validation_layers = standard_validation_array;
     demo->enabled_extension_count = 0;
     demo->enabled_layer_count = 0;
-
-    char *instance_validation_layers_alt1[] = {
-        "VK_LAYER_LUNARG_standard_validation"
-    };
-
-    char *instance_validation_layers_alt2[] = {
-        "VK_LAYER_GOOGLE_threading",      "VK_LAYER_LUNARG_parameter_validation",
-        "VK_LAYER_LUNARG_object_tracker", "VK_LAYER_LUNARG_core_validation",
-        "VK_LAYER_GOOGLE_unique_objects"
-    };
 
     /* Look for validation layers */
     VkBool32 validation_found = 0;
@@ -2966,33 +2956,18 @@ static void demo_init_vk(struct demo *demo) {
         err = vkEnumerateInstanceLayerProperties(&instance_layer_count, NULL);
         assert(!err);
 
-        instance_validation_layers = instance_validation_layers_alt1;
-        if (instance_layer_count > 0) {
+        if (instance_layer_count >= validation_layer_count) {
             VkLayerProperties *instance_layers =
                     malloc(sizeof (VkLayerProperties) * instance_layer_count);
             err = vkEnumerateInstanceLayerProperties(&instance_layer_count,
                     instance_layers);
             assert(!err);
 
+            validation_found =
+                demo_check_layers(validation_layer_count, instance_validation_layers, instance_layer_count, instance_layers);
 
-            validation_found = demo_check_layers(
-                    ARRAY_SIZE(instance_validation_layers_alt1),
-                    instance_validation_layers, instance_layer_count,
-                    instance_layers);
             if (validation_found) {
-                demo->enabled_layer_count = ARRAY_SIZE(instance_validation_layers_alt1);
-                demo->enabled_layers[0] = "VK_LAYER_LUNARG_standard_validation";
-                validation_layer_count = 1;
-            } else {
-                // use alternative set of validation layers
-                instance_validation_layers = instance_validation_layers_alt2;
-                demo->enabled_layer_count = ARRAY_SIZE(instance_validation_layers_alt2);
-                validation_found = demo_check_layers(
-                    ARRAY_SIZE(instance_validation_layers_alt2),
-                    instance_validation_layers, instance_layer_count,
-                    instance_layers);
-                validation_layer_count =
-                    ARRAY_SIZE(instance_validation_layers_alt2);
+                demo->enabled_layer_count = validation_layer_count;
                 for (uint32_t i = 0; i < validation_layer_count; i++) {
                     demo->enabled_layers[i] = instance_validation_layers[i];
                 }

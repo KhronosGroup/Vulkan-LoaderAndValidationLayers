@@ -23,6 +23,7 @@
 
 #include "vkrenderframework.h"
 #include "vk_format_utils.h"
+#include "vulkan/vk_standard_validation.h"
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 #define GET_DEVICE_PROC_ADDR(dev, entrypoint)                                            \
