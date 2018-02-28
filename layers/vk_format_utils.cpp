@@ -866,6 +866,8 @@ VK_LAYER_EXPORT VkExtent3D FormatCompressedTexelBlockExtent(VkFormat format) {
 
 VK_LAYER_EXPORT uint32_t FormatPlaneCount(VkFormat format) {
     switch (format) {
+// Android's version of vulkan.h is outdated and does not know these.
+#if VK_HEADER_VERSION > 60
         case VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM_KHR:
         case VK_FORMAT_G8_B8_R8_3PLANE_422_UNORM_KHR:
         case VK_FORMAT_G8_B8_R8_3PLANE_444_UNORM_KHR:
@@ -890,6 +892,7 @@ VK_LAYER_EXPORT uint32_t FormatPlaneCount(VkFormat format) {
         case VK_FORMAT_G16_B16R16_2PLANE_422_UNORM_KHR:
             return 2u;
             break;
+#endif
         default:
             return 1u;
             break;
