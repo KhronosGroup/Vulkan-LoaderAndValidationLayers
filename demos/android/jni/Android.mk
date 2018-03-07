@@ -32,4 +32,17 @@ LOCAL_LDLIBS    := -llog -landroid
 LOCAL_LDFLAGS   := -u ANativeActivity_onCreate
 include $(BUILD_SHARED_LIBRARY)
 
+include $(CLEAR_VARS)
+LOCAL_MODULE := vulkaninfo
+LOCAL_SRC_FILES += $(DEMO_DIR)/vulkaninfo.c \
+                   $(SRC_DIR)/common/vulkan_wrapper.cpp
+LOCAL_C_INCLUDES += $(SRC_DIR)/include \
+                    $(DEMO_DIR)/android/include \
+                    $(SRC_DIR)/libs \
+                    $(SRC_DIR)/common
+LOCAL_CFLAGS += -DVK_USE_PLATFORM_ANDROID_KHR --include=$(SRC_DIR)/common/vulkan_wrapper.h
+LOCAL_LDLIBS    := -llog
+LOCAL_LDFLAGS   := -Wl,--exclude-libs,ALL
+include $(BUILD_EXECUTABLE)
+
 $(call import-module,android/native_app_glue)
