@@ -682,6 +682,7 @@ class HelperFileOutputGenerator(OutputGenerator):
         object_types_helper_header += '#include <vulkan/vulkan.h>\n\n'
         object_types_helper_header += self.GenerateObjectTypesHeader()
         return object_types_helper_header
+
     #
     # Object types header: create object enum type header file
     def GenerateObjectTypesHeader(self):
@@ -716,15 +717,15 @@ class HelperFileOutputGenerator(OutputGenerator):
         object_types_header += '// Helper array to get Vulkan VK_EXT_debug_report object type enum from the internal layers version\n'
         object_types_header += 'const VkDebugReportObjectTypeEXT get_debug_report_enum[] = {\n'
         object_types_header += '    VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, // No Match\n'
+
+        # Use map comprehensions to convert from k<Name> to VK<Name> with this helper
+        to_key = lambda regex, raw_key: re.search(regex, raw_key).group(1).lower().replace("_","")
+
+        dbg_re = '^VK_DEBUG_REPORT_OBJECT_TYPE_(.*)_EXT$'
+        dbg_map = {to_key(dbg_re, dbg) : dbg for dbg in self.debug_report_object_types}
         for object_type in type_list:
-            search_type = object_type.replace("kVulkanObjectType", "").lower()
-            for vk_object_type in self.debug_report_object_types:
-                target_type = vk_object_type.replace("VK_DEBUG_REPORT_OBJECT_TYPE_", "").lower()
-                target_type = target_type[:-4]
-                target_type = target_type.replace("_", "")
-                if search_type == target_type:
-                    object_types_header += '    %s,   // %s\n' % (vk_object_type, object_type)
-                    break
+            vk_object_type = dbg_map[object_type.replace("kVulkanObjectType", "").lower()]
+            object_types_header += '    %s,   // %s\n' % (vk_object_type, object_type)
         object_types_header += '};\n'
 
         # Output a conversion routine from the layer object definitions to the core object type definitions
@@ -732,16 +733,33 @@ class HelperFileOutputGenerator(OutputGenerator):
         object_types_header += '// Helper array to get Official Vulkan VkObjectType enum from the internal layers version\n'
         object_types_header += 'const VkObjectType get_object_type_enum[] = {\n'
         object_types_header += '    VK_OBJECT_TYPE_UNKNOWN, // No Match\n'
+        vko_re = '^VK_OBJECT_TYPE_(.*)'
+        vko_map = {to_key(vko_re, vko) : vko for vko in self.core_object_types}
         for object_type in type_list:
-            search_type = object_type.replace("kVulkanObjectType", "").lower()
-            for vk_object_type in self.core_object_types:
-                target_type = vk_object_type.replace("VK_OBJECT_TYPE_", "").lower()
-                target_type = target_type.replace("_", "")
-                if search_type == target_type:
-                    object_types_header += '    %s,   // %s\n' % (vk_object_type, object_type)
-                    break
+            vk_object_type = vko_map[object_type.replace("kVulkanObjectType", "").lower()]
+            object_types_header += '    %s,   // %s\n' % (vk_object_type, object_type)
         object_types_header += '};\n'
 
+        # Output template cross reference between the various enums, types, and strings
+        object_types_header += '#ifdef __cplusplus\n'
+        object_types_header += '// Helper template to get object type enum from a given type\n'
+        object_types_header += 'template <typename V> struct VkObjectTypeTraits {\n'
+        vko_template_body_fmt = ('    static const VulkanObjectType kObjectType = {};\n' +
+                                '    static const VkDebugReportObjectTypeEXT kDebugObjectType = {};\n' +
+                                '    static const VkObjectType kCoreObjectType = {};\n')
+        unknown_enums = ( "kVulkanObjectTypeUnknown", "VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT", "VK_OBJECT_TYPE_UNKNOWN")
+        object_types_header += vko_template_body_fmt.format(*unknown_enums)
+        object_types_header += '};\n\n'
+
+        for object_type in type_list:
+            ot_key = object_type.replace("kVulkanObjectType", "").lower()
+            vk_type = object_type.replace("kVulkanObjectType", "Vk")
+            object_types_header += '// Object type enums for %s\n' % (vk_type)
+            object_types_header += 'template <> struct VkObjectTypeTraits<%s> {\n' % (vk_type)
+            object_types_header += vko_template_body_fmt.format(object_type, dbg_map[ot_key], vko_map[ot_key])
+            object_types_header += '};\n\n'
+
+        object_types_header += '#endif // __cplusplus\n'
         return object_types_header
     #
     # Determine if a structure needs a safe_struct helper function

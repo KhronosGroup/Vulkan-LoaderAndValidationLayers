@@ -26,13 +26,16 @@
 #include "vk_layer_config.h"
 #include "vk_layer_data.h"
 #include "vk_layer_table.h"
+#include "vk_validation_error_messages.h"
 #include "vk_loader_platform.h"
+#include "vk_object_types.h"
 #include "vulkan/vk_layer.h"
 #include <signal.h>
 #include <cinttypes>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <sstream>
 #include <unordered_map>
 #include <vector>
 
@@ -314,7 +317,7 @@ static inline void layer_disable_tmp_callbacks(debug_report_data *debug_data, ui
 // Checks if the message will get logged.
 // Allows layer to defer collecting & formating data if the
 // message will be discarded.
-static inline bool will_log_msg(debug_report_data *debug_data, VkFlags msgFlags) {
+static inline bool will_log_msg(const debug_report_data *debug_data, VkFlags msgFlags) {
     if (!debug_data || !(debug_data->active_flags & msgFlags)) {
         // Message is not wanted
         return false;
@@ -322,21 +325,34 @@ static inline bool will_log_msg(debug_report_data *debug_data, VkFlags msgFlags)
 
     return true;
 }
+
+// sprintf to std::string, concatenating onto to_string if non-null, returns formatted string by value
 #ifndef WIN32
-static inline int string_sprintf(std::string *output, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
+static inline std::string string_sprintf(std::string *to_string, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
 #endif
-static inline int string_sprintf(std::string *output, const char *fmt, ...) {
-    std::string &formatted = *output;
+static inline std::string string_sprintf(std::string *to_string, const char *fmt, ...) {
+    std::string local;
+    to_string = (nullptr != to_string) ? to_string : &local;
+    std::string &formatted = *to_string;
+    size_t offset = formatted.size();
+
+    // Find out how many bytes we'll need.
     va_list argptr;
     va_start(argptr, fmt);
     int reserve = vsnprintf(nullptr, 0, fmt, argptr);
     va_end(argptr);
-    formatted.reserve(reserve + 1);
+    formatted.reserve(offset + reserve + 1);
+    formatted.resize(offset + reserve);
+
+    // sprintf those bytes to the output
     va_start(argptr, fmt);
-    int result = vsnprintf((char *)formatted.data(), formatted.capacity(), fmt, argptr);
+#ifndef NDEBUG
+    int result =
+#endif
+        vsnprintf((char *)formatted.data() + offset, formatted.capacity(), fmt, argptr);
     va_end(argptr);
     assert(result == reserve);
-    return result;
+    return formatted;
 }
 
 #ifdef WIN32
@@ -438,5 +454,132 @@ template <typename HANDLE_T>
 uint64_t HandleToUint64(HANDLE_T h);
 
 static inline uint64_t HandleToUint64(uint64_t h) { return h; }
+
+class LogMsg {
+   public:
+    template <typename ObjectType>
+    LogMsg(bool *status, const debug_report_data *debug_data, VkFlags msg_flags, ObjectType src_object, size_t location,
+           int32_t msg_code, const char *layer_prefix)
+        : status_(status),
+          debug_data_(debug_data),
+          msg_flags_(msg_flags),
+          src_object_(HandleToUint64(src_object)),
+          src_object_type_(VkObjectTypeTraits<ObjectType>::kObjectType),
+          location_(location),
+          msg_code_(msg_code),
+          msg_code_is_vu_(false),
+          layer_prefix_(layer_prefix),
+          will_report_(will_log_msg(debug_data, msg_flags)),
+          reported_(false) {}
+    template <typename ObjectType>
+    LogMsg(bool *status, const debug_report_data *debug_data, VkFlags msg_flags, ObjectType src_object, size_t location,
+           UNIQUE_VALIDATION_ERROR_CODE msg_code, const char *layer_prefix)
+        : LogMsg(status, debug_data, msg_flags, src_object, location, static_cast<int32_t>(msg_code), layer_prefix) {
+        msg_code_is_vu_ = true;
+    }
+
+    template <typename IntType>
+    LogMsg &add_x(IntType out) {
+        if (will_report_) {
+            // We could use string_sprintf, but we'll try the awful native formatting support for this at least
+            report_ << "0x";
+            auto save_fill = report_.fill('0');
+            auto save_width = report_.width(2 * sizeof(IntType));
+            report_ << std::hex << out << std::dec;
+            report_.fill(save_fill);
+            report_.width(save_width);
+        }
+        return *this;
+    }
+
+    template <typename RefType>
+    LogMsg &add(RefType *out) {
+        return add_x<RefType *>(out);
+    }
+
+    template <typename HandleType>
+    LogMsg &add_h(const HandleType h) {
+        if (!will_report_) {
+            add_x(HandleToUint64(h));
+        }
+        return *this;
+    }
+
+    // Anything with an acceptable stringstream operation can just use add
+    template <typename OutType>
+    LogMsg &add(const OutType out) {
+        if (will_report_) {
+            report_ << out;
+        }
+        return *this;
+    }
+
+        // use sprintf to add formatted information
+#ifndef WIN32
+#define LOG_MSG_ADD_FMT_ATTR __attribute__((format(printf, 2, 3)))
+#else
+#define LOG_MSG_ADD_FMT_ATTR
+#endif
+    LogMsg &add_fmt(const char *fmt, ...) LOG_MSG_ADD_FMT_ATTR {
+        if (will_report_) {
+            va_list argptr;
+            va_start(argptr, fmt);
+            char *str;
+            if (-1 != vasprintf(&str, fmt, argptr)) {
+                report_ << str;
+                free(str);
+            }
+            va_end(argptr);
+        }
+        return *this;
+    }
+
+    bool will_report() const { return will_report_; };
+    bool report() {
+        bool result = false;
+        if (will_report_ && !reported_) {
+            if (msg_code_is_vu_) {
+                add(" ");
+                add(validation_error_map[msg_code_]);
+            }
+            result = debug_report_log_msg(debug_data_, msg_flags_, get_debug_report_enum[src_object_type_], src_object_, location_,
+                                          msg_code_, layer_prefix_, report_.str().c_str());
+            reported_ = true;
+            if (status_) {
+                // Update this in the same chaining way as log_msg usage
+                *status_ |= result;
+            }
+        }
+        return result;
+    }
+
+    ~LogMsg() { report(); }
+
+   private:
+    bool *status_;
+    const debug_report_data *debug_data_;
+    VkFlags msg_flags_;
+    uint64_t src_object_;
+    VulkanObjectType src_object_type_;
+    size_t location_;
+    int32_t msg_code_;
+    bool msg_code_is_vu_;
+    const char *layer_prefix_;
+    bool will_report_;
+    std::stringstream report_;
+    bool reported_;
+};
+
+// stream out to log msg using the public interface
+template <typename OutType>
+LogMsg &operator<<(LogMsg &logger, const OutType &out) {
+    return logger.add(out);
+}
+
+#define LOG_ERR_MSG(skip, msg, report_data, object, code, prefix) \
+    LogMsg msg(skip, report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, object, __LINE__, code, prefix);
+
+#define LOG_WARN_MSG(skip, msg, report_data, object, code, prefix) \
+    LogMsg msg(skip, report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT, object, __LINE__, code, prefix);
 
 #endif  // LAYER_LOGGING_H

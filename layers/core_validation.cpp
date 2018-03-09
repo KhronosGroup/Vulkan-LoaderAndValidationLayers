@@ -412,11 +412,10 @@ static bool ValidateMemoryIsValid(layer_data *dev_data, VkDeviceMemory mem, uint
     DEVICE_MEM_INFO *mem_info = GetMemObjInfo(dev_data, mem);
     if (mem_info) {
         if (!mem_info->bound_ranges[bound_object_handle].valid) {
-            return log_msg(dev_data->report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_MEMORY_EXT,
-                           HandleToUint64(mem), __LINE__, MEMTRACK_INVALID_MEM_REGION, "MEM",
-                           "%s: Cannot read invalid region of memory allocation 0x%" PRIx64 " for bound %s object 0x%" PRIx64
-                           ", please fill the memory before using.",
-                           functionName, HandleToUint64(mem), object_string[type], bound_object_handle);
+            LOG_WARN_MSG(nullptr, msg, dev_data->report_data, mem, MEMTRACK_INVALID_MEM_REGION, "MEM");
+            msg.add(functionName).add(": Cannot read invalid region of memory allocation ").add_h(mem);
+            msg.add_fmt(" for bound %s object ", object_string[type]).add_h(bound_object_handle);
+            return msg.report();
         }
     }
     return false;
@@ -1303,11 +1302,8 @@ static bool ValidatePipelineLocked(layer_data *dev_data, std::vector<std::unique
                             "Invalid Pipeline CreateInfo: exactly one of base pipeline index and handle must be specified");
         } else if (pPipeline->graphicsPipelineCI.basePipelineIndex != -1) {
             if (pPipeline->graphicsPipelineCI.basePipelineIndex >= pipelineIndex) {
-                skip |=
-                    log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT,
-                            HandleToUint64(pPipeline->pipeline), __LINE__, VALIDATION_ERROR_208005a0, "DS",
-                            "Invalid Pipeline CreateInfo: base pipeline must occur earlier in array than derivative pipeline. %s",
-                            validation_error_map[VALIDATION_ERROR_208005a0]);
+                LOG_ERR_MSG(&skip, msg, dev_data->report_data, pPipeline->pipeline, VALIDATION_ERROR_208005a0, "DS");
+                msg.add("Invalid Pipeline CreateInfo: base pipeline must occur earlier in array than derivative pipeline.");
             } else {
                 pBasePipeline = pPipelines[pPipeline->graphicsPipelineCI.basePipelineIndex].get();
             }
@@ -2681,12 +2677,10 @@ static bool validateQueueFamilyIndices(layer_data *dev_data, GLOBAL_CB_NODE *pCB
 
     if (pPool && queue_state) {
         if (pPool->queueFamilyIndex != queue_state->queueFamilyIndex) {
-            skip |= log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT,
-                            HandleToUint64(pCB->commandBuffer), __LINE__, VALIDATION_ERROR_31a00094, "DS",
-                            "vkQueueSubmit: Primary command buffer 0x%" PRIx64
-                            " created in queue family %d is being submitted on queue 0x%" PRIx64 " from queue family %d. %s",
-                            HandleToUint64(pCB->commandBuffer), pPool->queueFamilyIndex, HandleToUint64(queue),
-                            queue_state->queueFamilyIndex, validation_error_map[VALIDATION_ERROR_31a00094]);
+            LOG_ERR_MSG(&skip, msg, dev_data->report_data, pCB->commandBuffer, VALIDATION_ERROR_31a00094, "DS");
+            msg.add("vkQueueSubmit: Primary command buffer ").add_h(pCB->commandBuffer);
+            msg << " created in queue family " << pPool->queueFamilyIndex << "is being submitted on queue ";
+            msg.add_h(queue) << " from queue family " << queue_state->queueFamilyIndex;
         }
 
         // Ensure that any bound images or buffers created with SHARING_MODE_CONCURRENT have access to the current queue family
