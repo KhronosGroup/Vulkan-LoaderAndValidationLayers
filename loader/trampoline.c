@@ -2639,3 +2639,5 @@ LOADER_EXPORT VKAPI_ATTR void VKAPI_CALL vkUpdateDescriptorSetWithTemplate(
     const void*                                 pData) {
     const VkLayerDispatchTable *disp = loader_get_dispatch(device);
     disp->UpdateDescriptorSetWithTemplate(device, descriptorSet, descriptorUpdateTemplate, pData);
+}
+    
