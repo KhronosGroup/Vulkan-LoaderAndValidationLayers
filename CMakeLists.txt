@@ -116,6 +116,8 @@ if(WIN32)
     add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/w34057>")
     # Warn about signed/unsigned mismatch.
     add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/w34245>")
+    add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/Bt>")
+    add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/d2cgsummary>")
 endif()
 
 if(NOT WIN32)
