@@ -9594,6 +9594,9 @@ TEST_F(VkLayerTest, DescriptorSetCompatibility) {
     m_errorMonitor->VerifyFound();
 
     // Remaining clean-up
+    m_commandBuffer->EndRenderPass();
+    m_commandBuffer->end();
+
     vkDestroyDescriptorPool(m_device->device(), ds_pool, NULL);
 }
 
