@@ -10956,6 +10956,9 @@ TEST_F(VkLayerTest, RenderPassWithinRenderPass) {
     vkCmdBeginRenderPass(m_commandBuffer->handle(), &m_renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
     m_errorMonitor->VerifyFound();
+
+    m_commandBuffer->EndRenderPass();
+    m_commandBuffer->end();
 }
 
 TEST_F(VkLayerTest, RenderPassClearOpMismatch) {
