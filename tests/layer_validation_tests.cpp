@@ -20684,12 +20684,14 @@ TEST_F(VkLayerTest, CopyImageAspectMismatch) {
     m_commandBuffer->begin();
 
     // Src and dest aspect masks don't match
-    copyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_STENCIL_BIT;
-    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_09c00112);
-    vkCmdCopyImage(m_commandBuffer->handle(), ds_image.handle(), VK_IMAGE_LAYOUT_GENERAL, ds_image.handle(),
-                   VK_IMAGE_LAYOUT_GENERAL, 1, &copyRegion);
-    m_errorMonitor->VerifyFound();
-    copyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    if (m_device->props.apiVersion < VK_API_VERSION_1_1) {
+        copyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_STENCIL_BIT;
+        m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_09c00112);
+        vkCmdCopyImage(m_commandBuffer->handle(), ds_image.handle(), VK_IMAGE_LAYOUT_GENERAL, ds_image.handle(),
+                       VK_IMAGE_LAYOUT_GENERAL, 1, &copyRegion);
+        m_errorMonitor->VerifyFound();
+        copyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    }
 
     // Illegal combinations of aspect bits - VU 01221
     copyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT | VK_IMAGE_ASPECT_DEPTH_BIT;  // color must be alone
