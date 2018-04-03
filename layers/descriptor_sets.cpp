@@ -639,10 +639,11 @@ bool cvdescriptorset::DescriptorSet::ValidateDrawState(const std::map<uint32_t, 
     return true;
 }
 
-// For given bindings, place any update buffers or images into the passed-in unordered_sets
-uint32_t cvdescriptorset::DescriptorSet::GetStorageUpdates(const std::map<uint32_t, descriptor_req> &bindings,
-                                                           std::unordered_set<VkBuffer> *buffer_set,
-                                                           std::unordered_set<VkImageView> *image_set) const {
+// For given bindings, place any active buffers or images into the passed-in vectors
+// TODO: Currently just adding entire binding as imprecise update, but ideally would limit access based on view
+uint32_t cvdescriptorset::DescriptorSet::AddReadWriteBuffersAndImages(const std::map<uint32_t, descriptor_req> &bindings,
+                                                                      CMD_TYPE cmd, std::vector<MemoryAccess> *read_access_vector,
+                                                                      std::vector<MemoryAccess> *write_access_vector) const {
     auto num_updates = 0;
     for (auto binding_pair : bindings) {
         auto binding = binding_pair.first;
@@ -650,34 +651,79 @@ uint32_t cvdescriptorset::DescriptorSet::GetStorageUpdates(const std::map<uint32
         if (!p_layout_->HasBinding(binding)) {
             continue;
         }
-        uint32_t start_idx = p_layout_->GetGlobalIndexRangeFromBinding(binding).start;
+        auto start_idx = p_layout_->GetGlobalIndexRangeFromBinding(binding).start;
+        const auto descriptor_count = p_layout_->GetDescriptorCountFromBinding(binding);
+        auto &update_vector = read_access_vector;
+        auto update_function = &AddReadMemoryAccess;
         if (descriptors_[start_idx]->IsStorage()) {
-            if (Image == descriptors_[start_idx]->descriptor_class) {
-                for (uint32_t i = 0; i < p_layout_->GetDescriptorCountFromBinding(binding); ++i) {
+            update_vector = write_access_vector;
+            update_function = &AddWriteMemoryAccess;
+        }
+        switch (descriptors_[start_idx]->descriptor_class) {
+            case (Image): {
+                for (uint32_t i = 0; i < descriptor_count; ++i) {
                     if (descriptors_[start_idx + i]->updated) {
-                        image_set->insert(static_cast<ImageDescriptor *>(descriptors_[start_idx + i].get())->GetImageView());
-                        num_updates++;
+                        auto image_view = static_cast<ImageDescriptor *>(descriptors_[start_idx + i].get())->GetImageView();
+                        auto image_view_state = GetImageViewState(device_data_, image_view);
+                        if (image_view_state) {
+                            auto image_node = GetImageState(device_data_, image_view_state->create_info.image);
+                            if (image_node) {
+                                update_function(cmd, update_vector, image_node->binding, false);
+                                num_updates++;
+                            }
+                        }
                     }
                 }
-            } else if (TexelBuffer == descriptors_[start_idx]->descriptor_class) {
-                for (uint32_t i = 0; i < p_layout_->GetDescriptorCountFromBinding(binding); ++i) {
+                break;
+            }
+            case (ImageSampler): {
+                for (uint32_t i = 0; i < descriptor_count; ++i) {
+                    if (descriptors_[start_idx + i]->updated) {
+                        auto image_view = static_cast<ImageSamplerDescriptor *>(descriptors_[start_idx + i].get())->GetImageView();
+                        auto image_view_state = GetImageViewState(device_data_, image_view);
+                        if (image_view_state) {
+                            auto image_node = GetImageState(device_data_, image_view_state->create_info.image);
+                            if (image_node) {
+                                update_function(cmd, update_vector, image_node->binding, false);
+                                num_updates++;
+                            }
+                        }
+                    }
+                }
+                break;
+            }
+            case (TexelBuffer): {
+                for (uint32_t i = 0; i < descriptor_count; ++i) {
                     if (descriptors_[start_idx + i]->updated) {
                         auto bufferview = static_cast<TexelDescriptor *>(descriptors_[start_idx + i].get())->GetBufferView();
                         auto bv_state = GetBufferViewState(device_data_, bufferview);
                         if (bv_state) {
-                            buffer_set->insert(bv_state->create_info.buffer);
+                            auto buff_state = GetBufferState(device_data_, bv_state->create_info.buffer);
+                            if (buff_state) {
+                                update_function(cmd, update_vector, buff_state->binding, false);
+                                num_updates++;
+                            }
+                        }
+                    }
+                }
+                break;
+            }
+            case (GeneralBuffer): {
+                for (uint32_t i = 0; i < descriptor_count; ++i) {
+                    if (descriptors_[start_idx + i]->updated) {
+                        auto buff_state = GetBufferState(
+                            device_data_, static_cast<BufferDescriptor *>(descriptors_[start_idx + i].get())->GetBuffer());
+                        if (buff_state) {
+                            update_function(cmd, update_vector, buff_state->binding, false);
                             num_updates++;
                         }
                     }
                 }
-            } else if (GeneralBuffer == descriptors_[start_idx]->descriptor_class) {
-                for (uint32_t i = 0; i < p_layout_->GetDescriptorCountFromBinding(binding); ++i) {
-                    if (descriptors_[start_idx + i]->updated) {
-                        buffer_set->insert(static_cast<BufferDescriptor *>(descriptors_[start_idx + i].get())->GetBuffer());
-                        num_updates++;
-                    }
-                }
+                break;
             }
+            default:
+                // Don't need to do anything for Sampler case
+                break;
         }
     }
     return num_updates;

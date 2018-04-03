@@ -446,6 +446,8 @@ enum CMD_TYPE {
     CMD_ENDRENDERPASS,
     CMD_EXECUTECOMMANDS,
     CMD_FILLBUFFER,
+    CMD_INITATOMICCOUNTERS,
+    CMD_LOADATOMICCOUNTERS,
     CMD_NEXTSUBPASS,
     CMD_PIPELINEBARRIER,
     CMD_PROCESSCOMMANDSNVX,
@@ -456,6 +458,7 @@ enum CMD_TYPE {
     CMD_RESETEVENT,
     CMD_RESETQUERYPOOL,
     CMD_RESOLVEIMAGE,
+    CMD_SAVEATOMICCOUNTERS,
     CMD_SETBLENDCONSTANTS,
     CMD_SETDEPTHBIAS,
     CMD_SETDEPTHBOUNDS,
@@ -473,6 +476,283 @@ enum CMD_TYPE {
     CMD_UPDATEBUFFER,
     CMD_WAITEVENTS,
     CMD_WRITETIMESTAMP,
+    CMD_COUNT
+};
+
+// Struct for mapping a cmd to its permanent default pipe/access flags
+// Draw/Dispatch/ClearAttachments commands will also add in some flags dynamically based on current state
+struct CmdFlags {
+    VkPipelineStageFlags stage_flags;
+    VkAccessFlags access_flags;
+};
+
+static const uint32_t READ_INDEX = 0;
+static const uint32_t WRITE_INDEX = 1;
+
+// Per-cmd read/write flags Read flags in slot 0, Write in 1
+constexpr CmdFlags CommandToFlags[CMD_COUNT + 1][2] = {
+    //    CMD_NONE,
+    {{0, 0}, {0, 0}},
+    //    CMD_BEGINQUERY,
+    {{0, 0}, {0, 0}},
+    //    CMD_BEGINRENDERPASS,
+    {{VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, 0}, {0, 0}},
+    //    CMD_BINDDESCRIPTORSETS,
+    {{0, 0}, {0, 0}},
+    //    CMD_BINDINDEXBUFFER,
+    {{0, 0}, {0, 0}},
+    //    CMD_BINDPIPELINE,
+    {{0, 0}, {0, 0}},
+    //    CMD_BINDVERTEXBUFFERS,
+    {{0, 0}, {0, 0}},
+    //    CMD_BLITIMAGE,
+    {{VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT},
+     {VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
+      VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT}},
+    //    CMD_CLEARATTACHMENTS,
+    {{0, 0}, {VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, 0}},
+    //    CMD_CLEARCOLORIMAGE,
+    {{0, 0},
+     {VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
+      VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT}},
+    //    CMD_CLEARDEPTHSTENCILIMAGE,
+    {{0, 0},
+     {VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
+      VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT}},
+    //    CMD_COPYBUFFER,
+    {{VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT},
+     {VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
+      VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT}},
+    //    CMD_COPYBUFFERTOIMAGE,
+    {{VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT},
+     {VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
+      VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT}},
+    //    CMD_COPYIMAGE,
+    {{VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT},
+     {VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
+      VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT}},
+    //    CMD_COPYIMAGETOBUFFER,
+    {{VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT},
+     {VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
+      VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT}},
+    //    CMD_COPYQUERYPOOLRESULTS,
+    {{0, 0},
+     {VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
+      VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT}},
+    //    CMD_DEBUGMARKERBEGINEXT,
+    {{0, 0}, {0, 0}},
+    //    CMD_DEBUGMARKERENDEXT,
+    {{0, 0}, {0, 0}},
+    //    CMD_DEBUGMARKERINSERTEXT,
+    {{0, 0}, {0, 0}},
+    //    CMD_DISPATCH,
+    {{VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+      VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_SHADER_READ_BIT},
+     {VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0}},
+    //    CMD_DISPATCHBASEKHX,
+    {{VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+      VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_SHADER_READ_BIT},
+     {VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0}},
+    //    CMD_DISPATCHINDIRECT,
+    {{VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+      VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_INDIRECT_COMMAND_READ_BIT},
+     {VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0}},
+    //    CMD_DRAW,
+    {{VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_VERTEX_INPUT_BIT |
+          VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
+      VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_SHADER_READ_BIT},
+     {VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, 0}},
+    //    CMD_DRAWINDEXED,
+    {{VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_VERTEX_INPUT_BIT |
+          VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
+      VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_INDEX_READ_BIT | VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_SHADER_READ_BIT},
+     {VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, 0}},
+    //    CMD_DRAWINDEXEDINDIRECT,
+    {{VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_VERTEX_INPUT_BIT |
+          VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
+      VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_INDEX_READ_BIT | VK_ACCESS_INDIRECT_COMMAND_READ_BIT |
+          VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_SHADER_READ_BIT},
+     {VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, 0}},
+    //    CMD_DRAWINDEXEDINDIRECTCOUNTAMD,
+    {{VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_VERTEX_INPUT_BIT |
+          VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
+      VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_INDEX_READ_BIT | VK_ACCESS_INDIRECT_COMMAND_READ_BIT |
+          VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_SHADER_READ_BIT},
+     {VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, 0}},
+    //    CMD_DRAWINDIRECT,
+    {{VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_VERTEX_INPUT_BIT |
+          VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
+      VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT |
+          VK_ACCESS_SHADER_READ_BIT},
+     {VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, 0}},
+    //    CMD_DRAWINDIRECTCOUNTAMD, TODO : Make sure these are right
+    {{VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_VERTEX_INPUT_BIT |
+          VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
+      VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT |
+          VK_ACCESS_SHADER_READ_BIT},
+     {VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, 0}},
+    //    CMD_ENDCOMMANDBUFFER,  // Should be last command in any RECORDED cmd buffer
+    {{0, 0}, {0, 0}},
+    //    CMD_ENDQUERY,
+    {{0, 0}, {0, 0}},
+    //    CMD_ENDRENDERPASS,
+    {{VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, 0}, {0, 0}},
+    //    CMD_EXECUTECOMMANDS,
+    {{0, 0}, {0, 0}},
+    //    CMD_FILLBUFFER,
+    {{0, 0},
+     {VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
+      VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT}},
+    //    CMD_INITATOMICCOUNTERS,
+    {{0, 0}, {0, 0}},
+    //    CMD_LOADATOMICCOUNTERS,
+    {{0, 0}, {0, 0}},
+    //    CMD_NEXTSUBPASS,
+    {{VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, 0}, {0, 0}},
+    //    CMD_PIPELINEBARRIER,
+    {{0, 0}, {0, 0}},
+    //    CMD_PROCESSCOMMANDSNVX, TODO : Update these flags
+    {{0, 0}, {0, 0}},
+    //    CMD_PUSHCONSTANTS,
+    {{0, 0}, {0, 0}},
+    //    CMD_PUSHDESCRIPTORSETKHR,
+    {{0, 0}, {0, 0}},
+    //    CMD_PUSHDESCRIPTORSETWITHTEMPLATEKHR,
+    {{0, 0}, {0, 0}},
+    //    CMD_RESERVESPACEFORCOMMANDSNVX,
+    {{0, 0}, {0, 0}},
+    //    CMD_RESETEVENT,
+    {{0, 0}, {0, 0}},
+    //    CMD_RESETQUERYPOOL,
+    {{0, 0}, {0, 0}},
+    //    CMD_RESOLVEIMAGE,
+    {{VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT},
+     {VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
+      VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT}},
+    //    CMD_SAVEATOMICCOUNTERS,
+    {{0, 0}, {0, 0}},
+    //    CMD_SETBLENDCONSTANTS,
+    {{0, 0}, {0, 0}},
+    //    CMD_SETDEPTHBIAS,
+    {{0, 0}, {0, 0}},
+    //    CMD_SETDEPTHBOUNDS,
+    {{0, 0}, {0, 0}},
+    //    CMD_SETDEVICEMASKKHX,
+    {{0, 0}, {0, 0}},
+    //    CMD_SETDISCARDRECTANGLEEXT,
+    {{0, 0}, {0, 0}},
+    //    CMD_SETEVENT,
+    {{0, 0}, {0, 0}},
+    //    CMD_SETLINEWIDTH,
+    {{0, 0}, {0, 0}},
+    //    CMD_SETSAMPLELOCATIONSEXT,
+    {{0, 0}, {0, 0}},
+    //    CMD_SETSCISSOR,
+    {{0, 0}, {0, 0}},
+    //    CMD_SETSTENCILCOMPAREMASK,
+    {{0, 0}, {0, 0}},
+    //    CMD_SETSTENCILREFERENCE,
+    {{0, 0}, {0, 0}},
+    //    CMD_SETSTENCILWRITEMASK,
+    {{0, 0}, {0, 0}},
+    //    CMD_SETVIEWPORT,
+    {{0, 0}, {0, 0}},
+    //    CMD_SETVIEWPORTWSCALINGNV,
+    {{0, 0}, {0, 0}},
+    //    CMD_UPDATEBUFFER,
+    {{0, 0},
+     {VK_PIPELINE_STAGE_ALL_COMMANDS_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
+      VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT}},
+    //    CMD_WAITEVENTS,
+    {{0, 0}, {0, 0}},
+    //    CMD_WRITETIMESTAMP,
+    {{0, 0}, {0, 0}},
+    // MAGIC NUMBER ENTRY TO MAKE SURE ARRAY IS CORRECT SIZE
+    {{0, 0}, {0, 0xDEADBEEF}},
+};
+
+static_assert((CommandToFlags[CMD_WRITETIMESTAMP + 1][WRITE_INDEX].access_flags) == (0xDEADBEEF),
+              "CommandToFlags is not correct size. Must have an entry for each CMD_TYPE.");
+
+// fwd decl class for ptr below
+class Command;
+// Store details of memory access by a cmd
+struct MemoryAccess {
+    MemoryAccess()
+        : precise(false),
+          write(false),
+          cmd(nullptr),
+          location{0, 0, 0},
+          src_stage_flags(0),
+          src_access_flags(0),
+          dst_stage_flags(0),
+          dst_access_flags(0),
+          mem_barrier(false),
+          pipe_barrier(false),
+          synch_commands{} {};
+    MemoryAccess(VkDeviceMemory mem, VkDeviceSize offset, VkDeviceSize size, bool precise)
+        : precise(precise),
+          write(false),
+          cmd(nullptr),
+          location{mem, offset, size},
+          src_stage_flags(0),
+          src_access_flags(0),
+          dst_stage_flags(0),
+          dst_access_flags(0),
+          mem_barrier(false),
+          pipe_barrier(false),
+          synch_commands{} {};
+
+    // Once an appropriate barrier has been identified for an access, it will be Visible
+    bool Visible() const {
+        auto visible = (mem_barrier || (pipe_barrier && write));
+        return visible;
+    };
+    bool precise;          // True if exact bounds of mem access are known, false if bounds are conservative
+    bool write;            // False for read access
+    Command *cmd;          // Ptr to cmd that makes this access
+    MEM_BINDING location;  // mem/offset/size being accessed
+    // The source flags cover all access bits for the original memory access
+    //  These flags are checked against synch objects to check if scope covers this access
+    VkPipelineStageFlags src_stage_flags;  // Stage flags within scope of this access
+    VkAccessFlags src_access_flags;        // Access flags within scope of this access
+    // The following members are only set when a valid synch object is added following this access
+    //  When such an event occurs, the relevant dest scope flags are recorded here
+    VkPipelineStageFlags dst_stage_flags;  // Stage flags within scope of this access
+    VkAccessFlags dst_access_flags;        // Access flags within scope of this access
+    // These bool shortcuts indicate if memory and/or pipeline barriers have occurred since this access
+    bool mem_barrier;   // True after relevant mem barrier added to CB following this access
+    bool pipe_barrier;  // True after relevant mem barrier added to CB following this access
+    // A vector of all synch commands that affect this memory access
+    std::vector<Command *> synch_commands;  // Relevent synch commands
+};
+
+class Command {
+   public:
+    Command(CMD_TYPE type, size_t seq, GLOBAL_CB_NODE *gcb) : type(type), seq(seq), cb_state(gcb), replay(false), synch(false){};
+    Command(CMD_TYPE type, size_t seq, GLOBAL_CB_NODE *gcb, bool synch)
+        : type(type), seq(seq), cb_state(gcb), replay(false), synch(synch){};
+    virtual ~Command() {}
+    void AddMemoryAccess(MemoryAccess access) { mem_accesses.push_back(access); };
+    void SetSeq(size_t seq_num) { seq = seq_num; };
+    CMD_TYPE type;
+    size_t seq;  // seq # of cmd in this cmd buffer
+    GLOBAL_CB_NODE *cb_state;
+    bool replay;                             // Track if cmd has been replayed during QueueSubmit
+    bool synch;
+    std::vector<MemoryAccess> mem_accesses;  // vector of all mem accesses by this cmd
+};
+
+class SynchCommand : public Command {
+   public:
+    SynchCommand(CMD_TYPE type, size_t seq, GLOBAL_CB_NODE *gcb, VkPipelineStageFlags src_stage_flags,
+                 VkPipelineStageFlags dst_stage_flags)
+        : Command(type, seq, gcb, true), src_stage_flags(src_stage_flags), dst_stage_flags(dst_stage_flags){};
+    VkPipelineStageFlags src_stage_flags;
+    VkPipelineStageFlags dst_stage_flags;
+    std::vector<VkMemoryBarrier> global_barriers;
+    std::vector<VkBufferMemoryBarrier> buffer_barriers;
+    std::vector<VkImageMemoryBarrier> image_barriers;
 };
 
 enum CB_STATE {
@@ -723,6 +1003,25 @@ struct LAST_BOUND_STATE {
         dynamicOffsets.clear();
     }
 };
+
+// Struct container to group sets of r/w buffers & images & r/w mem access maps
+struct MemAccessGroup {
+    std::unordered_set<VkImageView> read_images;
+    std::unordered_set<VkBuffer> read_buffers;
+    std::unordered_set<VkImageView> write_images;
+    std::unordered_set<VkBuffer> write_buffers;
+    std::vector<std::unordered_map<VkDeviceMemory, std::vector<MemoryAccess>>> access_maps;
+    MemAccessGroup() { access_maps.resize(2); }
+    void reset() {
+        read_images.clear();
+        read_buffers.clear();
+        write_images.clear();
+        write_buffers.clear();
+        access_maps.clear();
+        access_maps.resize(2);
+    }
+};
+
 // Cmd Buffer Wrapper Struct - TODO : This desperately needs its own class
 struct GLOBAL_CB_NODE : public BASE_NODE {
     VkCommandBuffer commandBuffer;
@@ -756,6 +1055,11 @@ struct GLOBAL_CB_NODE : public BASE_NODE {
     //  dependencies that have been broken : either destroyed objects, or updated descriptor sets
     std::unordered_set<VK_OBJECT> object_bindings;
     std::vector<VK_OBJECT> broken_bindings;
+    //
+    std::vector<std::unique_ptr<Command>> commands;  // Commands in this command buffer
+    std::vector<SynchCommand *> synch_commands;      // Synch Commands in this command buffer
+    // Track all mem_accesses by this CB at the point of a draw
+    MemAccessGroup mem_accesses;
 
     std::unordered_set<VkEvent> waitedEvents;
     std::vector<VkEvent> writeEventsBeforeWait;
@@ -770,9 +1074,6 @@ struct GLOBAL_CB_NODE : public BASE_NODE {
     DRAW_DATA currentDrawData;
     bool vertex_buffer_used;  // Track for perf warning to make sure any bound vtx buffer used
     VkCommandBuffer primaryCommandBuffer;
-    // Track images and buffers that are updated by this CB at the point of a draw
-    std::unordered_set<VkImageView> updateImages;
-    std::unordered_set<VkBuffer> updateBuffers;
     // If primary, the secondary command buffers we will call.
     // If secondary, the primary command buffers we will be called by.
     std::unordered_set<GLOBAL_CB_NODE *> linkedCommandBuffers;
