@@ -1,7 +1,6 @@
 cmake_minimum_required (VERSION 2.8.11)
 
 set(LAYER_JSON_FILES
-    VkLayer_wrap_objects
     VkLayer_device_profile_api
     VkLayer_test
     )
@@ -103,13 +102,6 @@ else()
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wpointer-arith -Wno-unused-function")
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wpointer-arith -Wno-unused-function")
 endif()
-
-set (WRAP_SRCS
-       wrap_objects.cpp
-       ${CMAKE_CURRENT_SOURCE_DIR}/../../layers/vk_layer_table.cpp
-       ${CMAKE_CURRENT_SOURCE_DIR}/../../layers/vk_layer_extension_utils.cpp
-       )
-add_vk_layer(wrap_objects ${WRAP_SRCS})
 
 set (TEST_SRCS
        test.cpp
