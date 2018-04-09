@@ -24,7 +24,7 @@ NC='\033[0m' # No Color
 
 # TRAVIS_COMMIT_RANGE contains range of commits for PR
 
-COMMIT_TEXT=$(git log --oneline TRAVIS_COMMIT_RANGE)
+COMMIT_TEXT=$(git log --oneline ${TRAVIS_COMMIT_RANGE})
 
 
 if [ -z "${COMMIT_TEXT}" ]; then
