@@ -114,7 +114,6 @@ if(WIN32)
     endforeach()
 
    file(COPY cube.vcxproj.user DESTINATION ${CMAKE_BINARY_DIR}/demos)
-   file(COPY vulkaninfo.vcxproj.user DESTINATION ${CMAKE_BINARY_DIR}/demos)
 endif()
 
 add_custom_command(
@@ -147,28 +146,6 @@ endif()
 include_directories(
     ${DEMO_INCLUDE_DIRS}
     )
-
-######################################################################################
-# vulkaninfo
-add_executable(vulkaninfo vulkaninfo.c)
-target_link_libraries(vulkaninfo Vulkan::Vulkan)
-if(APPLE)
-    set_target_properties(${API_LOWERCASE}info PROPERTIES
-        INSTALL_RPATH "@loader_path/../lib"
-    )
-    install(TARGETS ${API_LOWERCASE}info DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-endif()
-
-# Create vulkaninfo application bundle for MacOS
-if(APPLE)
-    include(macOS/vulkaninfo/vulkaninfo.cmake)
-endif()
-
-if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
-    if(INSTALL_LVL_FILES)
-        install(TARGETS ${API_LOWERCASE}info DESTINATION ${CMAKE_INSTALL_BINDIR})
-    endif()
-endif()
 
 ######################################################################################
 # cube
