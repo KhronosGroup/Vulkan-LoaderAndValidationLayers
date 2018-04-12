@@ -1,3 +1,4 @@
+include_directories("${PROJECT_SOURCE_DIR}/include")
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_BINARY_DIR}
@@ -5,7 +6,107 @@ include_directories(
     ${CMAKE_BINARY_DIR}
 )
 
-# Check for the existance of the secure_getenv or __secure_getenv commands
+set(SCRIPTS_DIR "${PROJECT_SOURCE_DIR}/scripts")
+
+
+# Enable cmake folders
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+set(LOADER_TARGET_FOLDER loader_cmake_targets)
+
+find_package(PythonInterp 3 REQUIRED)
+set (PYTHON_CMD ${PYTHON_EXECUTABLE})
+
+# Define macro used for building vkxml generated files
+macro(run_vk_xml_generate dependency output)
+    add_custom_command(OUTPUT ${output}
+    COMMAND ${PYTHON_CMD} ${SCRIPTS_DIR}/lvl_genvk.py -registry ${SCRIPTS_DIR}/vk.xml ${output}
+    DEPENDS ${SCRIPTS_DIR}/vk.xml ${SCRIPTS_DIR}/generator.py ${SCRIPTS_DIR}/${dependency} ${SCRIPTS_DIR}/lvl_genvk.py ${SCRIPTS_DIR}/reg.py
+    )
+endmacro()
+
+add_custom_target(generate_helper_files DEPENDS
+    vk_object_types.h
+    vk_layer_dispatch_table.h
+    )
+set_target_properties(generate_helper_files PROPERTIES FOLDER ${LOADER_TARGET_FOLDER})
+
+# Rules to build generated helper files
+run_vk_xml_generate(loader_extension_generator.py vk_layer_dispatch_table.h)
+run_vk_xml_generate(helper_file_generator.py vk_object_types.h)
+
+
+
+if (CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
+    set(COMMON_COMPILE_FLAGS "-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers")
+    set(COMMON_COMPILE_FLAGS "${COMMON_COMPILE_FLAGS} -fno-strict-aliasing -fno-builtin-memcmp")
+
+    # For GCC version 7.1 or greater, we need to disable the implicit fallthrough warning since
+    # there's no consistent way to satisfy all compilers until they all accept the C++17 standard
+    if (CMAKE_COMPILER_IS_GNUCC AND NOT (CMAKE_CXX_COMPILER_VERSION LESS 7.1))
+        set(COMMON_COMPILE_FLAGS "${COMMON_COMPILE_FLAGS} -Wimplicit-fallthrough=0")
+    endif()
+
+    if (APPLE)
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${COMMON_COMPILE_FLAGS}")
+    else()
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99 ${COMMON_COMPILE_FLAGS}")
+    endif()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${COMMON_COMPILE_FLAGS} -std=c++11 -fno-rtti")
+    if (UNIX)
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fvisibility=hidden")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=hidden")
+    endif()
+endif()
+
+if(WIN32)
+    # Treat warnings as errors
+    add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/WX>")
+    # Disable RTTI
+    add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/GR->")
+    # Warn about nested declarations
+    add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/w34456>")
+    # Warn about potentially uninitialized variables
+    add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/w34701>")
+    add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/w34703>")
+    # Warn about different indirection types.
+    add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/w34057>")
+    # Warn about signed/unsigned mismatch.
+    add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/w34245>")
+endif()
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    include(FindPkgConfig)
+    option(BUILD_WSI_XCB_SUPPORT "Build XCB WSI support" ON)
+    option(BUILD_WSI_XLIB_SUPPORT "Build Xlib WSI support" ON)
+    option(BUILD_WSI_WAYLAND_SUPPORT "Build Wayland WSI support" ON)
+    option(BUILD_WSI_MIR_SUPPORT "Build Mir WSI support" OFF)
+
+    if (BUILD_WSI_XCB_SUPPORT)
+        find_package(XCB REQUIRED)
+    endif()
+
+    if (BUILD_WSI_XLIB_SUPPORT)
+        find_package(X11 REQUIRED)
+    endif()
+
+    if (BUILD_WSI_WAYLAND_SUPPORT)
+        find_package(Wayland REQUIRED)
+        include_directories(${WAYLAND_CLIENT_INCLUDE_DIR})
+    endif()
+
+    if (BUILD_WSI_MIR_SUPPORT)
+        find_package(Mir REQUIRED)
+    endif()
+
+    # This option can be used to suppress the installation of artifacts from the
+    # Vulkan-LoaderAndValidationLayers repo while running "make install" for the
+    # VulkanTools and VulkanSamples repos.  This can be used to prevent the
+    # overwriting of LVL artifacts when installing these downstream repos.
+    option(INSTALL_LVL_FILES "Install content from LoaderAndValidationLayers repo" ON)
+endif()
+
+
+
+# Check for the existence of the secure_getenv or __secure_getenv commands
 include(CheckFunctionExists)
 CHECK_FUNCTION_EXISTS(secure_getenv HAVE_SECURE_GETENV)
 CHECK_FUNCTION_EXISTS(__secure_getenv HAVE___SECURE_GETENV)
@@ -106,9 +207,9 @@ if (WIN32)
         add_dependencies(asm_offset generate_helper_files loader_gen_files)
         add_custom_command(OUTPUT gen_defines.asm DEPENDS asm_offset COMMAND asm_offset MASM)
         add_custom_target(loader_asm_gen_files DEPENDS gen_defines.asm)
-        set_target_properties(loader_asm_gen_files PROPERTIES FOLDER ${LVL_TARGET_FOLDER})
+        set_target_properties(loader_asm_gen_files PROPERTIES FOLDER ${LOADER_TARGET_FOLDER})
     else()
-        message(WARNING "Could not find working MASM assebler\n${ASM_FAILURE_MSG}")
+        message(WARNING "Could not find working MASM assembler\n${ASM_FAILURE_MSG}")
         set(OPT_LOADER_SRCS ${OPT_LOADER_SRCS} unknown_ext_chain.c)
         add_custom_target(loader_asm_gen_files)
     endif()
@@ -145,7 +246,7 @@ add_custom_target(loader_gen_files DEPENDS
         vk_loader_extensions.h
         vk_loader_extensions.c
     )
-set_target_properties(loader_gen_files PROPERTIES FOLDER ${LVL_TARGET_FOLDER})
+set_target_properties(loader_gen_files PROPERTIES FOLDER ${LOADER_TARGET_FOLDER})
 
 if (WIN32)
     # Use static MSVCRT libraries
