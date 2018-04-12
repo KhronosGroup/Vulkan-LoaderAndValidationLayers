@@ -87,9 +87,11 @@ set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
 if(WIN32)
-  set (LIBRARIES "${API_LOWERCASE}-${MAJOR}")
+####  set (LIBRARIES "vulkan-1")
+  set (LIBRARIES "Vulkan::Vulkan")
 elseif(UNIX)
-  set (LIBRARIES "${API_LOWERCASE}")
+  set (LIBRARIES "Vulkan::Vulkan")
+###  set (LIBRARIES "vulkan")
 else()
 endif()
 
@@ -129,8 +131,7 @@ add_custom_command(
     MAIN_DEPENDENCY ${PROJECT_SOURCE_DIR}/demos/cube.frag
     DEPENDS ${PROJECT_SOURCE_DIR}/demos/cube.frag ${GLSLANG_VALIDATOR}
 )
-
-include_directories(${CMAKE_CURRENT_BINARY_DIR})
+include_directories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 
 
 if(WIN32)
@@ -149,8 +150,8 @@ include_directories(
 
 ######################################################################################
 # vulkaninfo
-add_executable(${API_LOWERCASE}info vulkaninfo.c)
-target_link_libraries(${API_LOWERCASE}info ${LIBRARIES})
+add_executable(vulkaninfo vulkaninfo.c)
+target_link_libraries(vulkaninfo Vulkan::Vulkan)
 if(APPLE)
     set_target_properties(${API_LOWERCASE}info PROPERTIES
         INSTALL_RPATH "@loader_path/../lib"
