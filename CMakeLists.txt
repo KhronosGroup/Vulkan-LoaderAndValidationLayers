@@ -146,7 +146,6 @@ else()
 endif()
 
 option(BUILD_LOADER "Build loader" ON)
-option(BUILD_TESTS "Build tests" OFF)
 
 set (PYTHON_CMD ${PYTHON_EXECUTABLE})
 
@@ -213,8 +212,4 @@ add_definitions(-DAPI_NAME="${API_NAME}")
 # loader: Generic VULKAN ICD loader
 if(BUILD_LOADER)
     add_subdirectory(loader)
-endif()
-
-if(BUILD_TESTS)
-    add_subdirectory(tests)
 endif()
