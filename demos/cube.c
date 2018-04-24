@@ -355,6 +355,7 @@ struct demo {
 
     VkInstance inst;
     VkPhysicalDevice gpu;
+    VkExtensionProperties *device_extensions;
     VkDevice device;
     VkQueue graphics_queue;
     VkQueue present_queue;
@@ -3175,12 +3176,12 @@ static void demo_init_vk(struct demo *demo) {
     assert(!err);
 
     if (device_extension_count > 0) {
-        VkExtensionProperties *device_extensions = malloc(sizeof(VkExtensionProperties) * device_extension_count);
-        err = vkEnumerateDeviceExtensionProperties(demo->gpu, NULL, &device_extension_count, device_extensions);
+        demo->device_extensions = malloc(sizeof(VkExtensionProperties) * device_extension_count);
+        err = vkEnumerateDeviceExtensionProperties(demo->gpu, NULL, &device_extension_count, demo->device_extensions);
         assert(!err);
 
         for (uint32_t i = 0; i < device_extension_count; i++) {
-            if (!strcmp(VK_KHR_SWAPCHAIN_EXTENSION_NAME, device_extensions[i].extensionName)) {
+            if (!strcmp(VK_KHR_SWAPCHAIN_EXTENSION_NAME, demo->device_extensions[i].extensionName)) {
                 swapchainExtFound = 1;
                 demo->extension_names[demo->enabled_extension_count++] = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
             }
@@ -3194,7 +3195,7 @@ static void demo_init_vk(struct demo *demo) {
             // enumerated.
             demo->VK_KHR_incremental_present_enabled = false;
             for (uint32_t i = 0; i < device_extension_count; i++) {
-                if (!strcmp(VK_KHR_INCREMENTAL_PRESENT_EXTENSION_NAME, device_extensions[i].extensionName)) {
+                if (!strcmp(VK_KHR_INCREMENTAL_PRESENT_EXTENSION_NAME, demo->device_extensions[i].extensionName)) {
                     demo->extension_names[demo->enabled_extension_count++] = VK_KHR_INCREMENTAL_PRESENT_EXTENSION_NAME;
                     demo->VK_KHR_incremental_present_enabled = true;
                     DbgMsg("VK_KHR_incremental_present extension enabled\n");
@@ -3213,7 +3214,7 @@ static void demo_init_vk(struct demo *demo) {
             // enumerated.
             demo->VK_GOOGLE_display_timing_enabled = false;
             for (uint32_t i = 0; i < device_extension_count; i++) {
-                if (!strcmp(VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME, device_extensions[i].extensionName)) {
+                if (!strcmp(VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME, demo->device_extensions[i].extensionName)) {
                     demo->extension_names[demo->enabled_extension_count++] = VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME;
                     demo->VK_GOOGLE_display_timing_enabled = true;
                     DbgMsg("VK_GOOGLE_display_timing extension enabled\n");
@@ -3224,8 +3225,6 @@ static void demo_init_vk(struct demo *demo) {
                 DbgMsg("VK_GOOGLE_display_timing extension NOT AVAILABLE\n");
             }
         }
-
-        free(device_extensions);
     }
 
     if (!swapchainExtFound) {
@@ -3326,6 +3325,11 @@ static void demo_create_device(struct demo *demo) {
     }
     err = vkCreateDevice(demo->gpu, &device, NULL, &demo->device);
     assert(!err);
+
+    // Free the device extensions now that we've created the device and don't need
+    // the strings any more.
+    free(demo->device_extensions);
+    demo->device_extensions = NULL;
 }
 
 static void demo_init_vk_swapchain(struct demo *demo) {
