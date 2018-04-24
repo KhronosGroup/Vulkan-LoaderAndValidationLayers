@@ -3036,8 +3036,14 @@ bool ValidateObjectNotInUse(const layer_data *dev_data, BASE_NODE *obj_node, VK_
 }
 
 static bool PreCallValidateFreeMemory(layer_data *dev_data, VkDeviceMemory mem, DEVICE_MEM_INFO **mem_info, VK_OBJECT *obj_struct) {
-    *mem_info = GetMemObjInfo(dev_data, mem);
     *obj_struct = {HandleToUint64(mem), kVulkanObjectTypeDeviceMemory};
+    if (mem == VK_NULL_HANDLE) {
+        *mem_info = nullptr;
+        return false;
+    } else {
+        *mem_info = GetMemObjInfo(dev_data, mem);
+    }
+
     if (dev_data->instance_data->disabled.free_memory) return false;
     bool skip = false;
     if (*mem_info) {
@@ -3048,6 +3054,24 @@ static bool PreCallValidateFreeMemory(layer_data *dev_data, VkDeviceMemory mem, 
 
 static void PostCallRecordFreeMemory(layer_data *dev_data, VkDeviceMemory mem, DEVICE_MEM_INFO *mem_info, VK_OBJECT obj_struct) {
     // Clear mem binding for any bound objects
+
+    // If mem_info is null (and mem isn't), this error will be reported by object_tracker, so silently be defensive here.
+    if (!mem_info) return;
+
+    // device_data has been unlocked between Pre and Post.  Looking to see if a racing double free occurred.
+    DEVICE_MEM_INFO *mem_info_check = GetMemObjInfo(dev_data, mem);
+    if (mem_info_check != mem_info) {  // Device data memory object information has changed since the Pre call
+        log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_MEMORY_EXT,
+                HandleToUint64(mem), VALIDATION_ERROR_UNDEFINED,
+                "vkFreeMemory(): Device memory 0x%" PRIx64 " on device 0x%" PRIx64
+                ". INTERNAL VALIDATION STATE CHANGED (core validation layer) during free. Potentially a "
+                "'Host Synchronization' error, combined with a double free operation",
+                HandleToUint64(mem), HandleToUint64(dev_data->device));
+        // Assume the old state is stale, which means the new state is a later allocation, so any cleanup we do will corrupt its
+        // state, and thus do nothing
+        return;
+    }
+
     for (auto obj : mem_info->obj_bindings) {
         log_msg(dev_data->report_data, VK_DEBUG_REPORT_INFORMATION_BIT_EXT, get_debug_report_enum[obj.type], obj.handle,
                 MEMTRACK_FREED_MEM_REF, "VK Object 0x%" PRIx64 " still has a reference to mem obj 0x%" PRIx64,
