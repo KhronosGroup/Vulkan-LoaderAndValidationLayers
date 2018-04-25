@@ -389,6 +389,17 @@ DEVICE_MEM_INFO *GetMemObjInfo(const layer_data *dev_data, const VkDeviceMemory 
     return mem_it->second.get();
 }
 
+// Extracts (moves) the mem info structure from the object map, passing ownership to the caller
+std::unique_ptr<DEVICE_MEM_INFO> ExtractMemObjInfo(layer_data *dev_data, const VkDeviceMemory mem) {
+    std::unique_ptr<DEVICE_MEM_INFO> extracted;
+    auto mem_it = dev_data->memObjMap.find(mem);
+    if (mem_it != dev_data->memObjMap.end()) {
+        extracted = std::move(mem_it->second);
+        dev_data->memObjMap.erase(mem_it);
+    }
+    return extracted;
+}
+
 static void add_mem_obj_info(layer_data *dev_data, void *object, const VkDeviceMemory mem,
                              const VkMemoryAllocateInfo *pAllocateInfo) {
     assert(object != NULL);
@@ -3022,7 +3033,7 @@ VKAPI_ATTR VkResult VKAPI_CALL AllocateMemory(VkDevice device, const VkMemoryAll
 }
 
 // For given obj node, if it is use, flag a validation error and return callback result, else return false
-bool ValidateObjectNotInUse(const layer_data *dev_data, BASE_NODE *obj_node, VK_OBJECT obj_struct, const char *caller_name,
+bool ValidateObjectNotInUse(const layer_data *dev_data, const BASE_NODE *obj_node, VK_OBJECT obj_struct, const char *caller_name,
                             UNIQUE_VALIDATION_ERROR_CODE error_code) {
     if (dev_data->instance_data->disabled.object_in_use) return false;
     bool skip = false;
@@ -3035,19 +3046,23 @@ bool ValidateObjectNotInUse(const layer_data *dev_data, BASE_NODE *obj_node, VK_
     return skip;
 }
 
-static bool PreCallValidateFreeMemory(layer_data *dev_data, VkDeviceMemory mem, DEVICE_MEM_INFO **mem_info, VK_OBJECT *obj_struct) {
+// Remove the mem_info from the map to avoid race with Free/Alloc memory when unique_objects is disabled
+static void PreCallRecordFreeMemory(layer_data *dev_data, VkDeviceMemory mem, std::unique_ptr<DEVICE_MEM_INFO> *mem_info,
+                                    VK_OBJECT *obj_struct) {
     *obj_struct = {HandleToUint64(mem), kVulkanObjectTypeDeviceMemory};
     if (mem == VK_NULL_HANDLE) {
         *mem_info = nullptr;
-        return false;
     } else {
-        *mem_info = GetMemObjInfo(dev_data, mem);
+        *mem_info = ExtractMemObjInfo(dev_data, mem);
     }
+}
 
+static bool PreCallValidateFreeMemory(layer_data *dev_data, VkDeviceMemory mem, const DEVICE_MEM_INFO *mem_info,
+                                      const VK_OBJECT &obj_struct) {
     if (dev_data->instance_data->disabled.free_memory) return false;
     bool skip = false;
-    if (*mem_info) {
-        skip |= ValidateObjectNotInUse(dev_data, *mem_info, *obj_struct, "vkFreeMemory", VALIDATION_ERROR_2880054a);
+    if (mem_info) {
+        skip |= ValidateObjectNotInUse(dev_data, mem_info, obj_struct, "vkFreeMemory", VALIDATION_ERROR_2880054a);
     }
     return skip;
 }
@@ -3057,20 +3072,6 @@ static void PostCallRecordFreeMemory(layer_data *dev_data, VkDeviceMemory mem, D
 
     // If mem_info is null (and mem isn't), this error will be reported by object_tracker, so silently be defensive here.
     if (!mem_info) return;
-
-    // device_data has been unlocked between Pre and Post.  Looking to see if a racing double free occurred.
-    DEVICE_MEM_INFO *mem_info_check = GetMemObjInfo(dev_data, mem);
-    if (mem_info_check != mem_info) {  // Device data memory object information has changed since the Pre call
-        log_msg(dev_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_MEMORY_EXT,
-                HandleToUint64(mem), VALIDATION_ERROR_UNDEFINED,
-                "vkFreeMemory(): Device memory 0x%" PRIx64 " on device 0x%" PRIx64
-                ". INTERNAL VALIDATION STATE CHANGED (core validation layer) during free. Potentially a "
-                "'Host Synchronization' error, combined with a double free operation",
-                HandleToUint64(mem), HandleToUint64(dev_data->device));
-        // Assume the old state is stale, which means the new state is a later allocation, so any cleanup we do will corrupt its
-        // state, and thus do nothing
-        return;
-    }
 
     for (auto obj : mem_info->obj_bindings) {
         log_msg(dev_data->report_data, VK_DEBUG_REPORT_INFORMATION_BIT_EXT, get_debug_report_enum[obj.type], obj.handle,
@@ -3095,22 +3096,26 @@ static void PostCallRecordFreeMemory(layer_data *dev_data, VkDeviceMemory mem, D
     }
     // Any bound cmd buffers are now invalid
     invalidateCommandBuffers(dev_data, mem_info->cb_bindings, obj_struct);
-    dev_data->memObjMap.erase(mem);
 }
 
 VKAPI_ATTR void VKAPI_CALL FreeMemory(VkDevice device, VkDeviceMemory mem, const VkAllocationCallbacks *pAllocator) {
     layer_data *dev_data = GetLayerDataPtr(get_dispatch_key(device), layer_data_map);
-    DEVICE_MEM_INFO *mem_info = nullptr;
+    std::unique_ptr<DEVICE_MEM_INFO> mem_info;
     VK_OBJECT obj_struct;
     unique_lock_t lock(global_lock);
-    bool skip = PreCallValidateFreeMemory(dev_data, mem, &mem_info, &obj_struct);
+    PreCallRecordFreeMemory(dev_data, mem, &mem_info, &obj_struct);
+    bool skip = PreCallValidateFreeMemory(dev_data, mem, mem_info.get(), obj_struct);
     if (!skip) {
         lock.unlock();
         dev_data->dispatch_table.FreeMemory(device, mem, pAllocator);
         lock.lock();
         if (mem != VK_NULL_HANDLE) {
-            PostCallRecordFreeMemory(dev_data, mem, mem_info, obj_struct);
+            PostCallRecordFreeMemory(dev_data, mem, mem_info.get(), obj_struct);
+            // Note that the mem_info will be freed when it goes out of scope
         }
+    } else {
+        // Reinsert the extract mem_info into the object map as we didn't free anything
+        dev_data->memObjMap[mem] = std::move(mem_info);
     }
 }
 
