@@ -3046,7 +3046,7 @@ static bool PreCallValidateFreeMemory(layer_data *dev_data, VkDeviceMemory mem, 
     return skip;
 }
 
-static void PostCallRecordFreeMemory(layer_data *dev_data, VkDeviceMemory mem, DEVICE_MEM_INFO *mem_info, VK_OBJECT obj_struct) {
+static void PreCallRecordFreeMemory(layer_data *dev_data, VkDeviceMemory mem, DEVICE_MEM_INFO *mem_info, VK_OBJECT obj_struct) {
     // Clear mem binding for any bound objects
     for (auto obj : mem_info->obj_bindings) {
         log_msg(dev_data->report_data, VK_DEBUG_REPORT_INFORMATION_BIT_EXT, get_debug_report_enum[obj.type], obj.handle,
@@ -3081,12 +3081,12 @@ VKAPI_ATTR void VKAPI_CALL FreeMemory(VkDevice device, VkDeviceMemory mem, const
     unique_lock_t lock(global_lock);
     bool skip = PreCallValidateFreeMemory(dev_data, mem, &mem_info, &obj_struct);
     if (!skip) {
+        if (mem != VK_NULL_HANDLE) {
+            // Avoid free/alloc race by recording state change before dispatching
+            PreCallRecordFreeMemory(dev_data, mem, mem_info, obj_struct);
+        }
         lock.unlock();
         dev_data->dispatch_table.FreeMemory(device, mem, pAllocator);
-        lock.lock();
-        if (mem != VK_NULL_HANDLE) {
-            PostCallRecordFreeMemory(dev_data, mem, mem_info, obj_struct);
-        }
     }
 }
 
@@ -3398,7 +3398,7 @@ static bool PreCallValidateDestroyFence(layer_data *dev_data, VkFence fence, FEN
     return skip;
 }
 
-static void PostCallRecordDestroyFence(layer_data *dev_data, VkFence fence) { dev_data->fenceMap.erase(fence); }
+static void PreCallRecordDestroyFence(layer_data *dev_data, VkFence fence) { dev_data->fenceMap.erase(fence); }
 
 VKAPI_ATTR void VKAPI_CALL DestroyFence(VkDevice device, VkFence fence, const VkAllocationCallbacks *pAllocator) {
     layer_data *dev_data = GetLayerDataPtr(get_dispatch_key(device), layer_data_map);
@@ -3409,10 +3409,10 @@ VKAPI_ATTR void VKAPI_CALL DestroyFence(VkDevice device, VkFence fence, const Vk
     bool skip = PreCallValidateDestroyFence(dev_data, fence, &fence_node, &obj_struct);
 
     if (!skip) {
+        // Pre-record to avoid Destroy/Create race
+        PreCallRecordDestroyFence(dev_data, fence);
         lock.unlock();
         dev_data->dispatch_table.DestroyFence(device, fence, pAllocator);
-        lock.lock();
-        PostCallRecordDestroyFence(dev_data, fence);
     }
 }
 
@@ -3428,7 +3428,7 @@ static bool PreCallValidateDestroySemaphore(layer_data *dev_data, VkSemaphore se
     return skip;
 }
 
-static void PostCallRecordDestroySemaphore(layer_data *dev_data, VkSemaphore sema) { dev_data->semaphoreMap.erase(sema); }
+static void PreCallRecordDestroySemaphore(layer_data *dev_data, VkSemaphore sema) { dev_data->semaphoreMap.erase(sema); }
 
 VKAPI_ATTR void VKAPI_CALL DestroySemaphore(VkDevice device, VkSemaphore semaphore, const VkAllocationCallbacks *pAllocator) {
     layer_data *dev_data = GetLayerDataPtr(get_dispatch_key(device), layer_data_map);
@@ -3437,10 +3437,10 @@ VKAPI_ATTR void VKAPI_CALL DestroySemaphore(VkDevice device, VkSemaphore semapho
     unique_lock_t lock(global_lock);
     bool skip = PreCallValidateDestroySemaphore(dev_data, semaphore, &sema_node, &obj_struct);
     if (!skip) {
+        // Pre-record to avoid Destroy/Create race
+        PreCallRecordDestroySemaphore(dev_data, semaphore);
         lock.unlock();
         dev_data->dispatch_table.DestroySemaphore(device, semaphore, pAllocator);
-        lock.lock();
-        PostCallRecordDestroySemaphore(dev_data, semaphore);
     }
 }
 
@@ -3455,7 +3455,7 @@ static bool PreCallValidateDestroyEvent(layer_data *dev_data, VkEvent event, EVE
     return skip;
 }
 
-static void PostCallRecordDestroyEvent(layer_data *dev_data, VkEvent event, EVENT_STATE *event_state, VK_OBJECT obj_struct) {
+static void PreCallRecordDestroyEvent(layer_data *dev_data, VkEvent event, EVENT_STATE *event_state, VK_OBJECT obj_struct) {
     invalidateCommandBuffers(dev_data, event_state->cb_bindings, obj_struct);
     dev_data->eventMap.erase(event);
 }
@@ -3467,12 +3467,12 @@ VKAPI_ATTR void VKAPI_CALL DestroyEvent(VkDevice device, VkEvent event, const Vk
     unique_lock_t lock(global_lock);
     bool skip = PreCallValidateDestroyEvent(dev_data, event, &event_state, &obj_struct);
     if (!skip) {
+        if (event != VK_NULL_HANDLE) {
+            // Pre-record to avoid Destroy/Create race
+            PreCallRecordDestroyEvent(dev_data, event, event_state, obj_struct);
+        }
         lock.unlock();
         dev_data->dispatch_table.DestroyEvent(device, event, pAllocator);
-        lock.lock();
-        if (event != VK_NULL_HANDLE) {
-            PostCallRecordDestroyEvent(dev_data, event, event_state, obj_struct);
-        }
     }
 }
 
@@ -3488,8 +3488,8 @@ static bool PreCallValidateDestroyQueryPool(layer_data *dev_data, VkQueryPool qu
     return skip;
 }
 
-static void PostCallRecordDestroyQueryPool(layer_data *dev_data, VkQueryPool query_pool, QUERY_POOL_NODE *qp_state,
-                                           VK_OBJECT obj_struct) {
+static void PreCallRecordDestroyQueryPool(layer_data *dev_data, VkQueryPool query_pool, QUERY_POOL_NODE *qp_state,
+                                          VK_OBJECT obj_struct) {
     invalidateCommandBuffers(dev_data, qp_state->cb_bindings, obj_struct);
     dev_data->queryPoolMap.erase(query_pool);
 }
@@ -3501,12 +3501,12 @@ VKAPI_ATTR void VKAPI_CALL DestroyQueryPool(VkDevice device, VkQueryPool queryPo
     unique_lock_t lock(global_lock);
     bool skip = PreCallValidateDestroyQueryPool(dev_data, queryPool, &qp_state, &obj_struct);
     if (!skip) {
+        if (queryPool != VK_NULL_HANDLE) {
+            // Pre-record to avoid Destroy/Create race
+            PreCallRecordDestroyQueryPool(dev_data, queryPool, qp_state, obj_struct);
+        }
         lock.unlock();
         dev_data->dispatch_table.DestroyQueryPool(device, queryPool, pAllocator);
-        lock.lock();
-        if (queryPool != VK_NULL_HANDLE) {
-            PostCallRecordDestroyQueryPool(dev_data, queryPool, qp_state, obj_struct);
-        }
     }
 }
 static bool PreCallValidateGetQueryPoolResults(layer_data *dev_data, VkQueryPool query_pool, uint32_t first_query,
@@ -3807,12 +3807,12 @@ VKAPI_ATTR void VKAPI_CALL DestroyBuffer(VkDevice device, VkBuffer buffer, const
     unique_lock_t lock(global_lock);
     bool skip = PreCallValidateDestroyBuffer(dev_data, buffer, &buffer_state, &obj_struct);
     if (!skip) {
+        if (buffer != VK_NULL_HANDLE) {
+            // Pre-record to avoid Destroy/Create race
+            PreCallRecordDestroyBuffer(dev_data, buffer, buffer_state, obj_struct);
+        }
         lock.unlock();
         dev_data->dispatch_table.DestroyBuffer(device, buffer, pAllocator);
-        lock.lock();
-        if (buffer != VK_NULL_HANDLE) {
-            PostCallRecordDestroyBuffer(dev_data, buffer, buffer_state, obj_struct);
-        }
     }
 }
 
@@ -3825,12 +3825,12 @@ VKAPI_ATTR void VKAPI_CALL DestroyBufferView(VkDevice device, VkBufferView buffe
     // Validate state before calling down chain, update common data if we'll be calling down chain
     bool skip = PreCallValidateDestroyBufferView(dev_data, bufferView, &buffer_view_state, &obj_struct);
     if (!skip) {
+        if (bufferView != VK_NULL_HANDLE) {
+            // Pre-record to avoid Destroy/Create race
+            PreCallRecordDestroyBufferView(dev_data, bufferView, buffer_view_state, obj_struct);
+        }
         lock.unlock();
         dev_data->dispatch_table.DestroyBufferView(device, bufferView, pAllocator);
-        lock.lock();
-        if (bufferView != VK_NULL_HANDLE) {
-            PostCallRecordDestroyBufferView(dev_data, bufferView, buffer_view_state, obj_struct);
-        }
     }
 }
 
@@ -3841,12 +3841,12 @@ VKAPI_ATTR void VKAPI_CALL DestroyImage(VkDevice device, VkImage image, const Vk
     unique_lock_t lock(global_lock);
     bool skip = PreCallValidateDestroyImage(dev_data, image, &image_state, &obj_struct);
     if (!skip) {
+        if (image != VK_NULL_HANDLE) {
+            // Pre-record to avoid Destroy/Create race
+            PreCallRecordDestroyImage(dev_data, image, image_state, obj_struct);
+        }
         lock.unlock();
         dev_data->dispatch_table.DestroyImage(device, image, pAllocator);
-        lock.lock();
-        if (image != VK_NULL_HANDLE) {
-            PostCallRecordDestroyImage(dev_data, image, image_state, obj_struct);
-        }
     }
 }
 
@@ -4225,12 +4225,12 @@ VKAPI_ATTR void VKAPI_CALL DestroyImageView(VkDevice device, VkImageView imageVi
     unique_lock_t lock(global_lock);
     bool skip = PreCallValidateDestroyImageView(dev_data, imageView, &image_view_state, &obj_struct);
     if (!skip) {
+        if (imageView != VK_NULL_HANDLE) {
+            // Pre-record to avoid Destroy/Create race
+            PreCallRecordDestroyImageView(dev_data, imageView, image_view_state, obj_struct);
+        }
         lock.unlock();
         dev_data->dispatch_table.DestroyImageView(device, imageView, pAllocator);
-        lock.lock();
-        if (imageView != VK_NULL_HANDLE) {
-            PostCallRecordDestroyImageView(dev_data, imageView, image_view_state, obj_struct);
-        }
     }
 }
 
@@ -4239,6 +4239,7 @@ VKAPI_ATTR void VKAPI_CALL DestroyShaderModule(VkDevice device, VkShaderModule s
     layer_data *dev_data = GetLayerDataPtr(get_dispatch_key(device), layer_data_map);
 
     unique_lock_t lock(global_lock);
+    // Pre-record to avoid Destroy/Create race
     dev_data->shaderModuleMap.erase(shaderModule);
     lock.unlock();
 
@@ -4257,8 +4258,8 @@ static bool PreCallValidateDestroyPipeline(layer_data *dev_data, VkPipeline pipe
     return skip;
 }
 
-static void PostCallRecordDestroyPipeline(layer_data *dev_data, VkPipeline pipeline, PIPELINE_STATE *pipeline_state,
-                                          VK_OBJECT obj_struct) {
+static void PreCallRecordDestroyPipeline(layer_data *dev_data, VkPipeline pipeline, PIPELINE_STATE *pipeline_state,
+                                         VK_OBJECT obj_struct) {
     // Any bound cmd buffers are now invalid
     invalidateCommandBuffers(dev_data, pipeline_state->cb_bindings, obj_struct);
     dev_data->pipelineMap.erase(pipeline);
@@ -4271,12 +4272,12 @@ VKAPI_ATTR void VKAPI_CALL DestroyPipeline(VkDevice device, VkPipeline pipeline,
     unique_lock_t lock(global_lock);
     bool skip = PreCallValidateDestroyPipeline(dev_data, pipeline, &pipeline_state, &obj_struct);
     if (!skip) {
+        if (pipeline != VK_NULL_HANDLE) {
+            // Pre-record to avoid Destroy/Create race
+            PreCallRecordDestroyPipeline(dev_data, pipeline, pipeline_state, obj_struct);
+        }
         lock.unlock();
         dev_data->dispatch_table.DestroyPipeline(device, pipeline, pAllocator);
-        lock.lock();
-        if (pipeline != VK_NULL_HANDLE) {
-            PostCallRecordDestroyPipeline(dev_data, pipeline, pipeline_state, obj_struct);
-        }
     }
 }
 
@@ -4284,6 +4285,7 @@ VKAPI_ATTR void VKAPI_CALL DestroyPipelineLayout(VkDevice device, VkPipelineLayo
                                                  const VkAllocationCallbacks *pAllocator) {
     layer_data *dev_data = GetLayerDataPtr(get_dispatch_key(device), layer_data_map);
     unique_lock_t lock(global_lock);
+    // Pre-record to avoid Destroy/Create race
     dev_data->pipelineLayoutMap.erase(pipelineLayout);
     lock.unlock();
 
@@ -4302,8 +4304,8 @@ static bool PreCallValidateDestroySampler(layer_data *dev_data, VkSampler sample
     return skip;
 }
 
-static void PostCallRecordDestroySampler(layer_data *dev_data, VkSampler sampler, SAMPLER_STATE *sampler_state,
-                                         VK_OBJECT obj_struct) {
+static void PreCallRecordDestroySampler(layer_data *dev_data, VkSampler sampler, SAMPLER_STATE *sampler_state,
+                                        VK_OBJECT obj_struct) {
     // Any bound cmd buffers are now invalid
     if (sampler_state) invalidateCommandBuffers(dev_data, sampler_state->cb_bindings, obj_struct);
     dev_data->samplerMap.erase(sampler);
@@ -4316,16 +4318,16 @@ VKAPI_ATTR void VKAPI_CALL DestroySampler(VkDevice device, VkSampler sampler, co
     unique_lock_t lock(global_lock);
     bool skip = PreCallValidateDestroySampler(dev_data, sampler, &sampler_state, &obj_struct);
     if (!skip) {
+        if (sampler != VK_NULL_HANDLE) {
+            // Pre-record to avoid Destroy/Create race
+            PreCallRecordDestroySampler(dev_data, sampler, sampler_state, obj_struct);
+        }
         lock.unlock();
         dev_data->dispatch_table.DestroySampler(device, sampler, pAllocator);
-        lock.lock();
-        if (sampler != VK_NULL_HANDLE) {
-            PostCallRecordDestroySampler(dev_data, sampler, sampler_state, obj_struct);
-        }
     }
 }
 
-static void PostCallRecordDestroyDescriptorSetLayout(layer_data *dev_data, VkDescriptorSetLayout ds_layout) {
+static void PreCallRecordDestroyDescriptorSetLayout(layer_data *dev_data, VkDescriptorSetLayout ds_layout) {
     auto layout_it = dev_data->descriptorSetLayoutMap.find(ds_layout);
     if (layout_it != dev_data->descriptorSetLayoutMap.end()) {
         layout_it->second.get()->MarkDestroyed();
@@ -4336,9 +4338,12 @@ static void PostCallRecordDestroyDescriptorSetLayout(layer_data *dev_data, VkDes
 VKAPI_ATTR void VKAPI_CALL DestroyDescriptorSetLayout(VkDevice device, VkDescriptorSetLayout descriptorSetLayout,
                                                       const VkAllocationCallbacks *pAllocator) {
     layer_data *dev_data = GetLayerDataPtr(get_dispatch_key(device), layer_data_map);
+    {
+        lock_guard_t lock(global_lock);
+        // Pre-record to avoid Destroy/Create race
+        PreCallRecordDestroyDescriptorSetLayout(dev_data, descriptorSetLayout);
+    }
     dev_data->dispatch_table.DestroyDescriptorSetLayout(device, descriptorSetLayout, pAllocator);
-    unique_lock_t lock(global_lock);
-    PostCallRecordDestroyDescriptorSetLayout(dev_data, descriptorSetLayout);
 }
 
 static bool PreCallValidateDestroyDescriptorPool(layer_data *dev_data, VkDescriptorPool pool,
@@ -4376,6 +4381,7 @@ VKAPI_ATTR void VKAPI_CALL DestroyDescriptorPool(VkDevice device, VkDescriptorPo
     unique_lock_t lock(global_lock);
     bool skip = PreCallValidateDestroyDescriptorPool(dev_data, descriptorPool, &desc_pool_state, &obj_struct);
     if (!skip) {
+        // Pre-record to avoid Destroy/Create race
         PreCallRecordDestroyDescriptorPool(dev_data, descriptorPool, desc_pool_state, obj_struct);
         lock.unlock();
         dev_data->dispatch_table.DestroyDescriptorPool(device, descriptorPool, pAllocator);
@@ -4517,6 +4523,7 @@ VKAPI_ATTR void VKAPI_CALL DestroyCommandPool(VkDevice device, VkCommandPool com
     unique_lock_t lock(global_lock);
     bool skip = PreCallValidateDestroyCommandPool(dev_data, commandPool);
     if (!skip) {
+        // Pre-record to avoid Destroy/Create race
         PreCallRecordDestroyCommandPool(dev_data, commandPool);
         lock.unlock();
         dev_data->dispatch_table.DestroyCommandPool(device, commandPool, pAllocator);
@@ -4617,8 +4624,8 @@ static bool PreCallValidateDestroyFramebuffer(layer_data *dev_data, VkFramebuffe
     return skip;
 }
 
-static void PostCallRecordDestroyFramebuffer(layer_data *dev_data, VkFramebuffer framebuffer, FRAMEBUFFER_STATE *framebuffer_state,
-                                             VK_OBJECT obj_struct) {
+static void PreCallRecordDestroyFramebuffer(layer_data *dev_data, VkFramebuffer framebuffer, FRAMEBUFFER_STATE *framebuffer_state,
+                                            VK_OBJECT obj_struct) {
     invalidateCommandBuffers(dev_data, framebuffer_state->cb_bindings, obj_struct);
     dev_data->frameBufferMap.erase(framebuffer);
 }
@@ -4630,12 +4637,12 @@ VKAPI_ATTR void VKAPI_CALL DestroyFramebuffer(VkDevice device, VkFramebuffer fra
     unique_lock_t lock(global_lock);
     bool skip = PreCallValidateDestroyFramebuffer(dev_data, framebuffer, &framebuffer_state, &obj_struct);
     if (!skip) {
+        if (framebuffer != VK_NULL_HANDLE) {
+            // Pre-record to avoid Destroy/Create race
+            PreCallRecordDestroyFramebuffer(dev_data, framebuffer, framebuffer_state, obj_struct);
+        }
         lock.unlock();
         dev_data->dispatch_table.DestroyFramebuffer(device, framebuffer, pAllocator);
-        lock.lock();
-        if (framebuffer != VK_NULL_HANDLE) {
-            PostCallRecordDestroyFramebuffer(dev_data, framebuffer, framebuffer_state, obj_struct);
-        }
     }
 }
 
@@ -4651,8 +4658,8 @@ static bool PreCallValidateDestroyRenderPass(layer_data *dev_data, VkRenderPass 
     return skip;
 }
 
-static void PostCallRecordDestroyRenderPass(layer_data *dev_data, VkRenderPass render_pass, RENDER_PASS_STATE *rp_state,
-                                            VK_OBJECT obj_struct) {
+static void PreCallRecordDestroyRenderPass(layer_data *dev_data, VkRenderPass render_pass, RENDER_PASS_STATE *rp_state,
+                                           VK_OBJECT obj_struct) {
     invalidateCommandBuffers(dev_data, rp_state->cb_bindings, obj_struct);
     dev_data->renderPassMap.erase(render_pass);
 }
@@ -4664,12 +4671,12 @@ VKAPI_ATTR void VKAPI_CALL DestroyRenderPass(VkDevice device, VkRenderPass rende
     unique_lock_t lock(global_lock);
     bool skip = PreCallValidateDestroyRenderPass(dev_data, renderPass, &rp_state, &obj_struct);
     if (!skip) {
+        if (renderPass != VK_NULL_HANDLE) {
+            // Pre-record to avoid Destroy/Create race
+            PreCallRecordDestroyRenderPass(dev_data, renderPass, rp_state, obj_struct);
+        }
         lock.unlock();
         dev_data->dispatch_table.DestroyRenderPass(device, renderPass, pAllocator);
-        lock.lock();
-        if (renderPass != VK_NULL_HANDLE) {
-            PostCallRecordDestroyRenderPass(dev_data, renderPass, rp_state, obj_struct);
-        }
     }
 }
 
@@ -4828,6 +4835,7 @@ VKAPI_ATTR VkResult VKAPI_CALL CreatePipelineCache(VkDevice device, const VkPipe
 VKAPI_ATTR void VKAPI_CALL DestroyPipelineCache(VkDevice device, VkPipelineCache pipelineCache,
                                                 const VkAllocationCallbacks *pAllocator) {
     layer_data *dev_data = GetLayerDataPtr(get_dispatch_key(device), layer_data_map);
+    // Pre-record to avoid Destroy/Create race (if/when implemented)
     dev_data->dispatch_table.DestroyPipelineCache(device, pipelineCache, pAllocator);
 }
 
@@ -5838,9 +5846,9 @@ static bool PreCallValidateFreeDescriptorSets(const layer_data *dev_data, VkDesc
     }
     return skip;
 }
-// Sets have been removed from the pool so update underlying state
-static void PostCallRecordFreeDescriptorSets(layer_data *dev_data, VkDescriptorPool pool, uint32_t count,
-                                             const VkDescriptorSet *descriptor_sets) {
+// Sets are being returned to the pool so update the pool state
+static void PreCallRecordFreeDescriptorSets(layer_data *dev_data, VkDescriptorPool pool, uint32_t count,
+                                            const VkDescriptorSet *descriptor_sets) {
     DESCRIPTOR_POOL_STATE *pool_state = GetDescriptorPoolState(dev_data, pool);
     // Update available descriptor sets in pool
     pool_state->availableSets += count;
@@ -5867,14 +5875,15 @@ VKAPI_ATTR VkResult VKAPI_CALL FreeDescriptorSets(VkDevice device, VkDescriptorP
     // Make sure that no sets being destroyed are in-flight
     unique_lock_t lock(global_lock);
     bool skip = PreCallValidateFreeDescriptorSets(dev_data, descriptorPool, count, pDescriptorSets);
-    lock.unlock();
 
-    if (skip) return VK_ERROR_VALIDATION_FAILED_EXT;
-    VkResult result = dev_data->dispatch_table.FreeDescriptorSets(device, descriptorPool, count, pDescriptorSets);
-    if (VK_SUCCESS == result) {
-        lock.lock();
-        PostCallRecordFreeDescriptorSets(dev_data, descriptorPool, count, pDescriptorSets);
+    VkResult result;
+    if (skip) {
+        result = VK_ERROR_VALIDATION_FAILED_EXT;
+    } else {
+        // A race here is invalid (descriptorPool should be externally sync'd), but code defensively against an invalid race
+        PreCallRecordFreeDescriptorSets(dev_data, descriptorPool, count, pDescriptorSets);
         lock.unlock();
+        result = dev_data->dispatch_table.FreeDescriptorSets(device, descriptorPool, count, pDescriptorSets);
     }
     return result;
 }
@@ -10832,6 +10841,7 @@ VKAPI_ATTR void VKAPI_CALL DestroySwapchainKHR(VkDevice device, VkSwapchainKHR s
     unique_lock_t lock(global_lock);
     auto swapchain_data = GetSwapchainNode(dev_data, swapchain);
     if (swapchain_data) {
+        // Pre-record to avoid Destroy/Create race
         if (swapchain_data->images.size() > 0) {
             for (auto swapchain_image : swapchain_data->images) {
                 auto image_sub = dev_data->imageSubresourceMap.find(swapchain_image);
@@ -11517,7 +11527,10 @@ VKAPI_ATTR void VKAPI_CALL DestroySurfaceKHR(VkInstance instance, VkSurfaceKHR s
                         HandleToUint64(instance), VALIDATION_ERROR_26c009e4,
                         "vkDestroySurfaceKHR() called before its associated VkSwapchainKHR was destroyed.");
     }
+
+    // Pre-record to avoid Destroy/Create race
     instance_data->surface_map.erase(surface);
+
     lock.unlock();
     if (!skip) {
         instance_data->dispatch_table.DestroySurfaceKHR(instance, surface, pAllocator);
@@ -12315,6 +12328,7 @@ VKAPI_ATTR void VKAPI_CALL DestroyDescriptorUpdateTemplate(VkDevice device, VkDe
                                                            const VkAllocationCallbacks *pAllocator) {
     layer_data *device_data = GetLayerDataPtr(get_dispatch_key(device), layer_data_map);
     unique_lock_t lock(global_lock);
+    // Pre-record to avoid Destroy/Create race
     PreCallRecordDestroyDescriptorUpdateTemplate(device_data, descriptorUpdateTemplate);
     lock.unlock();
     device_data->dispatch_table.DestroyDescriptorUpdateTemplate(device, descriptorUpdateTemplate, pAllocator);
@@ -12325,6 +12339,7 @@ VKAPI_ATTR void VKAPI_CALL DestroyDescriptorUpdateTemplateKHR(VkDevice device,
                                                               const VkAllocationCallbacks *pAllocator) {
     layer_data *device_data = GetLayerDataPtr(get_dispatch_key(device), layer_data_map);
     unique_lock_t lock(global_lock);
+    // Pre-record to avoid Destroy/Create race
     PreCallRecordDestroyDescriptorUpdateTemplate(device_data, descriptorUpdateTemplate);
     lock.unlock();
     device_data->dispatch_table.DestroyDescriptorUpdateTemplateKHR(device, descriptorUpdateTemplate, pAllocator);
