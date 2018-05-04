@@ -755,7 +755,7 @@ bool cvdescriptorset::DescriptorSet::ValidateDrawState(const std::map<uint32_t, 
                          cur_level < image_view_ci.subresourceRange.levelCount; ++cur_level) {
                         sub_layers.mipLevel = cur_level;
                         VerifyImageLayout(device_data_, cb_node, image_node, sub_layers, image_layout, VK_IMAGE_LAYOUT_UNDEFINED,
-                                          caller, VALIDATION_ERROR_046002b0, &hit_error);
+                                          caller, VALIDATION_ERROR_UNDEFINED, VALIDATION_ERROR_046002b0, &hit_error);
                         if (hit_error) {
                             *error =
                                 "Image layout specified at vkUpdateDescriptorSets() time doesn't match actual image layout at time "
