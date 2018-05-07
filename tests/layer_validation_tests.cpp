@@ -268,7 +268,12 @@ class ErrorMonitor {
     // ErrorMonitor will look for an error message containing the specified string(s)
     void SetDesiredFailureMsg(const VkFlags msgFlags, const char *const msgString) {
         test_platform_thread_lock_mutex(&mutex_);
-        desired_message_strings_.insert(msgString);
+        auto entry = desired_message_strings_.find(msgString);
+        if (entry != desired_message_strings_.end()) {
+            ++(entry->second);
+        } else {
+            desired_message_strings_.insert({msgString, 1});
+        }
         message_flags_ |= msgFlags;
         message_outstanding_count_++;
         test_platform_thread_unlock_mutex(&mutex_);
@@ -313,23 +318,46 @@ class ErrorMonitor {
 
         if (!IgnoreMessage(errorString)) {
             for (auto desired_msg : desired_message_strings_) {
-                if (desired_msg.length() == 0) {
+                const string desired_msg_string = std::get<0>(desired_msg);
+                if (desired_msg_string.length() == 0) {
+                    // TODO - See if below comment needs to be changed
                     // An empty desired_msg string "" indicates a positive test - not expecting an error.
                     // Return true to avoid calling layers/driver with this error.
                     // And don't erase the "" string, so it remains if another error is found.
                     result = VK_TRUE;
                     found_expected = true;
                     message_found_ = true;
-                    failure_message_strings_.insert(errorString);
-                } else if (errorString.find(desired_msg) != string::npos) {
+                    auto entry = failure_message_strings_.find(errorString);
+                    if (entry != failure_message_strings_.end()) {
+                        ++(entry->second);
+                    } else {
+                        failure_message_strings_.insert({errorString, 1});
+                    }
+                } else if (errorString.find(desired_msg_string) != string::npos) {
                     found_expected = true;
                     message_outstanding_count_--;
-                    failure_message_strings_.insert(errorString);
+                    auto entry = failure_message_strings_.find(errorString);
+                    if (entry != failure_message_strings_.end()) {
+                        ++(entry->second);
+                    } else {
+                        failure_message_strings_.insert({errorString, 1});
+                    }
                     message_found_ = true;
                     result = VK_TRUE;
+
+                    // TODO - Edit this comment probably.
                     // We only want one match for each expected error so remove from set here
                     // Since we're about the break the loop it's OK to remove from set we're iterating over
-                    desired_message_strings_.erase(desired_msg);
+                    entry = desired_message_strings_.find(desired_msg_string);
+                    if (entry != desired_message_strings_.end()) {
+                        uint32_t count = entry->second;
+                        if (count > 1) {
+                            --(entry->second);
+                        } else if (count == 1) {
+                            desired_message_strings_.erase(desired_msg_string);
+                        }
+                    }
+
                     break;
                 }
             }
@@ -399,7 +427,7 @@ class ErrorMonitor {
         if (!AllDesiredMsgsFound()) {
             DumpFailureMsgs();
             for (auto desired_msg : desired_message_strings_) {
-                ADD_FAILURE() << "Did not receive expected error '" << desired_msg << "'";
+                ADD_FAILURE() << "Did not receive expected error '" << std::get<0>(desired_msg) << "'";
             }
             for (auto desired_id : desired_message_ids_) {
                 ADD_FAILURE() << "Did not receive expected error ENUM '0x" << std::hex << desired_id << "'";
@@ -413,7 +441,7 @@ class ErrorMonitor {
         if (AnyDesiredMsgFound()) {
             DumpFailureMsgs();
             for (auto msg : failure_message_strings_) {
-                ADD_FAILURE() << "Expected to succeed but got error: " << msg;
+                ADD_FAILURE() << "Expected to succeed but got error: " << std::get<0>(msg);
             }
         }
         Reset();
@@ -434,8 +462,8 @@ class ErrorMonitor {
 
     VkFlags message_flags_;
     std::unordered_set<uint32_t> desired_message_ids_;
-    std::unordered_set<string> desired_message_strings_;
-    std::unordered_set<string> failure_message_strings_;
+    std::unordered_map<string, uint32_t> desired_message_strings_;
+    std::unordered_map<string, uint32_t> failure_message_strings_;
     std::vector<std::string> ignore_message_strings_;
     vector<string> other_messages_;
     test_platform_thread_mutex mutex_;
@@ -29326,7 +29354,7 @@ TEST_F(VkPositiveLayerTest, MultiplaneImageTests) {
     m_commandBuffer->end();
     m_errorMonitor->VerifyNotFound();
 
-#if 0  
+#if 0
     // Copy to/from buffer
     VkBufferCreateInfo bci = {};
     bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
