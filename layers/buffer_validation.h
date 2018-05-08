@@ -180,6 +180,10 @@ bool ValidateImageFormatFeatureFlags(layer_data *dev_data, IMAGE_STATE const *im
                                      char const *func_name, UNIQUE_VALIDATION_ERROR_CODE linear_vuid,
                                      UNIQUE_VALIDATION_ERROR_CODE optimal_vuid);
 
+bool ValidateImageSubresourceLayers(layer_data *dev_data, const GLOBAL_CB_NODE *cb_node,
+                                    const VkImageSubresourceLayers *subresource_layers, char const *func_name, char const *member,
+                                    uint32_t i);
+
 bool ValidateBufferUsageFlags(layer_data *dev_data, BUFFER_STATE const *buffer_state, VkFlags desired, bool strict,
                               int32_t const msgCode, char const *func_name, char const *usage_string);
 
@@ -215,6 +219,12 @@ bool ValidateCopyBufferImageTransferGranularityRequirements(layer_data *device_d
                                                             const IMAGE_STATE *img, const VkBufferImageCopy *region,
                                                             const uint32_t i, const char *function,
                                                             UNIQUE_VALIDATION_ERROR_CODE vuid);
+bool ValidateImageMipLevel(layer_data *device_data, const GLOBAL_CB_NODE *cb_node, const IMAGE_STATE *img, uint32_t mip_level,
+                           const uint32_t i, const char *function, const char *member, UNIQUE_VALIDATION_ERROR_CODE vuid);
+
+bool ValidateImageArrayLayerRange(layer_data *device_data, const GLOBAL_CB_NODE *cb_node, const IMAGE_STATE *img,
+                                  const uint32_t base_layer, const uint32_t layer_count, const uint32_t i, const char *function,
+                                  const char *member, UNIQUE_VALIDATION_ERROR_CODE vuid);
 
 void PreCallRecordCmdCopyImage(layer_data *device_data, GLOBAL_CB_NODE *cb_node, IMAGE_STATE *src_image_state,
                                IMAGE_STATE *dst_image_state, uint32_t region_count, const VkImageCopy *regions,

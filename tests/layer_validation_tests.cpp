@@ -4017,13 +4017,16 @@ TEST_F(VkLayerTest, MiscBlitImageTests) {
     blitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     blitRegion.srcSubresource.baseArrayLayer = 1;
     m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_09a001e0);
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT,
+                                         VALIDATION_ERROR_18400d56);  // base+count > total layer count
     vkCmdBlitImage(m_commandBuffer->handle(), color_3D_img.image(), color_3D_img.Layout(), color_3D_img.image(),
                    color_3D_img.Layout(), 1, &blitRegion, VK_FILTER_NEAREST);
     m_errorMonitor->VerifyFound();
     blitRegion.srcSubresource.baseArrayLayer = 0;
     blitRegion.srcSubresource.layerCount = 0;
-    blitRegion.dstSubresource.layerCount = 0;
     m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_09a001e0);
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_0a600d48);  // layer count == 0 (src)
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_09a001de);  // src/dst layer count mismatch
     vkCmdBlitImage(m_commandBuffer->handle(), color_3D_img.image(), color_3D_img.Layout(), color_3D_img.image(),
                    color_3D_img.Layout(), 1, &blitRegion, VK_FILTER_NEAREST);
     m_errorMonitor->VerifyFound();
@@ -19176,7 +19179,6 @@ TEST_F(VkLayerTest, CompressedImageMipCopyTests) {
 
 TEST_F(VkLayerTest, ImageBufferCopyTests) {
     TEST_DESCRIPTION("Image to buffer and buffer to image tests");
-
     ASSERT_NO_FATAL_FAILURE(Init());
     VkFormatProperties format_props = m_device->format_properties(VK_FORMAT_D24_UNORM_S8_UINT);
     if (!(format_props.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT)) {
@@ -19363,6 +19365,33 @@ TEST_F(VkLayerTest, ImageBufferCopyTests) {
     vkCmdCopyImageToBuffer(m_commandBuffer->handle(), image_16k_depth.handle(), VK_IMAGE_LAYOUT_GENERAL, buffer_16k.handle(), 1,
                            &region);
     m_errorMonitor->VerifyFound();
+
+    // Out-of-range mip levels should fail
+    region.imageSubresource.mipLevel = image_16k.create_info().mipLevels + 1;
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_19200d4e);
+    m_errorMonitor->SetDesiredFailureMsg(
+        VK_DEBUG_REPORT_ERROR_BIT_EXT,
+        VALIDATION_ERROR_1920016c);  // unavoidable "region exceeds image bounds" for non-existent mip
+    vkCmdCopyImageToBuffer(m_commandBuffer->handle(), image_16k.handle(), VK_IMAGE_LAYOUT_GENERAL, buffer_16k.handle(), 1, &region);
+    m_errorMonitor->VerifyFound();
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_18e00d4a);
+    m_errorMonitor->SetDesiredFailureMsg(
+        VK_DEBUG_REPORT_ERROR_BIT_EXT,
+        VALIDATION_ERROR_18e00158);  // unavoidable "region exceeds image bounds" for non-existent mip
+    vkCmdCopyBufferToImage(m_commandBuffer->handle(), buffer_16k.handle(), image_16k.handle(), VK_IMAGE_LAYOUT_GENERAL, 1, &region);
+    m_errorMonitor->VerifyFound();
+    region.imageSubresource.mipLevel = 0;
+
+    // Out-of-range array layers should fail
+    region.imageSubresource.baseArrayLayer = image_16k.create_info().arrayLayers;
+    region.imageSubresource.layerCount = 1;
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_19200d50);
+    vkCmdCopyImageToBuffer(m_commandBuffer->handle(), image_16k.handle(), VK_IMAGE_LAYOUT_GENERAL, buffer_16k.handle(), 1, &region);
+    m_errorMonitor->VerifyFound();
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_18e00d4c);
+    vkCmdCopyBufferToImage(m_commandBuffer->handle(), buffer_16k.handle(), image_16k.handle(), VK_IMAGE_LAYOUT_GENERAL, 1, &region);
+    m_errorMonitor->VerifyFound();
+    region.imageSubresource.baseArrayLayer = 0;
 
     // Test Depth/Stencil copies
     if (missing_ds_support) {
@@ -19563,6 +19592,54 @@ TEST_F(VkLayerTest, ImageBufferCopyTests) {
                                1, &region);
         m_errorMonitor->VerifyFound();
     }
+
+#if 0
+    // Find a format that doesn't support transfering
+    VkFormat nontransferable_format = VK_FORMAT_UNDEFINED;
+    if (nontransferable_format == VK_FORMAT_UNDEFINED) {
+      vkGetPhysicalDeviceFormatProperties(m_device->phy().handle(), VK_FORMAT_R8_USCALED, &props);
+      if (!(props.linearTilingFeatures & VK_FORMAT_FEATURE_TRANSFER_SRC_BIT) &&
+          !(props.linearTilingFeatures & VK_FORMAT_FEATURE_TRANSFER_DST_BIT) &&
+          !(props.optimalTilingFeatures & VK_FORMAT_FEATURE_TRANSFER_SRC_BIT) &&
+          !(props.optimalTilingFeatures & VK_FORMAT_FEATURE_TRANSFER_SRC_BIT)) {
+        nontransferable_format = VK_FORMAT_R8_USCALED;
+      }
+    }
+    if (nontransferable_format == VK_FORMAT_UNDEFINED) {
+      printf("             could not find non-transferable format; skipping part of test.\n");
+    } else {
+      const uint32_t image_dim = 128;
+      VkImageObj src_image_linear(m_device);
+      VkImageObj dst_image_linear(m_device);
+      VkImageObj src_image_optimal(m_device);
+      VkImageObj dst_image_optimal(m_device);
+      src_image_linear.Init(image_dim, image_dim, 1, nontransferable_format, VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VK_IMAGE_TILING_LINEAR);
+      dst_image_linear.Init(image_dim, image_dim, 1, nontransferable_format, VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_IMAGE_TILING_LINEAR);
+      src_image_optimal.Init(image_dim, image_dim, 1, nontransferable_format, VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VK_IMAGE_TILING_OPTIMAL);
+      dst_image_optimal.Init(image_dim, image_dim, 1, nontransferable_format, VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_IMAGE_TILING_OPTIMAL);
+      ASSERT_TRUE(src_image_linear.initialized());
+      ASSERT_TRUE(dst_image_linear.initialized());
+      ASSERT_TRUE(src_image_optimal.initialized());
+      ASSERT_TRUE(dst_image_optimal.initialized());
+
+      vk_testing::Buffer buffer;
+      reqs = 0;
+      buffer.init_as_src_and_dst(*m_device, image_dim*image_dim*4, reqs);
+
+      region = {};
+      region.bufferRowLength = image_dim;
+      region.bufferImageHeight = image_dim;
+      region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+      region.imageSubresource.layerCount = 1;
+      region.imageOffset = {0,0,0};
+      region.imageExtent = {image_dim, image_dim, 1};
+      region.bufferOffset = 0;
+
+      m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_18e02413);
+      vkCmdCopyBufferToImage(m_commandBuffer->handle(), buffer.handle(), dst_image_linear.handle(), VK_IMAGE_LAYOUT_GENERAL, 1, &region);
+      m_errorMonitor->VerifyFound();
+    }
+#endif
 }
 
 TEST_F(VkLayerTest, MiscImageLayerTests) {
@@ -21409,14 +21486,14 @@ TEST_F(VkLayerTest, CopyImageFormatSizeMismatch) {
     copyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     copyRegion.srcSubresource.mipLevel = 0;
     copyRegion.srcSubresource.baseArrayLayer = 0;
-    copyRegion.srcSubresource.layerCount = 0;
+    copyRegion.srcSubresource.layerCount = 1;
     copyRegion.srcOffset.x = 0;
     copyRegion.srcOffset.y = 0;
     copyRegion.srcOffset.z = 0;
     copyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     copyRegion.dstSubresource.mipLevel = 0;
     copyRegion.dstSubresource.baseArrayLayer = 0;
-    copyRegion.dstSubresource.layerCount = 0;
+    copyRegion.dstSubresource.layerCount = 1;
     copyRegion.dstOffset.x = 0;
     copyRegion.dstOffset.y = 0;
     copyRegion.dstOffset.z = 0;
@@ -21462,14 +21539,14 @@ TEST_F(VkLayerTest, CopyImageDepthStencilFormatMismatch) {
     copyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
     copyRegion.srcSubresource.mipLevel = 0;
     copyRegion.srcSubresource.baseArrayLayer = 0;
-    copyRegion.srcSubresource.layerCount = 0;
+    copyRegion.srcSubresource.layerCount = 1;
     copyRegion.srcOffset.x = 0;
     copyRegion.srcOffset.y = 0;
     copyRegion.srcOffset.z = 0;
     copyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
     copyRegion.dstSubresource.mipLevel = 0;
     copyRegion.dstSubresource.baseArrayLayer = 0;
-    copyRegion.dstSubresource.layerCount = 0;
+    copyRegion.dstSubresource.layerCount = 1;
     copyRegion.dstOffset.x = 0;
     copyRegion.dstOffset.y = 0;
     copyRegion.dstOffset.z = 0;
@@ -21632,19 +21709,40 @@ TEST_F(VkLayerTest, CopyImageAspectMismatch) {
 
     // Illegal combinations of aspect bits - VU 01221
     copyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT | VK_IMAGE_ASPECT_DEPTH_BIT;  // color must be alone
-    copyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT | VK_IMAGE_ASPECT_DEPTH_BIT;
+    copyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_0a60014e);
     // These aspect/format mismatches are redundant but unavoidable here
     m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_09c0011c);
-    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_09c0011e);
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_09c00c1e);
     vkCmdCopyImage(m_commandBuffer->handle(), color_image.handle(), VK_IMAGE_LAYOUT_GENERAL, color_image.handle(),
                    VK_IMAGE_LAYOUT_GENERAL, 1, &copyRegion);
     m_errorMonitor->VerifyFound();
+    // same test for dstSubresource
+    copyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    copyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT | VK_IMAGE_ASPECT_DEPTH_BIT;  // color must be alone
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_0a60014e);
+    // These aspect/format mismatches are redundant but unavoidable here
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_09c0011e);
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_09c00c1e);
+    vkCmdCopyImage(m_commandBuffer->handle(), color_image.handle(), VK_IMAGE_LAYOUT_GENERAL, color_image.handle(),
+                   VK_IMAGE_LAYOUT_GENERAL, 1, &copyRegion);
+    m_errorMonitor->VerifyFound();
+
     // Metadata aspect is illegal - VU 01222
     copyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_METADATA_BIT;
+    copyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_0a600150);
+    // These aspect/format mismatches are redundant but unavoidable here
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_09c00c1e);
+    vkCmdCopyImage(m_commandBuffer->handle(), color_image.handle(), VK_IMAGE_LAYOUT_GENERAL, color_image.handle(),
+                   VK_IMAGE_LAYOUT_GENERAL, 1, &copyRegion);
+    m_errorMonitor->VerifyFound();
+    // same test for dstSubresource
+    copyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     copyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_METADATA_BIT;
     m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_0a600150);
     // These aspect/format mismatches are redundant but unavoidable here
+    m_errorMonitor->SetDesiredFailureMsg(VK_DEBUG_REPORT_ERROR_BIT_EXT, VALIDATION_ERROR_09c00c1e);
     vkCmdCopyImage(m_commandBuffer->handle(), color_image.handle(), VK_IMAGE_LAYOUT_GENERAL, color_image.handle(),
                    VK_IMAGE_LAYOUT_GENERAL, 1, &copyRegion);
     m_errorMonitor->VerifyFound();
