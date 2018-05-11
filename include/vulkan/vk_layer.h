@@ -82,7 +82,8 @@ typedef VkResult(VKAPI_PTR *PFN_PhysDevExt)(VkPhysicalDevice phys_device);
  */
 typedef enum VkLayerFunction_ {
     VK_LAYER_LINK_INFO = 0,
-    VK_LOADER_DATA_CALLBACK = 1
+    VK_LOADER_DATA_CALLBACK = 1,
+    VK_LOADER_DATA_VALUE = 2
 } VkLayerFunction;
 
 typedef struct VkLayerInstanceLink_ {
@@ -131,6 +132,7 @@ typedef struct {
     union {
         VkLayerDeviceLink *pLayerInfo;
         PFN_vkSetDeviceLoaderData pfnSetDeviceLoaderData;
+        void* deviceLoaderData;
     } u;
 } VkLayerDeviceCreateInfo;
 

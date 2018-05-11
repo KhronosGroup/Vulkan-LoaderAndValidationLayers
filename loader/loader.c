@@ -5585,6 +5585,14 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_CreateDevice(VkPhysicalDevice physical
         dev->extensions.ext_debug_utils_enabled = icd_term->this_instance->enabled_known_extensions.ext_debug_utils;
     }
 
+    // Pass the future dispatch pointer to the ICD.
+    VkLayerDeviceCreateInfo deviceLoaderDataCreateInfo;
+    deviceLoaderDataCreateInfo.sType = VK_STRUCTURE_TYPE_LOADER_DEVICE_CREATE_INFO;
+    deviceLoaderDataCreateInfo.pNext = localCreateInfo.pNext;
+    deviceLoaderDataCreateInfo.function = VK_LOADER_DATA_VALUE;
+    deviceLoaderDataCreateInfo.u.deviceLoaderData = &dev->loader_dispatch;
+    localCreateInfo.pNext = &deviceLoaderDataCreateInfo;
+
     res = fpCreateDevice(phys_dev_term->phys_dev, &localCreateInfo, pAllocator, &dev->icd_device);
     if (res != VK_SUCCESS) {
         loader_log(icd_term->this_instance, VK_DEBUG_REPORT_ERROR_BIT_EXT, 0,
