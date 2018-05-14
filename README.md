@@ -1,3 +1,23 @@
+# Vulkan-LoaderAndValidationLayers Has Been Deprecated
+
+This repository has been deprecated. It will continue to exist as a read-only repository servicing existing projects. Any
+projects utilizing this repository should be migrated to use the follow-on repositories listed below. All issues have been migrated to the
+new repositories.
+
+The four new repositories are:
+
+- [Vulkan-Headers](https://github.com/KhronosGroup/Vulkan-Headers)
+- [Vulkan-Loader](https://github.com/KhronosGroup/Vulkan-Loader)
+- [Vulkan-ValidationLayers](https://github.com/KhronosGroup/Vulkan-ValidationLayers)
+- [Vulkan-Tools](https://github.com/KhronosGroup/Vulkan-Tools)
+
+Repository Maintainers,
+    May 13, 2018
+
+Contact: mark@lunarg.com
+
+Original README.md contents follow.
+
 # Vulkan Ecosystem Components
 
 This project provides the Khronos official Vulkan ICD desktop loader and the Vulkan validation layers for Windows, Linux, Android, and MacOS.
