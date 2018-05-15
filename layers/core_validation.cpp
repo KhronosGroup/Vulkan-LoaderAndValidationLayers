@@ -6878,6 +6878,8 @@ static bool PreCallValidateCmdDrawIndirect(layer_data *dev_data, VkCommandBuffer
         ValidateCmdDrawType(dev_data, cmd_buffer, indexed, bind_point, CMD_DRAWINDIRECT, cb_state, caller, VK_QUEUE_GRAPHICS_BIT,
                             VALIDATION_ERROR_1aa02415, VALIDATION_ERROR_1aa00017, VALIDATION_ERROR_1aa003cc);
     *buffer_state = GetBufferState(dev_data, buffer);
+    skip |= ValidateBufferUsageFlags(dev_data, *buffer_state, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT, true, VALIDATION_ERROR_1aa00cf8,
+                                     "vkCmdDrawIndirect()", "VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT");
     skip |= ValidateMemoryIsBoundToBuffer(dev_data, *buffer_state, caller, VALIDATION_ERROR_1aa003b4);
     // TODO: If the drawIndirectFirstInstance feature is not enabled, all the firstInstance members of the
     // VkDrawIndirectCommand structures accessed by this command must be 0, which will require access to the contents of 'buffer'.
@@ -6914,6 +6916,8 @@ static bool PreCallValidateCmdDrawIndexedIndirect(layer_data *dev_data, VkComman
         ValidateCmdDrawType(dev_data, cmd_buffer, indexed, bind_point, CMD_DRAWINDEXEDINDIRECT, cb_state, caller,
                             VK_QUEUE_GRAPHICS_BIT, VALIDATION_ERROR_1a602415, VALIDATION_ERROR_1a600017, VALIDATION_ERROR_1a600434);
     *buffer_state = GetBufferState(dev_data, buffer);
+    skip |= ValidateBufferUsageFlags(dev_data, *buffer_state, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT, true, VALIDATION_ERROR_1a600d02,
+                                     "vkCmdDrawIndexedIndirect()", "VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT");
     skip |= ValidateMemoryIsBoundToBuffer(dev_data, *buffer_state, caller, VALIDATION_ERROR_1a60041c);
     // TODO: If the drawIndirectFirstInstance feature is not enabled, all the firstInstance members of the
     // VkDrawIndexedIndirectCommand structures accessed by this command must be 0, which will require access to the contents of
@@ -6976,6 +6980,8 @@ static bool PreCallValidateCmdDispatchIndirect(layer_data *dev_data, VkCommandBu
         ValidateCmdDrawType(dev_data, cmd_buffer, indexed, bind_point, CMD_DISPATCHINDIRECT, cb_state, caller, VK_QUEUE_COMPUTE_BIT,
                             VALIDATION_ERROR_1a002415, VALIDATION_ERROR_1a000017, VALIDATION_ERROR_UNDEFINED);
     *buffer_state = GetBufferState(dev_data, buffer);
+    skip |= ValidateBufferUsageFlags(dev_data, *buffer_state, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT, true, VALIDATION_ERROR_1a00032a,
+                                     "vkCmdDispatchIndirect()", "VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT");
     skip |= ValidateMemoryIsBoundToBuffer(dev_data, *buffer_state, caller, VALIDATION_ERROR_1a000322);
     return skip;
 }
